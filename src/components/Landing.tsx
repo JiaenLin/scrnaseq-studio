@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 
 const REPO = 'https://github.com/JiaenLin/scrnaseq-studio'
 const RAW = 'https://raw.githubusercontent.com/JiaenLin/scrnaseq-studio/main/tools'
+const LAB = 'https://jiaenlin.github.io/scrnaseq-lab/'
 
 function Code({ children }: { children: string }) {
   // Wrapped rather than scrolled: a command you cannot see is a command you
@@ -119,19 +120,32 @@ export default function Landing({ onDemo, onFile, error, busy }: {
             <div className="eyebrow">The input is a bundle, not the object itself</div>
             <p className="mt-1.5 text-[12.5px]" style={{ color: 'var(--ink-2)' }}>
               Convert a Scanpy <code className="mono">.h5ad</code> or a Seurat{' '}
-              <code className="mono">.rds</code> once, offline — the conversion is where
-              the two formats' quirks get resolved, and it keeps a 288&nbsp;MB object from
-              having to be loaded whole in a browser tab.
+              <code className="mono">.rds</code> once — the conversion is where the two
+              formats' quirks get resolved, and it keeps a 288&nbsp;MB object from having to
+              be loaded whole in a browser tab.
             </p>
-            <pre
-              className="mono mt-2.5 whitespace-pre-wrap rounded-lg px-3 py-2 text-[11.5px] leading-relaxed"
-              style={{ background: 'var(--surface)', border: '1px solid var(--line)',
-                       overflowWrap: 'anywhere' }}
-            >{`curl -O ${RAW}/export_h5ad.py
+            <a className="btn btn-primary mt-2.5 inline-block" href={LAB}
+              target="_blank" rel="noreferrer">
+              Convert it in scRNA-seq Lab →
+            </a>
+            <p className="mt-2 text-[12px]" style={{ color: 'var(--ink-3)' }}>
+              In your browser — no Python, no R, nothing uploaded. It scans the object and asks
+              which column is the cell annotation.
+            </p>
+            <details className="mt-2.5">
+              <summary className="cursor-pointer text-[12px]" style={{ color: 'var(--ink-3)' }}>
+                Or convert on the command line
+              </summary>
+              <pre
+                className="mono mt-2 whitespace-pre-wrap rounded-lg px-3 py-2 text-[11.5px] leading-relaxed"
+                style={{ background: 'var(--surface)', border: '1px solid var(--line)',
+                         overflowWrap: 'anywhere' }}
+              >{`curl -O ${RAW}/export_h5ad.py
 python export_h5ad.py yourfile.h5ad bundle.zip`}</pre>
-            <button className="btn btn-primary mt-2" onClick={() => dlg.current?.showModal()}>
-              How to convert — step by step
-            </button>
+              <button className="btn mt-2" onClick={() => dlg.current?.showModal()}>
+                How to convert — step by step
+              </button>
+            </details>
           </div>
 
           <div className="eyebrow mt-6 text-left">Or try a demo object</div>
@@ -167,8 +181,10 @@ python export_h5ad.py yourfile.h5ad bundle.zip`}</pre>
         <div className="px-[22px] py-5">
           <h2 className="text-base font-semibold">Converting your object</h2>
           <p className="mb-3 mt-1.5 text-[13px]" style={{ color: 'var(--ink-2)' }}>
-            One script, run once, on the machine where the object already is. You do not need to
-            install this studio, and the converter never uploads anything.
+            The quickest route is <a className="underline" href={LAB} target="_blank"
+              rel="noreferrer">scRNA-seq Lab</a>, which does all of this in a browser tab and
+            asks which column holds the cell annotation. The steps below are the offline
+            equivalent: one script, run once, on the machine where the object already is.
           </p>
 
           <Step n={1} title="Get the converter — one file">
