@@ -21,6 +21,18 @@ const DEMOS: [string, string, string, string][] = [
   ['wt', 'single', 'Wild type only', 'No contrast — markers and gene search'],
 ]
 
+/**
+ * A section heading on this page.
+ *
+ * Not `.eyebrow` — that is deliberately the lightest grey in the palette, for
+ * captions sitting above a card's own title. Used as the only label for a
+ * whole section it reads as a caption for nothing.
+ */
+const SectionTitle = ({ children }: { children: string }) => (
+  <h2 className="text-[11.5px] font-bold uppercase tracking-[0.09em]"
+    style={{ color: 'var(--ink)' }}>{children}</h2>
+)
+
 /** What has to be in a bundle. Terse rows, not sentences. */
 const NEEDS: [string, boolean, string][] = [
   ['Clusters', true, 'a categorical cell annotation — every view is per cell type'],
@@ -107,7 +119,37 @@ export default function Landing({ onDemo, onFile, error, busy }: {
           </button>
         </div>
 
-        <div className="eyebrow mt-6">Try a demo</div>
+        <div className="mt-7">
+          <SectionTitle>Input format</SectionTitle>
+          <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-2)' }}>
+            A <code className="mono">.zip</code> written by scRNA-seq Lab or by{' '}
+            <code className="mono">tools/export_*</code> — schema{' '}
+            <code className="mono">scrnaseq-studio/bundle@1</code>. Not the{' '}
+            <code className="mono">.h5ad</code> or <code className="mono">.rds</code> itself.
+          </p>
+          <div className="mt-2.5 grid gap-1.5">
+            {NEEDS.map(([name, required, what]) => (
+              <div key={name} className="flex items-baseline gap-2">
+                <span className="w-[86px] flex-none text-[12px] font-semibold">{name}</span>
+                <span className={`badge flex-none ${required ? 'badge-here' : 'badge-none'}`}>
+                  {required ? 'required' : 'optional'}
+                </span>
+                <span className="text-[11.5px]" style={{ color: 'var(--ink-2)' }}>{what}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mono mt-2.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+            meta.json · genes.txt · expr.indptr/indices/data · cluster.u16 · sample.u16 ·
+            embed.f32 · qc.f32 · pseudobulk.tsv
+          </p>
+          <p className="mt-1.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+            Field-by-field in{' '}
+            <a className="underline" href={`${REPO}/blob/main/tools/BUNDLE.md`}
+              target="_blank" rel="noreferrer">tools/BUNDLE.md</a>.
+          </p>
+        </div>
+
+        <div className="mt-7"><SectionTitle>Try a demo</SectionTitle></div>
         <div className="mt-2 grid gap-1.5">
           {DEMOS.map(([key, tag, title, desc]) => (
             <button
@@ -170,23 +212,8 @@ R -e 'install.packages("digest")'  # for .rds`}</Code>
             A wrong name lists the ones that exist. Only <b>--cluster</b> is needed for a first look.
           </p>
 
-          <div className="eyebrow mt-5 mb-2">What has to be in the bundle</div>
-          <div className="grid gap-1.5">
-            {NEEDS.map(([name, required, what]) => (
-              <div key={name} className="flex items-baseline gap-2">
-                <span className="w-[86px] flex-none text-[12px] font-semibold">{name}</span>
-                <span className={`badge flex-none ${required ? 'badge-here' : 'badge-none'}`}>
-                  {required ? 'required' : 'optional'}
-                </span>
-                <span className="text-[11.5px]" style={{ color: 'var(--ink-2)' }}>{what}</span>
-              </div>
-            ))}
-          </div>
-
           <p className="mt-4 text-[12px]" style={{ color: 'var(--ink-3)' }}>
-            Full format in{' '}
-            <a className="underline" href={`${REPO}/blob/main/tools/BUNDLE.md`}
-              target="_blank" rel="noreferrer">tools/BUNDLE.md</a>.
+            What has to be in the bundle is listed on the page behind this dialog.
           </p>
           <div className="mt-4 text-right">
             <button className="btn" onClick={() => dlg.current?.close()}>Close</button>
