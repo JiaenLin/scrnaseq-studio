@@ -6,14 +6,17 @@ import { GENE_SETS } from '../lib/genesets.ts'
 import { parseGeneList } from '../lib/genes.ts'
 import { moduleScore, SCORE_DEFAULTS, summarise } from '../lib/score.ts'
 import { rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import { downloadCsv, slug } from '../lib/download.ts'
 import { Card, Mono, Seg } from './Ui.tsx'
+import Figure, { CsvButton } from './Figure.tsx'
 
-export default function GeneSets({ d, types, ct, palKey, rampKey }: {
+export default function GeneSets({ d, types, ct, palKey, rampKey, onPickGene }: {
   d: Dataset
   types: CellType[]
   ct: string
   palKey: PaletteKey
   rampKey: RampKey
+  onPickGene: (g: string) => void
 }) {
   const [setId, setSetId] = useState(GENE_SETS[0].id)
   const [custom, setCustom] = useState('')
@@ -65,11 +68,16 @@ export default function GeneSets({ d, types, ct, palKey, rampKey }: {
               ))}
             </select>
           ) : (
-            <input
-              className="inp mono w-[420px]" value={custom} placeholder="Ascl1, Egfr, Mki67, Ccnd2…"
-              aria-label="Custom gene set"
-              onChange={e => setCustom(e.target.value)}
-            />
+            <>
+              <input
+                className="inp mono w-[380px]" value={custom} placeholder="Ascl1, Egfr, Mki67, Ccnd2…"
+                aria-label="Custom gene set"
+                onChange={e => setCustom(e.target.value)}
+              />
+              <button className="chip"
+                onClick={() => setCustom(GENE_SETS[1].genes.join(', '))}>Load example</button>
+              <button className="chip" onClick={() => setCustom('')}>Clear</button>
+            </>
           )}
         </div>
 
@@ -97,7 +105,9 @@ export default function GeneSets({ d, types, ct, palKey, rampKey }: {
                 <figcaption className="mb-1.5 text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>
                   {name} on the embedding
                 </figcaption>
-                <ScoreMap d={d} types={types} scores={score.scores} rampKey={rampKey} />
+                <Figure name={`module_score_${slug(name)}`}>
+                  <ScoreMap d={d} types={types} scores={score.scores} rampKey={rampKey} />
+                </Figure>
                 <div className="legend mt-2">
                   <span style={{ color: 'var(--ink-3)' }}>low</span>
                   <span className="inline-block h-2.5 w-[130px] rounded-[3px]" style={{ background: rampCss(rampKey) }} />
@@ -138,14 +148,45 @@ export default function GeneSets({ d, types, ct, palKey, rampKey }: {
                     </tbody>
                   </table>
                 </div>
+                <div className="mt-2.5 flex items-center justify-end">
+                  <CsvButton onClick={() => downloadCsv(
+                    `module_score_${slug(name)}`,
+                    ['identity', 'cells', 'median', 'mean', 'q1', 'q3'],
+                    ids.map(id => {
+                      const idx: number[] = []
+                      d.cells.forEach((c, i) => {
+                        if (c.t === id.ti && (groupBy === 'type' || c.cond === id.cond)) idx.push(i)
+                      })
+                      const st = summarise(score.scores, idx)
+                      return [id.full, st.n, st.med.toFixed(4), st.mean.toFixed(4),
+                        st.q1.toFixed(4), st.q3.toFixed(4)]
+                    }))} />
+                </div>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="eyebrow mb-2">Genes in this set</div>
+              <div className="flex flex-wrap gap-1.5">
+                {score.used.map(g => (
+                  <button key={g} className="chip italic"
+                    title={`Open ${g} in Gene expression`}
+                    onClick={() => onPickGene(g)}>{g}</button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+                Click any gene to open it in <b>Gene expression</b> and see whether the score is
+                carried by the whole set or by one or two members.
+              </p>
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <span className="glabel">Group by</span>
               <Seg<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
             </div>
-            <ScoreViolins d={d} scores={score.scores} ids={ids} groupBy={groupBy} />
+            <Figure name={`module_score_by_identity_${slug(name)}`} className="mt-1">
+              <ScoreViolins d={d} scores={score.scores} ids={ids} groupBy={groupBy} />
+            </Figure>
             <p className="sub mt-2.5">
               A score near zero means the set is no higher than genes of comparable abundance in
               that cell — which is why the dashed line at zero, not the lowest value, is the

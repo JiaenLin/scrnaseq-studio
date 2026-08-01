@@ -15,13 +15,16 @@ const REFS: React.ReactNode[] = [
 
 const Sup = ({ n }: { n: number }) => <sup>{n}</sup>
 
-export default function Methods({ d, types, ti, ctrl, cs, method }: {
+export default function Methods({ d, types, ti, ctrl, cs, method, padjMax, lfcMin }: {
   d: Dataset
   types: CellType[]
   ti: number
   ctrl: string
   cs: string
   method: Method
+  /** The cutoffs actually in force, so the prose can never drift from the figures. */
+  padjMax: number
+  lfcMin: number
 }) {
   const design = designFor(d, ti, ctrl, cs)
   const wil = method === 'wilcox'
@@ -37,7 +40,8 @@ export default function Methods({ d, types, ti, ctrl, cs, method }: {
     rank-sum test across cells<Sup n={2} />, restricted to genes with an absolute log₂ fold change
     of at least {LFC_GATE} detected in at least {(PCT_GATE * 100).toFixed(0)}% of cells in either
     group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted
-    p below 0.05 past that fold-change threshold were considered differentially expressed.{' '}
+    p below {padjMax} and an absolute log₂ fold change of at least {lfcMin} were considered
+    differentially expressed.{' '}
     {oneEach
       ? <>The design contains one sample per group, so these p-values describe variation between
         cells rather than between animals<Sup n={7} />.</>
@@ -49,7 +53,8 @@ export default function Methods({ d, types, ti, ctrl, cs, method }: {
     contributing fewer than {MIN_CELLS} cells of that type were excluded, and the resulting matrix
     of {design.n0} {ctrl} and {design.n1} {cs} profiles was tested with DESeq2<Sup n={6} /> using{' '}
     {ctrl} as the reference level, with Benjamini–Hochberg adjustment. Genes with an adjusted p
-    below 0.05 and an absolute log₂ fold change above 1 were considered differentially expressed.</>
+    below {padjMax} and an absolute log₂ fold change of at least {lfcMin} were considered
+    differentially expressed.</>
   )
 
   return (

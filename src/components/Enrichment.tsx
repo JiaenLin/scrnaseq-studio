@@ -4,32 +4,62 @@ import { GENE_SETS, SET_SOURCES } from '../lib/genesets.ts'
 import { runORA, type ORAResult } from '../lib/ora.ts'
 import { GENES } from '../lib/demo.ts'
 import { sci } from '../lib/chart.ts'
+import { combinedScore } from '../lib/stats.ts'
+import { downloadCsv, slug } from '../lib/download.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { Card, Chips, Empty, Seg } from './Ui.tsx'
+import Figure, { CsvButton } from './Figure.tsx'
 
 type Direction = 'both' | 'up' | 'down'
 
-export default function Enrichment({ rows, threshold, ctrl, cs, palKey }: {
+export default function Enrichment({ rows, threshold, ctrl, cs, label, palKey, onPickGene }: {
   rows: DERow[]
   threshold: { padj: number; lfc: number }
   ctrl: string
   cs: string
+  label: string
   palKey: PaletteKey
+  onPickGene: (g: string) => void
 }) {
   const [dir, setDir] = useState<Direction>('both')
   const [top, setTop] = useState(15)
   const [sources, setSources] = useState<Set<string>>(new Set(SET_SOURCES))
+  const [minSize, setMinSize] = useState(3)
+  const [maxSize, setMaxSize] = useState(500)
+  const [rankBy, setRankBy] = useState<'padj' | 'count'>('padj')
+  const [termId, setTermId] = useState('')
 
   const query = useMemo(() => rows
     .filter(r => r.padj < threshold.padj && Math.abs(r.lfc) >= threshold.lfc)
     .filter(r => dir === 'both' || (dir === 'up' ? r.lfc > 0 : r.lfc < 0))
     .map(r => r.gene), [rows, threshold, dir])
 
-  const results = useMemo(
-    () => runORA(query, GENE_SETS, GENES, { minSize: 3, maxSize: 500, sources }),
-    [query, sources])
+  const results = useMemo(() => {
+    const out = runORA(query, GENE_SETS, GENES, { minSize, maxSize, sources })
+    return rankBy === 'count'
+      ? [...out].sort((a, b) => b.count - a.count || a.padj - b.padj)
+      : out
+  }, [query, sources, minSize, maxSize, rankBy])
 
   const shown = results.slice(0, top)
+  const selected = results.find(r => r.id === termId)
+
+  // Per-gene statistics for a selected term, ranked among every tested gene, so
+  // that a set can be enriched while all its members sit low in the list and you
+  // can see that rather than infer it.
+  const ranked = useMemo(() => {
+    const scored = rows
+      .map(r => ({ gene: r.gene, comb: combinedScore(r.lfc, r.p) ?? 0, r }))
+      .sort((a, b) => Math.abs(b.comb) - Math.abs(a.comb))
+    return new Map(scored.map((x, i) => [x.gene, { ...x, rank: i + 1 }]))
+  }, [rows])
+
+  const saveCsv = () => downloadCsv(
+    `enrichment_${slug(label)}_${dir}`,
+    ['set', 'id', 'source', 'overlap', 'setSize', 'foldEnrichment', 'p', 'padj', 'genes'],
+    results.map(r => [r.name, r.id, r.source, r.count, r.setSize,
+      r.foldEnrichment.toFixed(3), r.pvalue.toExponential(4), r.padj.toExponential(4),
+      r.overlap.join(' ')]))
   const dirLabel = dir === 'up' ? `higher in ${cs}` : dir === 'down' ? `higher in ${ctrl}` : 'changed in either direction'
 
   return (
@@ -55,6 +85,25 @@ export default function Enrichment({ rows, threshold, ctrl, cs, palKey }: {
         {/* User-selectable term count — the bulk studio shipped a hardcoded 15. */}
         <Chips label="Show" value={top} options={[10, 15, 20, 30]} onChange={setTop} />
         <div className="gsep h-6" />
+        <label className="flex items-center gap-1.5">
+          <span className="glabel">Rank by</span>
+          <select className="sel" value={rankBy} aria-label="Rank terms by"
+            onChange={e => setRankBy(e.target.value as 'padj' | 'count')}>
+            <option value="padj">adjusted p</option>
+            <option value="count">overlap size</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5">
+          <span className="glabel">Set size</span>
+          <input className="inp w-16" type="number" min={1} value={minSize}
+            aria-label="Minimum set size"
+            onChange={e => setMinSize(Math.max(1, +e.target.value || 1))} />
+          <span style={{ color: 'var(--ink-3)' }}>&ndash;</span>
+          <input className="inp w-20" type="number" min={1} value={maxSize}
+            aria-label="Maximum set size"
+            onChange={e => setMaxSize(Math.max(1, +e.target.value || 1))} />
+        </label>
+        <div className="gsep h-6" />
         <span className="glabel">Collections</span>
         {SET_SOURCES.map(s => (
           <button
@@ -73,13 +122,21 @@ export default function Enrichment({ rows, threshold, ctrl, cs, palKey }: {
         <div className="mt-4">
           <Empty title="No set is enriched in this list">
             {query.length === 0
-              ? 'No gene passes the cutoffs for this contrast, so there is nothing to test.'
+              ? `No gene passes padj < ${threshold.padj} and |log2FC| >= ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs above, or press Reset to return to the default for this test.`
               : `${query.length} genes tested and nothing reached significance. With a list this size that is a normal outcome, not an error.`}
           </Empty>
         </div>
       ) : (
         <>
-          <Bars results={shown} palKey={palKey} />
+          {/* Both buttons live in the Figure's own control slot. Floating a
+              separate row behind it put the PNG button on top of the CSV one and
+              silently swallowed the click. */}
+          <Figure
+            name={`enrichment_${label}`} className="mt-4 pt-7"
+            right={<CsvButton onClick={saveCsv} />}
+          >
+            <Bars results={shown} palKey={palKey} onPick={setTermId} selected={termId} />
+          </Figure>
           <div className="scrollx mt-4" style={{ maxHeight: 420 }}>
             <table className="t">
               <thead>
@@ -90,7 +147,9 @@ export default function Enrichment({ rows, threshold, ctrl, cs, palKey }: {
               </thead>
               <tbody>
                 {shown.map(r => (
-                  <tr key={r.id}>
+                  <tr key={r.id} className="cursor-pointer"
+                    style={r.id === termId ? { background: 'var(--accent-soft)' } : undefined}
+                    onClick={() => setTermId(r.id === termId ? '' : r.id)}>
                     <td>{r.name}<div className="mono text-[10.5px]" style={{ color: 'var(--ink-3)' }}>{r.id}</div></td>
                     <td className="whitespace-nowrap" style={{ color: 'var(--ink-2)' }}>{r.source}</td>
                     <td className="num whitespace-nowrap">{r.count} / {r.setSize}</td>
@@ -106,15 +165,87 @@ export default function Enrichment({ rows, threshold, ctrl, cs, palKey }: {
             </table>
           </div>
           <p className="mono mt-2.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
-            Showing {shown.length} of {results.length} · fold = (k/n) ÷ (K/N)
+            Showing {shown.length} of {results.length} · fold = (k/n) ÷ (K/N) ·
+            click a bar or a row for its member genes
           </p>
+          {selected && (
+            <TermDetail
+              selected={selected} ranked={ranked} ctrl={ctrl} cs={cs}
+              onClose={() => setTermId('')} onPickGene={onPickGene}
+            />
+          )}
         </>
       )}
     </Card>
   )
 }
 
-function Bars({ results, palKey }: { results: ORAResult[]; palKey: PaletteKey }) {
+interface RankedGene { gene: string; comb: number; rank: number; r: DERow }
+
+function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
+  selected: ORAResult
+  ranked: Map<string, RankedGene>
+  ctrl: string
+  cs: string
+  onClose: () => void
+  onPickGene: (g: string) => void
+}) {
+  const members = selected.overlap
+    .map(g => ranked.get(g))
+    .filter((x): x is RankedGene => !!x)
+    .sort((a, b) => Math.abs(b.comb) - Math.abs(a.comb))
+  return (
+    <div className="mt-4 rounded-xl p-3.5" style={{ background: 'var(--sunk)' }}>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-[13px] font-semibold">
+          {selected.name}
+          <span className="mono ml-2 text-[11px] font-normal" style={{ color: 'var(--ink-3)' }}>
+            {selected.id} &middot; {selected.source}
+          </span>
+        </h3>
+        <span className="text-[12.5px]" style={{ color: 'var(--ink-2)' }}>
+          {selected.count}/{selected.setSize} genes &middot; fold {selected.foldEnrichment.toFixed(1)}&times;
+          {' '}&middot; padj {sci(selected.padj)}
+          <button className="chip ml-2.5" onClick={onClose}>close</button>
+        </span>
+      </div>
+      <div className="scrollx" style={{ maxHeight: 320 }}>
+        <table className="t">
+          <thead>
+            <tr><th>Gene</th><th>log&#8322;FC</th><th>Combined</th>
+              <th>Rank of {ranked.size}</th><th>p adjusted</th><th>Direction</th></tr>
+          </thead>
+          <tbody>
+            {members.map(({ gene, comb, rank, r }) => (
+              <tr key={gene} className="cursor-pointer" title={`Open ${gene} in Gene expression`}
+                onClick={() => onPickGene(gene)}>
+                <td className="mono font-semibold italic">{gene}</td>
+                <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--bad)' : 'var(--lo)' }}>
+                  {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
+                </td>
+                <td className="num mono text-[11.5px]">{comb.toFixed(1)}</td>
+                <td className="num" style={{ color: 'var(--ink-2)' }}>{rank}</td>
+                <td className="num mono text-[11.5px]">{sci(r.padj)}</td>
+                <td className="whitespace-nowrap">
+                  {r.lfc > 0 ? `higher in ${cs}` : `higher in ${ctrl}`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+        <b>Combined</b> = &minus;log&#8321;&#8320;(p) &times; log&#8322;FC; <b>rank</b> is the
+        position among all {ranked.size} genes tested for this contrast &mdash; a set can be
+        enriched while every member of it sits low in that list.
+      </p>
+    </div>
+  )
+}
+
+function Bars({ results, palKey, onPick, selected }: {
+  results: ORAResult[]; palKey: PaletteKey; onPick: (id: string) => void; selected: string
+}) {
   const rowH = 26, gap = 5, PT = 8, PR = 60, AX = 44
   // Full set names, never truncated — the bulk studio clipped them and it was
   // the first thing reported. The label column sizes to the longest name.
@@ -141,11 +272,13 @@ function Bars({ results, palKey }: { results: ORAResult[]; palKey: PaletteKey })
           const y = PT + i * (rowH + gap)
           const v = -Math.log10(Math.max(r.padj, 1e-300))
           return (
-            <g key={r.id}>
+            <g key={r.id} style={{ cursor: 'pointer' }}
+              onClick={() => onPick(r.id === selected ? '' : r.id)}>
               <text className="axis" x={PL - 10} y={y + rowH / 2 + 4} textAnchor="end"
-                style={{ fontSize: 11.5, fill: 'var(--ink)' }}>{r.name}</text>
+                style={{ fontSize: 11.5, fill: 'var(--ink)',
+                         fontWeight: r.id === selected ? 700 : 400 }}>{r.name}</text>
               <rect x={PL} y={y + 3} width={Math.max(1, X(v) - PL)} height={rowH - 6} rx={3}
-                fill={pal(i, palKey)} opacity=".85">
+                fill={pal(i, palKey)} opacity={r.id === selected ? 1 : 0.85}>
                 <title>{r.name} — {r.count}/{r.setSize} genes, adjusted p {r.padj.toExponential(1)}</title>
               </rect>
               <text className="axis" x={X(v) + 7} y={y + rowH / 2 + 4}

@@ -28,10 +28,11 @@ Fourth app in the family:
 | **Cells** | UMAP on canvas, coloured by cluster, group, sample, QC metric or gene, split by group on one shared axis range |
 | **Composition** | horizontal 100% stacked bars per sample, plus a per-cell-type bar panel with every animal drawn on top |
 | **Markers** | one-vs-rest dot plot, and cluster renaming that propagates everywhere including Methods |
-| **DEG table · Volcano** | per cell type, under a **Test** switch — Wilcoxon per cell or pseudobulk DESeq2 |
-| **Enrichment** | hypergeometric over-representation on the DEG list, split by direction, against the genes the object measured |
+| **DEG table** | sortable, filterable, significant-only, with a signed **Combined** ranking column and CSV export; click a row to open that gene |
+| **Volcano** | adjustable cutoffs, up/down counts, hover to read a point, click to open the gene, PNG export |
+| **Enrichment** | hypergeometric over-representation on the DEG list — direction, set-size range, ranking and collections all adjustable; click a term for its member genes with their rank among every tested gene |
 | **Gene expression** | gene search (one gene or a pasted list), as a violin panel, a **Seurat dot plot** or a **Seurat feature plot** |
-| **Gene sets** | per-cell module score (`AddModuleScore` / `score_genes`) for a built-in signature or your own gene list, on the embedding and per identity |
+| **Gene sets** | per-cell module score (`AddModuleScore` / `score_genes`) for a built-in signature or your own gene list, on the embedding and per identity, with clickable member genes |
 | **Methods** | continuous prose with superscript citations, cutoffs and design read from the object |
 
 ## The decisions worth knowing about
@@ -67,6 +68,19 @@ produces, and the header states the background size so the number is checkable.
 dominated by how abundant its genes happen to be — a ribosomal signature scores high in every cell
 and means nothing. Subtracting a control set drawn from the same expression bins is what makes zero
 a meaningful reference.
+
+**One set of cutoffs, shared by every tab.** padj and |log₂FC| live at app level, not per tab, so the
+table, the volcano's dashed lines, the enrichment input list and the Methods sentence all read the
+same two numbers. Moving a slider cannot leave one of them describing a different experiment — and
+switching test resets them, because the two tests are on different scales.
+
+**Everything is exportable.** Every figure has a PNG button and every table a CSV button. The
+figures are hand-drawn SVG whose colours are CSS custom properties, so export inlines the computed
+style first; without that a serialized `<svg>` has no document to resolve `var(--ink)` against and
+comes out black on black.
+
+**Every gene is a link.** Click a row in the DEG table, a point in the volcano, a member gene of an
+enriched term, or a gene in a scored signature, and it opens in **Gene expression**.
 
 ## Figure palettes
 

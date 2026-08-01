@@ -2,8 +2,8 @@
 // accident: which test is offered when, and which cutoff each one is judged at.
 import { makeTypes, buildDataset } from '../src/lib/demo.ts'
 import {
-  deWilcox, dePseudobulk, designFor, isSig, MIN_REPS_PB, minReplicates,
-  sigCount, thresholdFor, pbKey, LFC_GATE,
+  combinedScore, deWilcox, dePseudobulk, designFor, isSig, MIN_REPS_PB,
+  minReplicates, sigCount, thresholdFor, pbKey, LFC_GATE,
 } from '../src/lib/stats.ts'
 
 let failed = 0
@@ -83,6 +83,30 @@ check('time course has 1', minReplicates(course), 1)
 check('wild type has 1', minReplicates(wt), 1)
 check('single-condition objects are flagged', [cohort.multi, course.multi, wt.multi], [true, true, false])
 check('group order is the file order, never sorted', course.conds, ['0 h', '6 h', '24 h', '72 h'])
+
+console.log('\nCOMBINED RANKING SCORE')
+// Sorting by p alone promotes tiny significant changes; by fold change alone,
+// noise. The product keeps both, and its sign keeps the direction.
+check('sign follows the fold change',
+  [combinedScore(2, 1e-10) > 0, combinedScore(-2, 1e-10) < 0], [true, true])
+check('a bigger effect at equal p ranks higher',
+  Math.abs(combinedScore(2, 1e-10)) > Math.abs(combinedScore(1, 1e-10)), true)
+check('a smaller p at equal effect ranks higher',
+  Math.abs(combinedScore(1, 1e-20)) > Math.abs(combinedScore(1, 1e-2)), true)
+check('p = 0 is clamped rather than infinite', Number.isFinite(combinedScore(1, 0)), true)
+check('non-finite input returns null', combinedScore(NaN, 0.01), null)
+{
+  // The ordering property the DEG table's Combined column relies on.
+  const order = [
+    ['tiny-but-sig', 0.3, 1e-40],
+    ['big-and-sig', 3.0, 1e-20],
+    ['big-but-weak', 3.0, 0.04],
+  ].map(([g, lfc, pv]) => [g, Math.abs(combinedScore(lfc, pv))])
+    .sort((a, b) => b[1] - a[1])
+    .map(x => x[0])
+  check('ranks a large significant change first', order[0], 'big-and-sig')
+  check('and a large but weak one last', order[2], 'big-but-weak')
+}
 
 console.log('\nRENAMING NEVER ORPHANS A RESULT')
 {

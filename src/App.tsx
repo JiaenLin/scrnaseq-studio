@@ -3,7 +3,8 @@ import type {
   CellType, ColorBy, Dataset, GroupBy, Method, PlotKind, TabId,
 } from './types.ts'
 import { buildDataset, makeTypes } from './lib/demo.ts'
-import { designFor, minReplicates, pbKey, thresholdFor } from './lib/stats.ts'
+import { designFor, pbKey, thresholdFor } from './lib/stats.ts'
+import { mergeGenes } from './lib/genes.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
 import Landing from './components/Landing.tsx'
 import Overview from './components/Overview.tsx'
@@ -35,6 +36,10 @@ export default function App() {
   const [ctrl, setCtrl] = useState('')
   const [cs, setCs] = useState('')
   const [method, setMethod] = useState<Method>('wilcox')
+  // Cutoffs live here, not in a tab: the table, the volcano's dashed lines, the
+  // enrichment input list and the Methods sentence all read these two numbers.
+  const [padjMax, setPadjMax] = useState(0.05)
+  const [lfcMin, setLfcMin] = useState(thresholdFor('wilcox').lfc)
   const [computed, setComputed] = useState<Set<string>>(new Set())
   const [running, setRunning] = useState(false)
 
@@ -46,6 +51,19 @@ export default function App() {
   const [relative, setRelative] = useState(false)
   const [dotScale, setDotScale] = useState(true)
   const [genes, setGenes] = useState<string[]>(['Ascl1', 'Gfap', 'Mki67', 'Dcx'])
+
+  /** Open a gene from any table or plot in the Gene expression tab. */
+  const pickGene = (g: string) => {
+    setGenes(prev => mergeGenes(prev, [g]))
+    setTab('expr')
+  }
+
+  /** Switching test switches the scale, so the default cutoff has to follow. */
+  const changeMethod = (m: Method) => {
+    setMethod(m)
+    setPadjMax(0.05)
+    setLfcMin(thresholdFor(m).lfc)
+  }
 
   const [palKey, setPalKey] = useState<PaletteKey>('npg')
   const [rampKey, setRampKey] = useState<RampKey>('seurat')
@@ -67,6 +85,8 @@ export default function App() {
     setCtrl(built.conds[0])
     setCs(built.conds[built.conds.length - 1])
     setMethod('wilcox')
+    setPadjMax(0.05)
+    setLfcMin(thresholdFor('wilcox').lfc)
     setGroupBy('type')
     setComputed(new Set())
     setTab('overview')
@@ -81,9 +101,12 @@ export default function App() {
   const blocked = !d.multi && NEEDS_CONTRAST.has(tab)
 
   const statsProps: StatsProps = {
-    d, t, ti, ctrl, cs, method, running,
+    d, t, ti, ctrl, cs, method, running, padjMax, lfcMin,
     computed: computed.has(key),
-    onMethod: setMethod,
+    onMethod: changeMethod,
+    onPadj: setPadjMax,
+    onLfc: setLfcMin,
+    onPickGene: pickGene,
     onRun: () => {
       setRunning(true)
       // Stands in for the webR round-trip until lib/deseq lands.
@@ -225,8 +248,9 @@ export default function App() {
           ) : tab === 'enrich' ? (
             <ContrastFrame {...statsProps}>
               {rows => (
-                <Enrichment rows={rows} threshold={thresholdFor(method)}
-                  ctrl={ctrl} cs={cs} palKey={palKey} />
+                <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
+                  ctrl={ctrl} cs={cs} label={`${cs} vs ${ctrl} · ${ct}`}
+                  palKey={palKey} onPickGene={pickGene} />
               )}
             </ContrastFrame>
           ) : tab === 'expr' ? (
@@ -237,10 +261,11 @@ export default function App() {
               onGenes={setGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
               onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey} />
           ) : tab === 'sets' ? (
-            <GeneSets d={d} types={types} ct={ct} palKey={palKey} rampKey={rampKey} />
+            <GeneSets d={d} types={types} ct={ct} palKey={palKey} rampKey={rampKey}
+              onPickGene={pickGene} />
           ) : (
-            <Methods d={d} types={types} ti={ti} ctrl={ctrl} cs={cs}
-              method={minReplicates(d) > 0 ? method : 'wilcox'} />
+            <Methods d={d} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
+              padjMax={padjMax} lfcMin={lfcMin} />
           )}
         </div>
       </main>

@@ -124,3 +124,15 @@ export const minReplicates = (d: Dataset): number =>
 
 /** Key a computed pseudobulk run, stable across cluster renaming. */
 export const pbKey = (t: CellType, ctrl: string, cs: string) => `${t.key}|${ctrl}|${cs}`
+
+/**
+ * Signed ranking metric: −log10(p) × log2FC.
+ *
+ * Sorting by p alone puts a tiny, highly significant change above a large one;
+ * sorting by fold change alone promotes noise. The product keeps both, and its
+ * sign keeps the direction, so one column orders a table sensibly.
+ */
+export function combinedScore(lfc: number, p: number): number | null {
+  if (!Number.isFinite(lfc) || !Number.isFinite(p)) return null
+  return (p <= 0 ? 300 : -Math.log10(p)) * lfc
+}
