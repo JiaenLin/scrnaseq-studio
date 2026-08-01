@@ -1,0 +1,321 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+
+  /* Motion. The built-in CSS easings are too weak to feel intentional; these are
+     the strong variants. Never ease-in on UI — it delays the exact moment the
+     user is watching. Every duration stays inside the 300ms UI budget. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --sunk: #f1f5f9;
+  --line: #e2e8f0;
+  --line-2: #cbd5e1;
+  --ink: #0f172a;
+  --ink-2: #475569;
+  --ink-3: #94a3b8;
+  --accent: #6366f1;
+  --accent-soft: #eef2ff;
+  --accent-ink: #4338ca;
+  --warn: #b45309;
+  --warn-soft: #fffbeb;
+  --warn-line: #fde68a;
+  --good: #047857;
+  --good-soft: #ecfdf5;
+  --bad: #b91c1c;
+  --lo: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1120;
+    --surface: #0f172a;
+    --sunk: #1e293b;
+    --line: #1e293b;
+    --line-2: #334155;
+    --ink: #e2e8f0;
+    --ink-2: #94a3b8;
+    --ink-3: #64748b;
+    --accent: #818cf8;
+    --accent-soft: rgba(99, 102, 241, 0.15);
+    --accent-ink: #a5b4fc;
+    --warn: #fbbf24;
+    --warn-soft: rgba(251, 191, 36, 0.1);
+    --warn-line: rgba(251, 191, 36, 0.3);
+    --good: #34d399;
+    --good-soft: rgba(16, 185, 129, 0.12);
+    --bad: #f87171;
+    --lo: #60a5fa;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  text-wrap: balance;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+figure {
+  margin: 0;
+}
+
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+svg {
+  display: block;
+  overflow: visible;
+}
+
+@layer components {
+  .wrap {
+    @apply mx-auto px-5;
+    max-width: 1180px;
+  }
+  .mono {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    @apply mb-4 rounded-2xl px-[18px] py-4;
+  }
+  .eyebrow {
+    color: var(--ink-3);
+    @apply text-[10.5px] font-bold uppercase tracking-[0.1em];
+  }
+  .sub {
+    color: var(--ink-2);
+    @apply mt-[3px] text-[12.5px];
+  }
+
+  .btn {
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+    @apply rounded-[10px] px-[15px] py-2 text-[13.5px] font-semibold;
+    transition: transform 160ms var(--ease-out), border-color 160ms ease,
+      background-color 160ms ease;
+  }
+  .btn:hover {
+    border-color: var(--accent);
+  }
+  /* Press feedback — the interface must visibly hear the click, and it has to
+     land on press rather than release or it feels dead. */
+  .btn:active {
+    transform: scale(0.97);
+  }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-ghost {
+    @apply border-0 bg-transparent underline underline-offset-4;
+    color: var(--ink-3);
+  }
+
+  .chip {
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+    color: var(--ink-2);
+    @apply rounded-full px-[11px] py-[3.5px] text-xs font-medium;
+    transition: transform 160ms var(--ease-out), border-color 160ms ease, color 160ms ease,
+      background-color 160ms ease;
+  }
+  .chip:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .chip:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .chip[aria-pressed='true'] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .chip:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
+  /* Segmented control — for a mutually exclusive, consequential choice (which
+     statistical test runs), where radio-like grouping reads better than chips. */
+  .seg {
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+    @apply inline-flex overflow-hidden rounded-[10px];
+  }
+  .seg button {
+    border-right: 1px solid var(--line-2);
+    color: var(--ink-2);
+    @apply border-0 px-[13px] py-1.5 text-[12.5px] font-semibold;
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+  .seg button:last-child {
+    border-right: 0;
+  }
+  .seg button[aria-pressed='true'] {
+    background: var(--accent);
+    color: #fff;
+  }
+  .seg button:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
+  .sel,
+  .inp {
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+    color: var(--ink);
+    @apply rounded-lg px-[9px] py-[5px] text-[13px] outline-none;
+  }
+  .sel:focus-visible,
+  .inp:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .glabel {
+    color: var(--ink-3);
+    @apply text-[10.5px] font-semibold uppercase tracking-[0.09em];
+  }
+  .gsep {
+    background: var(--line-2);
+    @apply w-px self-stretch;
+    min-height: 20px;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md px-[7px] py-[1.5px] text-[10.5px] font-semibold;
+  }
+  .badge-file {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+  .badge-here {
+    background: var(--good-soft);
+    color: var(--good);
+  }
+  .badge-none {
+    background: var(--sunk);
+    color: var(--ink-3);
+  }
+
+  .note {
+    background: var(--warn-soft);
+    border: 1px solid var(--warn-line);
+    color: var(--ink);
+    @apply rounded-xl px-[14px] py-[11px] text-[12.5px] leading-[1.55];
+  }
+  .note b {
+    color: var(--warn);
+  }
+  .note-info {
+    background: var(--accent-soft);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .note-info b {
+    color: var(--accent-ink);
+  }
+
+  .empty {
+    border: 1px dashed var(--line-2);
+    background: var(--sunk);
+    color: var(--ink-2);
+    @apply rounded-xl px-[22px] py-[30px] text-center text-[13px];
+  }
+
+  .scrollx {
+    border: 1px solid var(--line);
+    @apply overflow-x-auto rounded-xl;
+  }
+  .t {
+    @apply w-full border-collapse text-[12.5px];
+  }
+  .t th {
+    color: var(--ink-3);
+    background: var(--sunk);
+    border-bottom: 1px solid var(--line);
+    @apply sticky top-0 whitespace-nowrap px-[10px] py-[7px] text-left text-[10.5px] font-bold uppercase tracking-[0.09em];
+  }
+  .t td {
+    border-bottom: 1px solid var(--line);
+    @apply px-[10px] py-1.5;
+  }
+  .t tr:hover td {
+    background: var(--sunk);
+  }
+
+  .legend {
+    color: var(--ink-2);
+    @apply flex flex-wrap items-center gap-x-[14px] gap-y-1 text-[11.5px];
+  }
+  .legend > span {
+    @apply inline-flex items-center gap-[5px];
+  }
+  .sw {
+    @apply inline-block flex-none rounded-[2.5px];
+    width: 9px;
+    height: 9px;
+  }
+
+  .axis {
+    fill: var(--ink-3);
+    font-size: 10px;
+  }
+  .axline {
+    stroke: var(--line-2);
+    stroke-width: 1;
+  }
+
+  .prose-methods {
+    @apply text-[13.5px] leading-[1.75];
+    max-width: 66ch;
+  }
+  .prose-methods sup {
+    color: var(--accent-ink);
+    @apply px-[0.5px] text-[9.5px] font-bold;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

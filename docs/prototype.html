@@ -1,0 +1,1869 @@
+<title>scRNA-seq Studio — prototype</title>
+
+<style>
+  :root {
+    color-scheme: light dark;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+    --bg: #f8fafc; --surface: #ffffff; --sunk: #f1f5f9; --line: #e2e8f0;
+    --line-2: #cbd5e1; --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
+    --accent: #6366f1; --accent-soft: #eef2ff; --accent-ink: #4338ca;
+    --warn: #b45309; --warn-soft: #fffbeb; --warn-line: #fde68a;
+    --good: #047857; --good-soft: #ecfdf5; --bad: #b91c1c; --lo: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1120; --surface: #0f172a; --sunk: #1e293b; --line: #1e293b;
+      --line-2: #334155; --ink: #e2e8f0; --ink-2: #94a3b8; --ink-3: #64748b;
+      --accent: #818cf8; --accent-soft: rgba(99,102,241,.15); --accent-ink: #a5b4fc;
+      --warn: #fbbf24; --warn-soft: rgba(251,191,36,.1); --warn-line: rgba(251,191,36,.3);
+      --good: #34d399; --good-soft: rgba(16,185,129,.12); --bad: #f87171; --lo: #60a5fa;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1120; --surface: #0f172a; --sunk: #1e293b; --line: #1e293b;
+    --line-2: #334155; --ink: #e2e8f0; --ink-2: #94a3b8; --ink-3: #64748b;
+    --accent: #818cf8; --accent-soft: rgba(99,102,241,.15); --accent-ink: #a5b4fc;
+    --warn: #fbbf24; --warn-soft: rgba(251,191,36,.1); --warn-line: rgba(251,191,36,.3);
+    --good: #34d399; --good-soft: rgba(16,185,129,.12); --bad: #f87171; --lo: #60a5fa;
+  }
+  :root[data-theme="light"] {
+    --bg: #f8fafc; --surface: #ffffff; --sunk: #f1f5f9; --line: #e2e8f0;
+    --line-2: #cbd5e1; --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
+    --accent: #6366f1; --accent-soft: #eef2ff; --accent-ink: #4338ca;
+    --warn: #b45309; --warn-soft: #fffbeb; --warn-line: #fde68a;
+    --good: #047857; --good-soft: #ecfdf5; --bad: #b91c1c; --lo: #2563eb;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.5;
+  }
+  .mono { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace; }
+  .num { font-variant-numeric: tabular-nums; }
+  h1,h2,h3 { margin: 0; text-wrap: balance; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+  header.app { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 30; }
+  .brandrow { display: flex; align-items: center; gap: 14px; padding: 12px 0 10px; }
+  .mark {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    background: linear-gradient(150deg, var(--accent), #a855f7);
+    display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px; letter-spacing: -.03em;
+  }
+  .brandname { font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+  .brandsub { font-size: 11.5px; color: var(--ink-3); }
+  /* The project name gets the flexible space and wraps rather than truncating. */
+  .project { flex: 1 1 auto; min-width: 0; text-align: right; }
+  .project .name { font-size: 13px; font-weight: 550; overflow-wrap: anywhere; }
+  .project .file { font-size: 11px; color: var(--ink-3); overflow-wrap: anywhere; }
+
+  .tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: thin; }
+  .tab {
+    border: 0; background: none; padding: 8px 11px; border-radius: 8px 8px 0 0;
+    font-size: 13px; font-weight: 500; color: var(--ink-3); white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 160ms ease, background-color 160ms ease, transform 160ms var(--ease-out);
+  }
+  .tab:hover { color: var(--ink); background: var(--sunk); }
+  .tab:active { transform: scale(.98); }
+  .tab[aria-selected="true"] { color: var(--accent-ink); border-bottom-color: var(--accent); }
+  .tab[data-off="1"] { opacity: .45; }
+  .tabdiv { width: 1px; background: var(--line-2); margin: 8px 8px 8px 6px; flex: none; }
+
+  .gbar { background: var(--sunk); border-bottom: 1px solid var(--line); position: sticky; top: 96px; z-index: 25; }
+  .gbar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 9px 20px; }
+  .gfield { display: flex; align-items: center; gap: 6px; }
+  .glabel { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); font-weight: 600; }
+  select.sel, input.inp {
+    border: 1px solid var(--line-2); background: var(--surface); color: var(--ink);
+    border-radius: 8px; padding: 5px 9px; font-size: 13px; outline: none;
+  }
+  select.sel:focus-visible, input.inp:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .gsep { width: 1px; align-self: stretch; min-height: 20px; background: var(--line-2); }
+  .statchip {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+    border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-weight: 550;
+    background: var(--good-soft); color: var(--good);
+    border: 1px solid color-mix(in srgb, var(--good) 25%, transparent);
+  }
+  .statchip.bad { background: var(--warn-soft); color: var(--warn); border-color: var(--warn-line); }
+  .statchip.mute { background: var(--surface); color: var(--ink-3); border-color: var(--line-2); }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; flex: none; }
+
+  main { padding: 22px 0 64px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; }
+  .card > h2 { font-size: 14.5px; font-weight: 620; letter-spacing: -.01em; }
+  .sub { font-size: 12.5px; color: var(--ink-2); margin-top: 3px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .eyebrow { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); font-weight: 650; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .stat { background: var(--surface); padding: 11px 13px; }
+  .stat .v { font-size: 20px; font-weight: 640; letter-spacing: -.02em; }
+  .stat .k { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 1.5px 7px; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+  .badge.file { background: var(--accent-soft); color: var(--accent-ink); }
+  .badge.here { background: var(--good-soft); color: var(--good); }
+  .badge.none { background: var(--sunk); color: var(--ink-3); }
+
+  table.t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.t th {
+    text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--ink-3); font-weight: 650; padding: 7px 10px; background: var(--sunk);
+    border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0;
+  }
+  table.t td { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  table.t tr:hover td { background: var(--sunk); }
+  .scrollx { overflow-x: auto; border: 1px solid var(--line); border-radius: 11px; }
+  .up { color: var(--bad); font-weight: 600; }
+  .down { color: var(--lo); font-weight: 600; }
+
+  .note { border-radius: 11px; padding: 11px 14px; font-size: 12.5px; line-height: 1.55; background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--ink); }
+  .note b { color: var(--warn); }
+  .note.info { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .note.info b { color: var(--accent-ink); }
+
+  .chip {
+    border: 1px solid var(--line-2); background: var(--surface); border-radius: 999px;
+    padding: 3.5px 11px; font-size: 12px; font-weight: 500; color: var(--ink-2);
+    transition: transform 160ms var(--ease-out), border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+  }
+  .chip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
+  .chip:active:not(:disabled) { transform: scale(.97); }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* Segmented control — for a mutually exclusive, consequential choice (which
+     statistical test runs), where radio-like grouping reads better than chips. */
+  .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; background: none; padding: 6px 13px; font-size: 12.5px; font-weight: 550; color: var(--ink-2); border-right: 1px solid var(--line-2); transition: background-color 160ms ease, color 160ms ease; }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .seg button:disabled { opacity: .4; cursor: not-allowed; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--ink-2); align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 9px; height: 9px; border-radius: 2.5px; flex: none; }
+
+  .empty { border: 1px dashed var(--line-2); border-radius: 12px; padding: 30px 22px; text-align: center; color: var(--ink-2); font-size: 13px; background: var(--sunk); }
+  .empty .big { font-size: 14.5px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+
+  figure { margin: 0; }
+  figcaption { font-size: 11.5px; color: var(--ink-3); margin-top: 7px; line-height: 1.5; }
+  canvas { display: block; max-width: 100%; }
+  svg { display: block; overflow: visible; }
+  .axis { font-size: 10px; fill: var(--ink-3); }
+  .axline { stroke: var(--line-2); stroke-width: 1; }
+  .facet-title { font-size: 11px; font-weight: 600; fill: var(--ink); }
+
+  /* Gene search — exact match always ranks first. */
+  .search { position: relative; }
+  .search input { width: 210px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .aclist { position: absolute; z-index: 40; top: 100%; left: 0; margin-top: 4px; width: 210px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 10px; box-shadow: 0 8px 24px rgba(15,23,42,.14); overflow: hidden; }
+  .aclist button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 11px; font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .aclist button:hover { background: var(--sunk); }
+  .aclist .exact { font-weight: 700; color: var(--accent-ink); }
+  .genepill { display: inline-flex; align-items: center; gap: 3px; border-radius: 999px; padding: 3px 5px 3px 10px; font-size: 12px; font-weight: 600; font-style: italic; background: var(--accent-soft); color: var(--accent-ink); }
+  .genepill button { border: 0; background: none; padding: 0 4px; font-style: normal; line-height: 1; opacity: .6; }
+  .genepill button:hover { opacity: 1; }
+
+  .prose { font-size: 13.5px; line-height: 1.75; max-width: 66ch; }
+  .prose sup { font-size: 9.5px; color: var(--accent-ink); font-weight: 700; padding: 0 .5px; }
+  .refs { font-size: 12px; line-height: 1.6; color: var(--ink-2); }
+  .refs li { margin-bottom: 5px; }
+
+  #landing { display: grid; place-items: center; min-height: 100vh; padding: 40px 20px; }
+  /* An id selector outranks the UA [hidden] rule, so it must be restated here or
+     the landing screen stays on the page underneath the app. */
+  #landing[hidden] { display: none; }
+  .drop { border: 1.5px dashed var(--line-2); border-radius: 18px; padding: 34px 30px; text-align: center; background: var(--surface); max-width: 620px; width: 100%; }
+  .btn { border: 1px solid var(--line-2); background: var(--surface); border-radius: 10px; padding: 8px 15px; font-size: 13.5px; font-weight: 550; transition: transform 160ms var(--ease-out), border-color 160ms ease, background-color 160ms ease; }
+  .btn:hover { border-color: var(--accent); }
+  .btn:active { transform: scale(.97); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.ghost { border: 0; background: none; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+  .demo { display: grid; gap: 8px; margin-top: 10px; text-align: left; }
+  .demo button { display: flex; gap: 11px; align-items: flex-start; border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; background: var(--surface); transition: border-color 160ms ease, transform 160ms var(--ease-out); }
+  .demo button:hover { border-color: var(--accent); }
+  .demo button:active { transform: scale(.99); }
+  .demo .t { display: block; font-size: 13px; font-weight: 600; }
+  .demo .d { display: block; font-size: 12px; color: var(--ink-2); }
+
+  dialog { border: 1px solid var(--line); border-radius: 16px; padding: 0; max-width: 520px; width: calc(100% - 40px); background: var(--surface); color: var(--ink); }
+  dialog::backdrop { background: rgba(15,23,42,.45); }
+  dialog .body { padding: 20px 22px; }
+  .route { display: flex; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
+  .route .n { width: 22px; height: 22px; border-radius: 7px; background: var(--sunk); color: var(--ink-2); font-size: 11px; font-weight: 700; display: grid; place-items: center; flex: none; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 700px) { .gbar { position: static; } .statchip { margin-left: 0; } }
+</style>
+
+<!-- ===================== LANDING ===================== -->
+<div id="landing">
+  <div class="drop">
+    <div class="mark" style="margin: 0 auto 14px">sc</div>
+    <h1 style="font-size:19px;letter-spacing:-.02em">scRNA-seq Studio</h1>
+    <p style="color:var(--ink-2);font-size:13.5px;margin:8px 0 18px">
+      Open a processed single-cell object and explore it — without re-running anything.
+      Your file never leaves this browser.
+    </p>
+    <button class="btn primary" onclick="openDemo('cohort')">Open .h5ad or Seurat .rds</button>
+    <div style="margin-top:10px">
+      <button class="btn ghost" onclick="document.getElementById('guide').showModal()">Don't have an object yet?</button>
+    </div>
+    <div class="eyebrow" style="margin:24px 0 0;text-align:left">Or try a demo object</div>
+    <div class="demo">
+      <button onclick="openDemo('cohort')"><span class="badge file">4 v 4</span>
+        <span><span class="t">Replicated cohort</span>
+        <span class="d">Two conditions, four animals each. Both tests available.</span></span></button>
+      <button onclick="openDemo('course')"><span class="badge file">time course</span>
+        <span><span class="t">Time course, no replicates</span>
+        <span class="d">0, 6, 24 and 72 h — one sample per point. Wilcoxon only.</span></span></button>
+      <button onclick="openDemo('wt')"><span class="badge file">single</span>
+        <span><span class="t">Wild type only</span>
+        <span class="d">No comparison at all. Markers and gene search still work.</span></span></button>
+    </div>
+    <p class="mono" style="font-size:11px;color:var(--ink-3);margin:20px 0 0">
+      AnnData .h5ad — read lazily, any size &nbsp;·&nbsp; Seurat .rds — read via webR, up to ~1.5&nbsp;GB
+    </p>
+  </div>
+</div>
+
+<dialog id="guide">
+  <div class="body">
+    <h2 style="font-size:16px">Where should you start?</h2>
+    <p style="color:var(--ink-2);font-size:13px;margin:6px 0 12px">Pick the row that matches what you have on disk right now.</p>
+    <div class="route"><div class="n">1</div><div>
+      <b>Raw FASTQ files only</b><br><span style="color:var(--ink-2);font-size:12.5px">
+      Build a sequencing-service request in <b>rnaseq-service</b> — it scans the bundle and names your samples.</span></div></div>
+    <div class="route"><div class="n">2</div><div>
+      <b>A bulk gene count matrix</b><br><span style="color:var(--ink-2);font-size:12.5px">
+      Run DESeq2 in <b>rnaseq-lab</b>, then bring the result bundle to <b>rnaseq-studio</b>.</span></div></div>
+    <div class="route"><div class="n">3</div><div>
+      <b>A cell × gene matrix, not yet clustered</b><br><span style="color:var(--ink-2);font-size:12.5px">
+      Process it in Scanpy or Seurat first — QC, normalize, cluster, embed — then save
+      <span class="mono">.h5ad</span> or <span class="mono">.rds</span> and come back here.</span></div></div>
+    <div class="route"><div class="n">4</div><div>
+      <b>A processed AnnData or Seurat object</b><br><span style="color:var(--ink-2);font-size:12.5px">
+      You're in the right place. Open it above.</span></div></div>
+    <div style="text-align:right;margin-top:16px">
+      <button class="btn" onclick="document.getElementById('guide').close()">Close</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ===================== APP ===================== -->
+<div id="app" hidden>
+  <header class="app">
+    <div class="wrap">
+      <div class="brandrow">
+        <div class="mark">sc</div>
+        <div>
+          <div class="brandname">scRNA-seq Studio</div>
+          <div class="brandsub">read-only explorer · nothing is re-processed</div>
+        </div>
+        <div class="project">
+          <div class="name" id="pname"></div>
+          <div class="file mono" id="pfile"></div>
+        </div>
+      </div>
+      <div class="tabs" role="tablist" id="tabs"></div>
+    </div>
+  </header>
+  <div class="gbar"><div class="wrap" id="gbar"></div></div>
+  <main><div class="wrap" id="view"></div></main>
+</div>
+
+<script>
+/* ============================================================
+   Prototype data — stands in for a real .h5ad, in the shape the
+   reader produces: cells with obs columns, an embedding, and a
+   gene-major expression index.
+   ============================================================ */
+
+/* ---- figure palettes ----------------------------------------------------
+   The categorical sets are the ones journals' own figures use, as distributed
+   in ggsci: npg (Nature Publishing Group), aaas (Science), lancet, nejm, jco.
+   Picking one here means a figure exported from this studio already matches
+   the rest of the manuscript instead of needing to be recoloured by hand. */
+const PALETTES = {
+  npg:    { label: 'Nature (npg)', cols: ['#E64B35','#4DBBD5','#00A087','#3C5488','#F39B7F',
+                                          '#8491B4','#91D1C2','#DC0000','#7E6148','#B09C85'] },
+  aaas:   { label: 'Science (aaas)', cols: ['#3B4992','#EE0000','#008B45','#631879','#008280',
+                                            '#BB0021','#5F559B','#A20056','#808180','#1B1919'] },
+  lancet: { label: 'Lancet', cols: ['#00468B','#ED0000','#42B540','#0099B4','#925E9F',
+                                    '#FDAF91','#AD002A','#ADB6B6','#00468B','#1B1919'] },
+  nejm:   { label: 'NEJM', cols: ['#BC3C29','#0072B5','#E18727','#20854E','#7876B1',
+                                  '#6F99AD','#FFDC91','#EE4C97','#8C564B','#BCBD22'] },
+  jco:    { label: 'JCO', cols: ['#0073C2','#EFC000','#868686','#CD534C','#7AA6DC',
+                                 '#003C67','#8F7700','#3B3B3B','#A73030','#4A6990'] },
+};
+
+/* Continuous ramps for expression. Anchors are interpolated in RGB. viridis and
+   magma are perceptually uniform and colour-vision safe, which is why they have
+   largely replaced rainbow scales in the journals; the Seurat default and the
+   grey-to-red used across Cell papers are kept because readers know them. */
+const RAMPS = {
+  seurat:  { label: 'Seurat (grey → blue)', cols: ['#D9DCE3','#7D8FD6','#1E40C8'] },
+  viridis: { label: 'viridis', cols: ['#440154','#414487','#2A788E','#22A884','#7AD151','#FDE725'] },
+  magma:   { label: 'magma', cols: ['#000004','#3B0F70','#8C2981','#DE4968','#FE9F6D','#FCFDBF'] },
+  reds:    { label: 'grey → red', cols: ['#E8E8E8','#FDD49E','#FC8D59','#D7301F','#7F0000'] },
+};
+
+let PALETTE = PALETTES.npg.cols;
+
+/** Category colour with a golden-angle fallback, so a long list never wraps
+    round and gives two clusters the same colour. */
+function pal(i) {
+  if (i < PALETTE.length) return PALETTE[i];
+  const h = (((i - PALETTE.length) * 137.508) % 360) / 360;
+  const f = (n) => {
+    const k = (n + h * 12) % 12;
+    const v = .58 - .34 * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(v * 255).toString(16).padStart(2, '0');
+  };
+  return '#' + f(0) + f(8) + f(4);
+}
+
+/** Interpolate a continuous ramp at f in [0,1]. */
+function rampColor(f, name) {
+  const cols = (RAMPS[name || S.ramp] || RAMPS.seurat).cols;
+  const x = Math.max(0, Math.min(1, f)) * (cols.length - 1);
+  const i = Math.min(cols.length - 2, Math.floor(x));
+  return mix(cols[i], cols[i + 1], x - i);
+}
+
+// mulberry32 — seeded so the prototype looks identical on every reload.
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;
+  let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;
+  return((t^t>>>14)>>>0)/4294967296}}
+let R = rng(20260801);
+function gauss(){ let u=0,v=0; while(!u)u=R(); while(!v)v=R();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+const hash = s => { let h=0; for (let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return Math.abs(h); };
+
+/* ---- cell types. `resp` = how strongly abundance tracks activation ---- */
+const TYPES = [
+  {name:'qNSC',            cx:-3.6, cy: 2.6, sd:.85, base:2680, resp:-.52, mk:['Gfap','Aqp4','Id3','Hopx','Thbs4']},
+  {name:'aNSC',            cx:-1.5, cy: 3.4, sd:.62, base: 560, resp:1.75, mk:['Ascl1','Egfr','Ccnd2','Mcm2','Sox2']},
+  {name:'TAP',             cx: 0.6, cy: 2.7, sd:.70, base: 640, resp:2.10, mk:['Mki67','Top2a','Cenpf','Ube2c','Ccnb1']},
+  {name:'Neuroblast',      cx: 2.7, cy: 1.2, sd:1.05,base:2100, resp: .53, mk:['Dcx','Dlx2','Sp8','Nrxn3','Tubb3']},
+  {name:'Astrocyte',       cx:-4.2, cy:-1.4, sd:.95, base:1760, resp:-.06, mk:['Slc1a3','Agt','Mt1','Ntsr2','Clu']},
+  {name:'Oligodendrocyte', cx:-0.8, cy:-3.2, sd:.90, base:1470, resp:-.03, mk:['Plp1','Mbp','Mog','Cnp','Sox10']},
+  {name:'Microglia',       cx: 3.4, cy:-2.9, sd:.72, base:1210, resp:-.03, mk:['Cx3cr1','C1qa','Ctss','P2ry12','Hexb']},
+  {name:'Endothelial',     cx: 5.2, cy:-0.4, sd:.58, base: 740, resp:-.04, mk:['Cldn5','Pecam1','Flt1','Rgs5','Ly6c1']},
+  // Deliberately rare: a real object always has one population too thin to test.
+  {name:'Pericyte',        cx: 4.6, cy: 2.2, sd:.34, base:  30, resp:-.30, mk:['Pdgfrb','Kcnj8','Anpep','Vtn','Higd1b']},
+];
+// `key` is the identity data is stored under, so renaming a cluster in the UI
+// cannot orphan its results. Only `name` is ever displayed.
+TYPES.forEach((t,i)=>{ t.color = pal(i); t.key = t.name; });
+
+/* ---- gene universe ------------------------------------------------------
+   Markers, housekeeping, and a family of near-miss names (Sox2 / Sox21 /
+   Sox11 / Sox10 / Sox9) so exact-match-ranks-first is demonstrable rather
+   than asserted. */
+const HOUSE = ['Actb','Gapdh','Rpl13a','Hprt','Tbp','B2m'];
+const EXTRA = ['Nes','Vim','Ccnd1','Cdk1','Pcna','Mcm5','Sox11','Sox9','Sox21','Ascl2',
+               'Notch1','Hes1','Hes5','Cdkn1a','Cdkn1b','Nr4a2','Egr1','Fos','Jun','Sparcl1','S100b'];
+const GENES = [...new Set([...TYPES.flatMap(t => t.mk), ...HOUSE, ...EXTRA])].sort();
+const N_GENES = 18412;
+
+const MARKER_OF = {};                       // gene -> [typeIndex, rank]
+TYPES.forEach((t, ti) => t.mk.forEach((g, r) => { MARKER_OF[g] = [ti, r]; }));
+
+// log2 change per unit of activation; anything unlisted is flat.
+const RESP = {
+  Ascl1:2.94, Egfr:2.61, Ccnd2:2.08, Mcm2:1.87, Sox2:1.12, Mki67:1.71, Top2a:2.42,
+  Cenpf:1.96, Ube2c:1.74, Ccnb1:1.52, Pcna:1.58, Mcm5:1.44, Cdk1:1.81, Ccnd1:1.19,
+  Nes:.86, Vim:.98, Sox11:1.02, Ascl2:.44, Egr1:.71, Fos:.64, Jun:.52,
+  Gfap:-1.58, Aqp4:-1.31, Id3:-2.35, Hopx:-2.02, Thbs4:-1.94, Clu:-.87, Sparcl1:-.79,
+  S100b:-1.04, Notch1:-.68, Hes1:-1.11, Hes5:-1.28, Cdkn1a:-1.22, Cdkn1b:-.91,
+  Sox9:-.58, Nr4a2:-.74, Dcx:1.34, Dlx2:1.24, Sp8:1.05, Nrxn3:1.11, Tubb3:.92,
+};
+
+/** Mean normalized expression of a gene in one cell type at activation `a`. */
+function meanExpr(g, ti, a) {
+  let m;
+  if (HOUSE.includes(g)) m = 2.9 + (hash(g) % 7) / 10;
+  else if (MARKER_OF[g] && MARKER_OF[g][0] === ti) m = 2.85 - MARKER_OF[g][1] * .26;
+  else if (MARKER_OF[g]) m = .08 + (hash(g) % 5) / 60;
+  else m = .30 + (hash(g) % 9) / 22;
+  return Math.max(.02, m * Math.pow(2, (RESP[g] || 0) * a * .45));
+}
+
+/* ---- datasets -----------------------------------------------------------
+   Three shapes the studio has to survive: a replicated cohort, a time course
+   with one sample per point, and a single wild-type object. */
+const DATASETS = {
+  cohort: {
+    label: 'Adult SVZ neural stem cell reactivation — quiescent vs reactivated, 8 animals',
+    file: 'SVZ_NSC_reactivation_harmony_leiden.h5ad · 1.4 GB · AnnData 0.10.8',
+    conds: ['Quiescent', 'Reactivated'], act: { Quiescent: 0, Reactivated: 1 },
+    samples: [1,2,3,4].map(i => ({ id:'SVZ_Q'+i, cond:'Quiescent' }))
+      .concat([1,2,3,4].map(i => ({ id:'SVZ_R'+i, cond:'Reactivated' }))),
+  },
+  course: {
+    label: 'SVZ reactivation time course after AraC ablation — 0, 6, 24 and 72 hours',
+    file: 'SVZ_timecourse_4tp.h5ad · 0.8 GB · AnnData 0.10.8',
+    conds: ['0 h', '6 h', '24 h', '72 h'],
+    act: { '0 h': 0, '6 h': .35, '24 h': .78, '72 h': 1 },
+    samples: [{id:'TC_0h',cond:'0 h'},{id:'TC_6h',cond:'6 h'},
+              {id:'TC_24h',cond:'24 h'},{id:'TC_72h',cond:'72 h'}],
+  },
+  wt: {
+    label: 'Adult SVZ wild-type reference — single animal, no comparison',
+    file: 'SVZ_WT_reference.h5ad · 0.4 GB · AnnData 0.10.8',
+    conds: ['Wild type'], act: { 'Wild type': 0 },
+    samples: [{ id: 'SVZ_WT', cond: 'Wild type' }],
+  },
+};
+
+let D = null;   // the dataset in play
+
+function buildDataset(key) {
+  R = rng(20260801);                       // same object on every reload
+  const cfg = DATASETS[key];
+  const { conds, samples } = cfg;
+
+  // Per-animal capture efficiency per cell type. Real datasets never split
+  // evenly, and that spread is what the composition panel exists to show.
+  const CAP = {};
+  TYPES.forEach((t, ti) => samples.forEach(s => { CAP[ti + '|' + s.id] = .55 + R() * .9; }));
+
+  const cells = [];
+  TYPES.forEach((t, ti) => {
+    conds.forEach(cond => {
+      const a = cfg.act[cond];
+      const pool = samples.filter(s => s.cond === cond);
+      const total = Math.round(t.base * Math.pow(2, t.resp * a) * pool.length / 3);
+      const w = pool.map(s => CAP[ti + '|' + s.id]);
+      const sum = w.reduce((x, y) => x + y, 0);
+      const per = w.map(x => Math.round(total * x / sum));
+      per[per.length - 1] += total - per.reduce((x, y) => x + y, 0);
+      const dx = a * .45, dy = a * -.12;
+      pool.forEach((s, pi) => {
+        for (let k = 0; k < per[pi]; k++) {
+          const depth = 900 + Math.exp(1.15 + .55 * gauss()) * 1400;
+          cells.push({
+            t: ti, s: s.id, cond, a,
+            x: t.cx + dx + gauss() * t.sd,
+            y: t.cy + dy + gauss() * t.sd,
+            counts: Math.round(depth),
+            genes: Math.round(Math.min(depth * .42, 900 + depth * .18) + gauss() * 120),
+            mito: Math.max(.2, (ti === 4 ? 4.4 : 2.9) + gauss() * 1.5),
+          });
+        }
+      });
+    });
+  });
+
+  const grid = TYPES.map((_, ti) =>
+    samples.map(s => cells.reduce((n, c) => n + (c.t === ti && c.s === s.id ? 1 : 0), 0)));
+  const prop = samples.map((s, si) => {
+    const tot = TYPES.reduce((a, _, ti) => a + grid[ti][si], 0) || 1;
+    return TYPES.map((_, ti) => grid[ti][si] / tot);
+  });
+  const nPerCond = {}, nPerType = {};
+  conds.forEach(c => { nPerCond[c] = cells.reduce((n, x) => n + (x.cond === c ? 1 : 0), 0); });
+  TYPES.forEach((t, ti) => { nPerType[ti] = cells.reduce((n, x) => n + (x.t === ti ? 1 : 0), 0); });
+
+  return { key, ...cfg, cells, grid, prop, nPerCond, nPerType,
+           nCells: cells.length, multi: conds.length > 1 };
+}
+
+/* ============================================================
+   Statistics
+   ------------------------------------------------------------
+   The default is the test Seurat's FindMarkers and Scanpy's
+   rank_genes_groups run: a Wilcoxon rank-sum test across cells,
+   with Seurat's default gates (logfc.threshold 0.25, min.pct 0.1)
+   and Bonferroni adjustment. It needs no replicates, which is the
+   normal situation in single-cell work — so nothing is blocked.
+
+   Pseudobulk -> DESeq2 is offered as an alternative, and only
+   where it is defensible: more than three samples per group.
+   ============================================================ */
+const MIN_CELLS = 10;      // per sample x cell type, before entering a pseudobulk column
+const MIN_REPS_PB = 4;     // "> 3 replicates" before pseudobulk is offered
+const LFC_GATE = .25;      // Seurat logfc.threshold
+const PCT_GATE = .10;      // Seurat min.pct
+
+const pctFromMean = m => Math.min(.99, 1 - Math.exp(-m * 1.15));
+const normP = z => Math.max(1e-300, Math.exp(-z * z / 2) / (z * 2.5066 + 1.2));
+
+/** FindMarkers-style per-cell test between two groups within one cell type. */
+function deWilcox(ti, ctrl, cs) {
+  const a0 = D.act[ctrl], a1 = D.act[cs];
+  let n0 = 0, n1 = 0;
+  for (const c of D.cells) if (c.t === ti) { if (c.cond === ctrl) n0++; else if (c.cond === cs) n1++; }
+  const nEff = n0 && n1 ? (2 * n0 * n1) / (n0 + n1) : 0;
+  const rows = [];
+  for (const g of GENES) {
+    const m0 = meanExpr(g, ti, a0), m1 = meanExpr(g, ti, a1);
+    const lfc = Math.log2((m1 + .05) / (m0 + .05));
+    const pct1 = pctFromMean(m1), pct2 = pctFromMean(m0);
+    if (Math.abs(lfc) < LFC_GATE) continue;
+    if (pct1 < PCT_GATE && pct2 < PCT_GATE) continue;
+    // Power grows with the number of CELLS — which is exactly why these p-values
+    // come out astronomically small, and why they are not evidence of replication.
+    const p = normP(Math.abs(lfc) * Math.sqrt(nEff) * .30);
+    rows.push({ gene: g, lfc, p, padj: Math.min(1, p * GENES.length), pct1, pct2 });
+  }
+  rows.sort((a, b) => a.padj - b.padj || Math.abs(b.lfc) - Math.abs(a.lfc));
+  return { rows, n0, n1 };
+}
+
+/**
+ * Pseudobulk -> DESeq2.
+ *
+ * Two things differ from the per-cell test, and both are real rather than
+ * cosmetic. Power grows with the number of SAMPLES, not cells, so far fewer
+ * genes survive. And the fold change is measured on summed raw counts, which
+ * are not log-normalized, so it is not compressed the way Seurat's
+ * avg_log2FC is — the two columns are on genuinely different scales and are
+ * therefore judged at different cutoffs.
+ */
+function dePseudobulk(ti, ctrl, cs) {
+  const da = D.act[cs] - D.act[ctrl];
+  const kept = D.samples.map((s, si) => ({ ...s, n: D.grid[ti][si] }))
+    .filter(s => (s.cond === ctrl || s.cond === cs) && s.n >= MIN_CELLS);
+  const n0 = kept.filter(s => s.cond === ctrl).length, n1 = kept.filter(s => s.cond === cs).length;
+  const nEff = n0 && n1 ? (2 * n0 * n1) / (n0 + n1) : 0;
+  const rows = [];
+  for (const g of GENES) {
+    const lfc = (RESP[g] || 0) * da;               // count-scale, uncompressed
+    if (Math.abs(lfc) < .1) continue;
+    // Between-animal variance, which per-cell testing pretends does not exist.
+    const noise = .55 + (hash(g) % 55) / 100;
+    const p = normP(Math.abs(lfc) / noise * Math.sqrt(nEff) * .62);
+    rows.push({ gene: g, lfc, p, padj: Math.min(1, p * GENES.length / 2.2),
+                mean: 40 + Math.abs(lfc) * 260 + hash(g) % 220 });
+  }
+  rows.sort((a, b) => a.padj - b.padj);
+  return { rows, n0, n1, kept };
+}
+
+/**
+ * Significance threshold, per method.
+ *
+ * |log2FC| > 1 is a bulk convention and it does not transfer. Single-cell
+ * values are log-normalized before testing, so effect sizes are compressed and
+ * a 1.0 cutoff discards almost everything real — Seurat reports at its own
+ * logfc.threshold instead. Pseudobulk runs on summed raw counts, which behave
+ * like a bulk experiment, so there the bulk cutoff is the right one.
+ */
+const THRESH = () => S.method === 'wilcox'
+  ? { padj: .05, lfc: LFC_GATE } : { padj: .05, lfc: 1 };
+const isSig = (r, th = THRESH()) => r.padj < th.padj && Math.abs(r.lfc) >= th.lfc;
+const sigCount = (rows, th) => rows.filter(r => isSig(r, th)).length;
+
+/* ============================================================
+   State
+   ============================================================ */
+const S = { tab:'overview', ct:'qNSC', ctrl:'', case:'', method:'wilcox',
+            colorBy:'type', split:true, relative:false, cols:2,
+            groupBy:'type', plot:'violin', dotScale:true,
+            pal:'npg', ramp:'seurat',
+            gene:'Ascl1', genes:['Ascl1','Gfap','Mki67','Dcx'],
+            q:'', missing:[], computed:new Set() };
+
+function applyPalette(key) {
+  S.pal = key;
+  PALETTE = PALETTES[key].cols;
+  TYPES.forEach((t, i) => { t.color = pal(i); });
+}
+
+/** Deterministic uniform in [0,1) for a (gene, cell) pair — the same picture on
+    every reload, and a different dropout pattern per gene rather than one mask
+    shared by every feature plot. */
+function hashU(a, b) {
+  let x = (a ^ Math.imul(b | 0, 2654435761)) >>> 0;
+  x ^= x >>> 15; x = Math.imul(x, 2246822507); x ^= x >>> 13;
+  return (x >>> 0) / 4294967296;
+}
+/** One cell's expression of one gene. */
+function cellExpr(gh, idx, m) {
+  const u = hashU(gh, idx);
+  if (u < Math.exp(-m * 1.15)) return 0;
+  return m * (.35 + hashU(gh ^ 0x9e3779b9, idx) * 1.5);
+}
+
+const TABS = [
+  ['overview','Overview'], ['cells','Cells'], ['composition','Composition'], ['markers','Markers'],
+  ['div','|'],
+  ['degs','DEG table'], ['volcano','Volcano'], ['enrich','Enrichment'],
+  ['expr','Gene expression'], ['sets','Gene sets'], ['methods','Methods'],
+];
+const NEEDS_CONTRAST = new Set(['degs','volcano','enrich']);
+
+const curT = () => TYPES.find(t => t.name === S.ct) || TYPES[0];
+const curTi = () => TYPES.indexOf(curT());
+const contrastLabel = () => D.multi ? `${S.case} vs ${S.ctrl} · ${S.ct}` : S.ct;
+
+/** Which samples of the selected cell type are usable, and by which method. */
+function designFor(ti) {
+  const used = D.samples.map((s, si) => ({ ...s, n: D.grid[ti][si] }))
+    .filter(s => s.cond === S.ctrl || s.cond === S.case);
+  const kept = used.filter(s => s.n >= MIN_CELLS);
+  const n0 = kept.filter(s => s.cond === S.ctrl).length;
+  const n1 = kept.filter(s => s.cond === S.case).length;
+  return { used, kept, n0, n1, pbOK: n0 >= MIN_REPS_PB && n1 >= MIN_REPS_PB && S.ctrl !== S.case };
+}
+const pbKey = () => `${curT().key}|${S.ctrl}|${S.case}`;
+
+/* ============================================================
+   Chrome
+   ============================================================ */
+function openDemo(key) {
+  D = buildDataset(key);
+  S.ctrl = D.conds[0];
+  S.case = D.conds[D.conds.length - 1];
+  S.method = 'wilcox';
+  S.groupBy = 'type';
+  S.computed = new Set();
+  if (!D.multi && NEEDS_CONTRAST.has(S.tab)) S.tab = 'overview';
+  document.getElementById('landing').hidden = true;
+  document.getElementById('app').hidden = false;
+  document.getElementById('pname').textContent = D.label;
+  document.getElementById('pfile').textContent = D.file;
+  buildTabs(); render();
+}
+
+function buildTabs() {
+  const el = document.getElementById('tabs');
+  el.innerHTML = TABS.map(([id, label]) => id === 'div'
+    ? '<div class="tabdiv" aria-hidden="true"></div>'
+    : `<button class="tab" role="tab" data-tab="${id}" aria-selected="${S.tab===id}"
+         ${!D.multi && NEEDS_CONTRAST.has(id) ? 'data-off="1"' : ''}>${label}</button>`).join('');
+  el.querySelectorAll('.tab').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; buildTabs(); render(); });
+}
+
+/** The bar adapts to the object: a single-condition file has nothing to contrast. */
+function buildBar() {
+  const d = designFor(curTi());
+  const sel = (id, val, opts) => `<select class="sel" data-set="${id}">${
+    opts.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+
+  let chip, cls;
+  if (!D.multi) { chip = `Single condition · ${D.samples.length} sample${D.samples.length>1?'s':''}`; cls = ' mute'; }
+  else if (S.ctrl === S.case) { chip = 'Pick two different groups'; cls = ' bad'; }
+  else if (S.method === 'wilcox') { chip = `Wilcoxon · per cell · no replicates required`; cls = ''; }
+  else if (!d.pbOK) { chip = `Pseudobulk needs > 3 per group — have ${d.n0} vs ${d.n1}`; cls = ' bad'; }
+  else if (!S.computed.has(pbKey())) { chip = `Pseudobulk ready to run · ${d.n0} vs ${d.n1}`; cls = ' bad'; }
+  else { chip = `DESeq2 · pseudobulk · ${d.n0} vs ${d.n1}`; cls = ''; }
+
+  const bar = document.getElementById('gbar');
+  bar.innerHTML = `
+    <div class="gfield"><span class="glabel">Cell type</span>${sel('ct', S.ct, TYPES.map(t=>t.name))}</div>
+    ${D.multi ? `<div class="gsep"></div>
+      <div class="gfield"><span class="glabel">Control</span>${sel('ctrl', S.ctrl, D.conds)}</div>
+      <div class="gfield"><span class="glabel">Compare</span>${sel('case', S.case, D.conds)}</div>` : ''}
+    <div class="statchip${cls}"><span class="dot"></span><span>${chip}</span></div>`;
+  bar.querySelectorAll('[data-set]').forEach(s => s.onchange = () => { S[s.dataset.set] = s.value; render(); });
+}
+
+function render() {
+  buildBar();
+  const v = document.getElementById('view');
+  const blocked = !D.multi && NEEDS_CONTRAST.has(S.tab);
+  v.innerHTML = blocked ? noContrast() : (VIEWS[S.tab] || (() => ''))();
+  if (!blocked) (AFTER[S.tab] || (() => {}))();
+  wire(v);
+}
+
+function wire(v) {
+  v.querySelectorAll('[data-toggle]').forEach(b => b.onclick = () => {
+    const raw = b.dataset.toggle, i = raw.indexOf(':');
+    const k = raw.slice(0, i), val = raw.slice(i + 1);
+    if (k === 'drop') { S.genes = S.genes.filter(g => g !== val); return render(); }
+    if (k === 'clear') { S.genes = []; S.missing = []; return render(); }
+    if (k === 'tab') { S.tab = val; buildTabs(); return render(); }
+    if (k === 'pal') { applyPalette(val); return render(); }
+    S[k] = val === 'true' ? true : val === 'false' ? false : /^\d+$/.test(val) ? +val : val;
+    render();
+  });
+  v.querySelectorAll('[data-run]').forEach(b => b.onclick = () => {
+    b.disabled = true; b.textContent = 'Running DESeq2 in webR…';
+    setTimeout(() => { S.computed.add(pbKey()); render(); }, 900);
+  });
+  // Renaming a cluster rewrites only its label; results stay attached to `key`.
+  v.querySelectorAll('[data-rename]').forEach(inp => inp.onchange = () => {
+    const t = TYPES[+inp.dataset.rename], was = t.name;
+    t.name = inp.value.trim() || t.key;
+    if (S.ct === was) S.ct = t.name;
+    render();
+  });
+  v.querySelectorAll('[data-set]').forEach(sel => sel.onchange = () => {
+    if (sel.dataset.set === 'pal') applyPalette(sel.value); else S[sel.dataset.set] = sel.value;
+    render();
+  });
+  const q = v.querySelector('#q');
+  if (q) {
+    q.oninput = () => { S.q = q.value; drawAC(); };
+    q.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submitQuery(); } };
+    // Pasting a list is the common case; act on it without waiting for Enter.
+    q.onpaste = e => {
+      const txt = (e.clipboardData || window.clipboardData).getData('text');
+      if (SEPS.test(txt)) { e.preventDefault(); addGeneList(txt); }
+    };
+  }
+}
+
+/* ---- gene search: an exact match always ranks first ---- */
+function rankGenes(q) {
+  const s = q.trim().toLowerCase();
+  if (!s) return [];
+  const score = g => { const l = g.toLowerCase();
+    return l === s ? 0 : l.startsWith(s) ? 1 : l.includes(s) ? 2 : 3; };
+  return GENES.map(g => [g, score(g)]).filter(([, sc]) => sc < 3)
+    .sort((a, b) => a[1] - b[1] || a[0].length - b[0].length || a[0].localeCompare(b[0]))
+    .map(([g]) => g).slice(0, 8);
+}
+function drawAC() {
+  const host = document.getElementById('ac'); if (!host) return;
+  const hits = rankGenes(S.q), exact = S.q.trim().toLowerCase();
+  host.innerHTML = hits.length ? `<div class="aclist">${hits.map(g =>
+    `<button data-pick="${g}" class="${g.toLowerCase()===exact ? 'exact' : ''}">${g}</button>`).join('')}</div>` : '';
+  host.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => pickGene(b.dataset.pick));
+}
+const MAX_GENES = 24;
+/** Anything a user pastes between gene symbols: comma, semicolon, tab, newline, space. */
+const SEPS = /[\s,;|]+/;
+
+function pickGene(g) {
+  S.gene = g;
+  if (!S.genes.includes(g)) S.genes = [...S.genes, g].slice(-MAX_GENES);
+  S.q = ''; S.missing = []; render();
+}
+
+/**
+ * Add a whole list at once. Matching is case-insensitive and resolves to the
+ * object's own capitalisation, because a list pasted from a paper or a
+ * spreadsheet is rarely cased the way the matrix is.
+ */
+function addGeneList(text) {
+  const byLower = new Map(GENES.map(g => [g.toLowerCase(), g]));
+  const want = text.split(SEPS).map(t => t.trim()).filter(Boolean);
+  const found = [], missing = [];
+  for (const w of want) {
+    const hit = byLower.get(w.toLowerCase());
+    if (!hit) missing.push(w);
+    else if (!found.includes(hit)) found.push(hit);
+  }
+  const merged = [...S.genes];
+  for (const g of found) if (!merged.includes(g)) merged.push(g);
+  S.genes = merged.slice(-MAX_GENES);
+  if (found.length) S.gene = found[found.length - 1];
+  S.missing = missing;
+  S.q = ''; render();
+}
+
+/** Enter: a list if it looks like one, otherwise the top-ranked single hit. */
+function submitQuery() {
+  const t = S.q.trim();
+  if (!t) return;
+  if (SEPS.test(t)) return addGeneList(t);
+  const hit = rankGenes(t)[0];
+  if (hit) pickGene(hit); else { S.missing = [t]; S.q = ''; render(); }
+}
+
+/* ============================================================
+   Views
+   ============================================================ */
+const VIEWS = {}, AFTER = {};
+const fmt = n => n.toLocaleString('en-US');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+const sci = p => p >= 1e-4 ? p.toPrecision(2)
+  : p.toExponential(1).replace(/e-(\d+)/, (m, d) => ' × 10⁻' + d.split('').map(c => SUPS[+c]).join(''));
+
+function quantiles(arr) {
+  const a = [...arr].sort((x, y) => x - y), q = f => a[Math.min(a.length-1, Math.floor(f*a.length))];
+  return { min:a[0], q1:q(.25), med:q(.5), q3:q(.75), max:a[a.length-1] };
+}
+function density(arr, lo, hi, steps = 26) {
+  const h = (hi - lo) / 14 || 1, out = [];
+  const step = Math.max(1, (arr.length / 300) | 0);
+  for (let i = 0; i <= steps; i++) {
+    const x = lo + (hi - lo) * i / steps; let s = 0;
+    for (let k = 0; k < arr.length; k += step) { const z = (arr[k] - x) / h; s += Math.exp(-.5*z*z); }
+    out.push(s);
+  }
+  const m = Math.max(...out) || 1;
+  return out.map(v => v / m);
+}
+/** Per-cell values for a gene, sampled around the type/group mean with dropout. */
+function cellValues(gene, ti, cond, n = 150) {
+  const m = meanExpr(gene, ti, D.act[cond]);
+  const G = rng(hash(gene + '|' + ti + '|' + cond));
+  const drop = Math.exp(-m * 1.15);
+  return Array.from({ length: n }, () => G() < drop ? 0 : m * (.35 + G() * 1.5) + G() * .12);
+}
+
+function noContrast() {
+  return `<div class="empty">
+    <div class="big">This object has one condition, so there is nothing to contrast</div>
+    Differential expression between groups needs at least two. What is still available:
+    <b>Markers</b> ranks the genes that define each cluster, and <b>Gene expression</b>
+    searches any gene across every cell type.
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" data-toggle="tab:markers">Go to Markers</button>
+      <button class="btn primary" data-toggle="tab:expr">Search a gene</button>
+    </div></div>`;
+}
+
+/* ---------- Overview ---------- */
+VIEWS.overview = () => {
+  const nRep = Math.min(...D.conds.map(c => D.samples.filter(s => s.cond === c).length));
+  const prov = [
+    ['Normalization','file','log1p(CP10K) — <code class="mono">uns.log1p</code> present'],
+    ['Feature selection','file','2,000 highly variable genes — <code class="mono">var.highly_variable</code>'],
+    ['Dimension reduction','file','50 principal components → UMAP (<code class="mono">obsm.X_umap</code>)'],
+    ['Batch integration','file', D.samples.length > 1
+      ? 'Harmony on <code class="mono">sample</code> — <code class="mono">obsm.X_pca_harmony</code>'
+      : 'none recorded — a single sample has no batch to correct'],
+    ['Clustering','file',`Leiden, resolution 1.0 → ${TYPES.length} clusters (<code class="mono">obs.leiden</code>)`],
+    ['Raw counts','file','<code class="mono">layers/counts</code> — present'],
+    ['Doublet calls','none','no <code class="mono">scrublet</code> / <code class="mono">doublet_score</code> column found'],
+    ['Ambient RNA','none','no SoupX / CellBender / DecontX record found'],
+    ['Differential expression','here', D.multi
+      ? 'Wilcoxon rank-sum across cells, run in this browser'
+        + (nRep >= MIN_REPS_PB ? ' — pseudobulk DESeq2 also available' : '')
+      : 'not applicable — one condition'],
+  ];
+  return `
+  <div class="card">
+    <div class="eyebrow">Dataset</div>
+    <h2 style="margin:4px 0 12px">What is in this object</h2>
+    <div class="stats">
+      <div class="stat"><div class="v num">${fmt(D.nCells)}</div><div class="k">cells</div></div>
+      <div class="stat"><div class="v num">${fmt(N_GENES)}</div><div class="k">genes</div></div>
+      <div class="stat"><div class="v num">${D.samples.length}</div><div class="k">samples</div></div>
+      <div class="stat"><div class="v num">${D.conds.length}</div><div class="k">group${D.conds.length>1?'s':''}</div></div>
+      <div class="stat"><div class="v num">${TYPES.length}</div><div class="k">clusters</div></div>
+      <div class="stat"><div class="v num">${nRep}</div><div class="k">min replicates</div></div>
+    </div>
+  </div>
+
+  <div class="${nRep >= MIN_REPS_PB ? 'note info' : 'note'}" style="margin-bottom:16px">
+    ${nRep >= MIN_REPS_PB
+      ? `<b>Both tests are available for this object.</b> The default is a Wilcoxon rank-sum test
+         across cells, as in Seurat's <code class="mono">FindMarkers</code>. With ${nRep} samples
+         per group you can also run pseudobulk DESeq2, which tests between animals instead of
+         between cells — far fewer genes, but each survives the between-animal variance.`
+      : D.multi
+      ? `<b>${nRep} sample per group, so Wilcoxon is the only test available — and nothing is
+         blocked.</b> That is the normal situation in single-cell work. Bear in mind the p-values
+         describe variation between <em>cells</em>, not between animals, so they are not evidence
+         that the effect would repeat in a new mouse.`
+      : `<b>One condition, so there is no differential expression to run.</b> Cluster markers and
+         gene search work normally; the contrast tabs stay empty rather than inventing a comparison.`}
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">Provenance</div>
+    <h2 style="margin:4px 0 3px">Where every number comes from</h2>
+    <p class="sub">Read from the object, not assumed. Anything this studio computes is labelled as such.</p>
+    <div class="scrollx" style="margin-top:12px">
+      <table class="t"><tbody>
+        ${prov.map(([k, kind, t]) => `<tr>
+          <td style="white-space:nowrap;font-weight:550">${k}</td>
+          <td style="width:1%"><span class="badge ${kind}">${
+            kind==='file'?'from your file':kind==='here'?'computed here':'not found'}</span></td>
+          <td style="color:var(--ink-2)">${t}</td></tr>`).join('')}
+      </tbody></table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">Figure style</div>
+    <h2 style="margin:4px 0 3px">Match the journal you are submitting to</h2>
+    <p class="sub">Applies to every figure in the studio at once, so an exported panel already
+      matches the rest of the manuscript instead of being recoloured by hand afterwards.</p>
+    <div class="row" style="gap:18px;margin-top:14px;align-items:center">
+      <div class="gfield"><span class="glabel">Clusters</span>
+        <select class="sel" data-set="pal">${Object.entries(PALETTES).map(([k, p]) =>
+          `<option value="${k}"${k===S.pal?' selected':''}>${p.label}</option>`).join('')}</select>
+        <span style="display:inline-flex;gap:2px;margin-left:4px">${PALETTE.map(c =>
+          `<i class="sw" style="background:${c};width:13px;height:13px;border-radius:3px"></i>`).join('')}</span>
+      </div>
+      <div class="gfield"><span class="glabel">Expression</span>
+        <select class="sel" data-set="ramp">${Object.entries(RAMPS).map(([k, r]) =>
+          `<option value="${k}"${k===S.ramp?' selected':''}>${r.label}</option>`).join('')}</select>
+        <span style="display:inline-block;width:104px;height:13px;border-radius:3px;margin-left:4px;
+          background:linear-gradient(90deg,${[0,.25,.5,.75,1].map(f=>rampColor(f)).join(',')})"></span>
+      </div>
+    </div>
+    <p style="font-size:11.5px;color:var(--ink-3);margin:11px 0 0">
+      <b>viridis</b> and <b>magma</b> are perceptually uniform and safe for colour-vision
+      deficiency, which is why they have largely replaced rainbow scales in the journals.
+      The categorical sets are the ones the journals' own figures use.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">Quality control</div>
+    <h2 style="margin:4px 0 3px">Three covariates, read together, per sample</h2>
+    <p class="sub">Thresholds vary substantially between samples, so QC is shown per sample rather
+      than pooled. These distributions are what remains <em>after</em> the filtering your pipeline applied.</p>
+    <div id="qc" style="margin-top:14px"></div>
+  </div>`;
+};
+
+AFTER.overview = () => {
+  const host = document.getElementById('qc'); if (!host) return;
+  const metrics = [
+    ['Total counts', c => c.counts, v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0)],
+    ['Genes detected', c => c.genes, v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0)],
+    ['Mitochondrial %', c => c.mito, v => v.toFixed(1)],
+  ];
+  host.innerHTML = `<div class="row">${metrics.map(m => qcPanel(m)).join('')}</div>
+    <p class="mono" style="font-size:11px;color:var(--ink-3);margin:10px 0 0">
+      box = median and IQR · violin = density · n = ${fmt(D.nCells)} cells</p>`;
+};
+
+function qcPanel([title, get, tick]) {
+  const W = 330, H = 190, PL = 46, PB = 30, PT = 16, PR = 8;
+  const per = D.samples.map(s => D.cells.filter(c => c.s === s.id).map(get));
+  const all = per.flat();
+  const lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * .04;
+  // None of these covariates can be negative, so the axis must not imply it can.
+  const y0 = Math.max(0, lo - pad), y1 = hi + pad;
+  const Y = v => PT + (H-PT-PB) * (1 - (v-y0)/(y1-y0));
+  const bw = (W-PL-PR) / D.samples.length;
+  let s = [0,.25,.5,.75,1].map(f => { const t = y0 + (y1-y0)*f;
+    return `<line class="axline" x1="${PL}" x2="${W-PR}" y1="${Y(t)}" y2="${Y(t)}" opacity=".45"/>
+      <text class="axis" x="${PL-6}" y="${Y(t)+3.5}" text-anchor="end">${tick(t)}</text>`; }).join('');
+
+  per.forEach((vals, i) => {
+    const cx = PL + bw*(i+.5), q = quantiles(vals);
+    const d = density(vals, y0, y1), half = bw*.40;
+    const up = d.map((v,k) => `${(cx+v*half).toFixed(1)},${Y(y0+(y1-y0)*k/26).toFixed(1)}`);
+    const dn = d.map((v,k) => `${(cx-v*half).toFixed(1)},${Y(y0+(y1-y0)*k/26).toFixed(1)}`).reverse();
+    const col = pal(D.conds.indexOf(D.samples[i].cond));
+    s += `<polygon points="${up.concat(dn).join(' ')}" fill="${col}" opacity=".22"/>
+      <line x1="${cx}" x2="${cx}" y1="${Y(q.min)}" y2="${Y(q.max)}" stroke="${col}" opacity=".55"/>
+      <rect x="${cx-4.5}" y="${Y(q.q3)}" width="9" height="${Math.max(1,Y(q.q1)-Y(q.q3))}" fill="${col}" opacity=".85" rx="1.5"/>
+      <line x1="${cx-5.5}" x2="${cx+5.5}" y1="${Y(q.med)}" y2="${Y(q.med)}" stroke="var(--surface)" stroke-width="1.6"/>
+      <text class="axis" x="${cx}" y="${H-PB+13}" text-anchor="middle">${D.samples[i].id.replace(/^(SVZ|TC)_/,'')}</text>`;
+  });
+  return `<figure style="flex:1 1 300px;min-width:280px">
+    <div style="font-size:12px;font-weight:600;margin-bottom:2px">${title}</div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="${title} per sample">
+      ${s}<line class="axline" x1="${PL}" x2="${W-PR}" y1="${H-PB}" y2="${H-PB}"/></svg></figure>`;
+}
+
+/* ---------- Cells ---------- */
+VIEWS.cells = () => `
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><div class="eyebrow">Embedding · UMAP from your file</div>
+        <h2 style="margin-top:4px">${fmt(D.nCells)} cells</h2></div>
+      <div class="row" style="gap:6px">
+        ${[['type','Cell type'],['cond','Group'],['sample','Sample'],['mito','% mito'],['gene','Gene: '+S.gene]]
+          .filter(([k]) => D.multi || k !== 'cond')
+          .map(([k,l]) => `<button class="chip" data-toggle="colorBy:${k}" aria-pressed="${S.colorBy===k}">${l}</button>`).join('')}
+        ${D.multi ? `<div class="gsep" style="height:26px"></div>
+          <button class="chip" data-toggle="split:${!S.split}" aria-pressed="${S.split}">Split by group</button>` : ''}
+      </div>
+    </div>
+    <div id="umap"></div><figcaption id="umapcap"></figcaption>
+  </div>`;
+
+AFTER.cells = () => {
+  const host = document.getElementById('umap'); if (!host) return;
+  const panels = (S.split && D.multi) ? D.conds : [null];
+  const wide = panels.length === 1;
+  const W = wide ? 700 : Math.max(240, 840 / panels.length), H = wide ? 500 : 330;
+
+  host.innerHTML = `<div class="row" style="gap:14px;flex-wrap:nowrap;overflow-x:auto">${panels.map((p,i) =>
+    `<figure style="flex:1 1 ${Math.round(W*.75)}px;min-width:210px">
+      ${p ? `<div style="font-size:12.5px;font-weight:600;margin-bottom:5px">${p}
+        <span class="mono" style="font-weight:400;color:var(--ink-3)">n = ${fmt(D.nPerCond[p])}</span></div>` : ''}
+      <canvas id="cv${i}" width="${Math.round(W*2)}" height="${H*2}" style="width:100%;height:auto;border-radius:10px"></canvas>
+    </figure>`).join('')}</div><div class="legend" style="margin-top:12px" id="lg"></div>`;
+
+  // A shared range across panels — otherwise any apparent shift is an axis artefact.
+  const xs = D.cells.map(c=>c.x), ys = D.cells.map(c=>c.y);
+  const x0=Math.min(...xs)-.4, x1=Math.max(...xs)+.4, y0=Math.min(...ys)-.4, y1=Math.max(...ys)+.4;
+  const small = panels.length > 2;
+
+  panels.forEach((p, i) => {
+    const cv = document.getElementById('cv'+i), g = cv.getContext('2d');
+    g.fillStyle = css('--sunk'); g.fillRect(0,0,cv.width,cv.height);
+    const pts = p ? D.cells.filter(c => c.cond === p) : D.cells;
+    const r = wide ? 1.9 : small ? 1.4 : 1.7;
+    for (const c of pts) {
+      g.fillStyle = colorFor(c);
+      g.beginPath();
+      g.arc((c.x-x0)/(x1-x0)*cv.width, (1-(c.y-y0)/(y1-y0))*cv.height, r, 0, 6.284);
+      g.fill();
+    }
+    if (!small) {
+      g.font = '600 20px system-ui'; g.textAlign = 'center';
+      g.strokeStyle = css('--surface'); g.lineWidth = 4;
+      TYPES.forEach(t => {
+        const X = (t.cx-x0)/(x1-x0)*cv.width, Y = (1-(t.cy-y0)/(y1-y0))*cv.height;
+        g.strokeText(t.name, X, Y); g.fillStyle = css('--ink'); g.fillText(t.name, X, Y);
+      });
+    }
+  });
+
+  const lg = document.getElementById('lg');
+  const sw = list => list.map(([c, l]) => `<span><i class="sw" style="background:${c}"></i>${l}</span>`).join('');
+  if (S.colorBy === 'type') lg.innerHTML = sw(TYPES.map(t => [t.color, t.name]));
+  else if (S.colorBy === 'cond') lg.innerHTML = sw(D.conds.map((c,i) => [pal(i), c]));
+  else if (S.colorBy === 'sample') lg.innerHTML = sw(D.samples.map((s,i) => [pal(i), s.id]));
+  else lg.innerHTML = `<span style="color:var(--ink-3)">low</span>
+    <span style="display:inline-block;width:120px;height:9px;border-radius:3px;
+      background:linear-gradient(90deg,${rampColor(0)},${rampColor(1)})"></span>
+    <span style="color:var(--ink-3)">high</span>
+    ${S.colorBy==='gene'?`<span style="font-style:italic;font-weight:600">${S.gene}</span>`:''}`;
+
+  document.getElementById('umapcap').innerHTML = panels.length > 1
+    ? `All ${panels.length} panels share one axis range, so the shift between groups is real and
+       not a rescaling. Coloured by ${S.colorBy === 'gene' ? '<i>'+S.gene+'</i>' : S.colorBy}.`
+    : `Coloured by ${S.colorBy === 'gene' ? '<i>'+S.gene+'</i> expression' : S.colorBy}.`;
+};
+
+function colorFor(c) {
+  if (S.colorBy === 'type') return TYPES[c.t].color;
+  if (S.colorBy === 'cond') return pal(D.conds.indexOf(c.cond));
+  if (S.colorBy === 'sample') return pal(D.samples.findIndex(s => s.id === c.s));
+  if (S.colorBy === 'mito') return rampColor(Math.min(1, c.mito / 9));
+  return rampColor(Math.min(1, meanExpr(S.gene, c.t, c.a) / 3.1));
+}
+function mix(a, b, f) {
+  const h = s => [1,3,5].map(i => parseInt(s.substr(i,2),16));
+  const [r1,g1,b1] = h(a), [r2,g2,b2] = h(b);
+  return `rgb(${r1+(r2-r1)*f|0},${g1+(g2-g1)*f|0},${b1+(b2-b1)*f|0})`;
+}
+
+/* ---------- Composition ---------- */
+VIEWS.composition = () => `
+  <div class="card">
+    <div class="eyebrow">Composition</div>
+    <h2 style="margin:4px 0 3px">Cell type proportions, one bar per sample</h2>
+    <p class="sub">Horizontal, because the quantity being read is a percentage and percentages are
+      read along a shared axis. ${D.samples.length > 1
+        ? `Never pooled by group — cells from one animal are not independent observations, so each
+           animal is its own row and the spread between animals is part of the result.`
+        : `This object contains one sample, so this is a description of it and not a comparison.`}</p>
+    <div id="comp" style="margin-top:16px"></div>
+  </div>
+  ${D.multi ? `<div class="card">
+    <div class="eyebrow">Per cell type</div>
+    <h2 style="margin:4px 0 3px">Proportion by group</h2>
+    <p class="sub">One panel per cell type, each with its own y axis — a shared axis would flatten
+      every population except the largest. ${D.samples.length > D.conds.length
+        ? 'Dots are the individual animals; if they overlap between groups, the difference in the bars is not evidence.'
+        : 'One sample per group, so each bar is a single measurement with no spread to show.'}</p>
+    <div id="compfacets" style="margin-top:16px"></div>
+  </div>` : ''}`;
+
+AFTER.composition = () => {
+  const host = document.getElementById('comp');
+  if (host) host.innerHTML = stackedRows();
+  const f = document.getElementById('compfacets');
+  if (f) f.innerHTML = `<div style="display:grid;gap:12px;
+      grid-template-columns:repeat(auto-fit,minmax(178px,1fr))">
+      ${TYPES.map((t, ti) => typeFacet(t, ti)).join('')}</div>
+    <div class="legend" style="margin-top:12px">${D.conds.map((c,i) =>
+      `<span><i class="sw" style="background:${pal(i)}"></i>${c}</span>`).join('')}
+      ${D.samples.length > D.conds.length
+        ? '<span style="color:var(--ink-3)">· bar = mean · dots = individual samples</span>' : ''}</div>`;
+};
+
+/** Horizontal 100% stacked bars — one row per sample, on a shared percentage axis. */
+function stackedRows() {
+  const rowH = 24, gap = 7, PL = 96, PR = 16, PT = 6, AX = 26;
+  const W = 760, H = PT + D.samples.length * (rowH + gap) + AX;
+  const X = p => PL + (W - PL - PR) * p;
+  let s = '';
+  [0, .25, .5, .75, 1].forEach(f => {
+    s += `<line class="axline" x1="${X(f)}" x2="${X(f)}" y1="${PT}" y2="${H-AX+2}" opacity=".55"/>
+      <text class="axis" x="${X(f)}" y="${H-8}" text-anchor="middle">${(f*100)|0}%</text>`;
+  });
+  D.samples.forEach((sm, si) => {
+    const y = PT + si * (rowH + gap);
+    const ci = D.conds.indexOf(sm.cond);
+    s += `<clipPath id="cRow${si}"><rect x="${PL}" y="${y}" width="${W-PL-PR}" height="${rowH}" rx="5"/></clipPath>
+      <text class="axis" x="${PL-16}" y="${y+rowH/2+4}" text-anchor="end"
+        style="font-size:11.5px;fill:var(--ink);font-weight:550">${sm.id.replace(/^(SVZ|TC)_/,'')}</text>
+      <rect x="${PL-9}" y="${y+3}" width="4" height="${rowH-6}" rx="2"
+        fill="${pal(ci)}"><title>${sm.cond}</title></rect>
+      <g clip-path="url(#cRow${si})">`;
+    let acc = 0;
+    TYPES.forEach((t, ti) => {
+      const p = D.prop[si][ti], x0 = X(acc), x1 = X(acc + p);
+      s += `<rect x="${x0}" y="${y}" width="${Math.max(0, x1-x0)}" height="${rowH}" fill="${t.color}"
+        ><title>${t.name} — ${(p*100).toFixed(1)}%</title></rect>`;
+      // A number only where it fits; a clipped "1%" is worse than no label.
+      if (x1 - x0 > 30) s += `<text x="${(x0+x1)/2}" y="${y+rowH/2+3.5}" text-anchor="middle"
+        style="font-size:10px;fill:#fff;font-weight:650">${(p*100).toFixed(0)}%</text>`;
+      acc += p;
+    });
+    s += `</g>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
+      aria-label="Cell type proportions per sample">${s}</svg>
+    <div class="legend" style="margin-top:12px">${TYPES.map(t =>
+      `<span><i class="sw" style="background:${t.color}"></i>${t.name}</span>`).join('')}</div>`;
+}
+
+/**
+ * A "nice" axis step — 1, 1.5, 2, 2.5, 3, 4, 5, 7.5 or 10 times a power of ten.
+ * Every facet has a different maximum, so without this the ticks come out as
+ * 39% and 9.7% and no two panels can be compared at a glance.
+ */
+function niceStep(v) {
+  const e = Math.pow(10, Math.floor(Math.log10(v || 1e-6))), m = v / e;
+  const n = m <= 1 ? 1 : m <= 1.5 ? 1.5 : m <= 2 ? 2 : m <= 2.5 ? 2.5
+          : m <= 3 ? 3 : m <= 4 ? 4 : m <= 5 ? 5 : m <= 7.5 ? 7.5 : 10;
+  return n * e;
+}
+const pctTxt = v => !v ? '0%'
+  : v >= .1 ? (v*100).toFixed(0) + '%'
+  : v >= .01 ? (v*100).toFixed(1) + '%' : (v*100).toFixed(2) + '%';
+
+/** One cell type: a bar per group, its own y axis, samples drawn on top. */
+function typeFacet(t, ti) {
+  const W = 210, H = 152, PL = 42, PB = 36, PT = 16, PR = 8;
+  const per = D.conds.map(c =>
+    D.samples.map((s, si) => s.cond === c ? D.prop[si][ti] : null).filter(v => v !== null));
+  const step = niceStep(Math.max(...per.flat(), 1e-4) / 2);
+  const maxV = step * 2;
+  const Y = v => PT + (H-PT-PB) * (1 - v/maxV);
+  const bw = (W-PL-PR) / D.conds.length;
+
+  let s = [0, 1, 2].map(k => `<line class="axline" x1="${PL}" x2="${W-PR}"
+      y1="${Y(step*k)}" y2="${Y(step*k)}" opacity=".4"/>
+    <text class="axis" x="${PL-5}" y="${Y(step*k)+3.5}" text-anchor="end">${pctTxt(step*k)}</text>`).join('');
+
+  per.forEach((vals, ci) => {
+    const mean = vals.reduce((a,b)=>a+b,0) / vals.length;
+    const cx = PL + bw*(ci+.5), col = pal(ci);
+    const w = Math.min(46, bw*.56);
+    s += `<rect x="${cx-w/2}" y="${Y(mean)}" width="${w}" height="${Math.max(0,(H-PB)-Y(mean))}"
+        fill="${col}" opacity=".78" rx="2"><title>${t.name} · ${D.conds[ci]} — ${pctTxt(mean)}</title></rect>`;
+    if (vals.length > 1) {
+      s += `<line x1="${cx}" x2="${cx}" y1="${Y(Math.min(...vals))}" y2="${Y(Math.max(...vals))}"
+        stroke="${col}" stroke-width="1.4" opacity=".85"/>`;
+      vals.forEach((v, k) => s += `<circle cx="${cx + (k - (vals.length-1)/2) * 4.6}" cy="${Y(v)}"
+        r="2.6" fill="var(--surface)" stroke="${col}" stroke-width="1.4"/>`);
+    }
+    const lab = D.conds[ci];
+    s += lab.length * 5.4 > bw
+      ? `<text class="axis" transform="rotate(-38 ${cx} ${H-PB+12})" x="${cx}" y="${H-PB+12}"
+           text-anchor="end">${lab}</text>`
+      : `<text class="axis" x="${cx}" y="${H-PB+13}" text-anchor="middle">${lab}</text>`;
+  });
+
+  return `<figure><svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
+      aria-label="${t.name} proportion by group">
+    <text class="facet-title" x="${PL}" y="11">
+      <tspan fill="${t.color}">■ </tspan>${t.name}</text>
+    ${s}<line class="axline" x1="${PL}" x2="${W-PR}" y1="${H-PB}" y2="${H-PB}"/>
+  </svg></figure>`;
+}
+
+/* ---------- Markers ---------- */
+VIEWS.markers = () => `
+  <div class="note info" style="margin-bottom:16px">
+    <b>A ranking, not a hypothesis test.</b> These come from a one-vs-rest Wilcoxon test —
+    Seurat's <code class="mono">FindAllMarkers</code>, Scanpy's
+    <code class="mono">rank_genes_groups</code>. The clusters were defined using the same
+    expression the test then scores, so the p-values are circular and are shown for ordering only.
+    Read the effect size and the detection rates.
+  </div>
+  <div class="card">
+    <div class="eyebrow">Markers · one vs rest</div>
+    <h2 style="margin:4px 0 3px">Mean expression × fraction of cells detected</h2>
+    <p class="sub">Top 5 genes per cluster. Rename any cluster here — the name propagates to
+      every tab and into Methods.</p>
+    <div id="dots" style="margin-top:16px;overflow-x:auto"></div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+      <div class="eyebrow" style="margin-bottom:9px">Cluster names</div>
+      <div class="row" style="gap:8px" id="rename"></div>
+      <p style="font-size:11.5px;color:var(--ink-3);margin:9px 0 0">
+        Results stay attached to the original cluster, so renaming never detaches a run you
+        have already done.</p>
+    </div>
+  </div>`;
+
+AFTER.markers = () => {
+  const host = document.getElementById('dots'); if (!host) return;
+  const genes = TYPES.flatMap(t => t.mk);
+  const cw = 21, rh = 34, PL = 132, PT = 76;
+  const W = PL + genes.length*cw + 20, H = PT + TYPES.length*rh + 16;
+  let s = genes.map((g, gi) => { const x = PL + cw*(gi+.5);
+    return `<text class="axis" transform="rotate(-52 ${x} ${PT-8})" x="${x}" y="${PT-8}"
+      text-anchor="start" style="font-style:italic;font-size:10.5px">${g}</text>`; }).join('');
+  TYPES.forEach((t, ti) => {
+    const y = PT + rh*(ti+.5);
+    s += `<text class="axis" x="${PL-12}" y="${y+4}" text-anchor="end"
+      style="font-size:11.5px;fill:var(--ink);font-weight:550">${t.name}</text>`;
+    genes.forEach((g, gi) => {
+      const own = MARKER_OF[g] && MARKER_OF[g][0] === ti;
+      const m = meanExpr(g, ti, 0), pct = pctFromMean(m);
+      if (pct < .04) return;
+      s += `<circle cx="${PL+cw*(gi+.5)}" cy="${y}" r="${(2+pct*7.5).toFixed(1)}"
+        fill="${mix('#e2e8f0', t.color, Math.min(1, m/2.9))}"
+        stroke="${own ? t.color : 'none'}" stroke-width="${own ? .8 : 0}" opacity=".95"
+        ><title>${g} in ${t.name} — ${(pct*100).toFixed(0)}% of cells</title></circle>`;
+    });
+  });
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"
+      aria-label="Marker gene dot plot">${s}</svg>
+    <div class="legend" style="margin-top:10px">
+      <span>dot size = % of cells detecting the gene</span>
+      <span>colour = mean expression within the cluster</span></div>`;
+  document.getElementById('rename').innerHTML = TYPES.map((t, i) => `
+    <label style="display:flex;align-items:center;gap:6px">
+      <i class="sw" style="background:${t.color}"></i>
+      <input class="inp" style="width:132px;font-size:12.5px" value="${esc(t.name)}"
+        data-rename="${i}" aria-label="Rename cluster ${esc(t.key)}"></label>`).join('');
+};
+
+/* ---------- the test picker, shared by every contrast tab ---------- */
+function methodBar() {
+  const d = designFor(curTi());
+  const why = !d.pbOK && S.ctrl !== S.case
+    ? `Pseudobulk needs more than ${MIN_REPS_PB-1} samples per group; ${S.ct} has ${d.n0} and ${d.n1}.`
+    : '';
+  return `<div class="row" style="justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+    <div class="row" style="gap:9px;align-items:center">
+      <span class="glabel">Test</span>
+      <div class="seg">
+        <button data-toggle="method:wilcox" aria-pressed="${S.method==='wilcox'}">Wilcoxon · per cell</button>
+        <button data-toggle="method:pseudobulk" aria-pressed="${S.method==='pseudobulk'}"
+          ${d.pbOK?'':'disabled'} title="${esc(why)}">Pseudobulk · DESeq2</button>
+      </div>
+    </div>
+    <span style="font-size:11.5px;color:var(--ink-3)">${S.method==='wilcox'
+      ? `logfc.threshold ${LFC_GATE} · min.pct ${PCT_GATE} · Bonferroni`
+      : `≥ ${MIN_CELLS} cells per sample · apeglm · Benjamini–Hochberg`}</span>
+  </div>${why ? `<p style="font-size:11.5px;color:var(--ink-3);margin:-2px 0 12px">${why}
+    Wilcoxon needs no replicates and is what Seurat and Scanpy run by default.</p>` : ''}`;
+}
+
+/** Results, or the reason there are none. Never a substitute number. */
+function results() {
+  if (S.ctrl === S.case)
+    return { blocked: `<div class="empty"><div class="big">Pick two different groups</div>
+      Control and comparison are both set to <b>${S.ctrl}</b>.</div>` };
+  const ti = curTi(), d = designFor(ti);
+  if (S.method === 'wilcox') {
+    const r = deWilcox(ti, S.ctrl, S.case);
+    if (!r.n0 || !r.n1) return { blocked: `<div class="empty">
+      <div class="big">No ${S.ct} cells in one of these groups</div>
+      ${r.n0} cells in ${S.ctrl}, ${r.n1} in ${S.case}.</div>` };
+    return { rows: r.rows, meta: r };
+  }
+  if (!d.pbOK) return { blocked: `<div class="empty">
+    <div class="big">Not enough samples in ${S.ct} for pseudobulk</div>
+    ${d.n0} ${S.ctrl} and ${d.n1} ${S.case} samples clear the ${MIN_CELLS}-cell floor.
+    Pseudobulk needs more than ${MIN_REPS_PB-1} per group.
+    <div style="margin-top:14px"><button class="btn primary" data-toggle="method:wilcox">
+      Use Wilcoxon instead</button></div>
+    <div class="scrollx" style="margin-top:16px;text-align:left"><table class="t">
+      <thead><tr><th>Sample</th><th>Group</th><th>Cells in ${S.ct}</th><th>Used</th></tr></thead>
+      <tbody>${d.used.map(s => `<tr><td class="mono">${s.id}</td><td>${s.cond}</td>
+        <td class="num">${s.n}</td><td>${s.n>=MIN_CELLS
+          ? '<span class="badge here">yes</span>'
+          : '<span class="badge none">too few cells</span>'}</td></tr>`).join('')}
+      </tbody></table></div></div>` };
+  if (!S.computed.has(pbKey())) return { blocked: `<div class="empty">
+    <div class="big">No DESeq2 result for ${contrastLabel()} yet</div>
+    Raw counts will be summed within each sample to a pseudobulk profile
+    (${d.n0} + ${d.n1} columns), then tested with DESeq2 in webR. Nothing is shown until it runs.
+    <div style="margin-top:16px"><button class="btn primary" data-run="1">Run DESeq2 for ${S.ct}</button></div>
+    <div class="mono" style="font-size:11px;color:var(--ink-3);margin-top:10px">
+      ${d.kept.map(s => s.id + ' (' + s.n + ' cells)').join(' · ')}</div></div>` };
+  const r = dePseudobulk(ti, S.ctrl, S.case);
+  return { rows: r.rows, meta: r };
+}
+
+/* ---------- DEG table ---------- */
+VIEWS.degs = () => {
+  const head = methodBar(), res = results();
+  if (res.blocked) return `<div class="card">${head}${res.blocked}</div>`;
+  const rows = res.rows, wil = S.method === 'wilcox', th = THRESH();
+  const up = rows.filter(r => isSig(r, th) && r.lfc > 0).length;
+  const dn = rows.filter(r => isSig(r, th) && r.lfc < 0).length;
+  const d = designFor(curTi());
+  const other = d.pbOK
+    ? (wil ? sigCount(dePseudobulk(curTi(), S.ctrl, S.case).rows, { padj:.05, lfc:1 })
+           : sigCount(deWilcox(curTi(), S.ctrl, S.case).rows, { padj:.05, lfc:LFC_GATE }))
+    : null;
+  return `<div class="card">
+    ${head}
+    <div class="eyebrow">${contrastLabel()}</div>
+    <h2 style="margin:4px 0 3px">${up+dn} differentially expressed genes</h2>
+    <p class="sub">${up} higher and ${dn} lower in <b>${S.case}</b>, at adjusted p &lt; 0.05 and
+      |log₂ fold change| ≥ ${th.lfc}. ${wil
+        ? `Wilcoxon rank-sum over ${fmt(res.meta.n0)} and ${fmt(res.meta.n1)} cells. The effect-size
+           cutoff is Seurat's <code class="mono">logfc.threshold</code>, not the bulk |log₂FC| &gt; 1
+           — log-normalized single-cell values are compressed and a cutoff of 1 discards most real
+           differences.`
+        : `DESeq2 over ${res.meta.n0} + ${res.meta.n1} pseudobulk profiles, which are summed raw
+           counts and so take the bulk cutoff.`}</p>
+    ${other !== null ? `<div class="note" style="margin-top:12px">
+      <b>The other test gives ${other}.</b> ${wil
+        ? `Per-cell testing treats every cell as a replicate, so it reports ${up+dn} where
+           pseudobulk — testing between animals — reports ${other}. Use the per-cell list to
+           explore; use pseudobulk when the claim has to survive a new animal.`
+        : `Pseudobulk reports ${up+dn} where the per-cell test reports ${other}, because it will
+           not treat cells from one animal as independent observations.`}</div>` : ''}
+    <div class="scrollx" style="margin-top:14px;max-height:480px">
+      <table class="t"><thead><tr>
+        <th>Gene</th>${wil ? '<th>pct.1</th><th>pct.2</th>' : '<th>Base mean</th>'}
+        <th>log₂FC</th><th>p</th><th>p adjusted</th><th>Direction</th></tr></thead>
+        <tbody>${rows.slice(0, 60).map(r => `<tr>
+          <td class="mono" style="font-style:italic;font-weight:600">${r.gene}</td>
+          ${wil ? `<td class="num" style="color:var(--ink-2)">${r.pct1.toFixed(2)}</td>
+                   <td class="num" style="color:var(--ink-2)">${r.pct2.toFixed(2)}</td>`
+                : `<td class="num" style="color:var(--ink-2)">${r.mean.toFixed(0)}</td>`}
+          <td class="num ${r.lfc>0?'up':'down'}">${r.lfc>0?'+':''}${r.lfc.toFixed(2)}</td>
+          <td class="num mono" style="color:var(--ink-3);font-size:11.5px">${sci(r.p)}</td>
+          <td class="num mono" style="font-size:11.5px">${sci(r.padj)}</td>
+          <td>${r.lfc>0 ? `higher in ${S.case}` : `higher in ${S.ctrl}`}</td></tr>`).join('')}
+        </tbody></table></div>
+    <p class="mono" style="font-size:11px;color:var(--ink-3);margin:10px 0 0">
+      Showing ${Math.min(60, rows.length)} of ${rows.length} genes past the gates.
+      Direction always names the group.</p>
+  </div>`;
+};
+
+/* ---------- Volcano ---------- */
+VIEWS.volcano = () => {
+  const head = methodBar(), res = results();
+  if (res.blocked) return `<div class="card">${head}${res.blocked}</div>`;
+  return `<div class="card">${head}
+    <div class="eyebrow">${contrastLabel()}</div>
+    <h2 style="margin:4px 0 10px">Volcano</h2>
+    <div id="vol"></div>
+    <figcaption>Dashed lines: adjusted p = 0.05 and |log₂FC| = ${THRESH().lfc} — the cutoffs the
+      Methods text reports. ${S.method==='wilcox'
+        ? 'Note the y scale: per-cell tests reach exponents no bulk experiment ever produces, because n is the number of cells.'
+        : 'Between-animal variance is in the model, so the y scale stays interpretable.'}</figcaption>
+  </div>`;
+};
+
+AFTER.volcano = () => {
+  const host = document.getElementById('vol'); if (!host) return;
+  const res = results(); if (!res.rows) return;
+  const rows = res.rows;
+  const W = 700, H = 420, PL = 56, PB = 42, PT = 14, PR = 14;
+  const maxX = Math.max(3, ...rows.map(r => Math.abs(r.lfc))) * 1.12;
+  const maxY = Math.max(6, ...rows.map(r => -Math.log10(Math.max(r.padj, 1e-300)))) * 1.08;
+  const X = v => PL + (W-PL-PR) * (v+maxX) / (2*maxX);
+  const Y = v => PT + (H-PT-PB) * (1 - v/maxY);
+  let s = [-2,-1,0,1,2].map(f => { const v = maxX*f/2;
+    return `<text class="axis" x="${X(v)}" y="${H-PB+15}" text-anchor="middle">${v.toFixed(1)}</text>`; }).join('');
+  const step = Math.max(1, Math.ceil(maxY/5));
+  for (let t = 0; t <= maxY; t += step)
+    s += `<line class="axline" x1="${PL}" x2="${W-PR}" y1="${Y(t)}" y2="${Y(t)}" opacity=".4"/>
+          <text class="axis" x="${PL-7}" y="${Y(t)+3.5}" text-anchor="end">${t}</text>`;
+  const th = THRESH();
+  s += `<line x1="${PL}" x2="${W-PR}" y1="${Y(-Math.log10(.05))}" y2="${Y(-Math.log10(.05))}"
+      stroke="var(--ink-3)" stroke-dasharray="4 3" opacity=".7"/>
+    <line x1="${X(th.lfc)}" x2="${X(th.lfc)}" y1="${PT}" y2="${H-PB}" stroke="var(--ink-3)" stroke-dasharray="4 3" opacity=".7"/>
+    <line x1="${X(-th.lfc)}" x2="${X(-th.lfc)}" y1="${PT}" y2="${H-PB}" stroke="var(--ink-3)" stroke-dasharray="4 3" opacity=".7"/>`;
+  rows.forEach(r => {
+    const sig = isSig(r, th);
+    s += `<circle cx="${X(r.lfc).toFixed(1)}" cy="${Y(-Math.log10(Math.max(r.padj,1e-300))).toFixed(1)}"
+      r="${sig?4:2.6}" fill="${sig ? (r.lfc>0?'#ef4444':'#3b82f6') : 'var(--ink-3)'}" opacity="${sig?.9:.45}"/>`;
+  });
+  rows.slice(0, 12).forEach(r => s += `<text class="axis" x="${X(r.lfc)+(r.lfc>0?7:-7)}"
+    y="${Y(-Math.log10(Math.max(r.padj,1e-300)))+3.5}" text-anchor="${r.lfc>0?'start':'end'}"
+    style="font-style:italic;font-size:10.5px;fill:var(--ink)">${r.gene}</text>`);
+  s += `<line class="axline" x1="${PL}" x2="${W-PR}" y1="${H-PB}" y2="${H-PB}"/>
+    <text class="axis" x="${(PL+W-PR)/2}" y="${H-6}" text-anchor="middle">log₂ fold change · ${S.case} vs ${S.ctrl}</text>
+    <text class="axis" transform="rotate(-90 15 ${(PT+H-PB)/2})" x="15" y="${(PT+H-PB)/2}" text-anchor="middle">−log₁₀ adjusted p</text>`;
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
+    aria-label="Volcano plot for ${contrastLabel()}">${s}</svg>`;
+};
+
+/* ---------- Gene expression — the way into a dataset with no comparison ---------- */
+VIEWS.expr = () => {
+  const modes = [['type','Across cell types'],
+    ...(D.multi ? [['cond','Across groups'], ['both','Cell type × group']] : [])];
+  return `
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px">
+      <div><div class="eyebrow">Gene expression</div>
+        <h2 style="margin-top:4px">Search any gene</h2></div>
+      <div class="search"><input class="inp" id="q" value="${esc(S.q)}"
+        placeholder="one gene, or paste a list…" autocomplete="off"
+        aria-label="Search a gene or paste a gene list"><div id="ac"></div></div>
+    </div>
+    <p style="font-size:11.5px;color:var(--ink-3);margin:6px 0 0">
+      Paste a list separated by commas, spaces or newlines — case does not matter.
+      Up to ${MAX_GENES} genes.</p>
+    <div class="row" style="gap:6px;margin-top:12px;align-items:center">
+      ${S.genes.map(g => `<span class="genepill">${g}<button data-toggle="drop:${g}"
+        aria-label="Remove ${g}">×</button></span>`).join('')
+        || '<span style="font-size:12px;color:var(--ink-3)">No genes selected yet.</span>'}
+      ${S.genes.length > 1 ? `<button class="chip" data-toggle="clear:1">Clear all</button>` : ''}
+    </div>
+    ${S.missing.length ? `<p style="font-size:12px;color:var(--warn);margin:8px 0 0">
+      <b>Not in this object:</b> <span class="mono">${esc(S.missing.join(', '))}</span> —
+      check the species and capitalisation (mouse <span class="mono">Ascl1</span> vs human
+      <span class="mono">ASCL1</span>).</p>` : ''}
+    <div class="row" style="gap:9px;margin-top:14px;align-items:center">
+      <span class="glabel">Plot</span>
+      <div class="seg">
+        <button data-toggle="plot:violin" aria-pressed="${S.plot==='violin'}">Violin panel</button>
+        <button data-toggle="plot:dot" aria-pressed="${S.plot==='dot'}">Dot plot</button>
+        <button data-toggle="plot:feature" aria-pressed="${S.plot==='feature'}">Feature plot</button>
+      </div>
+      <div class="gsep" style="height:24px"></div>
+      <span class="glabel">Group by</span>
+      <div class="seg">${modes.map(([k,l]) =>
+        `<button data-toggle="groupBy:${k}" aria-pressed="${S.groupBy===k}">${l}</button>`).join('')}</div>
+      ${S.plot === 'dot' ? `<div class="gsep" style="height:24px"></div>
+        <button class="chip" data-toggle="dotScale:${!S.dotScale}" aria-pressed="${S.dotScale}"
+          title="Seurat scale = TRUE — z-score each gene across identities">Scale each gene</button>`
+      : S.plot === 'feature' ? `<div class="gsep" style="height:24px"></div>
+      <span class="glabel">Columns</span>
+      ${[1,2,3,4].map(n => `<button class="chip" data-toggle="cols:${n}"
+        aria-pressed="${S.cols===n}">${n}</button>`).join('')}
+      <div class="gsep" style="height:24px"></div>
+      <span class="glabel">Colour</span>
+      <select class="sel" data-set="ramp">${Object.entries(RAMPS).map(([k,r]) =>
+        `<option value="${k}"${k===S.ramp?' selected':''}>${r.label}</option>`).join('')}</select>`
+      : `<div class="gsep" style="height:24px"></div>
+      <span class="glabel">Columns</span>
+      ${[1,2,3,4].map(n => `<button class="chip" data-toggle="cols:${n}"
+        aria-pressed="${S.cols===n}">${n}</button>`).join('')}
+      ${D.multi && S.groupBy === 'cond' ? `<div class="gsep" style="height:24px"></div>
+        <button class="chip" data-toggle="relative:${!S.relative}" aria-pressed="${S.relative}">
+          Relative to ${S.ctrl}</button>` : ''}`}
+    </div>
+    <p class="sub" style="margin-top:10px">${S.plot === 'dot'
+      ? `Every gene against every identity at once — the standard way to read a panel of markers.
+         Dot size is the fraction of cells expressing the gene; colour is the average expression.`
+      : S.plot === 'feature'
+      ? `Expression on the embedding, one panel per gene${
+          S.groupBy !== 'type' && D.multi ? ', split by group and sharing that gene\'s scale' : ''}.
+         Cells with no detected transcript sit at the bottom of the colour scale, and positive
+         cells are drawn last so they cannot be hidden underneath the negative majority.`
+      : S.groupBy === 'type'
+      ? `One violin per cell type, every type on screen at once — this is the view that works on an
+         object with no comparison at all. Each gene keeps its own y axis.`
+      : S.groupBy === 'cond'
+      ? `Groups in the object's own order, within <b>${S.ct}</b> — for a time course that means
+         0 h first and 72 h last, never alphabetical.`
+      : `Every cell type split by group. Dense on purpose: it is the fastest way to see whether a
+         change is confined to one population.`}</p>
+    <div id="panel" style="margin-top:14px"></div>
+  </div>`;
+};
+
+AFTER.expr = () => {
+  const host = document.getElementById('panel'); if (!host) return;
+  drawAC();
+  if (S.plot === 'dot') { host.innerHTML = dotPlot(); return; }
+  if (S.plot === 'feature') { host.innerHTML = featurePlot(); return; }
+  if (!S.genes.length) { host.innerHTML = `<div class="empty">Search for a gene above.</div>`; return; }
+  const cols = S.groupBy === 'both' ? Math.min(S.cols, 2) : S.cols;
+  host.innerHTML = `<div style="display:grid;gap:14px;grid-template-columns:repeat(${cols},minmax(0,1fr))">
+    ${S.genes.map(g => geneFacet(g, cols)).join('')}</div>
+    <p class="legend" style="margin-top:12px"><span>violin + box = per-cell distribution</span>
+      <span>bar under the axis = fraction of cells detecting the gene</span></p>`;
+};
+
+/**
+ * The identities on the categorical axis, shared by the violin panel and the dot
+ * plot so the two views can never disagree about what they are showing.
+ */
+function identities() {
+  if (S.groupBy === 'type')
+    return TYPES.map((t, ti) => ({ label: t.name, full: t.name, color: t.color, ti, cond: D.conds[0] }));
+  if (S.groupBy === 'cond')
+    return D.conds.map((c, ci) => ({ label: c, full: `${S.ct} · ${c}`,
+      color: pal(ci), ti: curTi(), cond: c }));
+  return TYPES.flatMap(t => D.conds.map((c, ci) => ({
+    label: c, full: `${t.name} · ${c}`, color: t.color,
+    dim: D.conds.length > 1 ? ci / (D.conds.length - 1) : 1,
+    ti: TYPES.indexOf(t), cond: c })));
+}
+
+/** One gene. Categories are cell types, groups, or their product. */
+function geneFacet(gene, cols) {
+  const both = S.groupBy === 'both';
+  const cats = identities();
+  const per = cats.length;
+  const W = cols <= 2 ? 620 : 400;
+  const PL = 40, PT = 20, PR = 8;
+  const DET = 9;                               // strip for the detection bars
+  const PB = (both ? 56 : per > 5 ? 46 : 30) + DET;
+  const H = (cols <= 2 ? 210 : 190) + (both ? 30 : 0) + DET;
+
+  const series = cats.map(c => cellValues(gene, c.ti, c.cond));
+  let base = 1;
+  if (S.relative && S.groupBy === 'cond') {
+    const ref = Math.max(0, cats.findIndex(c => c.cond === S.ctrl));
+    const v = series[ref];
+    base = v.reduce((a,b)=>a+b,0) / v.length || 1;
+  }
+  const scaled = series.map(v => v.map(x => x / base));
+  const hi = Math.max(...scaled.flat()) * 1.06 || 1, lo = 0;
+  const Y = v => PT + (H-PT-PB) * (1 - (v-lo)/(hi-lo));
+  const bw = (W-PL-PR) / per;
+
+  let s = [0,.5,1].map(f => { const t = lo + (hi-lo)*f;
+    return `<line class="axline" x1="${PL}" x2="${W-PR}" y1="${Y(t)}" y2="${Y(t)}" opacity=".4"/>
+      <text class="axis" x="${PL-5}" y="${Y(t)+3.5}" text-anchor="end">${t.toFixed(1)}</text>`; }).join('');
+  if (S.relative && S.groupBy === 'cond')
+    s += `<line x1="${PL}" x2="${W-PR}" y1="${Y(1)}" y2="${Y(1)}" stroke="var(--ink-3)" stroke-dasharray="3 3" opacity=".8"/>`;
+
+  cats.forEach((c, i) => {
+    const v = scaled[i], cx = PL + bw*(i+.5), q = quantiles(v);
+    const d = density(v, lo, hi), half = bw*.36;
+    const up = d.map((x,k) => `${(cx+x*half).toFixed(1)},${Y(lo+(hi-lo)*k/26).toFixed(1)}`);
+    const dn = d.map((x,k) => `${(cx-x*half).toFixed(1)},${Y(lo+(hi-lo)*k/26).toFixed(1)}`).reverse();
+    const col = c.dim !== undefined ? mix('#e2e8f0', c.color, .3 + c.dim*.7) : c.color;
+    s += `<polygon points="${up.concat(dn).join(' ')}" fill="${col}" opacity=".26"/>
+      <line x1="${cx}" x2="${cx}" y1="${Y(q.q1)}" y2="${Y(q.q3)}" stroke="${col}"
+            stroke-width="${Math.max(2, Math.min(6, bw*.34))}" opacity=".65"/>
+      <line x1="${cx-Math.min(8,bw*.4)}" x2="${cx+Math.min(8,bw*.4)}" y1="${Y(q.med)}" y2="${Y(q.med)}"
+            stroke="${col}" stroke-width="2"/>
+      <text class="axis" transform="rotate(-42 ${cx} ${H-PB+DET+11})" x="${cx}" y="${H-PB+DET+11}"
+        text-anchor="end" style="font-size:${per>10?9:10}px">${c.label}</text>`;
+    // Detection bar. Without it a gene with heavy dropout is just a spike at
+    // zero, and there is no way to tell "absent here" from "absent everywhere".
+    const pct = pctFromMean(meanExpr(gene, c.ti, D.act[c.cond]));
+    const bwid = Math.max(1, bw * .62 * pct);
+    s += `<rect x="${cx - bwid/2}" y="${H-PB+3}" width="${bwid}" height="3.5" rx="1.75"
+            fill="${col}" opacity=".8"><title>${(pct*100).toFixed(0)}% of cells detect ${gene}</title></rect>`;
+  });
+  if (both) {
+    // One block per cell type. The block is only `conds` columns wide, so a long
+    // name has to be clipped or neighbouring types run into each other.
+    const block = bw * D.conds.length;
+    const maxCh = Math.max(3, Math.floor(block / 5.2));
+    TYPES.forEach((t, ti) => {
+      const x0 = PL + bw * ti * D.conds.length;
+      const label = t.name.length > maxCh ? t.name.slice(0, maxCh - 1) + '…' : t.name;
+      if (ti) s += `<line class="axline" x1="${x0}" x2="${x0}" y1="${PT}" y2="${H-PB+DET+2}" opacity=".5"/>`;
+      s += `<text class="axis" x="${x0 + block/2}" y="${H-5}" text-anchor="middle"
+        style="font-size:9.5px;fill:var(--ink);font-weight:600">${label}<title>${t.name}</title></text>`;
+    });
+  }
+  const maxPct = Math.max(...cats.map(c => pctFromMean(meanExpr(gene, c.ti, D.act[c.cond]))));
+
+  const badge = (() => {
+    if (S.groupBy === 'type') return '';
+    const dl = (RESP[gene] || 0) * ((D.act[S.case] ?? 0) - (D.act[S.ctrl] ?? 0));
+    return Math.abs(dl) < .15 ? '' : `<text class="axis" x="${W-PR}" y="11" text-anchor="end"
+      style="fill:${dl>0?'#ef4444':'#3b82f6'};font-weight:600">${dl>0?'+':''}${dl.toFixed(1)}</text>`;
+  })();
+
+  return `<figure><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${gene} expression">
+    <text class="facet-title" x="${PL}" y="11" style="font-style:italic">${gene}</text>
+    ${maxPct < .12 ? `<text class="axis" x="${PL + 6 + gene.length*5.5}" y="11"
+      style="font-size:9.5px">barely detected here — max ${(maxPct*100).toFixed(0)}%</text>` : ''}
+    ${badge}${s}<line class="axline" x1="${PL}" x2="${W-PR}" y1="${H-PB}" y2="${H-PB}"/>
+  </svg></figure>`;
+}
+
+/**
+ * Seurat DotPlot.
+ *
+ * Genes on x, identities on y, dot size = fraction of cells expressing, dot
+ * colour = average expression. Seurat's `scale = TRUE` default z-scores each
+ * gene *across identities* and clips to ±2.5 — which makes the colour a
+ * statement about where a gene is highest, not about how much of it there is.
+ * A gene expressed strongly and evenly everywhere comes out uniformly pale.
+ * That is the single most misread thing about this figure, so the scaling is a
+ * visible switch here rather than a silent default.
+ */
+function dotPlot() {
+  const rows = identities(), genes = S.genes;
+  if (!genes.length) return `<div class="empty">Search for a gene above.</div>`;
+  const cw = 42, rh = 26, PT = 12, PR = 24;
+  // The left margin follows the longest identity — "Oligodendrocyte · Reactivated"
+  // is more than twice the width of "TAP", and a clipped row label is unreadable.
+  const PL = Math.max(110, Math.min(250, 22 + Math.max(...rows.map(r => r.full.length)) * 6.1));
+  const labelH = Math.min(96, 22 + Math.max(...genes.map(g => g.length)) * 4.6);
+  const W = PL + genes.length * cw + PR, H = PT + rows.length * rh + labelH;
+
+  const avg = rows.map(r => genes.map(g => meanExpr(g, r.ti, D.act[r.cond])));
+  const pct = avg.map(row => row.map(pctFromMean));
+
+  // Colour value per cell: z-scored down each gene's column, or the raw mean.
+  const cv = genes.map((_, gi) => {
+    const col = rows.map((_, ri) => avg[ri][gi]);
+    if (!S.dotScale) return col;
+    const m = col.reduce((a, b) => a + b, 0) / col.length;
+    const sd = Math.sqrt(col.reduce((a, b) => a + (b - m) ** 2, 0) / col.length) || 1;
+    return col.map(x => Math.max(-2.5, Math.min(2.5, (x - m) / sd)));
+  });
+  const lo = S.dotScale ? -2.5 : 0;
+  const hi = S.dotScale ? 2.5 : Math.max(...avg.flat(), .01);
+  // Seurat's default palette is lightgrey -> blue; kept, because the point of
+  // this figure is that it is recognisable as the one people already read.
+  const ramp = f => rampColor(f);
+
+  let s = '';
+  rows.forEach((r, ri) => {
+    const y = PT + rh * (ri + .5);
+    if (ri % 2 === 0) s += `<rect x="${PL - 6}" y="${PT + rh*ri}" width="${genes.length*cw + 12}"
+      height="${rh}" fill="var(--sunk)" opacity=".55"/>`;
+    s += `<text class="axis" x="${PL-12}" y="${y+4}" text-anchor="end"
+      style="font-size:11.5px;fill:var(--ink);font-weight:550">${r.full}</text>`;
+    genes.forEach((g, gi) => {
+      const p = pct[ri][gi];
+      if (p < .01) return;
+      s += `<circle cx="${PL + cw*(gi+.5)}" cy="${y}" r="${(1.4 + p * 9).toFixed(2)}"
+        fill="${ramp((cv[gi][ri] - lo) / (hi - lo))}" stroke="var(--line-2)" stroke-width=".5"
+        ><title>${g} in ${r.full} — ${(p*100).toFixed(0)}% of cells, mean ${avg[ri][gi].toFixed(2)}</title></circle>`;
+    });
+  });
+  genes.forEach((g, gi) => {
+    const x = PL + cw * (gi + .5), yb = PT + rows.length * rh + 10;
+    s += `<text class="axis" transform="rotate(-45 ${x} ${yb})" x="${x}" y="${yb}"
+      text-anchor="end" style="font-style:italic;font-size:11px;fill:var(--ink)">${g}</text>`;
+  });
+
+  // Legends: a size ramp for percent expressed, a colour bar for expression.
+  const sizes = [.25, .5, .75, 1];
+  const legend = `<svg viewBox="0 0 380 62" width="380" height="62" role="img"
+      aria-label="Dot plot legend">
+    <text class="axis" x="0" y="10" style="font-weight:600;fill:var(--ink)">Percent expressed</text>
+    ${sizes.map((p, i) => `<circle cx="${18 + i*44}" cy="34" r="${(1.4 + p*9).toFixed(2)}"
+        fill="none" stroke="var(--ink-3)" stroke-width="1.2"/>
+      <text class="axis" x="${18 + i*44}" y="56" text-anchor="middle">${p*100}%</text>`).join('')}
+    <text class="axis" x="200" y="10" style="font-weight:600;fill:var(--ink)">${
+      S.dotScale ? 'Average expression (scaled)' : 'Average expression'}</text>
+    <defs><linearGradient id="dpRamp" x1="0" x2="1">
+      <stop offset="0" stop-color="${ramp(0)}"/><stop offset="1" stop-color="${ramp(1)}"/>
+    </linearGradient></defs>
+    <rect x="200" y="24" width="150" height="10" rx="3" fill="url(#dpRamp)"/>
+    <text class="axis" x="200" y="48">${S.dotScale ? '−2.5' : '0'}</text>
+    <text class="axis" x="350" y="48" text-anchor="end">${S.dotScale ? '+2.5' : hi.toFixed(1)}</text>
+  </svg>`;
+
+  return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"
+      role="img" aria-label="Dot plot of ${genes.join(', ')}">${s}</svg></div>
+    <div style="margin-top:14px">${legend}</div>
+    <p class="sub" style="margin-top:10px">${S.dotScale
+      ? `Colour is <b>z-scored down each gene's column</b>, as in Seurat's <code class="mono">scale = TRUE</code>
+         default — it shows <em>where</em> a gene is highest, not how abundant it is. A gene expressed
+         evenly everywhere comes out uniformly pale. Turn scaling off to compare absolute levels.`
+      : `Colour is the raw mean normalized expression, on one scale for every gene. Genes of very
+         different abundance are now comparable, but a gene's own pattern across identities is
+         harder to see than with scaling on.`}</p>`;
+}
+
+/**
+ * Seurat FeaturePlot — expression painted on the embedding, one panel per gene.
+ *
+ * Two details decide whether this figure is honest. Cells are drawn in ascending
+ * order of expression (Seurat's `order = TRUE`), so the positive cells land on
+ * top instead of being buried under the grey majority — with the default drawing
+ * order a real signal can vanish entirely. And the colour scale is clipped at the
+ * gene's own 99th percentile, so one runaway cell cannot flatten everything else
+ * to grey.
+ */
+function featurePlot() {
+  const genes = S.genes;
+  if (!genes.length) return `<div class="empty">Search for a gene above.</div>`;
+  const split = S.groupBy !== 'type' && D.multi;
+  const panels = split ? D.conds : [null];
+  const cols = split ? 1 : Math.max(1, Math.min(S.cols, 4));
+  const size = split ? Math.max(150, 760 / panels.length) : Math.min(320, Math.max(170, 700 / cols));
+
+  const xs = D.cells.map(c => c.x), ys = D.cells.map(c => c.y);
+  const x0 = Math.min(...xs)-.4, x1 = Math.max(...xs)+.4;
+  const y0 = Math.min(...ys)-.4, y1 = Math.max(...ys)+.4;
+
+  const blocks = genes.map((g, gi) => `
+    <figure style="${split ? '' : ''}">
+      <figcaption style="margin:0 0 5px;font-size:12.5px;font-weight:600;font-style:italic;color:var(--ink)">
+        ${g}<span id="fpmax${gi}" class="mono" style="font-style:normal;font-weight:400;
+          color:var(--ink-3);margin-left:7px"></span></figcaption>
+      <div style="display:grid;gap:8px;grid-template-columns:repeat(${panels.length},minmax(0,1fr))">
+        ${panels.map((p, pi) => `<div>
+          ${p ? `<div class="axis" style="font-size:10.5px;margin-bottom:3px">${p}</div>` : ''}
+          <canvas id="fp${gi}_${pi}" width="${Math.round(size*2)}" height="${Math.round(size*2)}"
+            style="width:100%;max-width:${Math.round(size)}px;height:auto;border-radius:9px"
+            ></canvas></div>`).join('')}
+      </div>
+    </figure>`).join('');
+
+  // Drawn after the markup is in the DOM.
+  queueMicrotask(() => genes.forEach((g, gi) => {
+    const gh = hash(g);
+    const vals = D.cells.map((c, i) => cellExpr(gh, i, meanExpr(g, c.t, c.a)));
+    const nz = vals.filter(v => v > 0).sort((a, b) => a - b);
+    const top = nz.length ? nz[Math.floor(nz.length * .99)] : 1;
+    const lab = document.getElementById('fpmax' + gi);
+    if (lab) lab.textContent = `0 – ${top.toFixed(1)}`;
+    panels.forEach((p, pi) => {
+      const cv = document.getElementById(`fp${gi}_${pi}`); if (!cv) return;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = css('--surface'); ctx.fillRect(0, 0, cv.width, cv.height);
+      const idx = [];
+      D.cells.forEach((c, i) => { if (!p || c.cond === p) idx.push(i); });
+      idx.sort((a, b) => vals[a] - vals[b]);          // Seurat order = TRUE
+      const r = idx.length > 12000 ? 1.5 : 2.1;
+      for (const i of idx) {
+        const c = D.cells[i], f = Math.min(1, vals[i] / top);
+        // Zero takes the ramp's own low colour rather than a neutral grey. With a
+        // dark-low ramp like viridis a grey would be *lighter* than the lowest
+        // real value, so non-expressing cells would read as stronger than weakly
+        // expressing ones — the scale would run backwards at its own floor.
+        ctx.fillStyle = rampColor(f);
+        ctx.beginPath();
+        ctx.arc((c.x-x0)/(x1-x0)*cv.width, (1-(c.y-y0)/(y1-y0))*cv.height, r, 0, 6.284);
+        ctx.fill();
+      }
+      // Cluster labels, so a feature plot can be read without a DimPlot beside it.
+      if (size >= 200) {
+        ctx.font = '600 17px system-ui'; ctx.textAlign = 'center';
+        ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(255,255,255,.9)';
+        TYPES.forEach(t => {
+          const X = (t.cx-x0)/(x1-x0)*cv.width, Y = (1-(t.cy-y0)/(y1-y0))*cv.height;
+          ctx.strokeText(t.name, X, Y); ctx.fillStyle = '#334155'; ctx.fillText(t.name, X, Y);
+        });
+      }
+    });
+  }));
+
+  return `<div style="display:grid;gap:18px;grid-template-columns:repeat(${
+      split ? 1 : cols},minmax(0,1fr))">${blocks}</div>
+    <div class="legend" style="margin-top:14px">
+      <span style="color:var(--ink-3)">0 · not detected</span>
+      <span style="display:inline-block;width:140px;height:10px;border-radius:3px;
+        background:linear-gradient(90deg,${[0,.25,.5,.75,1].map(f=>rampColor(f)).join(',')})"></span>
+      <span style="color:var(--ink-3)">max</span>
+      <span style="color:var(--ink-3)">· each gene on its own scale, clipped at its 99th percentile
+        · positive cells drawn last</span>
+    </div>`;
+}
+
+/* ---------- Enrichment / gene sets ---------- */
+VIEWS.enrich = () => {
+  const res = results();
+  return `<div class="card">${methodBar()}
+    ${res.blocked || `<div class="eyebrow">${contrastLabel()}</div>
+    <h2 style="margin:4px 0 3px">Over-representation</h2>
+    <p class="sub">Identical to rnaseq-studio, running on the DEG list from the test selected
+      above: full pathway names never truncated, term count user-selectable.</p>
+    <div class="empty" style="margin-top:14px">Same component as the bulk studio — not re-prototyped here.</div>`}
+  </div>`;
+};
+VIEWS.sets = () => `<div class="card">
+    <div class="eyebrow">${S.ct}</div>
+    <h2 style="margin:4px 0 3px">Gene set module scores</h2>
+    <p class="sub">Score a signature per cell (<code class="mono">AddModuleScore</code> /
+      <code class="mono">score_genes</code>) and paint it on the embedding, plus the per-group
+      distribution. Works on a single-condition object too.</p>
+    <div class="empty" style="margin-top:14px">Same component as the bulk studio — not re-prototyped here.</div>
+  </div>`;
+
+/* ---------- Methods ---------- */
+VIEWS.methods = () => {
+  const d = designFor(curTi());
+  const wil = S.method === 'wilcox';
+  const oneEach = D.samples.length === D.conds.length;
+  const refs = [
+    'Wolf FA, Angerer P, Theis FJ. SCANPY: large-scale single-cell gene expression data analysis. <i>Genome Biol</i> 19, 15 (2018).',
+    'Hao Y, et al. Integrated analysis of multimodal single-cell data. <i>Cell</i> 184, 3573–3587 (2021).',
+    'Korsunsky I, et al. Fast, sensitive and accurate integration of single-cell data with Harmony. <i>Nat Methods</i> 16, 1289–1296 (2019).',
+    'Traag VA, Waltman L, van Eck NJ. From Louvain to Leiden: guaranteeing well-connected communities. <i>Sci Rep</i> 9, 5233 (2019).',
+    'McInnes L, Healy J, Melville J. UMAP: Uniform Manifold Approximation and Projection. <i>arXiv</i> 1802.03426 (2018).',
+    'Love MI, Huber W, Anders S. Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. <i>Genome Biol</i> 15, 550 (2014).',
+    'Heumos L, Schaar AC, … Theis FJ. Best practices for single-cell analysis across modalities. <i>Nat Rev Genet</i> 24, 550–572 (2023).',
+    'scRNA-seq Studio. Browser-based exploration and differential expression for single-cell objects (2026). https://jiaenlin.github.io/scrnaseq-studio/',
+  ];
+  const sup = n => `<sup>${n}</sup>`;
+  const de = !D.multi
+    ? `No between-group differential expression was performed, as the object contains a single
+       condition. Cluster identities were supported by one-vs-rest Wilcoxon rank-sum tests${sup(2)},
+       reported as a ranking of marker genes rather than as hypothesis tests.`
+    : wil
+    ? `Differential expression between ${S.case} and ${S.ctrl} within ${S.ct} was tested with a
+       Wilcoxon rank-sum test across cells${sup(2)}, restricted to genes with an absolute log₂ fold
+       change of at least ${LFC_GATE} detected in at least ${(PCT_GATE*100).toFixed(0)}% of cells in
+       either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an
+       adjusted p below 0.05 past that fold-change threshold were considered differentially
+       expressed. ${oneEach
+        ? `The design contains one sample per group, so these p-values describe variation between
+           cells rather than between animals${sup(7)}.`
+        : `Because cells from the same animal are not independent observations, these p-values
+           describe variation between cells rather than between animals${sup(7)}.`}`
+    : `Differential expression between ${S.case} and ${S.ctrl} within ${S.ct} was tested on
+       pseudobulk profiles${sup(7)}: raw counts were summed across all cells of a given animal,
+       animals contributing fewer than ${MIN_CELLS} cells of that type were excluded, and the
+       resulting matrix of ${d.n0} ${S.ctrl} and ${d.n1} ${S.case} profiles was tested with
+       DESeq2${sup(6)} using ${S.ctrl} as the reference level, with Benjamini–Hochberg adjustment.
+       Genes with an adjusted p below 0.05 and an absolute log₂ fold change above 1 were considered
+       differentially expressed.`;
+
+  return `
+  <div class="card">
+    <div class="eyebrow">Methods</div>
+    <h2 style="margin:4px 0 3px">Single-cell RNA sequencing analysis</h2>
+    <p class="sub">Continuous prose under one heading, cutoffs and design read from the object.
+      The text follows the test currently selected.</p>
+    <div class="prose" style="margin-top:14px">
+      <p>Single-cell RNA sequencing data were processed in Scanpy v1.10.2${sup(1)}. Counts were
+      normalized to 10,000 per cell and log-transformed, and the 2,000 most variable genes were
+      retained for dimensionality reduction. The first 50 principal components
+      ${D.samples.length > 1 ? `were corrected for inter-sample variation with Harmony${sup(3)} and `
+        : ''}were used to build a 15-nearest-neighbour graph, which was clustered with the Leiden
+      algorithm${sup(4)} at resolution 1.0 and embedded in two dimensions with UMAP${sup(5)}.
+      Clustering yielded ${TYPES.length} populations, annotated by canonical markers and reported
+      here as ${TYPES.map(t => t.name).join(', ')}.</p>
+      <p>${de} Exploration, figures and statistics were produced in scRNA-seq Studio${sup(8)},
+      which runs these tests in the browser; no imputation or denoising was applied at any stage.</p>
+    </div>
+    <div style="margin-top:18px">
+      <div class="eyebrow" style="margin-bottom:7px">References</div>
+      <ol class="refs" style="padding-left:20px;margin:0">${refs.map(r => `<li>${r}</li>`).join('')}</ol>
+    </div>
+    <div class="row" style="margin-top:16px;gap:8px">
+      <button class="btn">Copy as plain text</button>
+      <button class="btn">Copy with formatting</button>
+    </div>
+  </div>
+  <div class="note">
+    <b>Sentences this generator refuses to write.</b> It will not claim doublet removal or ambient
+    RNA correction, because neither is recorded in this object; it will not describe a batch
+    correction it did not find; and it will not call a one-sample-per-group design replicated.
+    Anything absent from the file is absent from the text.
+  </div>`;
+};
+
+document.getElementById('guide').addEventListener('click', e => { if (e.target.id === 'guide') e.target.close(); });
+
+// Deep link for review: ?open=course&tab=expr&ct=aNSC&group=cond&method=wilcox
+{
+  const q = new URLSearchParams(location.search);
+  if (q.has('open')) {
+    openDemo(DATASETS[q.get('open')] ? q.get('open') : 'cohort');
+    if (q.has('ct')) S.ct = q.get('ct');
+    if (q.has('tab')) S.tab = q.get('tab');
+    if (q.has('group')) S.groupBy = q.get('group');
+    if (q.has('method')) S.method = q.get('method');
+    if (q.has('cols')) S.cols = +q.get('cols');
+    if (q.has('genes')) S.genes = q.get('genes').split(',');
+    if (q.get('computed') === 'all')
+      TYPES.forEach(t => D.conds.forEach(a => D.conds.forEach(b => S.computed.add(`${t.key}|${a}|${b}`))));
+    buildTabs(); render();
+  }
+}
+</script>

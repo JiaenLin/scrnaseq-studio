@@ -1,0 +1,91 @@
+// Figure palettes.
+//
+// A figure that has to be recoloured by hand before submission is a figure the
+// studio half-finished, so palette choice is global and the options are the ones
+// the journals' own figures use, as distributed in ggsci.
+
+export interface Palette { label: string; cols: string[] }
+
+export const PALETTES = {
+  npg: {
+    label: 'Nature (npg)',
+    cols: ['#E64B35', '#4DBBD5', '#00A087', '#3C5488', '#F39B7F',
+           '#8491B4', '#91D1C2', '#DC0000', '#7E6148', '#B09C85'],
+  },
+  aaas: {
+    label: 'Science (aaas)',
+    cols: ['#3B4992', '#EE0000', '#008B45', '#631879', '#008280',
+           '#BB0021', '#5F559B', '#A20056', '#808180', '#1B1919'],
+  },
+  lancet: {
+    label: 'Lancet',
+    cols: ['#00468B', '#ED0000', '#42B540', '#0099B4', '#925E9F',
+           '#FDAF91', '#AD002A', '#ADB6B6', '#4A6990', '#1B1919'],
+  },
+  nejm: {
+    label: 'NEJM',
+    cols: ['#BC3C29', '#0072B5', '#E18727', '#20854E', '#7876B1',
+           '#6F99AD', '#E9C46A', '#EE4C97', '#8C564B', '#BCBD22'],
+  },
+  jco: {
+    label: 'JCO',
+    cols: ['#0073C2', '#EFC000', '#868686', '#CD534C', '#7AA6DC',
+           '#003C67', '#8F7700', '#3B3B3B', '#A73030', '#4A6990'],
+  },
+} satisfies Record<string, Palette>
+
+// Continuous ramps, interpolated in RGB through the anchors below. viridis and
+// magma are perceptually uniform and safe for colour-vision deficiency, which is
+// why they have largely displaced rainbow scales; the Seurat default and the
+// grey-to-red used across Cell papers are kept because readers know them.
+export const RAMPS = {
+  seurat:  { label: 'Seurat (grey → blue)', cols: ['#D9DCE3', '#7D8FD6', '#1E40C8'] },
+  viridis: { label: 'viridis', cols: ['#440154', '#414487', '#2A788E', '#22A884', '#7AD151', '#FDE725'] },
+  magma:   { label: 'magma', cols: ['#000004', '#3B0F70', '#8C2981', '#DE4968', '#FE9F6D', '#FCFDBF'] },
+  reds:    { label: 'grey → red', cols: ['#E8E8E8', '#FDD49E', '#FC8D59', '#D7301F', '#7F0000'] },
+} satisfies Record<string, Palette>
+
+export type PaletteKey = keyof typeof PALETTES
+export type RampKey = keyof typeof RAMPS
+
+const hex = (s: string) => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16))
+
+/** Linear RGB blend. `f` is clamped, so callers need not. */
+export function mix(a: string, b: string, f: number): string {
+  const t = Math.max(0, Math.min(1, f))
+  const [r1, g1, b1] = hex(a)
+  const [r2, g2, b2] = hex(b)
+  const c = (x: number, y: number) => Math.round(x + (y - x) * t)
+  return `rgb(${c(r1, r2)},${c(g1, g2)},${c(b1, b2)})`
+}
+
+/**
+ * Category colour.
+ *
+ * Past the end of the palette, hues are generated on the golden angle rather
+ * than wrapping round — a 23-arm design otherwise hands arms 1, 11 and 21 the
+ * same colour, which the bulk studio shipped once and nobody caught by eye.
+ */
+export function pal(i: number, key: PaletteKey = 'npg'): string {
+  const cols = PALETTES[key].cols
+  if (i < cols.length) return cols[i]
+  const h = (((i - cols.length) * 137.508) % 360) / 360
+  const ch = (n: number) => {
+    const k = (n + h * 12) % 12
+    const v = 0.58 - 0.34 * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+    return Math.round(v * 255).toString(16).padStart(2, '0')
+  }
+  return '#' + ch(0) + ch(8) + ch(4)
+}
+
+/** Continuous ramp sampled at `f` in [0,1]. */
+export function rampColor(f: number, key: RampKey = 'seurat'): string {
+  const cols = RAMPS[key].cols
+  const x = Math.max(0, Math.min(1, f)) * (cols.length - 1)
+  const i = Math.min(cols.length - 2, Math.floor(x))
+  return mix(cols[i], cols[i + 1], x - i)
+}
+
+/** Five stops, for a CSS gradient preview of a ramp. */
+export const rampCss = (key: RampKey): string =>
+  `linear-gradient(90deg,${[0, 0.25, 0.5, 0.75, 1].map(f => rampColor(f, key)).join(',')})`
