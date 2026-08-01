@@ -9,8 +9,8 @@ format. **Not committed** — `*.h5ad` and `*.rds` are in `.gitignore`. Re-fetch
 | `pbmc3k_processed.h5ad` | AnnData | 24 MB | `louvain` — 8 named cell types |
 | `pbmc3k_final.rds` | Seurat 3.1.4 | 288 MB | `seurat_annotations` — 9 named cell types |
 
-Neither is loadable by the app yet; the readers are the open item. These exist so the
-readers get written against real files rather than against the spec.
+These are the sources for the app-input bundles — see [tools/BUNDLE.md](../tools/BUNDLE.md).
+The conversion runs offline; the app opens the bundle, not the object.
 
 ---
 
@@ -110,9 +110,30 @@ A 3k-cell PBMC object — about the smallest real dataset anyone works with — 
 
 ---
 
-## Fetching
+## Fetching and converting
 
 ```bash
 bash fetch.sh          # ~118 MB of downloads, needs Rscript for the rda → rds step
 python inspect_h5ad.py pbmc3k_processed.h5ad
+
+# → app input, see tools/BUNDLE.md
+python ../tools/export_h5ad.py pbmc3k_processed.h5ad pbmc3k_h5ad.zip --cluster louvain
+Rscript ../tools/export_seurat.R pbmc3k_final.rds pbmc3k_rds.zip         --cluster seurat_annotations --sample orig.ident
 ```
+
+Both bundles come out at ~8.4 MB and agree on the biology, which is the point of
+converting from two independent sources: every canonical marker lands in its own
+cell type in both.
+
+| gene | from the h5ad | from the rds |
+|---|---|---|
+| MS4A1 | B cells | B |
+| CD3D | CD8 T cells | CD8 T |
+| LYZ | CD14+ Monocytes | CD14+ Mono |
+| GNLY | NK cells | NK |
+| FCGR3A | FCGR3A+ Monocytes | FCGR3A+ Mono |
+| PPBP | Megakaryocytes | Platelet |
+
+Both open as **single-condition** objects — PBMC 3k is one sample with no
+experimental groups — so they exercise the no-comparison path with real data.
+Neither has a `--condition` to give.
