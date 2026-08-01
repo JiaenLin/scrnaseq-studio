@@ -3,17 +3,19 @@ import type {
   CellType, ColorBy, Dataset, GroupBy, Method, PlotKind, TabId,
 } from './types.ts'
 import { buildDataset, makeTypes } from './lib/demo.ts'
-import { designFor, minReplicates, pbKey } from './lib/stats.ts'
+import { designFor, minReplicates, pbKey, thresholdFor } from './lib/stats.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
 import Landing from './components/Landing.tsx'
 import Overview from './components/Overview.tsx'
 import Cells from './components/Cells.tsx'
 import Composition from './components/Composition.tsx'
 import Markers from './components/Markers.tsx'
-import { DEGTable, Enrichment, Volcano, type StatsProps } from './components/Stats.tsx'
+import { ContrastFrame, DEGTable, Volcano, type StatsProps } from './components/Stats.tsx'
+import Enrichment from './components/Enrichment.tsx'
+import GeneSets from './components/GeneSets.tsx'
 import GeneExpression from './components/GeneExpression.tsx'
 import Methods from './components/Methods.tsx'
-import { Card, Empty } from './components/Ui.tsx'
+import { Empty } from './components/Ui.tsx'
 
 const TABS: [TabId | 'div', string][] = [
   ['overview', 'Overview'], ['cells', 'Cells'], ['composition', 'Composition'], ['markers', 'Markers'],
@@ -221,7 +223,12 @@ export default function App() {
           ) : tab === 'volcano' ? (
             <Volcano {...statsProps} />
           ) : tab === 'enrich' ? (
-            <Enrichment {...statsProps} />
+            <ContrastFrame {...statsProps}>
+              {rows => (
+                <Enrichment rows={rows} threshold={thresholdFor(method)}
+                  ctrl={ctrl} cs={cs} palKey={palKey} />
+              )}
+            </ContrastFrame>
           ) : tab === 'expr' ? (
             <GeneExpression
               d={d} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes}
@@ -230,14 +237,7 @@ export default function App() {
               onGenes={setGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
               onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey} />
           ) : tab === 'sets' ? (
-            <Card
-              eyebrow={ct} title="Gene set module scores"
-              sub={<>Score a signature per cell (<code className="mono">AddModuleScore</code> /{' '}
-                <code className="mono">score_genes</code>) and paint it on the embedding, plus the
-                per-group distribution. Works on a single-condition object too.</>}
-            >
-              <div className="empty mt-3.5">Same component as the bulk studio — not yet ported.</div>
-            </Card>
+            <GeneSets d={d} types={types} ct={ct} palKey={palKey} rampKey={rampKey} />
           ) : (
             <Methods d={d} types={types} ti={ti} ctrl={ctrl} cs={cs}
               method={minReplicates(d) > 0 ? method : 'wilcox'} />

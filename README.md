@@ -28,9 +28,10 @@ Fourth app in the family:
 | **Cells** | UMAP on canvas, coloured by cluster, group, sample, QC metric or gene, split by group on one shared axis range |
 | **Composition** | horizontal 100% stacked bars per sample, plus a per-cell-type bar panel with every animal drawn on top |
 | **Markers** | one-vs-rest dot plot, and cluster renaming that propagates everywhere including Methods |
-| **DEG table · Volcano · Enrichment** | per cell type, under a **Test** switch — Wilcoxon per cell or pseudobulk DESeq2 |
+| **DEG table · Volcano** | per cell type, under a **Test** switch — Wilcoxon per cell or pseudobulk DESeq2 |
+| **Enrichment** | hypergeometric over-representation on the DEG list, split by direction, against the genes the object measured |
 | **Gene expression** | gene search (one gene or a pasted list), as a violin panel, a **Seurat dot plot** or a **Seurat feature plot** |
-| **Gene sets** | module scores per cell *(not yet ported)* |
+| **Gene sets** | per-cell module score (`AddModuleScore` / `score_genes`) for a built-in signature or your own gene list, on the embedding and per identity |
 | **Methods** | continuous prose with superscript citations, cutoffs and design read from the object |
 
 ## The decisions worth knowing about
@@ -58,6 +59,15 @@ groups in the object's own categorical order — 0 h first, 72 h last, never alp
 Methods generator that will not claim doublet removal, ambient-RNA correction or a batch correction
 it did not find in the file.
 
+**Enrichment tests against your object, not the genome.** The background is the genes the object
+actually measured. Scoring against genes the assay could not detect inflates every enrichment it
+produces, and the header states the background size so the number is checkable.
+
+**Module scores subtract a matched control set.** The naive "mean expression of the signature" is
+dominated by how abundant its genes happen to be — a ribosomal signature scores high in every cell
+and means nothing. Subtracting a control set drawn from the same expression bins is what makes zero
+a meaningful reference.
+
 ## Figure palettes
 
 Set once on Overview, applied to every figure at once, so an exported panel already matches the
@@ -69,14 +79,14 @@ colour-vision deficiency.
 
 ## Status
 
-The interface, the statistics layer and the figures are complete and covered by tests. Reading real
-files is next:
+Every tab is functional and covered by tests. Reading real files is what remains:
 
 - [ ] `.h5ad` reader (h5wasm, lazy hyperslab reads — see [DESIGN.md](DESIGN.md) §1.1)
 - [ ] Seurat `.rds` reader (webR `readRDS`, with the ~1.5 GB ceiling stated up front — §1.2)
 - [ ] gene-major (CSC) index built once on load — §1.3
 - [ ] real DESeq2 in webR, replacing the simulated pseudobulk run
-- [ ] Enrichment and Gene sets, ported from `rnaseq-studio`
+- [ ] a larger gene set collection — an `.h5ad` carries none, so the studio ships its own
+      (18 sets across GO:BP, KEGG, Hallmark and curated signatures); MSigDB import is the next step
 
 Until then the app opens one of three built-in demo objects — a replicated 4 v 4 cohort, a time
 course with one sample per point, and a wild-type-only reference. They exist because an interface

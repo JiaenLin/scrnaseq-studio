@@ -288,7 +288,13 @@ export function Volcano(p: StatsProps) {
   )
 }
 
-export function Enrichment(p: StatsProps) {
+/**
+ * The gate and the rows for a contrast tab that renders its own body — used by
+ * Enrichment so it shares exactly the blocking rules of the table and volcano.
+ */
+export function ContrastFrame(
+  p: StatsProps & { children: (rows: DERow[]) => React.ReactNode },
+) {
   const blocked = gate(p)
   return (
     <Card>
@@ -296,14 +302,7 @@ export function Enrichment(p: StatsProps) {
       {blocked ?? (
         <>
           <div className="eyebrow">{label(p)}</div>
-          <h2 className="mt-1 text-[14.5px] font-semibold">Over-representation</h2>
-          <p className="sub">
-            Identical to rnaseq-studio, running on the DEG list from the test selected above:
-            full pathway names never truncated, term count user-selectable.
-          </p>
-          <div className="empty mt-3.5">
-            Same component as the bulk studio — not yet ported.
-          </div>
+          {p.children(runDE(p.d, p.ti, p.ctrl, p.cs, p.method).rows)}
         </>
       )}
     </Card>
