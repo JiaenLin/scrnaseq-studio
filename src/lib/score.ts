@@ -14,8 +14,8 @@
 // A score near zero therefore means "no different from background", and the
 // zero point is meaningful — unlike a raw mean, which has no natural reference.
 
-import type { Dataset } from '../types.ts'
-import { cellExpr, hash, meanExpr, rng } from './demo.ts'
+import type { Source } from './source.ts'
+import { hash, rng } from './demo.ts'
 
 export interface ModuleScore {
   /** One value per cell, in dataset order. */
@@ -37,32 +37,24 @@ export interface ScoreOpts {
 
 export const SCORE_DEFAULTS: ScoreOpts = { nbin: 24, ctrl: 100 }
 
-/** Mean expression of each gene across every cell, without materialising a matrix. */
-function geneAverages(d: Dataset, genes: string[]): Map<string, number> {
-  // Cells sharing a (cluster, group) share a mean, so sum over the ≤ 40 groups
-  // rather than the tens of thousands of cells.
-  const groups = new Map<string, { t: number; a: number; n: number }>()
-  for (const c of d.cells) {
-    const k = `${c.t}|${c.a}`
-    const g = groups.get(k)
-    if (g) g.n++
-    else groups.set(k, { t: c.t, a: c.a, n: 1 })
-  }
+/** Mean expression of every gene, for the expression bins. */
+function geneAverages(src: Source, genes: string[]): Map<string, number> {
+  const n = src.d.cells.length
   const out = new Map<string, number>()
   for (const gene of genes) {
-    let s = 0
-    for (const g of groups.values()) s += meanExpr(gene, g.t, g.a) * g.n
-    out.set(gene, s / d.nCells)
+    let sum = 0
+    src.forEachNonZero(gene, (_cell, value) => { sum += value })
+    out.set(gene, sum / n)
   }
   return out
 }
 
 export function moduleScore(
-  d: Dataset,
+  src: Source,
   requested: string[],
-  allGenes: string[],
   opts: ScoreOpts = SCORE_DEFAULTS,
 ): ModuleScore {
+  const allGenes = src.genes
   const byLower = new Map(allGenes.map(g => [g.toLowerCase(), g]))
   const used: string[] = []
   const missing: string[] = []
@@ -71,13 +63,13 @@ export function moduleScore(
     if (!hit) missing.push(g)
     else if (!used.includes(hit)) used.push(hit)
   }
-  const n = d.nCells
+  const n = src.d.cells.length
   if (!used.length) {
     return { scores: new Float32Array(n), used, missing, control: [] }
   }
 
   // 1–2. bin every gene by average expression, equal counts per bin
-  const avg = geneAverages(d, allGenes)
+  const avg = geneAverages(src, allGenes)
   const sorted = [...allGenes].sort((a, b) => (avg.get(a) ?? 0) - (avg.get(b) ?? 0))
   const nbin = Math.max(1, Math.min(opts.nbin, sorted.length))
   const binOf = new Map<string, number>()
@@ -102,19 +94,20 @@ export function moduleScore(
   }
   const ctrlGenes = control.length ? control : allGenes.filter(g => !setOf.has(g))
 
-  // 4. per cell, mean(set) − mean(controls)
-  const setH = used.map(g => [g, hash(g)] as const)
-  const ctrlH = ctrlGenes.map(g => [g, hash(g)] as const)
+  // 4. per cell, mean(set) − mean(controls). Accumulated over non-zeros only,
+  // so cost is the set's own sparsity rather than genes × cells.
   const scores = new Float32Array(n)
-  for (let i = 0; i < n; i++) {
-    const c = d.cells[i]
-    let a = 0
-    for (const [g, h] of setH) a += cellExpr(h, i, meanExpr(g, c.t, c.a))
-    let b = 0
-    for (const [g, h] of ctrlH) b += cellExpr(h, i, meanExpr(g, c.t, c.a))
-    scores[i] = a / setH.length - b / ctrlH.length
+  for (const g of used) {
+    src.forEachNonZero(g, (cell, value) => { scores[cell] += value / used.length })
   }
-  return { scores, used, missing, control: [...new Set(ctrlGenes)] }
+  const uniqueCtrl = [...new Set(ctrlGenes)]
+  const weight = new Map<string, number>()
+  for (const g of ctrlGenes) weight.set(g, (weight.get(g) ?? 0) + 1 / ctrlGenes.length)
+  for (const g of uniqueCtrl) {
+    const w = weight.get(g) ?? 0
+    src.forEachNonZero(g, (cell, value) => { scores[cell] -= value * w })
+  }
+  return { scores, used, missing, control: uniqueCtrl }
 }
 
 /** Summary of a score within one subset of cells. */

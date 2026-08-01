@@ -2,7 +2,8 @@
 import { bh, hyperTail, runORA } from '../src/lib/ora.ts'
 import { GENE_SETS, SET_SOURCES } from '../src/lib/genesets.ts'
 import { moduleScore, summarise } from '../src/lib/score.ts'
-import { buildDataset, makeTypes, GENES } from '../src/lib/demo.ts'
+import { GENES } from '../src/lib/demo.ts'
+import { demoSource } from '../src/lib/source.ts'
 import { deWilcox, thresholdFor, isSig } from '../src/lib/stats.ts'
 
 let failed = 0
@@ -81,11 +82,10 @@ check('sources are enumerated', SET_SOURCES.length >= 3, true)
 
 console.log('\nENRICHMENT ON A REAL CONTRAST')
 {
-  const types = makeTypes()
-  const d = buildDataset('cohort', types)
-  const ti = types.findIndex(t => t.name === 'qNSC')
+  const src = demoSource('cohort')
+  const ti = src.clusters.indexOf('qNSC')
   const th = thresholdFor('wilcox')
-  const up = deWilcox(d, ti, 'Quiescent', 'Reactivated').rows
+  const up = deWilcox(src, ti, 'Quiescent', 'Reactivated').rows
     .filter(r => isSig(r, th) && r.lfc > 0).map(r => r.gene)
   const res = runORA(up, GENE_SETS, GENES, { minSize: 3, maxSize: 500 })
   check('genes up on reactivation enrich a proliferation set',
@@ -96,11 +96,10 @@ console.log('\nENRICHMENT ON A REAL CONTRAST')
 
 console.log('\nMODULE SCORE')
 {
-  const types = makeTypes()
-  const d = buildDataset('cohort', types)
+  const src = demoSource('cohort')
   const set = GENE_SETS.find(s => s.id === 'ACTIVE_NSC')
-  const sc = moduleScore(d, set.genes, GENES)
-  check('one score per cell', sc.scores.length, d.nCells)
+  const sc = moduleScore(src, set.genes)
+  check('one score per cell', sc.scores.length, src.d.nCells)
   check('genes outside the object are reported, not dropped silently',
     sc.missing.every(g => !GENES.includes(g)), true)
   check('used genes are all measured', sc.used.every(g => GENES.includes(g)), true)
@@ -110,9 +109,9 @@ console.log('\nMODULE SCORE')
   // The whole point of the control subtraction: an activation signature must
   // score higher in activated NSCs than in an unrelated lineage.
   const idxOf = (name, cond) => {
-    const t = types.findIndex(x => x.name === name)
+    const t = src.clusters.indexOf(name)
     const out = []
-    d.cells.forEach((c, i) => { if (c.t === t && (!cond || c.cond === cond)) out.push(i) })
+    src.d.cells.forEach((c, i) => { if (c.t === t && (!cond || c.cond === cond)) out.push(i) })
     return out
   }
   const aNSC = summarise(sc.scores, idxOf('aNSC')).med
@@ -120,7 +119,7 @@ console.log('\nMODULE SCORE')
   check('activation signature is higher in aNSC than oligodendrocytes', aNSC > oligo, true)
   check('and it is positive there', aNSC > 0, true)
 
-  const quiescence = moduleScore(d, GENE_SETS.find(s => s.id === 'QUIESCENT_NSC').genes, GENES)
+  const quiescence = moduleScore(src, GENE_SETS.find(s => s.id === 'QUIESCENT_NSC').genes)
   check('quiescence signature is higher in qNSC than in TAP',
     summarise(quiescence.scores, idxOf('qNSC')).med > summarise(quiescence.scores, idxOf('TAP')).med, true)
   check('and it falls on reactivation',
@@ -128,11 +127,11 @@ console.log('\nMODULE SCORE')
     summarise(quiescence.scores, idxOf('qNSC', 'Reactivated')).med, true)
 
   check('an empty set scores zero everywhere',
-    Array.from(moduleScore(d, [], GENES).scores).every(v => v === 0), true)
+    Array.from(moduleScore(src, []).scores).every(v => v === 0), true)
   check('an all-unknown set is reported as missing',
-    moduleScore(d, ['Nope1', 'Nope2'], GENES).missing, ['Nope1', 'Nope2'])
+    moduleScore(src, ['Nope1', 'Nope2']).missing, ['Nope1', 'Nope2'])
   check('scoring is deterministic',
-    moduleScore(d, set.genes, GENES).scores[0], sc.scores[0])
+    moduleScore(src, set.genes).scores[0], sc.scores[0])
 }
 
 console.log('\nSUMMARIES')

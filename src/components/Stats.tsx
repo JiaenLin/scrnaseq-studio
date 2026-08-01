@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
-import type { CellType, Dataset, DERow, Method } from '../types.ts'
+import type { CellType, DERow, Method } from '../types.ts'
+import type { Source } from '../lib/source.ts'
 import {
-  deWilcox, dePseudobulk, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_REPS_PB,
-  PCT_GATE, runDE, sigCount,
+  deWilcox, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_REPS_PB, PCT_GATE,
+  pseudobulkColumns,
 } from '../lib/stats.ts'
+import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt } from '../lib/chart.ts'
 import { Card, Empty, Mono, Seg } from './Ui.tsx'
 import Figure from './Figure.tsx'
 import DEGTableBody from './DEGTable.tsx'
 
 export interface StatsProps {
-  d: Dataset
+  src: Source
   t: CellType
   ti: number
   ctrl: string
@@ -32,7 +34,7 @@ const contrastLabel = (p: StatsProps) => `${p.cs} vs ${p.ctrl} · ${p.t.name}`
 
 /** The test picker, above every contrast tab. */
 function MethodBar(p: StatsProps) {
-  const d = designFor(p.d, p.ti, p.ctrl, p.cs)
+  const d = designFor(p.src, p.ti, p.ctrl, p.cs)
   const why = !d.pbOK && p.ctrl !== p.cs
     ? `Pseudobulk needs more than ${MIN_REPS_PB - 1} samples per group; ${p.t.name} has ${d.n0} and ${d.n1}.`
     : ''
@@ -117,10 +119,10 @@ function gate(p: StatsProps): React.ReactNode {
       Control and comparison are both set to <b>{p.ctrl}</b>.
     </Empty>
 
-  const d = designFor(p.d, p.ti, p.ctrl, p.cs)
+  const d = designFor(p.src, p.ti, p.ctrl, p.cs)
 
   if (p.method === 'wilcox') {
-    const { n0, n1 } = deWilcox(p.d, p.ti, p.ctrl, p.cs)
+    const { n0, n1 } = deWilcox(p.src, p.ti, p.ctrl, p.cs)
     if (!n0 || !n1)
       return <Empty title={`No ${p.t.name} cells in one of these groups`}>
         {n0} cells in {p.ctrl}, {n1} in {p.cs}.
@@ -162,30 +164,99 @@ function gate(p: StatsProps): React.ReactNode {
       </Empty>
     )
 
-  if (!p.computed)
+  // No pretend DESeq2. The bundle carries the summed counts; running the model
+  // is R's job until webR is wired, and saying so is better than a number nobody
+  // can trace back to a method.
+  return null
+}
+
+/** The pseudobulk design and its export — shown in place of results. */
+function PseudobulkPanel(p: StatsProps) {
+  const cols = pseudobulkColumns(p.src, p.ti, p.ctrl, p.cs)
+  const pb = p.src.pseudobulk
+  const n0 = cols.filter(c => c.cond === p.ctrl).length
+  const n1 = cols.filter(c => c.cond === p.cs).length
+
+  if (!pb) {
     return (
-      <Empty title={`No DESeq2 result for ${contrastLabel(p)} yet`}>
-        Raw counts will be summed within each sample to a pseudobulk profile
-        ({d.n0} + {d.n1} columns), then tested with DESeq2 in webR. Nothing is shown until it runs.
-        <div className="mt-4">
-          <button className="btn btn-primary" disabled={p.running} onClick={p.onRun}>
-            {p.running ? 'Running DESeq2 in webR…' : `Run DESeq2 for ${p.t.name}`}
+      <Empty title="This object carries no raw counts">
+        Pseudobulk sums raw counts per sample, and the bundle was built without
+        them — the exporter says so on the Overview tab. Wilcoxon does not need
+        them and is running.
+        <div className="mt-3.5">
+          <button className="btn btn-primary" onClick={() => p.onMethod('wilcox')}>
+            Use Wilcoxon instead
           </button>
-        </div>
-        <div className="mono mt-2.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
-          {d.kept.map(s => `${s.id} (${s.n} cells)`).join(' · ')}
         </div>
       </Empty>
     )
+  }
 
-  return null
+  const save = () => {
+    const keep = cols.map(c => pb.columns.findIndex(
+      x => x.sample === c.sample && x.cluster === c.cluster))
+    downloadCsv(
+      `pseudobulk_${slug(`${p.cs}_vs_${p.ctrl}_${p.t.name}`)}`,
+      ['gene', ...cols.map(c => `${c.sample}__${c.cond}`)],
+      pb.genes.map((g, gi) => [g, ...keep.map(k => pb.counts[gi * pb.columns.length + k])]))
+  }
+
+  return (
+    <>
+      <div className="note mt-1">
+        <b>The matrix is here; the model is not.</b> Raw counts have been summed
+        per sample within {p.t.name}, which is the whole of the pseudobulk step.
+        Fitting DESeq2 is not yet wired into the browser, so rather than show a
+        number from some other test under a DESeq2 label, the counts are offered
+        as they are — feed them straight to <code className="mono">DESeqDataSetFromMatrix</code>.
+      </div>
+      <div className="scrollx mt-3.5">
+        <table className="t">
+          <thead>
+            <tr><th>Sample</th><th>Group</th><th>Cells in {p.t.name}</th><th>Used</th></tr>
+          </thead>
+          <tbody>
+            {p.src.d.samples
+              .filter(s => s.cond === p.ctrl || s.cond === p.cs)
+              .map(s => {
+                const hit = cols.find(c => c.sample === s.id)
+                return (
+                  <tr key={s.id}>
+                    <td className="mono">{s.id}</td>
+                    <td>{s.cond}</td>
+                    <td className="num">{hit?.nCells ?? 0}</td>
+                    <td>
+                      <span className={`badge badge-${hit ? 'here' : 'none'}`}>
+                        {hit ? 'yes' : `under ${MIN_CELLS} cells`}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2.5">
+        <button className="btn btn-primary" disabled={!cols.length} onClick={save}>
+          ⭳ Pseudobulk counts ({cols.length} columns)
+        </button>
+        <button className="btn" onClick={() => p.onMethod('wilcox')}>Back to Wilcoxon</button>
+        <span className="text-[12.5px]" style={{ color: 'var(--ink-3)' }}>
+          {n0} {p.ctrl} · {n1} {p.cs}
+          {(n0 < MIN_REPS_PB || n1 < MIN_REPS_PB)
+            && ` — fewer than ${MIN_REPS_PB} per group, so a between-animal test is not defensible here either`}
+        </span>
+      </div>
+    </>
+  )
 }
+
 
 /** The gate and the rows, for a contrast tab that renders its own body. */
 export function ContrastFrame(
   p: StatsProps & { children: (rows: DERow[]) => React.ReactNode },
 ) {
-  const blocked = gate(p)
+  const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p)
   return (
     <Card>
       <MethodBar {...p} />
@@ -193,7 +264,7 @@ export function ContrastFrame(
         <>
           <ThresholdBar {...p} />
           <div className="eyebrow">{contrastLabel(p)}</div>
-          {p.children(runDE(p.d, p.ti, p.ctrl, p.cs, p.method).rows)}
+          {p.children(deWilcox(p.src, p.ti, p.ctrl, p.cs).rows)}
         </>
       )}
     </Card>
@@ -201,20 +272,17 @@ export function ContrastFrame(
 }
 
 export function DEGTable(p: StatsProps) {
+  if (p.method === 'pseudobulk') {
+    return <Card><MethodBar {...p} /><PseudobulkPanel {...p} /></Card>
+  }
   const blocked = gate(p)
   if (blocked) return <Card><MethodBar {...p} />{blocked}</Card>
 
-  const { rows, n0, n1 } = runDE(p.d, p.ti, p.ctrl, p.cs, p.method)
+  const { rows, n0, n1 } = deWilcox(p.src, p.ti, p.ctrl, p.cs)
   const wil = p.method === 'wilcox'
   const th = { padj: p.padjMax, lfc: p.lfcMin }
   const up = rows.filter(r => isSig(r, th) && r.lfc > 0).length
   const dn = rows.filter(r => isSig(r, th) && r.lfc < 0).length
-  const design = designFor(p.d, p.ti, p.ctrl, p.cs)
-  const other = design.pbOK
-    ? (wil
-        ? sigCount(dePseudobulk(p.d, p.ti, p.ctrl, p.cs).rows, { padj: p.padjMax, lfc: 1 })
-        : sigCount(deWilcox(p.d, p.ti, p.ctrl, p.cs).rows, { padj: p.padjMax, lfc: LFC_GATE }))
-    : null
 
   return (
     <Card>
@@ -234,14 +302,6 @@ export function DEGTable(p: StatsProps) {
              the bulk cutoff.</>}
       </p>
 
-      {other !== null && (
-        <div className="note mt-3">
-          <b>The other test gives {other}.</b>{' '}
-          {wil
-            ? `Per-cell testing treats every cell as a replicate, so it reports ${up + dn} where pseudobulk — testing between animals — reports ${other}. Use the per-cell list to explore; use pseudobulk when the claim has to survive a new animal.`
-            : `Pseudobulk reports ${up + dn} where the per-cell test reports ${other}, because it will not treat cells from one animal as independent observations.`}
-        </div>
-      )}
 
       <DEGTableBody
         rows={rows} wilcox={wil} ctrl={p.ctrl} cs={p.cs} label={contrastLabel(p)}
@@ -254,7 +314,7 @@ export function DEGTable(p: StatsProps) {
 export function Volcano(p: StatsProps) {
   const [hover, setHover] = useState<DERow | null>(null)
   const [nLabels, setNLabels] = useState(12)
-  const { rows } = runDE(p.d, p.ti, p.ctrl, p.cs, p.method)
+  const { rows } = deWilcox(p.src, p.ti, p.ctrl, p.cs)
 
   const W = 760, H = 440, PL = 58, PB = 46, PT = 16, PR = 16
   const maxX = Math.max(3, ...rows.map(r => Math.abs(r.lfc))) * 1.12
@@ -273,7 +333,7 @@ export function Volcano(p: StatsProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, p.padjMax, p.lfcMin, maxX, maxY])
 
-  const blocked = gate(p)
+  const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p)
   if (blocked) return <Card><MethodBar {...p} />{blocked}</Card>
 
   const step = Math.max(1, Math.ceil(maxY / 5))

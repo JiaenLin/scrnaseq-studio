@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, Dataset, GroupBy } from '../types.ts'
-import { density, embedExtent, identities, quantiles } from '../lib/chart.ts'
-import { GENES } from '../lib/demo.ts'
+import type { Source } from '../lib/source.ts'
+import { clusterCentroids, density, embedExtent, identities, quantiles } from '../lib/chart.ts'
 import { GENE_SETS } from '../lib/genesets.ts'
 import { parseGeneList } from '../lib/genes.ts'
 import { moduleScore, SCORE_DEFAULTS, summarise } from '../lib/score.ts'
@@ -10,14 +10,16 @@ import { downloadCsv, slug } from '../lib/download.ts'
 import { Card, Mono, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 
-export default function GeneSets({ d, types, ct, palKey, rampKey, onPickGene }: {
-  d: Dataset
+export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }: {
+  src: Source
   types: CellType[]
   ct: string
   palKey: PaletteKey
   rampKey: RampKey
   onPickGene: (g: string) => void
 }) {
+  const d = src.d
+  const GENES = src.genes
   const [setId, setSetId] = useState(GENE_SETS[0].id)
   const [custom, setCustom] = useState('')
   const [useCustom, setUseCustom] = useState(false)
@@ -26,12 +28,12 @@ export default function GeneSets({ d, types, ct, palKey, rampKey, onPickGene }: 
   const requested = useMemo(() => {
     if (useCustom) return parseGeneList(custom, GENES).found.concat(parseGeneList(custom, GENES).missing)
     return GENE_SETS.find(s => s.id === setId)?.genes ?? []
-  }, [useCustom, custom, setId])
+  }, [useCustom, custom, setId, GENES])
 
   // Every cell × every set gene — recompute only when the set or object changes.
   const score = useMemo(
-    () => moduleScore(d, requested, GENES),
-    [d, requested])
+    () => moduleScore(src, requested),
+    [src, requested])
 
   const name = useCustom
     ? `Custom set (${score.used.length} gene${score.used.length === 1 ? '' : 's'})`
@@ -234,13 +236,14 @@ function ScoreMap({ d, types, scores, rampKey }: {
     g.textAlign = 'center'
     g.lineWidth = 3.5
     g.strokeStyle = 'rgba(255,255,255,.9)'
-    for (const t of types) {
-      const X = ((t.cx - x0) / (x1 - x0)) * cv.width
-      const Y = (1 - (t.cy - y0) / (y1 - y0)) * cv.height
+    const at = clusterCentroids(d, types.length)
+    types.forEach((t, ti) => {
+      const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
+      const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height
       g.strokeText(t.name, X, Y)
       g.fillStyle = '#334155'
       g.fillText(t.name, X, Y)
-    }
+    })
   }, [d, types, scores, rampKey])
 
   return (

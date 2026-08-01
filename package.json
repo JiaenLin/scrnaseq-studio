@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node scripts/test-genes.mjs && node scripts/test-stats.mjs && node scripts/test-demo.mjs && node scripts/test-sets.mjs",
+    "test": "node scripts/test-genes.mjs && node scripts/test-stats.mjs && node scripts/test-demo.mjs && node scripts/test-sets.mjs && node scripts/test-bundle.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

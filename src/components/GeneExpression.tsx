@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CellType, Dataset, GroupBy, Identity, PlotKind } from '../types.ts'
-import {
-  density, embedExtent, identities, quantiles, sampleValues,
-} from '../lib/chart.ts'
-import { cellExpr, GENES, hash, meanExpr, pctFromMean, RESP } from '../lib/demo.ts'
+import type { CellType, GroupBy, Identity, PlotKind } from '../types.ts'
+import type { Source } from '../lib/source.ts'
+import { clusterCentroids, density, embedExtent, identities, quantiles } from '../lib/chart.ts'
 import { MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import { mix, rampColor, rampCss, RAMPS, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Chips, Seg } from './Ui.tsx'
 
 export interface GeneProps {
-  d: Dataset
+  src: Source
   types: CellType[]
   ct: string
   ctrl: string
@@ -32,9 +30,10 @@ export interface GeneProps {
 }
 
 export default function GeneExpression(p: GeneProps) {
+  const GENES = p.src.genes
   const [q, setQ] = useState('')
   const [missing, setMissing] = useState<string[]>([])
-  const hits = useMemo(() => rankGenes(q, GENES), [q])
+  const hits = useMemo(() => rankGenes(q, GENES), [q, GENES])
 
   const add = (text: string) => {
     const { found, missing: miss } = parseGeneList(text, GENES)
@@ -51,10 +50,10 @@ export default function GeneExpression(p: GeneProps) {
     else setMissing([t])
   }
 
-  const ids = identities(p.d, p.types, p.groupBy, p.ct, p.palKey)
+  const ids = identities(p.src.d, p.types, p.groupBy, p.ct, p.palKey)
   const modes: { k: GroupBy; label: string }[] = [
     { k: 'type', label: 'Across cell types' },
-    ...(p.d.multi
+    ...(p.src.d.multi
       ? [{ k: 'cond' as const, label: 'Across groups' }, { k: 'both' as const, label: 'Cell type × group' }]
       : []),
   ]
@@ -175,7 +174,7 @@ export default function GeneExpression(p: GeneProps) {
                 </label>
               </>
             )}
-            {p.plot === 'violin' && p.d.multi && p.groupBy === 'cond' && (
+            {p.plot === 'violin' && p.src.d.multi && p.groupBy === 'cond' && (
               <>
                 <div className="gsep h-6" />
                 <button className="chip" aria-pressed={p.relative} onClick={() => p.onRelative(!p.relative)}>
@@ -205,7 +204,7 @@ function describe(p: GeneProps) {
     return 'Every gene against every identity at once — the standard way to read a panel of markers. Dot size is the fraction of cells expressing the gene; colour is the average expression.'
   if (p.plot === 'feature')
     return `Expression on the embedding, one panel per gene${
-      p.groupBy !== 'type' && p.d.multi ? ", split by group and sharing that gene's scale" : ''
+      p.groupBy !== 'type' && p.src.d.multi ? ", split by group and sharing that gene's scale" : ''
     }. Cells with no detected transcript sit at the bottom of the colour scale, and positive cells are drawn last so they cannot be hidden underneath the negative majority.`
   if (p.groupBy === 'type')
     return 'One violin per cell type, every type on screen at once — this is the view that works on an object with no comparison at all. Each gene keeps its own y axis.'
@@ -241,7 +240,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   const PB = (both ? 56 : per > 5 ? 46 : 30) + DET
   const H = (p.cols <= 2 ? 210 : 190) + (both ? 30 : 0) + DET
 
-  const series = cats.map(c => sampleValues(p.gene, c.ti, c.cond, p.d.act[c.cond]))
+  const series = cats.map(c => p.src.values(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond))
   let base = 1
   if (p.relative && p.groupBy === 'cond') {
     const ref = Math.max(0, cats.findIndex(c => c.cond === p.ctrl))
@@ -254,8 +253,10 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   const Y = (v: number) => PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo))
   const bw = (W - PL - PR) / per
 
-  const dl = (RESP[p.gene] ?? 0) * ((p.d.act[p.cs] ?? 0) - (p.d.act[p.ctrl] ?? 0))
-  const pcts = cats.map(c => pctFromMean(meanExpr(p.gene, c.ti, p.d.act[c.cond])))
+  const dl = p.groupBy === 'type' ? 0
+    : Math.log2((p.src.mean(p.gene, p.types.findIndex(t => t.name === p.ct), p.cs) + 0.05)
+      / (p.src.mean(p.gene, p.types.findIndex(t => t.name === p.ct), p.ctrl) + 0.05))
+  const pcts = cats.map(c => p.src.pct(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond))
   const maxPct = Math.max(...pcts)
 
   return (
@@ -319,9 +320,9 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
           )
         })}
         {both && p.types.map((t, ti) => {
-          const block = bw * p.d.conds.length
+          const block = bw * p.src.d.conds.length
           const maxCh = Math.max(3, Math.floor(block / 5.2))
-          const x0 = PL + bw * ti * p.d.conds.length
+          const x0 = PL + bw * ti * p.src.d.conds.length
           const label = t.name.length > maxCh ? `${t.name.slice(0, maxCh - 1)}…` : t.name
           return (
             <g key={t.key}>
@@ -359,7 +360,7 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
   const W = PL + genes.length * cw + PR
   const H = PT + rows.length * rh + labelH
 
-  const avg = rows.map(r => genes.map(g => meanExpr(g, r.ti, p.d.act[r.cond])))
+  const avg = rows.map(r => genes.map(g => p.src.mean(g, r.ti, p.groupBy === 'type' ? null : r.cond)))
   const cv = genes.map((_g, gi) => {
     const col = rows.map((_r, ri) => avg[ri][gi])
     if (!p.dotScale) return col
@@ -386,7 +387,7 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
                 <text className="axis" x={PL - 12} y={y + 4} textAnchor="end"
                   style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: 550 }}>{r.full}</text>
                 {genes.map((g, gi) => {
-                  const pct = pctFromMean(avg[ri][gi])
+                  const pct = p.src.pct(g, r.ti, p.groupBy === 'type' ? null : r.cond)
                   if (pct < 0.01) return null
                   return (
                     <circle key={g} cx={PL + cw * (gi + 0.5)} cy={y} r={+(1.4 + pct * 9).toFixed(2)}
@@ -455,8 +456,8 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
 /* ---------------- Seurat feature plot ---------------- */
 
 function FeaturePlot(p: GeneProps) {
-  const split = p.groupBy !== 'type' && p.d.multi
-  const panels: (string | null)[] = split ? p.d.conds : [null]
+  const split = p.groupBy !== 'type' && p.src.d.multi
+  const panels: (string | null)[] = split ? p.src.d.conds : [null]
   const cols = split ? 1 : Math.max(1, Math.min(p.cols, 4))
   const size = split ? Math.max(150, 760 / panels.length) : Math.min(320, Math.max(170, 700 / cols))
 
@@ -484,11 +485,12 @@ function FeatureRow({ p, gene, panels, size }: {
 }) {
   // The whole-dataset values are needed for the shared clip, so compute once here.
   const { vals, top } = useMemo(() => {
-    const gh = hash(gene)
-    const v = p.d.cells.map((c, i) => cellExpr(gh, i, meanExpr(gene, c.t, c.a)))
-    const nz = v.filter(x => x > 0).sort((a, b) => a - b)
+    const v = p.src.vector(gene)
+    const nz = Array.from(v).filter(x => x > 0).sort((a, b) => a - b)
+    // Clipped at the gene's own 99th percentile, so one runaway cell cannot
+    // flatten every other panel to the floor colour.
     return { vals: v, top: nz.length ? nz[Math.floor(nz.length * 0.99)] : 1 }
-  }, [gene, p.d])
+  }, [gene, p.src])
 
   return (
     <figure>
@@ -511,7 +513,7 @@ function FeatureRow({ p, gene, panels, size }: {
 }
 
 function FeatureCanvas({ p, vals, top, cond, size }: {
-  p: GeneProps; vals: number[]; top: number; cond: string | null; size: number
+  p: GeneProps; vals: Float32Array; top: number; cond: string | null; size: number
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
@@ -523,17 +525,17 @@ function FeatureCanvas({ p, vals, top, cond, size }: {
     const surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()
     ctx.fillStyle = surface
     ctx.fillRect(0, 0, cv.width, cv.height)
-    const { x0, x1, y0, y1 } = embedExtent(p.d)
+    const { x0, x1, y0, y1 } = embedExtent(p.src.d)
 
     const idx: number[] = []
-    p.d.cells.forEach((c, i) => { if (!cond || c.cond === cond) idx.push(i) })
+    p.src.d.cells.forEach((c, i) => { if (!cond || c.cond === cond) idx.push(i) })
     // Seurat's `order = TRUE`: positive cells land on top instead of being buried
     // under the negative majority, which can otherwise erase a real signal.
     idx.sort((a, b) => vals[a] - vals[b])
     const r = idx.length > 12000 ? 1.5 : 2.1
 
     for (const i of idx) {
-      const c = p.d.cells[i]
+      const c = p.src.d.cells[i]
       // Zero takes the ramp's own low colour rather than a neutral grey. With a
       // dark-low ramp like viridis a grey would be *lighter* than the lowest real
       // value, so the scale would run backwards at its own floor.
@@ -549,13 +551,14 @@ function FeatureCanvas({ p, vals, top, cond, size }: {
       ctx.textAlign = 'center'
       ctx.lineWidth = 3.5
       ctx.strokeStyle = 'rgba(255,255,255,.9)'
-      for (const t of p.types) {
-        const X = ((t.cx - x0) / (x1 - x0)) * cv.width
-        const Y = (1 - (t.cy - y0) / (y1 - y0)) * cv.height
+      const at = clusterCentroids(p.src.d, p.types.length)
+      p.types.forEach((t, ti) => {
+        const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
+        const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height
         ctx.strokeText(t.name, X, Y)
         ctx.fillStyle = '#334155'
         ctx.fillText(t.name, X, Y)
-      }
+      })
     }
   }, [p, vals, top, cond, size])
 

@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react'
-import type {
-  CellType, ColorBy, Dataset, GroupBy, Method, PlotKind, TabId,
-} from './types.ts'
-import { buildDataset, makeTypes } from './lib/demo.ts'
-import { designFor, pbKey, thresholdFor } from './lib/stats.ts'
+import { useState } from 'react'
+import type { CellType, ColorBy, GroupBy, Method, PlotKind, TabId } from './types.ts'
+import { parseBundle } from './lib/bundle.ts'
+import { bundleSource, demoSource, type Source } from './lib/source.ts'
+import { designFor, thresholdFor } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
 import Landing from './components/Landing.tsx'
@@ -13,8 +12,8 @@ import Composition from './components/Composition.tsx'
 import Markers from './components/Markers.tsx'
 import { ContrastFrame, DEGTable, Volcano, type StatsProps } from './components/Stats.tsx'
 import Enrichment from './components/Enrichment.tsx'
-import GeneSets from './components/GeneSets.tsx'
 import GeneExpression from './components/GeneExpression.tsx'
+import GeneSets from './components/GeneSets.tsx'
 import Methods from './components/Methods.tsx'
 import { Empty } from './components/Ui.tsx'
 
@@ -29,19 +28,20 @@ const TABS: [TabId | 'div', string][] = [
 const NEEDS_CONTRAST = new Set<TabId>(['degs', 'volcano', 'enrich'])
 
 export default function App() {
-  const [dsKey, setDsKey] = useState<string | null>(null)
-  const [types, setTypes] = useState<CellType[]>(makeTypes)
+  const [src, setSrc] = useState<Source | null>(null)
+  const [openError, setOpenError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  // Cluster names are held here, not in the Source, because renaming is a user
+  // edit: the Source stays exactly what the file said.
+  const [types, setTypes] = useState<CellType[]>([])
   const [tab, setTab] = useState<TabId>('overview')
-  const [ct, setCt] = useState('qNSC')
+  const [ct, setCt] = useState('')
   const [ctrl, setCtrl] = useState('')
   const [cs, setCs] = useState('')
   const [method, setMethod] = useState<Method>('wilcox')
-  // Cutoffs live here, not in a tab: the table, the volcano's dashed lines, the
-  // enrichment input list and the Methods sentence all read these two numbers.
   const [padjMax, setPadjMax] = useState(0.05)
   const [lfcMin, setLfcMin] = useState(thresholdFor('wilcox').lfc)
-  const [computed, setComputed] = useState<Set<string>>(new Set())
-  const [running, setRunning] = useState(false)
 
   const [colorBy, setColorBy] = useState<ColorBy>('type')
   const [split, setSplit] = useState(true)
@@ -50,14 +50,66 @@ export default function App() {
   const [cols, setCols] = useState(2)
   const [relative, setRelative] = useState(false)
   const [dotScale, setDotScale] = useState(true)
-  const [genes, setGenes] = useState<string[]>(['Ascl1', 'Gfap', 'Mki67', 'Dcx'])
+  const [genes, setGenes] = useState<string[]>([])
 
-  /** Open a gene from any table or plot in the Gene expression tab. */
+  const [palKey, setPalKey] = useState<PaletteKey>('npg')
+  const [rampKey, setRampKey] = useState<RampKey>('seurat')
+
+  function adopt(next: Source, defaultGenes: string[]) {
+    setSrc(next)
+    setTypes(next.types.map(t => ({ ...t })))
+    setCt(next.types[0]?.name ?? '')
+    setCtrl(next.d.conds[0])
+    setCs(next.d.conds[next.d.conds.length - 1])
+    setMethod('wilcox')
+    setPadjMax(0.05)
+    setLfcMin(thresholdFor('wilcox').lfc)
+    setGroupBy('type')
+    setPlot('violin')
+    setGenes(defaultGenes.filter(g => next.genes.includes(g)).slice(0, 4))
+    setTab('overview')
+    setOpenError(null)
+  }
+
+  const openDemo = (key: string) => {
+    setLoading(true)
+    // A frame, so the button's press state paints before the generator runs.
+    setTimeout(() => {
+      adopt(demoSource(key), ['Ascl1', 'Gfap', 'Mki67', 'Dcx'])
+      setLoading(false)
+    }, 0)
+  }
+
+  const openFile = async (file: File) => {
+    setLoading(true)
+    setOpenError(null)
+    try {
+      const next = bundleSource(parseBundle(await file.arrayBuffer()))
+      // Pick starting genes that exist rather than a fixed list that may not.
+      const wanted = ['CD3D', 'MS4A1', 'LYZ', 'GNLY', 'PPBP', 'Ascl1', 'Gfap']
+      const found = wanted.filter(g => next.genes.includes(g))
+      adopt(next, found.length ? found : next.genes.slice(0, 4))
+    } catch (e) {
+      setOpenError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!src) {
+    return <Landing onDemo={openDemo} onFile={openFile} error={openError} busy={loading} />
+  }
+
+  const d = src.d
+  const ti = Math.max(0, types.findIndex(t => t.name === ct))
+  const t = types[ti] ?? src.types[0]
+  const design = designFor(src, ti, ctrl, cs)
+  const blocked = !d.multi && NEEDS_CONTRAST.has(tab)
+
   const pickGene = (g: string) => {
     setGenes(prev => mergeGenes(prev, [g]))
     setTab('expr')
   }
-
   /** Switching test switches the scale, so the default cutoff has to follow. */
   const changeMethod = (m: Method) => {
     setMethod(m)
@@ -65,83 +117,40 @@ export default function App() {
     setLfcMin(thresholdFor(m).lfc)
   }
 
-  const [palKey, setPalKey] = useState<PaletteKey>('npg')
-  const [rampKey, setRampKey] = useState<RampKey>('seurat')
-
-  // Building the demo object is a few hundred ms of gaussians; never on a redraw.
-  const d: Dataset | null = useMemo(
-    () => (dsKey ? buildDataset(dsKey, types) : null),
-    // `types` only changes on rename, which does not move a single cell.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dsKey],
-  )
-
-  function open(key: string) {
-    const fresh = makeTypes()
-    const built = buildDataset(key, fresh)
-    setTypes(fresh)
-    setDsKey(key)
-    setCt(fresh[0].name)
-    setCtrl(built.conds[0])
-    setCs(built.conds[built.conds.length - 1])
-    setMethod('wilcox')
-    setPadjMax(0.05)
-    setLfcMin(thresholdFor('wilcox').lfc)
-    setGroupBy('type')
-    setComputed(new Set())
-    setTab('overview')
-  }
-
-  if (!d) return <Landing onOpen={open} />
-
-  const ti = Math.max(0, types.findIndex(t => t.name === ct))
-  const t = types[ti]
-  const design = designFor(d, ti, ctrl, cs)
-  const key = pbKey(t, ctrl, cs)
-  const blocked = !d.multi && NEEDS_CONTRAST.has(tab)
-
   const statsProps: StatsProps = {
-    d, t, ti, ctrl, cs, method, running, padjMax, lfcMin,
-    computed: computed.has(key),
+    src, t, ti, ctrl, cs, method, padjMax, lfcMin,
+    running: false, computed: true,
     onMethod: changeMethod,
+    onRun: () => {},
     onPadj: setPadjMax,
     onLfc: setLfcMin,
     onPickGene: pickGene,
-    onRun: () => {
-      setRunning(true)
-      // Stands in for the webR round-trip until lib/deseq lands.
-      setTimeout(() => {
-        setComputed(prev => new Set(prev).add(key))
-        setRunning(false)
-      }, 900)
-    },
   }
 
-  const chip = (() => {
-    if (!d.multi) return { cls: 'mute', text: `Single condition · ${d.samples.length} sample${d.samples.length > 1 ? 's' : ''}` }
-    if (ctrl === cs) return { cls: 'bad', text: 'Pick two different groups' }
-    if (method === 'wilcox') return { cls: 'ok', text: 'Wilcoxon · per cell · no replicates required' }
-    if (!design.pbOK) return { cls: 'bad', text: `Pseudobulk needs > 3 per group — have ${design.n0} vs ${design.n1}` }
-    if (!computed.has(key)) return { cls: 'bad', text: `Pseudobulk ready to run · ${design.n0} vs ${design.n1}` }
-    return { cls: 'ok', text: `DESeq2 · pseudobulk · ${design.n0} vs ${design.n1}` }
-  })()
+  const chip = !d.multi
+    ? { cls: 'mute', text: `Single condition · ${d.samples.length} sample${d.samples.length > 1 ? 's' : ''}` }
+    : ctrl === cs ? { cls: 'bad', text: 'Pick two different groups' }
+    : method === 'wilcox' ? { cls: 'ok', text: 'Wilcoxon · per cell · no replicates required' }
+    : design.pbOK ? { cls: 'ok', text: `Pseudobulk matrix · ${design.n0} vs ${design.n1}` }
+    : { cls: 'bad', text: `Pseudobulk needs > 3 per group — have ${design.n0} vs ${design.n1}` }
 
-  const chipStyle =
-    chip.cls === 'ok'
-      ? { background: 'var(--good-soft)', color: 'var(--good)', borderColor: 'color-mix(in srgb, var(--good) 25%, transparent)' }
-      : chip.cls === 'bad'
-        ? { background: 'var(--warn-soft)', color: 'var(--warn)', borderColor: 'var(--warn-line)' }
-        : { background: 'var(--surface)', color: 'var(--ink-3)', borderColor: 'var(--line-2)' }
+  const chipStyle = chip.cls === 'ok'
+    ? { background: 'var(--good-soft)', color: 'var(--good)', borderColor: 'color-mix(in srgb, var(--good) 25%, transparent)' }
+    : chip.cls === 'bad'
+      ? { background: 'var(--warn-soft)', color: 'var(--warn)', borderColor: 'var(--warn-line)' }
+      : { background: 'var(--surface)', color: 'var(--ink-3)', borderColor: 'var(--line-2)' }
 
   return (
     <>
       <header className="sticky top-0 z-30" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--line)' }}>
         <div className="wrap">
           <div className="flex items-center gap-3.5 pb-2.5 pt-3">
-            <div
-              className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[9px] text-xs font-bold text-white"
+            <button
+              className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[9px] border-0 text-xs font-bold text-white"
               style={{ background: 'linear-gradient(150deg, var(--accent), #a855f7)' }}
-            >sc</div>
+              title="Close this object and open another"
+              onClick={() => setSrc(null)}
+            >sc</button>
             <div>
               <div className="text-[15px] font-semibold tracking-[-0.01em]">scRNA-seq Studio</div>
               <div className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
@@ -150,8 +159,13 @@ export default function App() {
             </div>
             {/* min-w-0 is what lets a long project name wrap instead of overflowing. */}
             <div className="min-w-0 flex-1 text-right">
-              <div className="text-[13px] font-semibold" style={{ overflowWrap: 'anywhere' }}>{d.label}</div>
-              <div className="mono text-[11px]" style={{ color: 'var(--ink-3)', overflowWrap: 'anywhere' }}>{d.file}</div>
+              <div className="text-[13px] font-semibold" style={{ overflowWrap: 'anywhere' }}>
+                {src.meta.label}
+                {src.meta.isDemo && <span className="badge badge-none ml-2">demo</span>}
+              </div>
+              <div className="mono text-[11px]" style={{ color: 'var(--ink-3)', overflowWrap: 'anywhere' }}>
+                {src.meta.source}
+              </div>
             </div>
           </div>
           <div className="flex gap-0.5 overflow-x-auto" role="tablist">
@@ -179,7 +193,7 @@ export default function App() {
         <div className="wrap flex flex-wrap items-center gap-2.5 py-2.5">
           <label className="flex items-center gap-1.5">
             <span className="glabel">Cell type</span>
-            <select className="sel" value={ct} onChange={e => setCt(e.target.value)}>
+            <select className="sel max-w-[240px]" value={ct} onChange={e => setCt(e.target.value)}>
               {types.map(x => <option key={x.key}>{x.name}</option>)}
             </select>
           </label>
@@ -215,7 +229,7 @@ export default function App() {
           {blocked ? (
             <Empty title="This object has one condition, so there is nothing to contrast">
               Differential expression between groups needs at least two. What is still available:{' '}
-              <b>Markers</b> ranks the genes that define each cluster, and <b>Gene expression</b>{' '}
+              <b>Markers</b> tests every cluster against the rest, and <b>Gene expression</b>{' '}
               searches any gene across every cell type.
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <button className="btn" onClick={() => setTab('markers')}>Go to Markers</button>
@@ -223,24 +237,25 @@ export default function App() {
               </div>
             </Empty>
           ) : tab === 'overview' ? (
-            <Overview d={d} types={types} palKey={palKey} rampKey={rampKey}
+            <Overview src={src} types={types} palKey={palKey} rampKey={rampKey}
               onPal={setPalKey} onRamp={setRampKey} />
           ) : tab === 'cells' ? (
-            <Cells d={d} types={types} gene={genes[genes.length - 1] ?? 'Ascl1'} colorBy={colorBy}
+            <Cells src={src} types={types} gene={genes[genes.length - 1] ?? ''} colorBy={colorBy}
               split={split} palKey={palKey} rampKey={rampKey}
               onColorBy={setColorBy} onSplit={setSplit} />
           ) : tab === 'composition' ? (
             <Composition d={d} types={types} palKey={palKey} />
           ) : tab === 'markers' ? (
-            <Markers types={types} palKey={palKey} onRename={(i, name) => {
-              setTypes(prev => {
-                const next = [...prev]
-                const was = next[i].name
-                next[i] = { ...next[i], name: name.trim() || next[i].key }
-                if (ct === was) setCt(next[i].name)
-                return next
-              })
-            }} />
+            <Markers src={src} types={types} palKey={palKey} onPickGene={pickGene}
+              onRename={(i, name) => {
+                setTypes(prev => {
+                  const next = [...prev]
+                  const was = next[i].name
+                  next[i] = { ...next[i], name: name.trim() || next[i].key }
+                  if (ct === was) setCt(next[i].name)
+                  return next
+                })
+              }} />
           ) : tab === 'degs' ? (
             <DEGTable {...statsProps} />
           ) : tab === 'volcano' ? (
@@ -249,22 +264,23 @@ export default function App() {
             <ContrastFrame {...statsProps}>
               {rows => (
                 <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
-                  ctrl={ctrl} cs={cs} label={`${cs} vs ${ctrl} · ${ct}`}
+                  genes={src.genes} ctrl={ctrl} cs={cs}
+                  label={`${cs} vs ${ctrl} · ${ct}`}
                   palKey={palKey} onPickGene={pickGene} />
               )}
             </ContrastFrame>
           ) : tab === 'expr' ? (
             <GeneExpression
-              d={d} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes}
+              src={src} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes}
               plot={plot} groupBy={groupBy} cols={cols} relative={relative} dotScale={dotScale}
               palKey={palKey} rampKey={rampKey}
               onGenes={setGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
               onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey} />
           ) : tab === 'sets' ? (
-            <GeneSets d={d} types={types} ct={ct} palKey={palKey} rampKey={rampKey}
+            <GeneSets src={src} types={types} ct={ct} palKey={palKey} rampKey={rampKey}
               onPickGene={pickGene} />
           ) : (
-            <Methods d={d} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
+            <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
               padjMax={padjMax} lfcMin={lfcMin} />
           )}
         </div>

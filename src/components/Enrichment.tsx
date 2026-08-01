@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import { GENE_SETS, SET_SOURCES } from '../lib/genesets.ts'
 import { runORA, type ORAResult } from '../lib/ora.ts'
-import { GENES } from '../lib/demo.ts'
 import { sci } from '../lib/chart.ts'
 import { combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
@@ -12,8 +11,9 @@ import Figure, { CsvButton } from './Figure.tsx'
 
 type Direction = 'both' | 'up' | 'down'
 
-export default function Enrichment({ rows, threshold, ctrl, cs, label, palKey, onPickGene }: {
+export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, label, palKey, onPickGene }: {
   rows: DERow[]
+  genes: string[]
   threshold: { padj: number; lfc: number }
   ctrl: string
   cs: string
@@ -39,7 +39,7 @@ export default function Enrichment({ rows, threshold, ctrl, cs, label, palKey, o
     return rankBy === 'count'
       ? [...out].sort((a, b) => b.count - a.count || a.padj - b.padj)
       : out
-  }, [query, sources, minSize, maxSize, rankBy])
+  }, [query, sources, minSize, maxSize, rankBy, GENES])
 
   const shown = results.slice(0, top)
   const selected = results.find(r => r.id === termId)

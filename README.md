@@ -4,10 +4,20 @@
 
 **Open a processed single-cell object and explore it — in your browser, without re-running anything.**
 
-Bring a Scanpy `.h5ad` or a Seurat `.rds` that has already been QC'd, normalized, clustered and
-embedded. scRNA-seq Studio reads it, shows you what is actually in it, and produces the figures,
-the statistics and the Methods paragraph. **Your file never leaves your computer** — there is no
-server and nothing is uploaded.
+Convert a Scanpy `.h5ad` or a Seurat `.rds` into a bundle once, offline, then open the bundle
+here. The studio shows you what is actually in it and produces the figures, the statistics and
+the Methods paragraph. **Your file never leaves your computer** — there is no server and nothing
+is uploaded.
+
+```bash
+python tools/export_h5ad.py   in.h5ad out.zip --cluster louvain
+Rscript tools/export_seurat.R in.rds  out.zip --cluster seurat_annotations
+```
+
+Conversion is offline because that is where the formats' quirks live: an `.rds` cannot be
+partially read and is mostly `scale.data` this app never plots, and an `.h5ad` may keep scaled
+values in `X`, log-normalized counts in `.raw`, and use either of two incompatible layouts.
+[tools/BUNDLE.md](tools/BUNDLE.md) is the format and the requirements.
 
 Fourth app in the family:
 
@@ -93,18 +103,24 @@ colour-vision deficiency.
 
 ## Status
 
-Every tab is functional and covered by tests. Reading real files is what remains:
+Real data works end to end. Opening PBMC 3k — 2,638 cells, 13,714 genes — parses in ~200 ms and
+a full one-vs-rest marker test across all 8 clusters takes ~1.6 s, returning CD79A/MS4A1 for B
+cells, S100A9/CD14 for monocytes, GZMB/GNLY for NK, GP9/ITGA2B for megakaryocytes.
 
-- [ ] `.h5ad` reader (h5wasm, lazy hyperslab reads — see [DESIGN.md](DESIGN.md) §1.1)
-- [ ] Seurat `.rds` reader (webR `readRDS`, with the ~1.5 GB ceiling stated up front — §1.2)
-- [ ] gene-major (CSC) index built once on load — §1.3
-- [ ] real DESeq2 in webR, replacing the simulated pseudobulk run
-- [ ] a larger gene set collection — an `.h5ad` carries none, so the studio ships its own
-      (18 sets across GO:BP, KEGG, Hallmark and curated signatures); MSigDB import is the next step
+What remains:
 
-Until then the app opens one of three built-in demo objects — a replicated 4 v 4 cohort, a time
-course with one sample per point, and a wild-type-only reference. They exist because an interface
-built only for the easy case breaks on the other two, and all three are common.
+- [ ] **DESeq2 on pseudobulk.** The bundle carries the summed counts and the app exports them,
+      but fitting the model is not wired into the browser. Rather than label some other test
+      "DESeq2", the pseudobulk tab hands you the matrix for `DESeqDataSetFromMatrix`.
+- [ ] Opening a `.h5ad` or `.rds` directly, without the conversion step (h5wasm and webR —
+      see [DESIGN.md](DESIGN.md) §1.1–1.2)
+- [ ] MSigDB import; the studio currently ships 18 sets across GO:BP, KEGG, Hallmark and
+      curated signatures, because an `.h5ad` carries none the way a bulk result bundle does
+
+Three built-in demo objects are also available — a replicated 4 v 4 cohort, a time course with
+one sample per point, and a wild-type-only reference. They exist because an interface built only
+for the easy case breaks on the other two, and they run through exactly the same statistics code
+as a real bundle, so the demo path cannot quietly diverge from the one that matters.
 
 ## Design notes
 

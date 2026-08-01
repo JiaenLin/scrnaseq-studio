@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react'
 import type { CellType, ColorBy, Dataset } from '../types.ts'
-import { embedExtent, fmt } from '../lib/chart.ts'
-import { meanExpr } from '../lib/demo.ts'
+import type { Source } from '../lib/source.ts'
+import { clusterCentroids, embedExtent, fmt } from '../lib/chart.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Legend } from './Ui.tsx'
 
-export default function Cells({ d, types, gene, colorBy, split, palKey, rampKey, onColorBy, onSplit }: {
-  d: Dataset
+export default function Cells({ src, types, gene, colorBy, split, palKey, rampKey, onColorBy, onSplit }: {
+  src: Source
   types: CellType[]
   gene: string
   colorBy: ColorBy
@@ -16,6 +16,9 @@ export default function Cells({ d, types, gene, colorBy, split, palKey, rampKey,
   onColorBy: (c: ColorBy) => void
   onSplit: (v: boolean) => void
 }) {
+  const d = src.d
+  const values = colorBy === 'gene' && gene ? src.vector(gene) : null
+  const vmax = values ? percentile(values, 0.99) : 1
   const panels = split && d.multi ? d.conds : [null]
   const wide = panels.length === 1
   const size = wide ? 700 : Math.max(240, 840 / panels.length)
@@ -68,7 +71,7 @@ export default function Cells({ d, types, gene, colorBy, split, palKey, rampKey,
               </div>
             )}
             <Scatter
-              d={d} types={types} cond={p} gene={gene} colorBy={colorBy}
+              d={d} types={types} cond={p} values={values} vmax={vmax} colorBy={colorBy}
               palKey={palKey} rampKey={rampKey}
               w={size} h={height} labels={panels.length <= 2}
             />
@@ -96,11 +99,12 @@ export default function Cells({ d, types, gene, colorBy, split, palKey, rampKey,
   )
 }
 
-function Scatter({ d, types, cond, gene, colorBy, palKey, rampKey, w, h, labels }: {
+function Scatter({ d, types, cond, values, vmax, colorBy, palKey, rampKey, w, h, labels }: {
   d: Dataset
   types: CellType[]
   cond: string | null
-  gene: string
+  values: Float32Array | null
+  vmax: number
   colorBy: ColorBy
   palKey: PaletteKey
   rampKey: RampKey
@@ -124,14 +128,20 @@ function Scatter({ d, types, cond, gene, colorBy, palKey, rampKey, w, h, labels 
     const { x0, x1, y0, y1 } = embedExtent(d)
     const r = labels ? (cond ? 1.7 : 1.9) : 1.4
 
-    for (const c of d.cells) {
+    // Expression is drawn low-to-high so a small positive population is not
+    // buried under the negative majority — the same rule as the feature plot.
+    const order = values
+      ? Array.from(d.cells.keys()).sort((a, b) => values[a] - values[b])
+      : Array.from(d.cells.keys())
+    for (const i of order) {
+      const c = d.cells[i]
       if (cond && c.cond !== cond) continue
       g.fillStyle =
         colorBy === 'type' ? pal(c.t, palKey)
         : colorBy === 'cond' ? pal(d.conds.indexOf(c.cond), palKey)
         : colorBy === 'sample' ? pal(d.samples.findIndex(s => s.id === c.s), palKey)
         : colorBy === 'mito' ? rampColor(Math.min(1, c.mito / 9), rampKey)
-        : rampColor(Math.min(1, meanExpr(gene, c.t, c.a) / 3.1), rampKey)
+        : rampColor(values ? Math.min(1, values[i] / (vmax || 1)) : 0, rampKey)
       g.beginPath()
       g.arc(((c.x - x0) / (x1 - x0)) * cv.width, (1 - (c.y - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)
       g.fill()
@@ -142,15 +152,16 @@ function Scatter({ d, types, cond, gene, colorBy, palKey, rampKey, w, h, labels 
       g.textAlign = 'center'
       g.strokeStyle = surface
       g.lineWidth = 4
-      for (const t of types) {
-        const X = ((t.cx - x0) / (x1 - x0)) * cv.width
-        const Y = (1 - (t.cy - y0) / (y1 - y0)) * cv.height
+      const at = clusterCentroids(d, types.length)
+      types.forEach((t, ti) => {
+        const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
+        const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height
         g.strokeText(t.name, X, Y)
         g.fillStyle = ink
         g.fillText(t.name, X, Y)
-      }
+      })
     }
-  }, [d, types, cond, gene, colorBy, palKey, rampKey, labels])
+  }, [d, types, cond, values, vmax, colorBy, palKey, rampKey, labels])
 
   return (
     <canvas
@@ -158,4 +169,10 @@ function Scatter({ d, types, cond, gene, colorBy, palKey, rampKey, w, h, labels 
       style={{ width: '100%', height: 'auto', borderRadius: 10 }}
     />
   )
+}
+
+/** Upper percentile of a vector, for a colour ceiling one outlier cannot set. */
+function percentile(v: Float32Array, q: number): number {
+  const nz = Array.from(v).filter(x => x > 0).sort((a, b) => a - b)
+  return nz.length ? nz[Math.floor(nz.length * q)] : 1
 }

@@ -105,3 +105,25 @@ export function embedExtent(d: Dataset) {
     y0: Math.min(...ys) - 0.4, y1: Math.max(...ys) + 0.4,
   }
 }
+
+/**
+ * Where to write each cluster's name on the embedding.
+ *
+ * The demo generator knows where it put a cluster; a bundle does not, so the
+ * label position has to come from the cells themselves. Medians rather than
+ * means, because a handful of cells stranded on the far side of a UMAP would
+ * otherwise drag the label into empty space.
+ */
+export function clusterCentroids(d: Dataset, nTypes: number): { x: number; y: number }[] {
+  const xs: number[][] = Array.from({ length: nTypes }, () => [])
+  const ys: number[][] = Array.from({ length: nTypes }, () => [])
+  for (const c of d.cells) {
+    if (c.t < nTypes) { xs[c.t].push(c.x); ys[c.t].push(c.y) }
+  }
+  const mid = (v: number[]) => {
+    if (!v.length) return 0
+    const s = [...v].sort((a, b) => a - b)
+    return s[s.length >> 1]
+  }
+  return xs.map((v, i) => ({ x: mid(v), y: mid(ys[i]) }))
+}

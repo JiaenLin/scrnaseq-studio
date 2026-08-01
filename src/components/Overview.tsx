@@ -1,36 +1,35 @@
 import type { CellType, Dataset } from '../types.ts'
+import type { Source } from '../lib/source.ts'
 import { fmt, quantiles, density } from '../lib/chart.ts'
-import { N_GENES } from '../lib/demo.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
 import { pal, PALETTES, RAMPS, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Mono, Stat } from './Ui.tsx'
 
 type Kind = 'file' | 'here' | 'none'
 
-export default function Overview({ d, types, palKey, rampKey, onPal, onRamp }: {
-  d: Dataset
+export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }: {
+  src: Source
   types: CellType[]
   palKey: PaletteKey
   rampKey: RampKey
   onPal: (k: PaletteKey) => void
   onRamp: (k: RampKey) => void
 }) {
-  const nRep = minReplicates(d)
-  const prov: [string, Kind, React.ReactNode][] = [
-    ['Normalization', 'file', <>log1p(CP10K) — <Mono>uns.log1p</Mono> present</>],
-    ['Feature selection', 'file', <>2,000 highly variable genes — <Mono>var.highly_variable</Mono></>],
-    ['Dimension reduction', 'file', <>50 principal components → UMAP (<Mono>obsm.X_umap</Mono>)</>],
-    ['Batch integration', 'file', d.samples.length > 1
-      ? <>Harmony on <Mono>sample</Mono> — <Mono>obsm.X_pca_harmony</Mono></>
-      : <>none recorded — a single sample has no batch to correct</>],
-    ['Clustering', 'file', <>Leiden, resolution 1.0 → {types.length} clusters (<Mono>obs.leiden</Mono>)</>],
-    ['Raw counts', 'file', <><Mono>layers/counts</Mono> — present</>],
-    ['Doublet calls', 'none', <>no <Mono>scrublet</Mono> / <Mono>doublet_score</Mono> column found</>],
-    ['Ambient RNA', 'none', <>no SoupX / CellBender / DecontX record found</>],
-    ['Differential expression', 'here', d.multi
-      ? <>Wilcoxon rank-sum across cells, run in this browser
-          {nRep >= MIN_REPS_PB && ' — pseudobulk DESeq2 also available'}</>
-      : <>not applicable — one condition</>],
+  const d = src.d
+  const nRep = minReplicates(src)
+  const prov = src.meta.provenance
+  const rows: [string, Kind, React.ReactNode][] = [
+    ['Normalization', prov.normalization ? 'file' : 'none', prov.normalization ?? 'not recorded'],
+    ['Clustering', prov.clustering ? 'file' : 'none', prov.clustering ?? 'not recorded'],
+    ['Batch integration', prov.integration ? 'file' : 'none', prov.integration ?? 'none recorded'],
+    ['Embedding', 'file', src.meta.embedding],
+    ['Expression', 'file', src.meta.expression],
+    ['Raw counts', src.meta.hasRawCounts ? 'file' : 'none',
+      src.meta.hasRawCounts ? 'present — pseudobulk columns are in the bundle' : 'absent'],
+    ['Doublet calls', prov.doublets ? 'file' : 'none', prov.doublets ?? 'no doublet column found'],
+    ['Ambient RNA', prov.ambient ? 'file' : 'none', prov.ambient ?? 'no SoupX / CellBender / DecontX record'],
+    ['Differential expression', 'here',
+      'Wilcoxon rank-sum across cells, computed in this browser'],
   ]
 
   return (
@@ -42,7 +41,7 @@ export default function Overview({ d, types, palKey, rampKey, onPal, onRamp }: {
                    gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))' }}
         >
           <Stat value={fmt(d.nCells)} label="cells" />
-          <Stat value={fmt(N_GENES)} label="genes" />
+          <Stat value={fmt(src.genes.length)} label="genes" />
           <Stat value={d.samples.length} label="samples" />
           <Stat value={d.conds.length} label={d.conds.length > 1 ? 'groups' : 'group'} />
           <Stat value={types.length} label="clusters" />
@@ -74,7 +73,7 @@ export default function Overview({ d, types, palKey, rampKey, onPal, onRamp }: {
         <div className="scrollx mt-3">
           <table className="t">
             <tbody>
-              {prov.map(([k, kind, body]) => (
+              {rows.map(([k, kind, body]) => (
                 <tr key={k}>
                   <td className="whitespace-nowrap font-semibold">{k}</td>
                   <td style={{ width: '1%' }}>
@@ -89,6 +88,16 @@ export default function Overview({ d, types, palKey, rampKey, onPal, onRamp }: {
           </table>
         </div>
       </Card>
+
+      {src.meta.notes.length > 0 && (
+        <Card eyebrow="From the conversion" title="What the exporter had to decide"
+          sub="Recorded when the bundle was made, so the person reading the figures sees what the person who converted the object saw.">
+          <ul className="mt-3 list-disc pl-5 text-[12.5px] leading-relaxed"
+            style={{ color: 'var(--ink-2)' }}>
+            {src.meta.notes.map((nte, i) => <li key={i} className="mb-1">{nte}</li>)}
+          </ul>
+        </Card>
+      )}
 
       <Card
         eyebrow="Figure style" title="Match the journal you are submitting to"

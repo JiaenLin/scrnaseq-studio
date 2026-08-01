@@ -1,4 +1,5 @@
-import type { CellType, Dataset, Method } from '../types.ts'
+import type { CellType, Method } from '../types.ts'
+import type { Source } from '../lib/source.ts'
 import { designFor, LFC_GATE, MIN_CELLS, PCT_GATE } from '../lib/stats.ts'
 import { Card, Mono } from './Ui.tsx'
 
@@ -15,8 +16,8 @@ const REFS: React.ReactNode[] = [
 
 const Sup = ({ n }: { n: number }) => <sup>{n}</sup>
 
-export default function Methods({ d, types, ti, ctrl, cs, method, padjMax, lfcMin }: {
-  d: Dataset
+export default function Methods({ src, types, ti, ctrl, cs, method, padjMax, lfcMin }: {
+  src: Source
   types: CellType[]
   ti: number
   ctrl: string
@@ -26,7 +27,8 @@ export default function Methods({ d, types, ti, ctrl, cs, method, padjMax, lfcMi
   padjMax: number
   lfcMin: number
 }) {
-  const design = designFor(d, ti, ctrl, cs)
+  const d = src.d
+  const design = designFor(src, ti, ctrl, cs)
   const wil = method === 'wilcox'
   const oneEach = d.samples.length === d.conds.length
   const ct = types[ti]?.name ?? ''

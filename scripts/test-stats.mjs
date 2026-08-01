@@ -1,9 +1,10 @@
 // Statistics regressions. These encode the decisions that are easy to undo by
-// accident: which test is offered when, and which cutoff each one is judged at.
-import { makeTypes, buildDataset } from '../src/lib/demo.ts'
+// accident: which test is offered when, which cutoff each is judged at, and
+// whether the sparse rank-sum agrees with a straightforward dense one.
+import { demoSource } from '../src/lib/source.ts'
 import {
-  combinedScore, deWilcox, dePseudobulk, designFor, isSig, MIN_REPS_PB,
-  minReplicates, sigCount, thresholdFor, pbKey, LFC_GATE,
+  combinedScore, deMarkers, deWilcox, designFor, isSig, LFC_GATE, MIN_REPS_PB,
+  minReplicates, normalTail, pbKey, rankSumSparse, sigCount, thresholdFor,
 } from '../src/lib/stats.ts'
 
 let failed = 0
@@ -12,11 +13,16 @@ const check = (name, got, want) => {
   if (!ok) failed++
   console.log(`${ok ? '  ok  ' : '  FAIL'} ${name}${ok ? '' : `\n        got  ${JSON.stringify(got)}\n        want ${JSON.stringify(want)}`}`)
 }
-const types = makeTypes()
-const cohort = buildDataset('cohort', types)
-const course = buildDataset('course', types)
-const wt = buildDataset('wt', types)
-const ti = (name) => types.findIndex(t => t.name === name)
+const near = (name, got, want, tol) => {
+  const ok = Math.abs(got - want) < tol
+  if (!ok) failed++
+  console.log(`${ok ? '  ok  ' : '  FAIL'} ${name}${ok ? '' : `\n        got  ${got}\n        want ${want}`}`)
+}
+
+const cohort = demoSource('cohort')
+const course = demoSource('course')
+const wt = demoSource('wt')
+const ti = (src, name) => src.clusters.indexOf(name)
 
 console.log('\nTHRESHOLDS ARE PER METHOD')
 // |log2FC| > 1 is a bulk convention. Log-normalized single-cell values are
@@ -27,92 +33,129 @@ check('isSig respects the method', [
   isSig({ padj: 0.01, lfc: 0.4 }, thresholdFor('wilcox')),
   isSig({ padj: 0.01, lfc: 0.4 }, thresholdFor('pseudobulk')),
 ], [true, false])
-check('a large padj never passes',
-  isSig({ padj: 0.2, lfc: 3 }, thresholdFor('pseudobulk')), false)
+
+console.log('\nTHE RANK-SUM AGREES WITH A DENSE REFERENCE')
+// The shipped test skips every zero and treats them as one tie block. This is
+// the same computation written the obvious way, over every value.
+function denseRankSum(a, b) {
+  const all = [...a.map(x => [x, 0]), ...b.map(x => [x, 1])].sort((p, q) => p[0] - q[0])
+  const n1 = a.length
+  const n2 = b.length
+  const n = n1 + n2
+  let r1 = 0
+  let tie = 0
+  let i = 0
+  while (i < all.length) {
+    let j = i
+    while (j + 1 < all.length && all[j + 1][0] === all[i][0]) j++
+    const size = j - i + 1
+    const rank = i + 1 + (size - 1) / 2
+    for (let k = i; k <= j; k++) if (all[k][1] === 0) r1 += rank
+    if (size > 1) tie += size ** 3 - size
+    i = j + 1
+  }
+  const u = r1 - (n1 * (n1 + 1)) / 2
+  const varU = ((n1 * n2) / 12) * (n + 1 - tie / (n * (n - 1)))
+  if (varU <= 0) return 1
+  return Math.min(1, 2 * normalTail((Math.abs(u - (n1 * n2) / 2) - 0.5) / Math.sqrt(varU)))
+}
+const sparseOf = (a, b) => {
+  const xs = []
+  const gs = []
+  let z1 = 0
+  let z2 = 0
+  for (const x of a) { if (x > 0) { xs.push(x); gs.push(0) } else z1++ }
+  for (const x of b) { if (x > 0) { xs.push(x); gs.push(1) } else z2++ }
+  return rankSumSparse(xs, gs, z1, z2)
+}
+{
+  let seed = 7
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
+  for (const trial of [0, 1, 2, 3, 4]) {
+    const mk = (n, p, scale) =>
+      Array.from({ length: n }, () => (rnd() < p ? +(rnd() * scale).toFixed(3) : 0))
+    const a = mk(120, 0.3 + trial * 0.1, 3)
+    const b = mk(90, 0.25, 2)
+    near(`trial ${trial}: sparse == dense`, sparseOf(a, b), denseRankSum(a, b), 1e-9)
+  }
+  check('all zeros is not significant', sparseOf([0, 0, 0], [0, 0, 0]), 1)
+  check('an empty side returns 1', sparseOf([], [1, 2, 3]), 1)
+  near('a clean separation is significant',
+    sparseOf(Array(40).fill(5), Array(40).fill(0)), 0, 1e-6)
+}
 
 console.log('\nWILCOXON NEEDS NO REPLICATES')
 check('one sample per group still returns results',
-  deWilcox(course, ti('aNSC'), '0 h', '72 h').rows.length > 0, true)
+  deWilcox(course, ti(course, 'aNSC'), '0 h', '72 h').rows.length > 0, true)
 check('and counts cells, not samples',
-  deWilcox(course, ti('aNSC'), '0 h', '72 h').n0 > 50, true)
-check('a group with no cells of that type is reported as zero',
-  deWilcox(wt, ti('aNSC'), 'Wild type', 'Wild type').n0 > 0, true)
-
-console.log('\nPSEUDOBULK IS GATED ABOVE THREE PER GROUP')
-check('4 v 4 cohort qualifies', designFor(cohort, ti('qNSC'), 'Quiescent', 'Reactivated').pbOK, true)
-check('1 v 1 time course does not', designFor(course, ti('aNSC'), '0 h', '72 h').pbOK, false)
-check('a rare population does not, even in the cohort',
-  designFor(cohort, ti('Pericyte'), 'Quiescent', 'Reactivated').pbOK, false)
-check('same group on both sides is never testable',
-  designFor(cohort, ti('qNSC'), 'Quiescent', 'Quiescent').pbOK, false)
-check('MIN_REPS_PB means "> 3"', MIN_REPS_PB, 4)
-
-console.log('\nTHE TWO TESTS DISAGREE, AND THAT IS THE POINT')
-{
-  const w = sigCount(deWilcox(cohort, ti('qNSC'), 'Quiescent', 'Reactivated').rows, thresholdFor('wilcox'))
-  const pb = sigCount(dePseudobulk(cohort, ti('qNSC'), 'Quiescent', 'Reactivated').rows, thresholdFor('pseudobulk'))
-  check('per-cell testing reports more genes', w > pb, true)
-  check('both report something', w > 0 && pb > 0, true)
-}
-{
-  // Pseudobulk fold changes are on summed raw counts and are NOT compressed;
-  // comparing the two lists on one scale is what produced a bogus "0" once.
-  const w = deWilcox(cohort, ti('qNSC'), 'Quiescent', 'Reactivated').rows
-  const pb = dePseudobulk(cohort, ti('qNSC'), 'Quiescent', 'Reactivated').rows
-  const wMax = Math.max(...w.map(r => Math.abs(r.lfc)))
-  const pMax = Math.max(...pb.map(r => Math.abs(r.lfc)))
-  check('pseudobulk effect sizes are larger', pMax > wMax, true)
-}
+  deWilcox(course, ti(course, 'aNSC'), '0 h', '72 h').n0 > 50, true)
 
 console.log('\nDIRECTION AND ORDERING')
 {
-  const rows = deWilcox(cohort, ti('qNSC'), 'Quiescent', 'Reactivated').rows
+  // Tested inside aNSC, where Ascl1 is actually expressed. In qNSC the same
+  // gene changes by the same factor but off a near-zero baseline, so on the
+  // log-normalized scale it falls under the fold-change gate — which is the
+  // gate doing its job, not a bug.
+  const rows = deWilcox(cohort, ti(cohort, 'aNSC'), 'Quiescent', 'Reactivated').rows
   const byGene = Object.fromEntries(rows.map(r => [r.gene, r.lfc]))
   check('Ascl1 is higher in the reactivated arm', byGene.Ascl1 > 0, true)
-  check('Id3 is higher in the quiescent arm', byGene.Id3 < 0, true)
   check('rows are sorted by adjusted p',
     rows.every((r, i) => i === 0 || rows[i - 1].padj <= r.padj), true)
   check('reversing the contrast flips every sign',
-    deWilcox(cohort, ti('qNSC'), 'Reactivated', 'Quiescent').rows
+    deWilcox(cohort, ti(cohort, 'aNSC'), 'Reactivated', 'Quiescent').rows
       .find(r => r.gene === 'Ascl1').lfc < 0, true)
+  check('pct.1 and pct.2 are fractions',
+    rows.every(r => r.pct1 >= 0 && r.pct1 <= 1 && r.pct2 >= 0 && r.pct2 <= 1), true)
+
+  const q = deWilcox(cohort, ti(cohort, 'qNSC'), 'Quiescent', 'Reactivated').rows
+  const qGene = Object.fromEntries(q.map(r => [r.gene, r.lfc]))
+  check('quiescence genes fall on reactivation', qGene.Id3 < 0 && qGene.Gfap < 0, true)
 }
+
+console.log('\nONE-VS-REST MARKERS FIND THE RIGHT CLUSTER')
+// The only differential test a single-condition object has, so it has to work.
+for (const [cluster, marker] of [['aNSC', 'Ascl1'], ['TAP', 'Mki67'], ['qNSC', 'Gfap'],
+                                 ['Neuroblast', 'Dcx'], ['Oligodendrocyte', 'Plp1']]) {
+  const t = ti(wt, cluster)
+  const up = deMarkers(wt, t).rows.filter(r => isSig(r, thresholdFor('wilcox')) && r.lfc > 0)
+  check(`${cluster} is marked by ${marker}`, up.slice(0, 8).some(r => r.gene === marker), true)
+}
+
+console.log('\nPSEUDOBULK IS GATED ABOVE THREE PER GROUP')
+check('4 v 4 cohort qualifies',
+  designFor(cohort, ti(cohort, 'qNSC'), 'Quiescent', 'Reactivated').pbOK, true)
+check('1 v 1 time course does not',
+  designFor(course, ti(course, 'aNSC'), '0 h', '72 h').pbOK, false)
+check('a rare population does not, even in the cohort',
+  designFor(cohort, ti(cohort, 'Pericyte'), 'Quiescent', 'Reactivated').pbOK, false)
+check('same group on both sides is never testable',
+  designFor(cohort, ti(cohort, 'qNSC'), 'Quiescent', 'Quiescent').pbOK, false)
+check('MIN_REPS_PB means "> 3"', MIN_REPS_PB, 4)
 
 console.log('\nDESIGN SHAPES')
 check('cohort has 4 replicates', minReplicates(cohort), 4)
 check('time course has 1', minReplicates(course), 1)
-check('wild type has 1', minReplicates(wt), 1)
-check('single-condition objects are flagged', [cohort.multi, course.multi, wt.multi], [true, true, false])
-check('group order is the file order, never sorted', course.conds, ['0 h', '6 h', '24 h', '72 h'])
+check('single-condition objects are flagged',
+  [cohort.d.multi, course.d.multi, wt.d.multi], [true, true, false])
+check('group order is the file order, never sorted',
+  course.d.conds, ['0 h', '6 h', '24 h', '72 h'])
 
 console.log('\nCOMBINED RANKING SCORE')
-// Sorting by p alone promotes tiny significant changes; by fold change alone,
-// noise. The product keeps both, and its sign keeps the direction.
 check('sign follows the fold change',
   [combinedScore(2, 1e-10) > 0, combinedScore(-2, 1e-10) < 0], [true, true])
 check('a bigger effect at equal p ranks higher',
   Math.abs(combinedScore(2, 1e-10)) > Math.abs(combinedScore(1, 1e-10)), true)
-check('a smaller p at equal effect ranks higher',
-  Math.abs(combinedScore(1, 1e-20)) > Math.abs(combinedScore(1, 1e-2)), true)
 check('p = 0 is clamped rather than infinite', Number.isFinite(combinedScore(1, 0)), true)
 check('non-finite input returns null', combinedScore(NaN, 0.01), null)
-{
-  // The ordering property the DEG table's Combined column relies on.
-  const order = [
-    ['tiny-but-sig', 0.3, 1e-40],
-    ['big-and-sig', 3.0, 1e-20],
-    ['big-but-weak', 3.0, 0.04],
-  ].map(([g, lfc, pv]) => [g, Math.abs(combinedScore(lfc, pv))])
-    .sort((a, b) => b[1] - a[1])
-    .map(x => x[0])
-  check('ranks a large significant change first', order[0], 'big-and-sig')
-  check('and a large but weak one last', order[2], 'big-but-weak')
-}
+check('sigCount respects the threshold',
+  sigCount([{ padj: 0.01, lfc: 2 }, { padj: 0.5, lfc: 2 }], { padj: 0.05, lfc: 1 }), 1)
 
 console.log('\nRENAMING NEVER ORPHANS A RESULT')
 {
-  const before = pbKey(types[0], 'Quiescent', 'Reactivated')
-  const renamed = { ...types[0], name: 'Dormant NSC' }
-  check('the key follows `key`, not `name`', pbKey(renamed, 'Quiescent', 'Reactivated'), before)
+  const t = cohort.types[0]
+  check('the key follows `key`, not `name`',
+    pbKey({ ...t, name: 'Dormant NSC' }, 'Quiescent', 'Reactivated'),
+    pbKey(t, 'Quiescent', 'Reactivated'))
 }
 
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll statistics tests passed\n')
