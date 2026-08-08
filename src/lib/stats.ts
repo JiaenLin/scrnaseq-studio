@@ -12,7 +12,7 @@
 // the one that matters.
 
 import type { CellType, DERow, Design, Method } from '../types.ts'
-import type { Source } from './source.ts'
+import type { NonZeroWalk, Source } from './source.ts'
 
 /** Cells a sample must contribute before it becomes a pseudobulk column. */
 export const MIN_CELLS = 10
@@ -144,13 +144,13 @@ function labels(nCells: number, a: Int32Array, b: Int32Array): Int8Array {
  * minute.
  */
 function testGene(
-  src: Source, gene: string, lab: Int8Array, n1: number, n2: number,
+  gene: string, each: NonZeroWalk, lab: Int8Array, n1: number, n2: number,
 ): DERow | null {
   const xs: number[] = []
   const gs: number[] = []
   let d1 = 0, d2 = 0, s1 = 0, s2 = 0
 
-  src.forEachNonZero(gene, (cell, value) => {
+  each((cell, value) => {
     const g = lab[cell]
     if (g < 0) return
     xs.push(value)
@@ -209,28 +209,182 @@ function finish(rows: DERow[], nTested: number): DERow[] {
   return rows
 }
 
-/** FindMarkers: two groups within one cluster. */
-export function deWilcox(src: Source, ti: number, ctrl: string, cs: string): DEResult {
+/**
+ * FindMarkers: two groups within one cluster.
+ *
+ * Split into "set up the comparison" and "fold one gene in", so the same
+ * arithmetic serves an object held in memory and one streamed off disk. There is
+ * no second implementation to drift.
+ */
+function wilcoxPlan(src: Source, ti: number, ctrl: string, cs: string) {
   // `a` is the "1" side: pct.1, and the numerator of the fold change.
   const a = src.group(ti, cs)
   const b = src.group(ti, ctrl)
-  if (!a.length || !b.length) return { rows: [], n0: b.length, n1: a.length }
   const lab = labels(src.d.cells.length, a, b)
   const rows: DERow[] = []
-  for (const gene of src.genes) {
-    const r = testGene(src, gene, lab, a.length, b.length)
-    if (r) rows.push(r)
+  return {
+    empty: !a.length || !b.length,
+    n0: b.length,
+    n1: a.length,
+    visit: (gene: string, each: NonZeroWalk) => {
+      const r = testGene(gene, each, lab, a.length, b.length)
+      if (r) rows.push(r)
+    },
+    done: (): DEResult => ({
+      rows: finish(rows, src.genes.length), n0: b.length, n1: a.length,
+    }),
   }
-  return { rows: finish(rows, src.genes.length), n0: b.length, n1: a.length }
+}
+
+export function deWilcox(src: Source, ti: number, ctrl: string, cs: string): DEResult {
+  const plan = wilcoxPlan(src, ti, ctrl, cs)
+  if (plan.empty || !src.scanSync(plan.visit)) return { rows: [], n0: plan.n0, n1: plan.n1 }
+  return plan.done()
+}
+
+export async function deWilcoxAsync(
+  src: Source, ti: number, ctrl: string, cs: string,
+  onProgress?: (done: number, total: number) => void,
+  cancelled?: () => boolean,
+): Promise<DEResult> {
+  const plan = wilcoxPlan(src, ti, ctrl, cs)
+  if (plan.empty) return { rows: [], n0: plan.n0, n1: plan.n1 }
+  await src.scan(plan.visit, onProgress, cancelled)
+  return plan.done()
 }
 
 /**
- * FindAllMarkers: one cluster against every other cell.
+ * FindAllMarkers: every cluster against every other cell, in one pass.
  *
  * On a single-condition object this is the only differential test there is, and
  * it is the one that answers "what is this cluster" — so it has to be a real
  * test, not the ranking-by-mean the dot plot uses for its colours.
+ *
+ * All clusters share one pass because they share the work. Comparing cluster c
+ * against the rest sorts exactly the same values as comparing cluster c+1
+ * against the rest — only the group labels differ — so the sort, the tie
+ * correction and the zero block are computed once and each cluster's rank sum
+ * accumulates alongside. The result is identical to running the test per
+ * cluster, which `scripts/test-stats.mjs` asserts row for row; on a 64-cluster
+ * object it is what makes the tab finish at all.
  */
+function markersPlan(src: Source, cond?: string | null) {
+  const nT = src.types.length
+  const n = src.d.cells.length
+  // -1 for a cell taking no part, else its cluster.
+  const owner = new Int32Array(n)
+  const size = new Int32Array(nT)
+  let nUsed = 0
+  for (let i = 0; i < n; i++) {
+    const c = src.d.cells[i]
+    if (cond && c.cond !== cond) { owner[i] = -1; continue }
+    owner[i] = c.t
+    size[c.t]++
+    nUsed++
+  }
+  const rows: DERow[][] = Array.from({ length: nT }, () => [])
+
+  // Reused across genes: a gene touches a few hundred cells and allocating
+  // three arrays per gene per cluster is most of the cost otherwise.
+  let cap = 1024
+  let xs = new Float64Array(cap)
+  let who = new Int32Array(cap)
+  const r1 = new Float64Array(nT)
+  const d1 = new Int32Array(nT)
+  const s1 = new Float64Array(nT)
+
+  const visit = (gene: string, each: NonZeroWalk) => {
+    let m = 0
+    let sAll = 0
+    r1.fill(0); d1.fill(0); s1.fill(0)
+    each((cell, value) => {
+      const c = owner[cell]
+      if (c < 0) return
+      if (m === cap) {
+        cap *= 2
+        const nx = new Float64Array(cap); nx.set(xs); xs = nx
+        const nw = new Int32Array(cap); nw.set(who); who = nw
+      }
+      xs[m] = value
+      who[m] = c
+      m++
+      d1[c]++
+      const e = Math.expm1(value)
+      s1[c] += e
+      sAll += e
+    })
+    if (!m) return
+
+    const zeros = nUsed - m
+    const order = Array.from({ length: m }, (_v, i) => i).sort((p, q) => xs[p] - xs[q])
+    let tieSum = zeros > 1 ? zeros ** 3 - zeros : 0
+    let i = 0
+    while (i < m) {
+      let j = i
+      while (j + 1 < m && xs[order[j + 1]] === xs[order[i]]) j++
+      const groupSize = j - i + 1
+      const rank = zeros + i + 1 + (groupSize - 1) / 2
+      for (let k = i; k <= j; k++) r1[who[order[k]]] += rank
+      if (groupSize > 1) tieSum += groupSize ** 3 - groupSize
+      i = j + 1
+    }
+
+    for (let c = 0; c < nT; c++) {
+      const n1 = size[c]
+      const n2 = nUsed - n1
+      if (!n1 || !n2) continue
+      const pct1 = d1[c] / n1
+      const pct2 = (m - d1[c]) / n2
+      if (pct1 < PCT_GATE && pct2 < PCT_GATE) continue
+      const lfc = Math.log2(s1[c] / n1 + 1) - Math.log2((sAll - s1[c]) / n2 + 1)
+      if (!Number.isFinite(lfc) || Math.abs(lfc) < LFC_GATE) continue
+      // The zero block contributes z1 cells at the mean rank of ranks 1..zeros.
+      const p = rankFromSums(r1[c] + (n1 - d1[c]) * ((1 + zeros) / 2), n1, n2, tieSum)
+      rows[c].push({ gene, lfc, p, padj: 1, pct1, pct2 })
+    }
+  }
+
+  return {
+    empty: !nUsed,
+    visit,
+    done: (): DEResult[] => rows.map((rs, c) => ({
+      rows: finish(rs, src.genes.length), n0: nUsed - size[c], n1: size[c],
+    })),
+  }
+}
+
+/** The tail of the rank-sum test, once the group's rank total is known. */
+function rankFromSums(r1: number, n1: number, n2: number, tieSum: number): number {
+  const n = n1 + n2
+  if (!n1 || !n2 || n < 3) return 1
+  const u = r1 - (n1 * (n1 + 1)) / 2
+  const mu = (n1 * n2) / 2
+  const varU = ((n1 * n2) / 12) * (n + 1 - tieSum / (n * (n - 1)))
+  if (varU <= 0) return 1
+  const z = (Math.abs(u - mu) - 0.5) / Math.sqrt(varU)
+  return Math.min(1, 2 * normalTail(z))
+}
+
+/** Every cluster's markers, synchronously. Empty when the source is lazy. */
+export function deMarkersAll(src: Source, cond?: string | null): DEResult[] {
+  const plan = markersPlan(src, cond)
+  const blank = src.types.map(() => ({ rows: [], n0: 0, n1: 0 }))
+  if (plan.empty || !src.scanSync(plan.visit)) return blank
+  return plan.done()
+}
+
+export async function deMarkersAllAsync(
+  src: Source, cond: string | null | undefined,
+  onProgress?: (done: number, total: number) => void,
+  cancelled?: () => boolean,
+): Promise<DEResult[]> {
+  const plan = markersPlan(src, cond)
+  if (plan.empty) return src.types.map(() => ({ rows: [], n0: 0, n1: 0 }))
+  await src.scan(plan.visit, onProgress, cancelled)
+  return plan.done()
+}
+
+/** One cluster against every other cell. Kept for tests and single-cluster use. */
 export function deMarkers(src: Source, ti: number, cond?: string | null): DEResult {
   const inCluster: number[] = []
   const rest: number[] = []
@@ -243,10 +397,10 @@ export function deMarkers(src: Source, ti: number, cond?: string | null): DEResu
   if (!a.length || !b.length) return { rows: [], n0: b.length, n1: a.length }
   const lab = labels(src.d.cells.length, a, b)
   const rows: DERow[] = []
-  for (const gene of src.genes) {
-    const r = testGene(src, gene, lab, a.length, b.length)
+  if (!src.scanSync((gene, each) => {
+    const r = testGene(gene, each, lab, a.length, b.length)
     if (r) rows.push(r)
-  }
+  })) return { rows: [], n0: b.length, n1: a.length }
   return { rows: finish(rows, src.genes.length), n0: b.length, n1: a.length }
 }
 

@@ -3,8 +3,8 @@
 // whether the sparse rank-sum agrees with a straightforward dense one.
 import { demoSource } from '../src/lib/source.ts'
 import {
-  combinedScore, deMarkers, deWilcox, designFor, isSig, LFC_GATE, MIN_REPS_PB,
-  minReplicates, normalTail, pbKey, rankSumSparse, sigCount, thresholdFor,
+  combinedScore, deMarkers, deMarkersAll, deWilcox, designFor, isSig, LFC_GATE,
+  MIN_REPS_PB, minReplicates, normalTail, pbKey, rankSumSparse, sigCount, thresholdFor,
 } from '../src/lib/stats.ts'
 
 let failed = 0
@@ -149,6 +149,40 @@ check('p = 0 is clamped rather than infinite', Number.isFinite(combinedScore(1, 
 check('non-finite input returns null', combinedScore(NaN, 0.01), null)
 check('sigCount respects the threshold',
   sigCount([{ padj: 0.01, lfc: 2 }, { padj: 0.5, lfc: 2 }], { padj: 0.05, lfc: 1 }), 1)
+
+// Every cluster is tested in one pass over the genes now, sharing the sort and
+// the tie correction. That is only sound if it gives the same answer as testing
+// each cluster on its own — a 64-cluster object would never reveal a
+// disagreement by eye, so it is asserted here, row for row.
+console.log('\nALL CLUSTERS AT ONCE == ONE CLUSTER AT A TIME')
+// The p-values, the detection rates and the gene order must be bit-identical.
+// The fold change is a sum of the same numbers in a different order — the rest
+// of the object is reached as "everything minus this cluster" instead of being
+// added up again per cluster — so it agrees to about 1e-14 and no further. That
+// is float addition not being associative, not a different statistic.
+for (const [label, src] of [['cohort', cohort], ['course', course], ['wt', wt]]) {
+  const all = deMarkersAll(src)
+  let exact = true
+  let worst = 0
+  let n = 0
+  src.types.forEach((_t, k) => {
+    const one = deMarkers(src, k)
+    n += one.rows.length
+    if (one.rows.length !== all[k].rows.length) { exact = false; return }
+    one.rows.forEach((r, i) => {
+      const b = all[k].rows[i]
+      if (r.gene !== b.gene || r.p !== b.p || r.padj !== b.padj
+        || r.pct1 !== b.pct1 || r.pct2 !== b.pct2) exact = false
+      worst = Math.max(worst, Math.abs(r.lfc - b.lfc) / Math.max(1e-9, Math.abs(r.lfc)))
+    })
+  })
+  check(`${label}: same genes, same p, same rates across ${src.types.length} clusters (${n} rows)`,
+    exact, true)
+  check(`${label}: fold changes agree to 1e-11 (worst ${worst.toExponential(1)})`,
+    worst < 1e-11, true)
+  check(`${label}: group sizes add up to every cell`,
+    all.map(r => r.n0 + r.n1), src.types.map(() => src.d.cells.length))
+}
 
 console.log('\nRENAMING NEVER ORPHANS A RESULT')
 {

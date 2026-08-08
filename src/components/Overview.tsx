@@ -31,6 +31,14 @@ export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }:
     ['Differential expression', 'here',
       'Wilcoxon rank-sum across cells, computed in this browser'],
   ]
+  // A fact about how the file is stored, not something to act on. The object
+  // described above is the whole object either way — same cells, same genes,
+  // same every tab.
+  if (src.nParts > 1) {
+    rows.push(['Storage', 'file',
+      `larger than one bundle, so it is held in ${src.nParts} parts inside this file; `
+      + 'gene values are read out of it as each view asks for them'])
+  }
 
   return (
     <>

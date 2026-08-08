@@ -26,9 +26,22 @@ export interface SourceMeta {
   isDemo: boolean
 }
 
+/** Walks one gene's non-zero entries. Valid only for the duration of the call. */
+export type NonZeroWalk = (cb: (cell: number, value: number) => void) => void
+
+/** Called once per gene by a scan, with a walker over that gene's values. */
+export type GeneVisit = (gene: string, each: NonZeroWalk) => void
+
 export interface Source {
   meta: SourceMeta
   d: Dataset
+  /**
+   * True when gene values live in the file rather than in memory, so they must
+   * be awaited (`ensure`, `scan`) before the synchronous accessors can answer.
+   */
+  lazy: boolean
+  /** How many bundles the object is stored in. 1 unless it is a collection. */
+  nParts: number
   /** Cluster names, in bundle order. */
   clusters: string[]
   /**
@@ -57,6 +70,34 @@ export interface Source {
   /** Values for a violin, subsampled evenly when the group is large. */
   values(gene: string, ti: number, cond?: string | null, max?: number): number[]
   pseudobulk: Bundle['pseudobulk']
+  /**
+   * Make these genes answerable by the synchronous accessors above.
+   *
+   * A no-op for an object held in memory. For a collection it reads each gene's
+   * chunk out of the file — so a view that draws a gene awaits this first, and
+   * then behaves exactly as it does for a small object.
+   */
+  ensure(genes: readonly string[]): Promise<void>
+  /**
+   * Walk every gene, once, in whatever order is cheapest for this source.
+   *
+   * This is what the whole-transcriptome views run on. Nothing is retained
+   * between genes, so a 43-part atlas costs one forward pass over the file
+   * rather than the matrix in memory.
+   */
+  scan(
+    visit: GeneVisit,
+    onProgress?: (done: number, total: number) => void,
+    cancelled?: () => boolean,
+  ): Promise<void>
+  /**
+   * The same walk, synchronously — false when this source cannot do it.
+   *
+   * Kept so that an in-memory object computes inside one render, exactly as it
+   * did before collections existed: no spinner, no frame where the figure is
+   * missing.
+   */
+  scanSync(visit: GeneVisit): boolean
 }
 
 /** Small cache — enough for a gene panel, bounded so a long session cannot grow. */
@@ -72,7 +113,14 @@ function memo<T>(limit: number) {
   }
 }
 
-function baseSource(
+/**
+ * The half of a Source that is the same however the values are stored.
+ *
+ * Exported so a collection can build on it and then replace exactly the three
+ * things that differ — `ensure`, `scan`, `scanSync` — rather than reimplement
+ * grouping, means and violin sampling and slowly disagree with this file.
+ */
+export function baseSource(
   d: Dataset, types: CellType[], genes: string[], meta: SourceMeta,
   vector: (gene: string) => Float32Array,
   nonZero: (gene: string, cb: (cell: number, value: number) => void) => void,
@@ -83,11 +131,33 @@ function baseSource(
 
   const src: Source = {
     meta, d, types, genes, pseudobulk,
+    lazy: false, nParts: 1,
     clusters: types.map(t => t.name),
 
     vector: (gene) => vecCache(gene, () => vector(gene)),
 
     forEachNonZero: (gene, cb) => nonZero(gene, cb),
+
+    ensure: () => Promise.resolve(),
+
+    scanSync(visit) {
+      for (const gene of genes) visit(gene, cb => nonZero(gene, cb))
+      return true
+    },
+
+    async scan(visit, onProgress, cancelled) {
+      // Chunked only so that progress can paint and Escape can be honoured; the
+      // values are already here, so the batch size is about the event loop, not
+      // about memory.
+      const STEP = 512
+      for (let i = 0; i < genes.length; i += STEP) {
+        if (cancelled?.()) return
+        const end = Math.min(genes.length, i + STEP)
+        for (let g = i; g < end; g++) visit(genes[g], cb => nonZero(genes[g], cb))
+        onProgress?.(end, genes.length)
+        await new Promise(r => setTimeout(r, 0))
+      }
+    },
 
     group: (ti, cond) => grpCache(`${ti}|${cond ?? '*'}`, () => {
       const out: number[] = []

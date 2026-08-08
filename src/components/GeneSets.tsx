@@ -4,11 +4,13 @@ import type { Source } from '../lib/source.ts'
 import { clusterCentroids, density, embedExtent, identities, quantiles } from '../lib/chart.ts'
 import { GENE_SETS } from '../lib/genesets.ts'
 import { parseGeneList } from '../lib/genes.ts'
-import { moduleScore, SCORE_DEFAULTS, summarise } from '../lib/score.ts'
+import { moduleScore, moduleScoreAsync, SCORE_DEFAULTS, summarise, type ModuleScore } from '../lib/score.ts'
 import { rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { Card, Mono, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
+import { useCompute } from '../lib/compute.ts'
+import Progress from './Progress.tsx'
 
 export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }: {
   src: Source
@@ -31,9 +33,18 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
   }, [useCustom, custom, setId, GENES])
 
   // Every cell × every set gene — recompute only when the set or object changes.
-  const score = useMemo(
+  // On a collection this reads the file, so the request is keyed on the genes
+  // themselves and the answer is kept: switching back to a set already scored
+  // costs nothing.
+  const { value: computed, pass } = useCompute<ModuleScore>(
+    src, `score|${requested.join(',')}`, requested.length > 0,
     () => moduleScore(src, requested),
-    [src, requested])
+    (report, cancelled) => moduleScoreAsync(src, requested, SCORE_DEFAULTS, report, cancelled),
+  )
+  const empty = useMemo(
+    () => ({ scores: new Float32Array(d.cells.length), used: [], missing: [], control: [] }),
+    [d.cells.length])
+  const score = computed ?? empty
 
   const name = useCustom
     ? `Custom set (${score.used.length} gene${score.used.length === 1 ? '' : 's'})`
@@ -84,8 +95,8 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
         </div>
 
         <p className="mt-2.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-          {score.used.length} of {requested.length} genes found in this object
-          {score.missing.length > 0 && (
+          {pass ? `${requested.length} genes requested` : `${score.used.length} of ${requested.length} genes found in this object`}
+          {!pass && score.missing.length > 0 && (
             <> · <span style={{ color: 'var(--warn)' }}>not measured:{' '}
               <span className="mono">{score.missing.slice(0, 8).join(', ')}
                 {score.missing.length > 8 ? ` +${score.missing.length - 8}` : ''}</span></span></>
@@ -94,7 +105,11 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
           {SCORE_DEFAULTS.nbin} expression bins
         </p>
 
-        {score.used.length === 0 ? (
+        {pass ? (
+          <Progress pass={pass} title={useCustom
+            ? `Scoring ${requested.length} gene${requested.length === 1 ? '' : 's'} across every cell`
+            : `Scoring ${name} across every cell`} />
+        ) : score.used.length === 0 ? (
           <div className="empty mt-4">
             {useCustom && !custom.trim()
               ? 'Paste a gene list to score.'

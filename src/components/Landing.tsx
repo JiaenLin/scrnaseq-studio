@@ -43,11 +43,13 @@ const NEEDS: [string, boolean, string][] = [
   ['Raw counts', false, 'integer, pre-normalization — without them, no pseudobulk'],
 ]
 
-export default function Landing({ onDemo, onFile, error, busy }: {
+export default function Landing({ onDemo, onFile, error, busy, note }: {
   onDemo: (key: string) => void
   onFile: (file: File) => void
   error: string | null
   busy: boolean
+  /** What the opening is doing right now — a large object takes a moment. */
+  note?: string | null
 }) {
   const dlg = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -91,7 +93,7 @@ export default function Landing({ onDemo, onFile, error, busy }: {
             {busy ? 'Opening…' : 'Open a bundle'}
           </button>
           <p className="mt-2.5 text-[12px]" style={{ color: 'var(--ink-3)' }}>
-            or drop it here — a <code className="mono">.zip</code> from scRNA-seq Lab
+            {note ?? <>or drop it here — a <code className="mono">.zip</code> from scRNA-seq Lab</>}
           </p>
         </div>
 

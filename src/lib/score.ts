@@ -37,25 +37,51 @@ export interface ScoreOpts {
 
 export const SCORE_DEFAULTS: ScoreOpts = { nbin: 24, ctrl: 100 }
 
-/** Mean expression of every gene, for the expression bins. */
-function geneAverages(src: Source, genes: string[]): Map<string, number> {
+/**
+ * Mean expression of every gene, for the expression bins.
+ *
+ * A whole-transcriptome pass, so the answer is remembered per object: the bins
+ * do not change when the gene set does, and on a collection this is the
+ * difference between one pass per set and one pass ever.
+ */
+const AVERAGES = new WeakMap<Source, Map<string, number>>()
+
+function geneAveragesSync(src: Source): Map<string, number> | null {
+  const hit = AVERAGES.get(src)
+  if (hit) return hit
   const n = src.d.cells.length
   const out = new Map<string, number>()
-  for (const gene of genes) {
+  if (!src.scanSync((gene, each) => {
     let sum = 0
-    src.forEachNonZero(gene, (_cell, value) => { sum += value })
+    each((_cell, value) => { sum += value })
     out.set(gene, sum / n)
-  }
+  })) return null
+  AVERAGES.set(src, out)
   return out
 }
 
-export function moduleScore(
+async function geneAveragesAsync(
   src: Source,
-  requested: string[],
-  opts: ScoreOpts = SCORE_DEFAULTS,
-): ModuleScore {
-  const allGenes = src.genes
-  const byLower = new Map(allGenes.map(g => [g.toLowerCase(), g]))
+  onProgress?: (done: number, total: number) => void,
+  cancelled?: () => boolean,
+): Promise<Map<string, number>> {
+  const hit = AVERAGES.get(src)
+  if (hit) return hit
+  const n = src.d.cells.length
+  const out = new Map<string, number>()
+  await src.scan((gene, each) => {
+    let sum = 0
+    each((_cell, value) => { sum += value })
+    out.set(gene, sum / n)
+  }, onProgress, cancelled)
+  if (cancelled?.()) return out
+  AVERAGES.set(src, out)
+  return out
+}
+
+/** Which of the requested genes this object measures, in the order asked. */
+function resolve(src: Source, requested: string[]) {
+  const byLower = new Map(src.genes.map(g => [g.toLowerCase(), g]))
   const used: string[] = []
   const missing: string[] = []
   for (const g of requested) {
@@ -63,13 +89,19 @@ export function moduleScore(
     if (!hit) missing.push(g)
     else if (!used.includes(hit)) used.push(hit)
   }
-  const n = src.d.cells.length
-  if (!used.length) {
-    return { scores: new Float32Array(n), used, missing, control: [] }
-  }
+  return { used, missing }
+}
 
-  // 1–2. bin every gene by average expression, equal counts per bin
-  const avg = geneAverages(src, allGenes)
+/**
+ * Steps 1–3: the control set, and the per-gene weight each side contributes.
+ *
+ * Split out from the accumulation because the accumulation is the part that
+ * touches the matrix, and a collection has to stream it.
+ */
+function plan(
+  src: Source, used: string[], avg: Map<string, number>, opts: ScoreOpts,
+) {
+  const allGenes = src.genes
   const sorted = [...allGenes].sort((a, b) => (avg.get(a) ?? 0) - (avg.get(b) ?? 0))
   const nbin = Math.max(1, Math.min(opts.nbin, sorted.length))
   const binOf = new Map<string, number>()
@@ -94,20 +126,69 @@ export function moduleScore(
   }
   const ctrlGenes = control.length ? control : allGenes.filter(g => !setOf.has(g))
 
-  // 4. per cell, mean(set) − mean(controls). Accumulated over non-zeros only,
-  // so cost is the set's own sparsity rather than genes × cells.
-  const scores = new Float32Array(n)
-  for (const g of used) {
-    src.forEachNonZero(g, (cell, value) => { scores[cell] += value / used.length })
-  }
+  // 4. per cell, mean(set) − mean(controls): one signed weight per gene, so the
+  // accumulation is a single walk over whichever genes carry a weight — and a
+  // collection can do that walk while it streams.
   const uniqueCtrl = [...new Set(ctrlGenes)]
+  // The set first, then the controls — the same order the sum was accumulated in
+  // before this was split apart, so the scores are bit-for-bit what they were.
   const weight = new Map<string, number>()
-  for (const g of ctrlGenes) weight.set(g, (weight.get(g) ?? 0) + 1 / ctrlGenes.length)
-  for (const g of uniqueCtrl) {
-    const w = weight.get(g) ?? 0
-    src.forEachNonZero(g, (cell, value) => { scores[cell] -= value * w })
+  for (const g of used) weight.set(g, 1 / used.length)
+  const ctrlWeight = new Map<string, number>()
+  for (const g of ctrlGenes) ctrlWeight.set(g, (ctrlWeight.get(g) ?? 0) + 1 / ctrlGenes.length)
+  for (const g of uniqueCtrl) weight.set(g, -(ctrlWeight.get(g) ?? 0))
+  return { weight, control: uniqueCtrl }
+}
+
+/** Fold one gene's values into the running score. */
+const fold = (scores: Float32Array, w: number) =>
+  (cell: number, value: number) => { scores[cell] += value * w }
+
+export function moduleScore(
+  src: Source, requested: string[], opts: ScoreOpts = SCORE_DEFAULTS,
+): ModuleScore {
+  const n = src.d.cells.length
+  const { used, missing } = resolve(src, requested)
+  if (!used.length) return { scores: new Float32Array(n), used, missing, control: [] }
+  const avg = geneAveragesSync(src)
+  if (!avg) return { scores: new Float32Array(n), used, missing, control: [] }
+
+  const { weight, control } = plan(src, used, avg, opts)
+  const scores = new Float32Array(n)
+  for (const [g, w] of weight) {
+    if (w !== 0) src.forEachNonZero(g, fold(scores, w))
   }
-  return { scores, used, missing, control: uniqueCtrl }
+  return { scores, used, missing, control }
+}
+
+/**
+ * The same score, streamed.
+ *
+ * Two passes, and they are honest about it: the bins need every gene's average
+ * before the control set exists, and the control set is drawn from bins spread
+ * across the whole transcriptome. The averages are cached per object, so only
+ * the first set on a collection pays for both.
+ */
+export async function moduleScoreAsync(
+  src: Source, requested: string[], opts: ScoreOpts = SCORE_DEFAULTS,
+  onProgress?: (phase: string, done: number, total: number) => void,
+  cancelled?: () => boolean,
+): Promise<ModuleScore> {
+  const n = src.d.cells.length
+  const { used, missing } = resolve(src, requested)
+  if (!used.length) return { scores: new Float32Array(n), used, missing, control: [] }
+
+  const avg = await geneAveragesAsync(
+    src, (a, b) => onProgress?.('expression bins', a, b), cancelled)
+  if (cancelled?.()) return { scores: new Float32Array(n), used, missing, control: [] }
+
+  const { weight, control } = plan(src, used, avg, opts)
+  const scores = new Float32Array(n)
+  await src.scan((gene, each) => {
+    const w = weight.get(gene)
+    if (w) each(fold(scores, w))
+  }, (a, b) => onProgress?.('module score', a, b), cancelled)
+  return { scores, used, missing, control }
 }
 
 /** Summary of a score within one subset of cells. */

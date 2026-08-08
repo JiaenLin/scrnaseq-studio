@@ -25,6 +25,14 @@ export interface BundleMeta {
   hasRawCounts: boolean
   provenance: Record<string, string | null>
   notes: string[]
+  /**
+   * Genes per block in expr.chunk.bin, when the exporter wrote one.
+   *
+   * Absent in bundles written before chunked expression existed, and unused
+   * when the whole matrix is loaded — a collection reads it, because a part
+   * written with a different block size must still open.
+   */
+  chunkGenes?: number
 }
 
 /** Summed raw counts, one column per sample × cluster. */

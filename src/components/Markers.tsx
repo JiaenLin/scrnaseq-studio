@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CellType, DERow } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { deMarkers, isSig, thresholdFor } from '../lib/stats.ts'
+import { deMarkersAll, deMarkersAllAsync, isSig, thresholdFor, type DEResult } from '../lib/stats.ts'
 import { sci } from '../lib/chart.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
-import { Card, Chips, Mono } from './Ui.tsx'
+import { Card, Chips, Empty, Mono } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
+import { useCompute } from '../lib/compute.ts'
+import Progress from './Progress.tsx'
 
 export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   src: Source
@@ -18,16 +20,43 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   const [topN, setTopN] = useState(5)
   const [open, setOpen] = useState<number | null>(null)
 
-  // One Wilcoxon per cluster against every other cell. Real work, so it is
-  // memoised on the source rather than recomputed whenever a control moves.
-  const perCluster = useMemo(
-    () => types.map((_t, ti) => deMarkers(src, ti).rows),
-    [src, types])
+  // One Wilcoxon per cluster against every other cell, all clusters in one pass
+  // over the genes. Keyed on the object alone: renaming a cluster must not throw
+  // the results away, and no threshold here feeds the test.
+  const { value: results, pass } = useCompute<DEResult[]>(
+    src, 'markers', true,
+    () => deMarkersAll(src),
+    (report, cancelled) => deMarkersAllAsync(src, null, (d, t) => report('', d, t), cancelled),
+  )
 
   const th = thresholdFor('wilcox')
+  const perCluster = results ? results.map(r => r.rows) : types.map(() => [] as DERow[])
   const tops = perCluster.map(rows =>
     rows.filter(r => isSig(r, th) && r.lfc > 0).slice(0, topN))
   const genes = [...new Set(tops.flat().map(r => r.gene))]
+
+  // The dot plot needs the winning genes' actual values, which for a collection
+  // are still in the file. One more read, of the few dozen genes on screen.
+  const wanted = genes.join(',')
+  const [dots, setDots] = useState(!src.lazy)
+  useEffect(() => {
+    if (!src.lazy) { setDots(true); return }
+    let dead = false
+    setDots(false)
+    void src.ensure(wanted ? wanted.split(',') : []).then(() => { if (!dead) setDots(true) })
+    return () => { dead = true }
+  }, [src, wanted])
+
+  if (pass) {
+    return (
+      <Card eyebrow="Markers · one vs rest" title="Testing every gene in every cluster">
+        <Progress pass={pass} title="One Wilcoxon per cluster, against every other cell" />
+      </Card>
+    )
+  }
+  if (!results) {
+    return <Card><Empty title="No markers to show">This object has no clusters to compare.</Empty></Card>
+  }
 
   const cw = 21, rh = 34, PL = 150, PT = 84
   const W = PL + genes.length * cw + 24
@@ -81,7 +110,7 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                   <g key={t.key}>
                     <text className="axis" x={PL - 12} y={y + 4} textAnchor="end"
                       style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: 550 }}>{t.name}</text>
-                    {genes.map((g, gi) => {
+                    {dots && genes.map((g, gi) => {
                       const m = src.mean(g, ti)
                       const pct = src.pct(g, ti)
                       if (pct < 0.02) return null
@@ -102,6 +131,7 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
           </div>
         </Figure>
         <div className="legend mt-2.5">
+          {!dots && <span style={{ color: 'var(--ink-3)' }}>reading these genes…</span>}
           <span>dot size = % of cells detecting the gene</span>
           <span>colour = mean expression within the cluster</span>
           <span>ring = one of this cluster&rsquo;s own top genes</span>

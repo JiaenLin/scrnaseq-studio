@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import type { CellType, DERow, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  deWilcox, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_REPS_PB, PCT_GATE,
-  pseudobulkColumns,
+  deWilcox, deWilcoxAsync, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_REPS_PB, PCT_GATE,
+  pseudobulkColumns, type DEResult,
 } from '../lib/stats.ts'
+import { useCompute } from '../lib/compute.ts'
+import Progress from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt } from '../lib/chart.ts'
 import { Card, Empty, Mono, Seg } from './Ui.tsx'
@@ -31,6 +33,27 @@ export interface StatsProps {
 }
 
 const contrastLabel = (p: StatsProps) => `${p.cs} vs ${p.ctrl} · ${p.t.name}`
+
+/**
+ * The contrast, computed.
+ *
+ * The key is the comparison and nothing else — moving a threshold slider filters
+ * rows that are already in hand, so on a collection it must not send the reader
+ * back over the file. Switching between this tab, the volcano and enrichment
+ * must not either, which is why the result is cached against the object.
+ */
+function useDE(p: StatsProps) {
+  return useCompute<DEResult>(
+    p.src, `de|${p.ti}|${p.ctrl}|${p.cs}`,
+    p.method === 'wilcox' && p.ctrl !== p.cs,
+    () => deWilcox(p.src, p.ti, p.ctrl, p.cs),
+    (report, cancelled) => deWilcoxAsync(
+      p.src, p.ti, p.ctrl, p.cs, (d, t) => report('', d, t), cancelled),
+  )
+}
+
+const testing = (p: StatsProps) =>
+  `Testing every gene in ${p.t.name}: ${p.cs} against ${p.ctrl}`
 
 /** The test picker, above every contrast tab. */
 function MethodBar(p: StatsProps) {
@@ -113,7 +136,7 @@ export function ThresholdBar(p: StatsProps) {
 }
 
 /** Results, or the reason there are none — never a substitute number. */
-function gate(p: StatsProps): React.ReactNode {
+function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   if (p.ctrl === p.cs)
     return <Empty title="Pick two different groups">
       Control and comparison are both set to <b>{p.ctrl}</b>.
@@ -122,7 +145,9 @@ function gate(p: StatsProps): React.ReactNode {
   const d = designFor(p.src, p.ti, p.ctrl, p.cs)
 
   if (p.method === 'wilcox') {
-    const { n0, n1 } = deWilcox(p.src, p.ti, p.ctrl, p.cs)
+    // Still running: the caller shows how far it has got.
+    if (!de) return null
+    const { n0, n1 } = de
     if (!n0 || !n1)
       return <Empty title={`No ${p.t.name} cells in one of these groups`}>
         {n0} cells in {p.ctrl}, {n1} in {p.cs}.
@@ -256,29 +281,33 @@ function PseudobulkPanel(p: StatsProps) {
 export function ContrastFrame(
   p: StatsProps & { children: (rows: DERow[]) => React.ReactNode },
 ) {
-  const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p)
+  const { value: de, pass } = useDE(p)
+  const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p, de)
   return (
     <Card>
       <MethodBar {...p} />
-      {blocked ?? (
+      {blocked ?? (pass ? <Progress pass={pass} title={testing(p)} /> : de && (
         <>
           <ThresholdBar {...p} />
           <div className="eyebrow">{contrastLabel(p)}</div>
-          {p.children(deWilcox(p.src, p.ti, p.ctrl, p.cs).rows)}
+          {p.children(de.rows)}
         </>
-      )}
+      ))}
     </Card>
   )
 }
 
 export function DEGTable(p: StatsProps) {
+  const { value: de, pass } = useDE(p)
   if (p.method === 'pseudobulk') {
     return <Card><MethodBar {...p} /><PseudobulkPanel {...p} /></Card>
   }
-  const blocked = gate(p)
+  const blocked = gate(p, de)
   if (blocked) return <Card><MethodBar {...p} />{blocked}</Card>
+  if (pass) return <Card><MethodBar {...p} /><Progress pass={pass} title={testing(p)} /></Card>
+  if (!de) return <Card><MethodBar {...p} /></Card>
 
-  const { rows, n0, n1 } = deWilcox(p.src, p.ti, p.ctrl, p.cs)
+  const { rows, n0, n1 } = de
   const wil = p.method === 'wilcox'
   const th = { padj: p.padjMax, lfc: p.lfcMin }
   const up = rows.filter(r => isSig(r, th) && r.lfc > 0).length
@@ -314,7 +343,8 @@ export function DEGTable(p: StatsProps) {
 export function Volcano(p: StatsProps) {
   const [hover, setHover] = useState<DERow | null>(null)
   const [nLabels, setNLabels] = useState(12)
-  const { rows } = deWilcox(p.src, p.ti, p.ctrl, p.cs)
+  const { value: de, pass } = useDE(p)
+  const rows = useMemo(() => de?.rows ?? [], [de])
 
   const W = 760, H = 440, PL = 58, PB = 46, PT = 16, PR = 16
   const maxX = Math.max(3, ...rows.map(r => Math.abs(r.lfc))) * 1.12
@@ -333,8 +363,10 @@ export function Volcano(p: StatsProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, p.padjMax, p.lfcMin, maxX, maxY])
 
-  const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p)
+  const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p, de)
   if (blocked) return <Card><MethodBar {...p} />{blocked}</Card>
+  if (pass) return <Card><MethodBar {...p} /><Progress pass={pass} title={testing(p)} /></Card>
+  if (!de) return <Card><MethodBar {...p} /></Card>
 
   const step = Math.max(1, Math.ceil(maxY / 5))
   const ticks: number[] = []

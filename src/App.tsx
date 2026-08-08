@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CellType, ColorBy, GroupBy, Method, PlotKind, TabId } from './types.ts'
 import { parseBundle } from './lib/bundle.ts'
+import { readCollectionIndex } from './lib/collection.ts'
+import { openCollection } from './lib/collection-source.ts'
 import { bundleSource, demoSource, type Source } from './lib/source.ts'
 import { designFor, thresholdFor } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
@@ -31,6 +33,7 @@ export default function App() {
   const [src, setSrc] = useState<Source | null>(null)
   const [openError, setOpenError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [openNote, setOpenNote] = useState<string | null>(null)
 
   // Cluster names are held here, not in the Source, because renaming is a user
   // edit: the Source stays exactly what the file said.
@@ -54,6 +57,10 @@ export default function App() {
 
   const [palKey, setPalKey] = useState<PaletteKey>('npg')
   const [rampKey, setRampKey] = useState<RampKey>('seurat')
+  const [geneBusy, setGeneBusy] = useState(false)
+  // Only the newest gene request may land: clicking through a marker table
+  // faster than the file can answer must not leave an older panel on screen.
+  const geneToken = useRef(0)
 
   function adopt(next: Source, defaultGenes: string[]) {
     setSrc(next)
@@ -83,21 +90,35 @@ export default function App() {
   const openFile = async (file: File) => {
     setLoading(true)
     setOpenError(null)
+    setOpenNote(null)
     try {
-      const next = bundleSource(parseBundle(await file.arrayBuffer()))
+      // A collection is a zip whose index sits in its tail, so this costs one
+      // small read and tells us which kind of file we have. Anything else is a
+      // plain bundle and takes the path it always took.
+      const index = await readCollectionIndex(file)
+      const next = index
+        ? await openCollection(file, index, (phase, done, total) =>
+          setOpenNote(`${phase} — ${done} of ${total}`))
+        : bundleSource(parseBundle(await file.arrayBuffer()))
       // Pick starting genes that exist rather than a fixed list that may not.
       const wanted = ['CD3D', 'MS4A1', 'LYZ', 'GNLY', 'PPBP', 'Ascl1', 'Gfap']
       const found = wanted.filter(g => next.genes.includes(g))
-      adopt(next, found.length ? found : next.genes.slice(0, 4))
+      const start = (found.length ? found : next.genes.slice(0, 4)).slice(0, 4)
+      // Load them before the first render, so no view ever draws a gene the
+      // object has not handed over yet.
+      await next.ensure(start)
+      adopt(next, start)
     } catch (e) {
       setOpenError(e instanceof Error ? e.message : String(e))
     } finally {
+      setOpenNote(null)
       setLoading(false)
     }
   }
 
   if (!src) {
-    return <Landing onDemo={openDemo} onFile={openFile} error={openError} busy={loading} />
+    return <Landing onDemo={openDemo} onFile={openFile} error={openError} busy={loading}
+      note={openNote} />
   }
 
   const d = src.d
@@ -106,8 +127,31 @@ export default function App() {
   const design = designFor(src, ti, ctrl, cs)
   const blocked = !d.multi && NEEDS_CONTRAST.has(tab)
 
+  /**
+   * Choose the genes on screen.
+   *
+   * For a collection the values are still in the file, so they are fetched
+   * before the selection is committed — the panel switches when it has
+   * something to draw rather than flashing an empty violin. State therefore
+   * never holds a gene the object cannot answer for.
+   */
+  const applyGenes = (next: string[]) => {
+    if (!src.lazy) { setGenes(next); return }
+    const token = ++geneToken.current
+    setGeneBusy(true)
+    src.ensure(next).then(() => {
+      if (geneToken.current !== token) return
+      setGenes(next)
+      setGeneBusy(false)
+    }, (e: unknown) => {
+      if (geneToken.current !== token) return
+      setGeneBusy(false)
+      setOpenError(e instanceof Error ? e.message : String(e))
+    })
+  }
+
   const pickGene = (g: string) => {
-    setGenes(prev => mergeGenes(prev, [g]))
+    applyGenes(mergeGenes(genes, [g]))
     setTab('expr')
   }
   /** Switching test switches the scale, so the default cutoff has to follow. */
@@ -214,8 +258,13 @@ export default function App() {
               </label>
             </>
           )}
+          {geneBusy && (
+            <span className="ml-auto text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+              reading gene…
+            </span>
+          )}
           <span
-            className="ml-auto inline-flex items-center gap-[7px] rounded-full px-[11px] py-1 text-[11.5px] font-semibold"
+            className={`${geneBusy ? '' : 'ml-auto '}inline-flex items-center gap-[7px] rounded-full px-[11px] py-1 text-[11.5px] font-semibold`}
             style={{ ...chipStyle, borderWidth: 1, borderStyle: 'solid' }}
           >
             <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
@@ -274,7 +323,7 @@ export default function App() {
               src={src} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes}
               plot={plot} groupBy={groupBy} cols={cols} relative={relative} dotScale={dotScale}
               palKey={palKey} rampKey={rampKey}
-              onGenes={setGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
+              onGenes={applyGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
               onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey} />
           ) : tab === 'sets' ? (
             <GeneSets src={src} types={types} ct={ct} palKey={palKey} rampKey={rampKey}
