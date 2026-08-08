@@ -1,6 +1,6 @@
 import type { CellType, Dataset } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { fmt, quantiles, density } from '../lib/chart.ts'
+import { fmt, quantiles, density, minOf, maxOf } from '../lib/chart.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
 import { pal, PALETTES, RAMPS, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Mono, Stat } from './Ui.tsx'
@@ -172,7 +172,7 @@ function QcPanel({ d, title, get, tick, palKey }: {
   const W = 330, H = 190, PL = 46, PB = 30, PT = 16, PR = 8
   const per = d.samples.map(s => d.cells.filter(c => c.s === s.id).map(get))
   const all = per.flat()
-  const lo = Math.min(...all), hi = Math.max(...all)
+  const lo = minOf(all), hi = maxOf(all)
   const pad = (hi - lo) * 0.04
   // None of these covariates can be negative, so the axis must not imply it can.
   const y0 = Math.max(0, lo - pad), y1 = hi + pad

@@ -43,5 +43,21 @@ check('never duplicates', mergeGenes(['Gfap', 'Sox2'], ['Sox2']), ['Gfap', 'Sox2
   check('keeps the most recent', out[out.length - 1], `G${MAX_GENES + 5}`)
 }
 
+
+console.log(String.fromCharCode(10) + 'EXTENTS DO NOT SPREAD PER-CELL ARRAYS INTO A CALL')
+// Math.min(...xs) passes every element as an argument and V8 refuses past about
+// 124,000 of them. A per-cell array crosses that at 124k cells and throws
+// RangeError, which unmounts React and leaves a blank page with no message.
+// That is exactly what a 292,495-cell atlas did, on every tab that draws an
+// extent, and nothing caught it because no test ever opened an object that big.
+{
+  const { minOf, maxOf } = await import('../src/lib/chart.ts')
+  const big = new Float32Array(300_000)
+  for (let i = 0; i < big.length; i++) big[i] = (i % 977) - 488
+  check('300,000 values do not overflow the stack', minOf(big), -488)
+  check('and the max is right', maxOf(big), 488)
+  check('an empty array falls back rather than returning Infinity',
+    [minOf(new Float32Array(0), 7), maxOf(new Float32Array(0), 7)], [7, 7])
+}
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll gene-search tests passed\n')
 process.exit(failed ? 1 : 0)

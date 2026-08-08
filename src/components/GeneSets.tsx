@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, Dataset, GroupBy } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { clusterCentroids, density, embedExtent, identities, quantiles } from '../lib/chart.ts'
+import { clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf } from '../lib/chart.ts'
 import { GENE_SETS } from '../lib/genesets.ts'
 import { parseGeneList } from '../lib/genes.ts'
 import { moduleScore, SCORE_DEFAULTS, summarise } from '../lib/score.ts'
@@ -271,7 +271,7 @@ function ScoreViolins({ d, scores, ids, groupBy }: {
     return out.filter((_v, k) => k % stride === 0)
   })
   const all = values.flat()
-  const lo = Math.min(...all), hi = Math.max(...all)
+  const lo = minOf(all), hi = maxOf(all)
   const pad = (hi - lo) * 0.06
   const y0 = lo - pad, y1 = hi + pad
   const Y = (v: number) => PT + (H - PT - PB) * (1 - (v - y0) / (y1 - y0))

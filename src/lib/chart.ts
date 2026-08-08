@@ -42,7 +42,7 @@ export function density(arr: number[], lo: number, hi: number, steps = 26): numb
     }
     out.push(s)
   }
-  const m = Math.max(...out) || 1
+  const m = maxOf(out) || 1
   return out.map(v => v / m)
 }
 
@@ -97,12 +97,33 @@ export function identities(
 }
 
 /** Shared axis extent for the embedding, so split panels never rescale. */
+/**
+ * Smallest and largest of a list, without spreading it into a call.
+ *
+ * `Math.min(...xs)` passes every element as an argument, and V8 refuses past
+ * about 124,000 of them — measured between 124,000 and 125,000. A per-cell
+ * array crosses that at 124k cells and throws RangeError, which unmounts the
+ * React tree and leaves a blank white page with no message. An atlas has
+ * 292,495 cells, so every per-cell extent has to be computed by loop.
+ */
+export function minOf(xs: ArrayLike<number>, fallback = 0): number {
+  let m = Infinity
+  for (let i = 0; i < xs.length; i++) if (xs[i] < m) m = xs[i]
+  return Number.isFinite(m) ? m : fallback
+}
+
+export function maxOf(xs: ArrayLike<number>, fallback = 0): number {
+  let m = -Infinity
+  for (let i = 0; i < xs.length; i++) if (xs[i] > m) m = xs[i]
+  return Number.isFinite(m) ? m : fallback
+}
+
 export function embedExtent(d: Dataset) {
   const xs = d.cells.map(c => c.x)
   const ys = d.cells.map(c => c.y)
   return {
-    x0: Math.min(...xs) - 0.4, x1: Math.max(...xs) + 0.4,
-    y0: Math.min(...ys) - 0.4, y1: Math.max(...ys) + 0.4,
+    x0: minOf(xs) - 0.4, x1: maxOf(xs) + 0.4,
+    y0: minOf(ys) - 0.4, y1: maxOf(ys) + 0.4,
   }
 }
 
