@@ -102,23 +102,27 @@ const join = (...parts: Uint8Array[]): Uint8Array => {
 interface Pending { name: Uint8Array; crc: number; size: number; offset: number }
 
 /**
- * Assemble the container as a Blob.
+ * The container, in order, as the pieces it is made of.
  *
- * The part payloads are handed to `Blob` rather than copied into one big array.
- * That matters: 43 parts of an atlas come to a few gigabytes, which the browser
- * keeps backed by disk as long as nobody asks for it as one ArrayBuffer. Build
- * it by concatenation instead and the tab dies.
+ * A generator rather than one buffer, and the only description of the format
+ * there is — `writeCollection` below is this plus a Blob. It exists in this
+ * shape because a real atlas cannot become a Blob at all: a collection of the
+ * developing-mouse object is 5.8 GB, and a Chromium Blob past a few hundred
+ * megabytes spills to disk and then fails every read with NotReadableError.
+ * Measured, not assumed — building a 1 GB Blob out of typed arrays succeeds and
+ * reading any slice of it back throws, headless or headed, temp profile or
+ * persistent. So the lab writes these pieces straight to the file the user
+ * picked and never holds the container at all.
  *
  * `zip64Above` exists only so the tests can walk the 4 GB path without building
  * 4 GB. Leave it alone in real code: the branch it selects is the one that
  * silently produced an unreadable file the first time a real atlas was
  * converted, so it is worth being able to exercise cheaply.
  */
-export function writeCollection(
+export function* collectionPieces(
   meta: CollectionMeta, parts: { file: string; bytes: Uint8Array }[],
   zip64Above: number = U32_MAX,
-): Blob {
-  const pieces: BlobPart[] = []
+): Generator<Uint8Array> {
   const central: Pending[] = []
   let offset = 0
 
@@ -136,7 +140,8 @@ export function writeCollection(
       u16(name.length), u16(0),
       name,
     )
-    pieces.push(header as unknown as BlobPart, p.bytes as unknown as BlobPart)
+    yield header
+    yield p.bytes
     central.push({ name, crc, size: p.bytes.length, offset })
     offset += header.length + p.bytes.length
   }
@@ -192,8 +197,24 @@ export function writeCollection(
     u32(bigDir ? U32_MAX : dirBytes.length), u32(bigDir ? U32_MAX : dirStart),
     u16(0),
   ))
-  pieces.push(dirBytes as unknown as BlobPart, ...(tail as unknown as BlobPart[]))
-  return new Blob(pieces, { type: 'application/zip' })
+  yield dirBytes
+  for (const t of tail) yield t
+}
+
+/**
+ * The same container as one Blob.
+ *
+ * Only safe below the few hundred megabytes at which Chromium starts paging a
+ * Blob to disk and losing it — which is every object that did not need
+ * splitting. Anything larger must go through `collectionPieces` straight to a
+ * file. See the note above.
+ */
+export function writeCollection(
+  meta: CollectionMeta, parts: { file: string; bytes: Uint8Array }[],
+  zip64Above: number = U32_MAX,
+): Blob {
+  return new Blob([...collectionPieces(meta, parts, zip64Above)] as BlobPart[],
+    { type: 'application/zip' })
 }
 
 // ---------------------------------------------------------------------------
