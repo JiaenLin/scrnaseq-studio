@@ -134,5 +134,72 @@ console.log('\nLARGE OFFSETS ARE HANDLED')
   check('and the big one is intact', first.length === big.length && first[7919] === big[7919], true)
 }
 
+console.log('\nPAST 4 GB THE CONTAINER GOES ZIP64')
+// A real atlas does not fit in 4 GB: the developing-mouse object comes to
+// 5.84 GB once every part carries both copies of its matrix. Without ZIP64 the
+// central-directory offsets wrap and the file reads back as "not a collection"
+// — which is exactly what happened the first time one was converted. The
+// threshold is lowered here so the branch is walked without building 4 GB.
+{
+  const parts = [
+    { file: 'parts/d1.zip', bytes: p1 },
+    { file: 'parts/d2.zip', bytes: p2 },
+    { file: 'parts/d3.zip', bytes: bundle('part three', 30) },
+  ]
+  const zip64 = writeCollection(META, parts, 64)
+  const plain = writeCollection(META, parts)
+  check('it really took the other branch', zip64.size !== plain.size, true)
+
+  const idx = await readCollectionIndex(zip64)
+  check('the index is still found', idx !== null, true)
+  check('every part is still indexed', [...idx.entries.keys()].sort(),
+    [INDEX_NAME, 'parts/d1.zip', 'parts/d2.zip', 'parts/d3.zip'])
+  for (const p of parts) {
+    const back = await readEntry(zip64, idx.entries.get(p.file))
+    check(`${p.file} survives a 64-bit offset`, Array.from(back), Array.from(p.bytes))
+  }
+
+  // The ZIP64 records are the standard ones, not an invention of ours: a
+  // general-purpose reader has to open this too.
+  const whole = new Uint8Array(await zip64.arrayBuffer())
+  const files = unzipSync(whole)
+  check('an independent unzip opens it', Object.keys(files).sort(),
+    [INDEX_NAME, 'parts/d1.zip', 'parts/d2.zip', 'parts/d3.zip'])
+  check('and its payloads agree', Array.from(files['parts/d3.zip']), Array.from(parts[2].bytes))
+
+  const d = new DataView(whole.buffer)
+  const eocd = whole.length - 22
+  check('the 32-bit end record carries the escape values',
+    [d.getUint16(eocd + 10, true), d.getUint32(eocd + 16, true)], [0xffff, 0xffffffff])
+  check('a ZIP64 locator sits in front of it', d.getUint32(eocd - 20, true), 0x07064b50)
+}
+
+console.log('\nAND BELOW 4 GB NOTHING MOVED')
+// Every collection written before ZIP64 existed is under the threshold, so the
+// small path has to still emit exactly the bytes it used to. Checking a fresh
+// write against another fresh write would prove nothing — both would change
+// together — so this asserts the actual header fields the old writer emitted.
+{
+  const a = new Uint8Array(await blob.arrayBuffer())
+  const d = new DataView(a.buffer)
+  const eocd = a.length - 22
+  check('the end record is the plain one', [
+    d.getUint32(eocd, true), d.getUint16(eocd + 10, true), d.getUint32(eocd + 16, true) < 0xffffffff,
+  ], [0x06054b50, 3, true])
+  check('nothing that looks like a ZIP64 locator in front of it',
+    d.getUint32(eocd - 20, true) === 0x07064b50, false)
+
+  // Every central-directory record: version 20, no extra field, real offset.
+  let p = d.getUint32(eocd + 16, true)
+  const seen = []
+  for (let i = 0; i < 3; i++) {
+    seen.push([d.getUint16(p + 4, true), d.getUint16(p + 6, true),
+      d.getUint16(p + 30, true), d.getUint32(p + 42, true) === 0xffffffff])
+    p += 46 + d.getUint16(p + 28, true) + d.getUint16(p + 30, true) + d.getUint16(p + 32, true)
+  }
+  check('made-by 20, needs 20, no extra field, no escaped offset', seen,
+    [[20, 20, 0, false], [20, 20, 0, false], [20, 20, 0, false]])
+}
+
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll collection tests passed\n')
 process.exit(failed ? 1 : 0)

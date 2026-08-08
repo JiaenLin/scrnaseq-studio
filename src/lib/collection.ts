@@ -74,6 +74,23 @@ const u32 = (v: number) =>
   new Uint8Array([v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255])
 const u16 = (v: number) => new Uint8Array([v & 255, (v >>> 8) & 255])
 
+/**
+ * 64-bit little-endian, for the offsets that no longer fit in 32.
+ *
+ * A real atlas does not fit in 4 GB. The developing-mouse object measures
+ * 5.84 GB once every part carries both copies of its matrix — the flat entries
+ * and the chunked ones — so the plain zip offsets wrap and the container reads
+ * back as "not a collection". That is the whole reason ZIP64 exists.
+ */
+const u64 = (v: number) => {
+  const out = new Uint8Array(8)
+  new DataView(out.buffer).setBigUint64(0, BigInt(v), true)
+  return out
+}
+
+/** Above this an offset needs ZIP64; the field holds 0xffffffff as a flag. */
+const U32_MAX = 0xffffffff
+
 const join = (...parts: Uint8Array[]): Uint8Array => {
   const n = parts.reduce((a, p) => a + p.length, 0)
   const out = new Uint8Array(n)
@@ -91,9 +108,15 @@ interface Pending { name: Uint8Array; crc: number; size: number; offset: number 
  * That matters: 43 parts of an atlas come to a few gigabytes, which the browser
  * keeps backed by disk as long as nobody asks for it as one ArrayBuffer. Build
  * it by concatenation instead and the tab dies.
+ *
+ * `zip64Above` exists only so the tests can walk the 4 GB path without building
+ * 4 GB. Leave it alone in real code: the branch it selects is the one that
+ * silently produced an unreadable file the first time a real atlas was
+ * converted, so it is worth being able to exercise cheaply.
  */
 export function writeCollection(
   meta: CollectionMeta, parts: { file: string; bytes: Uint8Array }[],
+  zip64Above: number = U32_MAX,
 ): Blob {
   const pieces: BlobPart[] = []
   const central: Pending[] = []
@@ -121,25 +144,55 @@ export function writeCollection(
   const dirStart = offset
   const dir: Uint8Array[] = []
   for (const e of central) {
+    // Entries themselves are always under 4 GB — a part the studio can open is
+    // far smaller than that — so only the offset can overflow. When it does,
+    // the 32-bit field carries the escape value and the real number goes into a
+    // ZIP64 extra field, which is what every unzip tool looks for.
+    const big = e.offset > zip64Above
+    const extra = big ? join(u16(0x0001), u16(8), u64(e.offset)) : new Uint8Array(0)
+    // 45 is "needs ZIP64" — set on the entries that use it and on nothing else,
+    // so a container under 4 GB is byte-for-byte the file this format has
+    // always written and every collection made before today still opens.
+    const v = big ? 45 : 20
     dir.push(join(
       u32(0x02014b50),                    // central directory header
-      u16(20), u16(20), u16(0), u16(0),   // made by, needed, flags, method
+      u16(v), u16(v), u16(0), u16(0),     // made by, needed, flags, method
       u16(0), u16(0),
       u32(e.crc), u32(e.size), u32(e.size),
-      u16(e.name.length), u16(0), u16(0), u16(0), u16(0),
-      u32(0), u32(e.offset),
-      e.name,
+      u16(e.name.length), u16(extra.length), u16(0), u16(0), u16(0),
+      u32(0), u32(big ? U32_MAX : e.offset),
+      e.name, extra,
     ))
   }
   const dirBytes = join(...dir)
-  const eocd = join(
+
+  // The end record is 32-bit too. Past 4 GB it gets a ZIP64 record in front of
+  // it holding the real numbers, and a locator saying where that record is; the
+  // old record stays behind with escape values so a 32-bit reader still finds
+  // something well-formed rather than a truncated file.
+  const tail: Uint8Array[] = []
+  const bigDir = dirStart > zip64Above || dirBytes.length > U32_MAX || central.length > 0xffff
+  if (bigDir) {
+    tail.push(join(
+      u32(0x06064b50), u64(44),          // ZIP64 end record, size of what follows
+      u16(45), u16(45), u32(0), u32(0),
+      u64(central.length), u64(central.length),
+      u64(dirBytes.length), u64(dirStart),
+    ))
+    tail.push(join(
+      u32(0x07064b50), u32(0),           // ZIP64 locator
+      u64(dirStart + dirBytes.length),
+      u32(1),
+    ))
+  }
+  tail.push(join(
     u32(0x06054b50),
     u16(0), u16(0),
-    u16(central.length), u16(central.length),
-    u32(dirBytes.length), u32(dirStart),
+    u16(bigDir ? 0xffff : central.length), u16(bigDir ? 0xffff : central.length),
+    u32(bigDir ? U32_MAX : dirBytes.length), u32(bigDir ? U32_MAX : dirStart),
     u16(0),
-  )
-  pieces.push(dirBytes as unknown as BlobPart, eocd as unknown as BlobPart)
+  ))
+  pieces.push(dirBytes as unknown as BlobPart, ...(tail as unknown as BlobPart[]))
   return new Blob(pieces, { type: 'application/zip' })
 }
 
@@ -169,9 +222,25 @@ export async function readCollectionIndex(file: Blob): Promise<CollectionIndex |
   }
   if (eocd < 0) return null
 
-  const count = t.getUint16(eocd + 10, true)
-  const dirSize = t.getUint32(eocd + 12, true)
-  const dirOffset = t.getUint32(eocd + 16, true)
+  let count = t.getUint16(eocd + 10, true)
+  let dirSize = t.getUint32(eocd + 12, true)
+  let dirOffset = t.getUint32(eocd + 16, true)
+
+  // Past 4 GB the three numbers above are escape values and the real ones live
+  // in a ZIP64 end record, found through the locator that sits just before the
+  // ordinary one. Reading the escape values as if they were real is how a
+  // large collection turns into "this is not a collection".
+  if (count === 0xffff || dirSize === 0xffffffff || dirOffset === 0xffffffff) {
+    const loc = eocd - 20
+    if (loc < 0 || t.getUint32(loc, true) !== 0x07064b50) return null
+    const at = Number(t.getBigUint64(loc + 8, true))
+    if (at < 0 || at + 56 > file.size) return null
+    const z = dv(await file.slice(at, at + 56).arrayBuffer())
+    if (z.getUint32(0, true) !== 0x06064b50) return null
+    count = Number(z.getBigUint64(32, true))
+    dirSize = Number(z.getBigUint64(40, true))
+    dirOffset = Number(z.getBigUint64(48, true))
+  }
   if (dirOffset + dirSize > file.size) return null
 
   const dirBuf = await file.slice(dirOffset, dirOffset + dirSize).arrayBuffer()
@@ -185,8 +254,30 @@ export async function readCollectionIndex(file: Blob): Promise<CollectionIndex |
     const nameLen = d.getUint16(p + 28, true)
     const extraLen = d.getUint16(p + 30, true)
     const commentLen = d.getUint16(p + 32, true)
-    const localAt = d.getUint32(p + 42, true)
+    let localAt = d.getUint32(p + 42, true)
     const name = new TextDecoder().decode(new Uint8Array(dirBuf, p + 46, nameLen))
+    if (localAt === 0xffffffff) {
+      // The real offset is in the ZIP64 extra field, which holds only the
+      // fields that were escaped, in a fixed order: uncompressed size,
+      // compressed size, then the offset. This writer escapes nothing but the
+      // offset, so it is first — but count the ones in front of it anyway,
+      // because a container written by any other tool is still a collection.
+      const before = (d.getUint32(p + 24, true) === 0xffffffff ? 8 : 0)
+        + (d.getUint32(p + 20, true) === 0xffffffff ? 8 : 0)
+      localAt = -1
+      let x = p + 46 + nameLen
+      const end = x + extraLen
+      while (x + 4 <= end) {
+        const id = d.getUint16(x, true)
+        const len = d.getUint16(x + 2, true)
+        if (id === 0x0001 && len >= before + 8) {
+          localAt = Number(d.getBigUint64(x + 4 + before, true))
+          break
+        }
+        x += 4 + len
+      }
+      if (localAt < 0) return null
+    }
     // Only stored entries can be sliced out directly. A deflated container is
     // still a valid zip, just not one this reader can open lazily.
     if (method === 0) entries.set(name, { name, start: localAt, size })
