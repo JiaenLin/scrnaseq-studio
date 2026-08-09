@@ -25,10 +25,14 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   // over the genes. Keyed on the object alone: renaming a cluster must not throw
   // the results away, and no threshold here feeds the test.
   //
+  // Its own slot, so the contrast tabs cannot cancel it. This pass is four
+  // minutes on the atlas and the key never changes, which together mean it is
+  // computed at most once per object no matter how the user moves around.
+  //
   // Two lines, and neither of them knows where the work happens. A demo object
   // computes in the useMemo; the atlas computes in the worker and reports back.
   const { value: results, pass } = useJob<'markers'>(
-    src, 'markers', true,
+    src, 'markers', 'markers', true,
     () => deMarkersAll(src),
     () => ({ kind: 'markers', ...markersSpec(src, null) }),
   )

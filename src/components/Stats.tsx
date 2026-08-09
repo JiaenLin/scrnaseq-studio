@@ -49,14 +49,19 @@ const contrastLabel = (p: StatsProps) => `${p.cs} vs ${p.ctrl} · ${p.t.name}`
  * this returns and runs the hypergeometric test over them.
  *
  * Changing the cell type or either side of the contrast changes the key, and a
- * different key of the same object cancels the pass in flight. The old answer
- * cannot arrive late and overwrite the new one because there is nothing left to
- * deliver it to, and it cannot be rendered under the new key because the value
- * returned is only ever the one stored under the key being asked for.
+ * different key in the SAME slot cancels the pass in flight — nobody wants the
+ * old contrast once they have asked for a new one. The old answer cannot arrive
+ * late and overwrite the new one because there is nothing left to deliver it to,
+ * and it cannot be rendered under the new key because the value returned is only
+ * ever the one stored under the key being asked for.
+ *
+ * The slot is 'de' and nothing else uses it, so leaving these tabs — for Markers
+ * or anywhere else — cancels nothing. Come back and the contrast is either
+ * already in hand or still running where it was left.
  */
 function useDE(p: StatsProps) {
   return useJob<'wilcox'>(
-    p.src, `de|${p.ti}|${p.ctrl}|${p.cs}`,
+    p.src, 'de', `de|${p.ti}|${p.ctrl}|${p.cs}`,
     p.method === 'wilcox' && p.ctrl !== p.cs,
     () => deWilcox(p.src, p.ti, p.ctrl, p.cs),
     // A fresh spec every time: the engine transfers these arrays rather than

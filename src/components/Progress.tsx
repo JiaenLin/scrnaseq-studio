@@ -37,12 +37,16 @@ export default function Progress({ pass, title }: { pass: Pass; title: string })
       <div className="mono mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
         {pass.total
           ? `${pass.phase ? pass.phase + ' · ' : ''}${pass.done.toLocaleString()} of ${pass.total.toLocaleString()} genes${left ? ` · ${left}` : ''}`
-          : 'starting'}
+          : pass.queued ? 'waiting for the pass already running' : 'starting'}
       </div>
       <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-        Every gene is tested. Nothing is sampled and nothing is skipped, so this
-        reads the whole object once. It runs off the page, so everything else
-        here keeps working while it does.
+        {pass.queued && !pass.total
+          ? `The object is read one pass at a time, and an earlier question is
+             still using it. This one starts as soon as that finishes — neither is
+             abandoned, and neither will be recomputed.`
+          : `Every gene is tested. Nothing is sampled and nothing is skipped, so this
+             reads the whole object once. It runs off the page, so everything else
+             here keeps working while it does.`}
       </p>
     </div>
   )

@@ -8,10 +8,19 @@
 // Results are remembered per object, so moving a threshold slider, or switching
 // between the DEG table and the volcano, never re-reads the file. Only changing
 // what is being compared does.
+//
+// The rule that costs the most to get wrong: leaving a view NEVER ends a pass,
+// and never discards an answer. Markers on the atlas is four minutes; opening
+// the DEG table used to cancel it outright, because the registry below held one
+// running pass per object and treated any other question as a supersession. It
+// now holds one per SLOT — per question, not per object — so the only thing that
+// can end a pass is a newer version of the same question. Everything else waits
+// its turn and keeps its result.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { isSuperseded, runJob, type Running } from './engine.ts'
 import type { Job, ResultOf } from './jobs.ts'
+import { makeCache, type ResultCache } from './result-cache.ts'
 import type { Source } from './source.ts'
 
 /** Progress of a pass, or null when there is nothing running. */
@@ -21,17 +30,51 @@ export interface Pass {
   total: number
   /** performance.now() when this pass started, so a view can say how long is left. */
   startedAt: number
+  /**
+   * Asked for, but the object's reader is busy with an earlier question.
+   *
+   * The worker reads the file one pass at a time, so a second question waits.
+   * Saying so is the whole point: a bar that sits at "starting" for four minutes
+   * is indistinguishable from a hang, and the honest reading is that the studio
+   * is still finishing what it was told to do first.
+   */
+  queued?: boolean
 }
 
 export type Report = (phase: string, done: number, total: number) => void
 
-const CACHE = new WeakMap<Source, Map<string, unknown>>()
+/* ---------------- the answers already in hand ---------------- */
 
-function cacheFor(src: Source): Map<string, unknown> {
+/**
+ * Results, remembered per open object.
+ *
+ * The lifetime is the object's. The Source is the key of a WeakMap, so closing
+ * one drops every answer that belonged to it: nothing here outlives the object
+ * it describes, and no answer can be found under an object it was not computed
+ * for. What the answers cost, and which one goes when there are too many, is
+ * result-cache.ts.
+ */
+const CACHE = new WeakMap<Source, ResultCache>()
+
+function cacheFor(src: Source): ResultCache {
   let m = CACHE.get(src)
-  if (!m) { m = new Map(); CACHE.set(src, m) }
+  if (!m) { m = makeCache(); CACHE.set(src, m) }
   return m
 }
+
+const cacheGet = (src: Source, key: string) => cacheFor(src).get(key)
+const cachePut = (src: Source, key: string, value: unknown) => cacheFor(src).put(key, value)
+
+/**
+ * A cached answer, read during render.
+ *
+ * Pure — it creates nothing and reorders nothing — so it is safe where `cacheGet`
+ * would not be, and it is what makes a return to a tab instant rather than
+ * instant-after-one-empty-frame. The effect still calls `cacheGet` afterwards,
+ * which is what marks the answer as wanted and so keeps the thing on screen out
+ * of reach of eviction.
+ */
+const cachePeek = (src: Source, key: string) => CACHE.get(src)?.peek(key) ?? null
 
 /**
  * A computation that may have to read the file.
@@ -63,9 +106,9 @@ export function useCompute<T>(
 
   useEffect(() => {
     if (!enabled || !src.lazy) { setPass(null); return }
-    const cached = cacheFor(src).get(key)
-    if (cached !== undefined) {
-      setDone({ key, value: cached as T })
+    const cached = cacheGet(src, key)
+    if (cached) {
+      setDone({ key, value: cached.value as T })
       setPass(null)
       return
     }
@@ -78,7 +121,7 @@ export function useCompute<T>(
       () => dead,
     ).then(value => {
       if (dead) return
-      cacheFor(src).set(key, value)
+      cachePut(src, key, value)
       setDone({ key, value })
       setPass(null)
     }).catch((e: unknown) => {
@@ -92,23 +135,34 @@ export function useCompute<T>(
 
   if (!enabled) return { value: null, pass: null }
   if (!src.lazy) return { value: memo, pass: null }
-  return { value: done?.key === key ? done.value : null, pass }
+  if (done?.key === key) return { value: done.value, pass }
+  const hit = cachePeek(src, key)
+  return { value: hit ? (hit.value as T) : null, pass: hit ? null : pass }
 }
 
-/* ---------------- the one running computation, per object ---------------- */
+/* ---------------- the running computations, per object ---------------- */
 
 /**
  * A pass in flight.
  *
  * It belongs to the QUESTION, not to the view that asked it. A four-minute run
  * that is thrown away because the user glanced at another tab is a four-minute
- * run the user pays for twice, so unmounting only stops listening. What ends a
- * pass is a different question being asked of the same object — and then it is
- * cancelled outright, never left to finish behind the new one.
+ * run the user pays for twice, so unmounting only stops listening.
  *
- * At most one exists per object, which is also all the file can serve at once.
+ * What ends a pass is a NEWER VERSION OF THE SAME QUESTION — and then it is
+ * cancelled outright, never left to finish behind its replacement. That is what
+ * `slot` names. Changing the contrast replaces the contrast pass, because nobody
+ * will ever want the old one again. Opening the DEG table replaces nothing: the
+ * markers pass answers a different question, one the user asked for and has not
+ * withdrawn, and cancelling it is how this app used to lose four minutes of work
+ * to a tab click. Different slots therefore run side by side; the worker takes
+ * them in the order they were asked.
+ *
+ * There are as many slots as there are job kinds, so this is bounded at four
+ * passes per object with no bookkeeping to get wrong.
  */
 interface Task {
+  slot: string
   key: string
   running: Running<unknown>
   pass: Pass
@@ -118,42 +172,62 @@ interface Task {
   error: Error | null
 }
 
-const TASKS = new WeakMap<Source, Task>()
+const TASKS = new WeakMap<Source, Map<string, Task>>()
 
-function taskFor(src: Source, key: string, make: () => Job): Task | null {
-  const live = TASKS.get(src)
+function tasksFor(src: Source): Map<string, Task> {
+  let m = TASKS.get(src)
+  if (!m) { m = new Map(); TASKS.set(src, m) }
+  return m
+}
+
+function taskFor(src: Source, slot: string, key: string, make: () => Job): Task | null {
+  const all = tasksFor(src)
+  const live = all.get(slot)
   if (live) {
     if (live.key === key) return live
-    // A different question. Abandon the old one — do not queue behind it, and do
-    // not let it come back later and land on top of the new answer.
+    // The same question, asked again with different terms. Abandon the old one —
+    // do not queue behind it, and do not let it come back later and land on top
+    // of the new answer.
     live.running.cancel()
-    TASKS.delete(src)
+    all.delete(slot)
   }
   const startedAt = performance.now()
   const task: Task = {
-    key, pass: { phase: '', done: 0, total: 0, startedAt },
+    slot, key,
+    // The reader is single-file, so anything asked while another pass is live
+    // waits its turn. The bar says so rather than sitting at "starting".
+    pass: { phase: '', done: 0, total: 0, startedAt, queued: all.size > 0 },
     listeners: new Set(), value: undefined, error: null,
     running: { promise: Promise.resolve(), cancel: () => {} },
   }
+  // The clock starts when the PASS does, not when it was asked for. The worker's
+  // first message is the one it posts on picking the job up, so a job that
+  // waited behind another does not report the wait as elapsed work — which would
+  // overstate what is left by exactly the time it spent queued, and the estimate
+  // is only worth showing if it is honest.
+  let began = startedAt
   const running = runJob(src, make() as never, (phase, done, total) => {
-    task.pass = { phase, done, total, startedAt }
+    if (task.pass.queued) began = performance.now()
+    task.pass = { phase, done, total, startedAt: began }
     for (const l of task.listeners) l(task)
   })
   if (!running) return null
   task.running = running
-  TASKS.set(src, task)
+  all.set(slot, task)
   running.promise.then(value => {
-    if (TASKS.get(src) !== task) return
-    TASKS.delete(src)
-    cacheFor(src).set(key, value)
+    if (all.get(slot) !== task) return
+    all.delete(slot)
+    // Stored before anyone is told, so that a listener which re-reads the cache
+    // on the same tick finds the answer rather than starting the pass again.
+    cachePut(src, key, value)
     task.value = value
     for (const l of task.listeners) l(task)
   }, (e: unknown) => {
     // Superseded means this task was replaced above; it has already been taken
     // out of the registry and there is nobody it should report to.
     if (isSuperseded(e)) return
-    if (TASKS.get(src) !== task) return
-    TASKS.delete(src)
+    if (all.get(slot) !== task) return
+    all.delete(slot)
     task.error = e instanceof Error ? e : new Error(String(e))
     for (const l of task.listeners) l(task)
   })
@@ -178,13 +252,23 @@ function taskFor(src: Source, key: string, make: () => Job): Task | null {
  *
  * `key` is the whole of what the answer depends on, and everything follows from
  * it. Answers are remembered per object under it, so a threshold slider or a tab
- * switch never re-reads the file. A different key cancels the running pass
- * before asking. And the value returned is only ever the one stored under the
- * key being rendered — so a late answer to a question the user has moved on from
- * has nowhere to appear, whatever order the messages arrive in.
+ * switch never re-reads the file — and once an answer is in hand it is returned
+ * in the effect that follows the render, with no pass and no progress bar, for
+ * as long as the object stays open.
+ *
+ * `slot` says which question this is, independently of its terms. It is what
+ * decides whether a pass in flight is superseded: a new key in the SAME slot
+ * replaces it, a different slot leaves it alone to finish. Cell markers and a
+ * group contrast are different slots and so cannot cancel each other, which is
+ * the difference between switching tabs and losing four minutes.
+ *
+ * The value returned is only ever the one stored under the key being rendered —
+ * so a late answer to a question the user has moved on from has nowhere to
+ * appear, whatever order the messages arrive in.
  */
 export function useJob<K extends Job['kind']>(
   src: Source,
+  slot: string,
   key: string,
   enabled: boolean,
   inline: () => ResultOf[K],
@@ -207,14 +291,14 @@ export function useJob<K extends Job['kind']>(
 
   useEffect(() => {
     if (!enabled || !src.remote) { setPass(null); return }
-    const cached = cacheFor(src).get(key)
-    if (cached !== undefined) {
-      setDone({ key, value: cached as ResultOf[K] })
+    const cached = cacheGet(src, key)
+    if (cached) {
+      setDone({ key, value: cached.value as ResultOf[K] })
       setPass(null)
       return
     }
     setDone(null)
-    const task = taskFor(src, key, jobRef.current as () => Job)
+    const task = taskFor(src, slot, key, jobRef.current as () => Job)
     if (!task) return
     const settle = (t: Task) => {
       if (t.error) {
@@ -233,9 +317,14 @@ export function useJob<K extends Job['kind']>(
     // Only stop listening. Ending the pass is `taskFor`'s decision, and it makes
     // it on the evidence that matters: whether the question has changed.
     return () => { task.listeners.delete(settle) }
-  }, [src, key, enabled])
+  }, [src, slot, key, enabled])
 
   if (!enabled) return { value: null, pass: null }
   if (!src.remote) return { value: memo, pass: null }
-  return { value: done?.key === key ? done.value : null, pass }
+  // Both readings are keyed, and only this key's answer can come out of either:
+  // `done` carries the key it was settled under, and `peek` is a lookup by key.
+  // A late answer to a withdrawn question has nowhere to appear in either.
+  if (done?.key === key) return { value: done.value, pass }
+  const hit = cachePeek(src, key)
+  return { value: hit ? (hit.value as ResultOf[K]) : null, pass: hit ? null : pass }
 }
