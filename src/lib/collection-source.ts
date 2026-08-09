@@ -198,7 +198,9 @@ export async function openCollection(
   const notes: string[] = [...(parts[0].meta.notes ?? [])]
 
   // ---- one set of levels across every part --------------------------------
-  const cl = unionLevels(clusterLevels)
+  // The writer records the whole object's cluster order; using it keeps a
+  // cell type the colour it had before the object was ever split.
+  const cl = unionLevels(clusterLevels, cmeta.clusterOrder)
   const sm = unionLevels(sampleLevels)
   const cd = unionLevels(condLevels)
 

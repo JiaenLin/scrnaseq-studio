@@ -38,7 +38,33 @@ export interface LevelUnion {
   maps: Int32Array[]
 }
 
-export function unionLevels(perPart: string[][]): LevelUnion {
+/**
+ * Merge each part's levels into one list.
+ *
+ * `known` is the order the whole object had, when the writer recorded it. Use
+ * it and there is nothing to infer: the union is that list, restricted to what
+ * the parts actually carry, so a cell type keeps the colour it had unsplit.
+ * Without it the order is reconstructed from the parts, which is a guess — a
+ * good one, but a guess, and a wrong guess repaints every cluster.
+ */
+export function unionLevels(perPart: string[][], known?: string[]): LevelUnion {
+  if (known?.length) {
+    const present = new Set<string>()
+    for (const part of perPart) for (const name of part) present.add(name)
+    const levels = known.filter(name => present.has(name))
+    // Anything a part has that the recorded order does not mention still has to
+    // appear; dropping a level would drop its cells.
+    for (const name of present) if (!levels.includes(name)) levels.push(name)
+    const at = new Map(levels.map((name, i) => [name, i]))
+    return {
+      levels,
+      maps: perPart.map(part => Int32Array.from(part, name => at.get(name) ?? -1)),
+    }
+  }
+  return inferLevels(perPart)
+}
+
+function inferLevels(perPart: string[][]): LevelUnion {
   const index = new Map<string, number>()   // name -> first-appearance rank
   for (const part of perPart) {
     for (const name of part) if (!index.has(name)) index.set(name, index.size)

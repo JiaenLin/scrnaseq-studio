@@ -311,5 +311,25 @@ console.log('\nAND A PLAIN BUNDLE IS NOT MISTAKEN FOR A COLLECTION')
   fs.unlinkSync(tmp)
 }
 
+
+console.log(String.fromCharCode(10) + 'A RECORDED CLUSTER ORDER IS USED, NOT GUESSED')
+// Cluster order decides colour. Parts drop the levels they have no cells for,
+// so reconstructing the order from the parts is a guess, and a wrong guess
+// repaints every cluster: CD4 T cells came out red unsplit and cyan split.
+{
+  const { unionLevels } = await import('../src/lib/levels.ts')
+  const parts = [['B', 'NK'], ['CD4 T', 'B'], ['NK', 'Platelet']]
+  const parent = ['CD4 T', 'B', 'NK', 'Platelet']
+  const u = unionLevels(parts, parent)
+  check('the parent order is kept exactly', u.levels, parent)
+  check('each part maps into it', u.maps.map(m => Array.from(m)), [[1, 2], [0, 1], [2, 3]])
+  const missing = unionLevels([['B'], ['NK']], ['CD4 T', 'B', 'NK'])
+  check('a level no part carries is dropped', missing.levels, ['B', 'NK'])
+  const extra = unionLevels([['B'], ['Ghost']], ['B'])
+  check('a level the order does not mention is still kept, or its cells vanish',
+    extra.levels, ['B', 'Ghost'])
+  check('without a recorded order it still infers one',
+    unionLevels(parts).levels.length, 4)
+}
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll collection-source tests passed\n')
 process.exit(failed ? 1 : 0)

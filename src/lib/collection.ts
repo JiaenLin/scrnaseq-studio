@@ -37,6 +37,16 @@ export interface CollectionMeta {
   reason: string | null
   nCells: number
   nGenes: number
+  /**
+   * The cluster names in the order the whole object had them.
+   *
+   * Parts drop levels they have no cells for, so a part's own list is neither
+   * complete nor in the parent's order — and cluster order decides colour.
+   * Without this the studio has to guess, and the same cell type comes out red
+   * unsplit and cyan split, which is the most visible way to break "the user
+   * should feel no difference".
+   */
+  clusterOrder?: string[]
   parts: PartInfo[]
   notes: string[]
 }
