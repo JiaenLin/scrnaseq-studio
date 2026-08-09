@@ -104,13 +104,14 @@ function denseRankSum(a, b) {
   if (varU <= 0) return 1
   return Math.min(1, 2 * normalTail((Math.abs(u - (n1 * n2) / 2) - 0.5) / Math.sqrt(varU)))
 }
+// Zero goes to the block, everything else — including negatives — is ranked.
 const sparseOf = (a, b) => {
   const xs = []
   const gs = []
   let z1 = 0
   let z2 = 0
-  for (const x of a) { if (x > 0) { xs.push(x); gs.push(0) } else z1++ }
-  for (const x of b) { if (x > 0) { xs.push(x); gs.push(1) } else z2++ }
+  for (const x of a) { if (x !== 0) { xs.push(x); gs.push(0) } else z1++ }
+  for (const x of b) { if (x !== 0) { xs.push(x); gs.push(1) } else z2++ }
   return rankSumSparse(xs, gs, z1, z2)
 }
 {
@@ -127,6 +128,48 @@ const sparseOf = (a, b) => {
   check('an empty side returns 1', sparseOf([], [1, 2, 3]), 1)
   near('a clean separation is significant',
     sparseOf(Array(40).fill(5), Array(40).fill(0)), 0, 1e-6)
+
+  // Values below zero rank BELOW the zero block, not above it. Only reachable
+  // through a matrix that stores negatives, but the two implementations have to
+  // mean the same thing by a rank whether or not this object contains one.
+  for (const trial of [0, 1, 2]) {
+    const mk = (n, p) => Array.from({ length: n },
+      () => (rnd() < p ? +((rnd() - 0.45) * 4).toFixed(3) : 0))
+    const a = mk(70, 0.5 + trial * 0.1)
+    const b = mk(60, 0.4)
+    near(`trial ${trial}: sparse == dense with values on both sides of zero`,
+      sparseOf(a, b), denseRankSum(a, b), 1e-9)
+  }
+}
+
+console.log('\nA STORED ZERO IS A ZERO')
+// A walk yields STORED entries, and scanpy's log1p in place leaves explicit
+// zeros behind. The dense reference has always called those zeros; the sparse
+// path used to rank them just above the zero block, which is a different test.
+// This atlas holds none — 0 stored zeros in 735 M values — so nothing here was
+// wrong on it, and nothing but a test was ever going to say so.
+{
+  const a = [0, 0, 0, 1.5, 2.0]
+  const b = [0, 0, 1.0, 1.0, 0]
+  // What a matrix storing that leading zero explicitly hands to the walk.
+  const xsStored = [0, 1.5, 2.0, 1.0, 1.0]
+  const gsStored = [0, 0, 0, 1, 1]
+  near('a stored zero gives what the dense reference gives',
+    rankSumSparse(xsStored.filter(x => x !== 0), gsStored.filter((_g, i) => xsStored[i] !== 0), 3, 3),
+    denseRankSum(a, b), 1e-12)
+  check('and that is not what ranking it above the block gave',
+    Math.abs(rankSumSparse(xsStored, gsStored, 2, 3) - denseRankSum(a, b)) > 0.2, true)
+
+  // The same, through the code the app actually runs: a walk that yields a 0.
+  const owner = Int32Array.from([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+  const vals = [0, 0, 0, 1.5, 2.0, 0, 0, 1.0, 1.0, 0]
+  const plan = markersPlan({
+    owner, size: Int32Array.from([5, 5]), nUsed: 10, nGenes: 1,
+  })
+  plan.visit(0, cb => vals.forEach((v, i) => cb(i, Math.fround(v))))
+  const t = plan.done()[0]
+  check('the marker pass counts a stored zero as undetected', t.rows[0]?.pct1, 0.4)
+  near('and reaches the dense p', t.rows[0]?.p, denseRankSum(a, b), 1e-12)
 }
 
 console.log('\nTHE MARKER SORT ORDERS NEGATIVE VALUES')

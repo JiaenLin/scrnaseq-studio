@@ -185,73 +185,6 @@ export const named = (genes: readonly string[], r: RawResult): DEResult => ({
 })
 
 /**
- * Seurat's avg_log2FC for log-normalized data: undo the log, average on the
- * linear scale, then take the ratio. Averaging the logs instead reports a
- * geometric mean, which is a different and systematically smaller number.
- */
-export function avgLog2FC(v: Float32Array, a: Int32Array, b: Int32Array): number {
-  let sa = 0
-  for (let k = 0; k < a.length; k++) sa += Math.expm1(v[a[k]])
-  let sb = 0
-  for (let k = 0; k < b.length; k++) sb += Math.expm1(v[b[k]])
-  return Math.log2(sa / a.length + 1) - Math.log2(sb / b.length + 1)
-}
-
-/**
- * Wilcoxon rank-sum, exploiting sparsity.
- *
- * Every zero ties for the lowest ranks, so only the non-zero values need
- * sorting — a few hundred per gene rather than every cell. Ties are corrected
- * for, which matters more here than usual: the zero block is often most of the
- * data, and ignoring it inflates every statistic in the table.
- */
-export function rankSum(v: Float32Array, a: Int32Array, b: Int32Array): number {
-  const n1 = a.length
-  const n2 = b.length
-  const n = n1 + n2
-  if (!n1 || !n2 || n < 3) return 1
-
-  const xs: number[] = []
-  const gs: number[] = []
-  let z1 = 0
-  for (let k = 0; k < n1; k++) {
-    const x = v[a[k]]
-    if (x > 0) { xs.push(x); gs.push(0) } else z1++
-  }
-  let z2 = 0
-  for (let k = 0; k < n2; k++) {
-    const x = v[b[k]]
-    if (x > 0) { xs.push(x); gs.push(1) } else z2++
-  }
-  const zeros = z1 + z2
-  if (!xs.length) return 1
-
-  const order = xs.map((_x, i) => i).sort((p, q) => xs[p] - xs[q])
-
-  // Ranks 1..zeros are the zero block — one tie group of that size.
-  let r1 = z1 * ((1 + zeros) / 2)
-  let tieSum = zeros > 1 ? zeros ** 3 - zeros : 0
-
-  let i = 0
-  while (i < order.length) {
-    let j = i
-    while (j + 1 < order.length && xs[order[j + 1]] === xs[order[i]]) j++
-    const size = j - i + 1
-    const rank = zeros + i + 1 + (size - 1) / 2
-    for (let k = i; k <= j; k++) if (gs[order[k]] === 0) r1 += rank
-    if (size > 1) tieSum += size ** 3 - size
-    i = j + 1
-  }
-
-  const u = r1 - (n1 * (n1 + 1)) / 2
-  const mu = (n1 * n2) / 2
-  const varU = ((n1 * n2) / 12) * (n + 1 - tieSum / (n * (n - 1)))
-  if (varU <= 0) return 1
-  const z = (Math.abs(u - mu) - 0.5) / Math.sqrt(varU)
-  return Math.min(1, 2 * normalTail(z))
-}
-
-/**
  * A group membership label per cell: 0 for side A, 1 for side B, -1 for cells
  * taking no part. Built once per test rather than per gene.
  */
@@ -269,6 +202,11 @@ function labels(nCells: number, a: Int32Array, b: Int32Array): Int8Array {
  * rank test they are a single tie block whose size is known from the group
  * sizes. That is what makes a full 13k-gene run take a second rather than a
  * minute.
+ *
+ * A walk yields STORED entries, and a stored entry is allowed to be 0 — a
+ * scanpy .h5ad that was log1p'd in place keeps its explicit zeros. Such a value
+ * is a zero like any other: it is not a detection, and it belongs in the zero
+ * block rather than ranked above it.
  */
 function testGene(
   gene: number, each: NonZeroWalk, lab: Int8Array, n1: number, n2: number,
@@ -279,7 +217,7 @@ function testGene(
 
   each((cell, value) => {
     const g = lab[cell]
-    if (g < 0) return
+    if (g < 0 || value === 0) return
     xs.push(value)
     gs.push(g)
     if (g === 0) { d1++; s1 += Math.expm1(value) } else { d2++; s2 += Math.expm1(value) }
@@ -295,7 +233,13 @@ function testGene(
   return { gene, lfc, p, padj: 1, nlp, pct1, pct2 }
 }
 
-/** Two-sided Wilcoxon rank-sum from the non-zero values plus the zero counts. */
+/**
+ * Two-sided Wilcoxon rank-sum from the non-zero values plus the zero counts.
+ *
+ * `xs` holds the values that are not zero; `z1` and `z2` count the ones that
+ * are, whether they were stored or merely absent. Passing a zero inside `xs`
+ * would rank it as its own group beside the block it belongs to.
+ */
 export const rankSumSparse = (
   xs: number[], gs: number[], z1: number, z2: number,
 ): number => rankSumSparseFull(xs, gs, z1, z2).p
@@ -312,8 +256,12 @@ export function rankSumSparseFull(
   if (!xs.length) return { p: 1, nlp: 0 }
 
   const order = xs.map((_x, i) => i).sort((p, q) => xs[p] - xs[q])
-  // Ranks 1..zeros are the zero block — one tie group of that size.
-  let r1 = z1 * ((1 + zeros) / 2)
+  let nNeg = 0
+  for (let k = 0; k < xs.length; k++) if (xs[k] < 0) nNeg++
+  // The zero block sits above the negatives and below the positives, at ranks
+  // nNeg+1..nNeg+zeros — one tie group of that size. On log-normalized data
+  // nNeg is 0 and this is the familiar "zeros take ranks 1..zeros".
+  let r1 = z1 * (nNeg + (1 + zeros) / 2)
   let tieSum = zeros > 1 ? zeros ** 3 - zeros : 0
 
   let i = 0
@@ -321,7 +269,7 @@ export function rankSumSparseFull(
     let j = i
     while (j + 1 < order.length && xs[order[j + 1]] === xs[order[i]]) j++
     const size = j - i + 1
-    const rank = zeros + i + 1 + (size - 1) / 2
+    const rank = (i < nNeg ? 0 : zeros) + i + 1 + (size - 1) / 2
     for (let k = i; k <= j; k++) if (gs[order[k]] === 0) r1 += rank
     if (size > 1) tieSum += size ** 3 - size
     i = j + 1
@@ -505,10 +453,14 @@ export function markersPlan(spec: MarkersSpec) {
   const visit = (gene: number, each: NonZeroWalk) => {
     let m = 0
     let sAll = 0
+    let nNeg = 0
     d1.fill(0); s1.fill(0)
     each((cell, value) => {
       const c = owner[cell]
-      if (c < 0) return
+      // A stored 0 is a zero, not a detection — see testGene. Skipping it here
+      // is what keeps `zeros` below equal to the number of cells at zero.
+      if (c < 0 || value === 0) return
+      if (value < 0) nNeg++
       if (m === cap) {
         cap *= 2
         const nk = new Uint32Array(cap); nk.set(keyA); keyA = nk
@@ -573,7 +525,8 @@ export function markersPlan(spec: MarkersSpec) {
       const key = sk[i]
       while (j + 1 < m && sk[j + 1] === key) j++
       const groupSize = j - i + 1
-      const rank = zeros + i + 1 + (groupSize - 1) / 2
+      // The zero block sits above the negatives, at ranks nNeg+1..nNeg+zeros.
+      const rank = (i < nNeg ? 0 : zeros) + i + 1 + (groupSize - 1) / 2
       for (let k = i; k <= j; k++) r1[sw[k]] += rank
       if (groupSize > 1) tieSum += groupSize ** 3 - groupSize
       i = j + 1
@@ -586,8 +539,9 @@ export function markersPlan(spec: MarkersSpec) {
       const pct1 = d1[c] / n1
       const pct2 = (m - d1[c]) / n2
       const lfc = Math.log2(s1[c] / n1 + 1) - Math.log2((sAll - s1[c]) / n2 + 1)
-      // The zero block contributes z1 cells at the mean rank of ranks 1..zeros.
-      const { p, nlp } = rankFromSums(r1[c] + (n1 - d1[c]) * ((1 + zeros) / 2), n1, n2, tieSum)
+      // The zero block contributes this cluster's z1 cells at its mean rank.
+      const { p, nlp } = rankFromSums(
+        r1[c] + (n1 - d1[c]) * (nNeg + (1 + zeros) / 2), n1, n2, tieSum)
       rows[c].push({ gene, lfc, p, padj: 1, nlp, pct1, pct2 })
     }
   }
