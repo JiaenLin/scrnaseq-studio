@@ -59,5 +59,25 @@ console.log(String.fromCharCode(10) + 'EXTENTS DO NOT SPREAD PER-CELL ARRAYS INT
   check('an empty array falls back rather than returning Infinity',
     [minOf(new Float32Array(0), 7), maxOf(new Float32Array(0), 7)], [7, 7])
 }
+
+console.log(String.fromCharCode(10) + 'AN AXIS DRAWS EVEN WHEN EVERY VALUE IS THE SAME')
+// A covariate the object does not carry arrives as a flat zero - the QC panel
+// shows a mitochondrial fraction of 0 for every cell when there was no such
+// column. Then lo === hi, the padding is zero, every coordinate is (v-y0)/0,
+// and SVG rejects each attribute with 'Expected length, NaN' while the numbers
+// beside the broken chart are perfectly correct.
+{
+  const { axisRange } = await import('../src/lib/chart.ts')
+  const flat = axisRange(0, 0, { fromZero: true })
+  check('an all-zero covariate still spans something', flat.y1 > flat.y0, true)
+  check('and does not go negative', flat.y0 >= 0, true)
+  const same = axisRange(3.5, 3.5)
+  check('a constant non-zero value spans something too', same.y1 > same.y0, true)
+  const norm = axisRange(0, 100, { fromZero: true })
+  check('a normal range is padded, not distorted',
+    [norm.y0, Math.round(norm.y1)], [0, 104])
+  check('every bound is finite',
+    [flat, same, norm].every(r => Number.isFinite(r.y0) && Number.isFinite(r.y1)), true)
+}
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll gene-search tests passed\n')
 process.exit(failed ? 1 : 0)

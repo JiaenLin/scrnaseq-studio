@@ -118,6 +118,27 @@ export function maxOf(xs: ArrayLike<number>, fallback = 0): number {
   return Number.isFinite(m) ? m : fallback
 }
 
+
+/**
+ * A drawable axis range for values that may all be the same.
+ *
+ * A covariate the object does not carry comes through as a flat zero — the QC
+ * panel shows a mitochondrial fraction of 0 for every cell when there was no
+ * such column. Then lo === hi, the padding is zero, and every coordinate is
+ * (v - y0) / 0, which is NaN. SVG rejects that attribute by attribute, so the
+ * chart half-draws and the console fills with "Expected length, NaN" while the
+ * numbers beside it are perfectly correct.
+ */
+export function axisRange(
+  lo: number, hi: number, { fromZero = false } = {},
+): { y0: number; y1: number } {
+  const span = hi - lo
+  const pad = span > 0 ? span * 0.04 : Math.max(Math.abs(hi) * 0.04, 0.5)
+  const y0 = fromZero ? Math.max(0, lo - pad) : lo - pad
+  const y1 = hi + pad
+  return { y0, y1: y1 > y0 ? y1 : y0 + 1 }
+}
+
 export function embedExtent(d: Dataset) {
   const xs = d.cells.map(c => c.x)
   const ys = d.cells.map(c => c.y)
