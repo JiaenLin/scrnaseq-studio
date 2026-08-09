@@ -141,12 +141,20 @@ console.log('\nMODULE SCORE')
   // and every part of that split — averages held by index instead of by name,
   // the control draw by index, the order the accumulation walks — is somewhere a
   // value could move in its last bits with every property above still holding.
-  // These are the values the studio produced before any of it, to nine figures.
+  //
+  // Two of these moved once, deliberately. The accumulation now walks gene
+  // order, because that is the only order a matrix streamed off disk can be
+  // walked in, and Float32 addition is not associative: accumulating
+  // set-then-controls in memory made the same object score differently
+  // depending on whether it was held in memory or read from a collection.
+  // 2,043 of 2,638 cells disagreed, by up to 1.9e-7 — numerically nothing, and
+  // two different answers to one question. These are the values both paths now
+  // produce.
   check('the first five cells score exactly what they always have',
     Array.from(sc.scores.slice(0, 5)).map(v => v.toPrecision(9)),
-    ['-0.552917600', '-0.780632317', '-0.548532963', '-0.980110765', '-0.581761241'])
+    ['-0.552917540', '-0.780632317', '-0.548532963', '-0.980110705', '-0.581761241'])
   check('and the whole object still sums to the same number',
-    sc.scores.reduce((a, b) => a + b, 0).toPrecision(12), '828.353288167')
+    sc.scores.reduce((a, b) => a + b, 0).toPrecision(12), '828.353280988')
   check('the same control genes are drawn, in the same order',
     sc.control.slice(0, 5), ['Mcm5', 'Sp8', 'Cenpf', 'Slc1a3', 'Gfap'])
 

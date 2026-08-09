@@ -140,11 +140,17 @@ export interface ScorePlan {
   /** Per gene index: signed weight. Exactly 0 means the gene takes no part. */
   weight: Float64Array
   /**
-   * The genes that carry a weight, set first and then controls.
+   * The genes that carry a weight, in gene order.
    *
-   * The order the sum was accumulated in before any of this was split apart.
-   * Float32 addition is not associative, so an in-memory object walking this
-   * order keeps scores that are bit-for-bit the ones it produced before.
+   * Gene order, not set-then-controls, because Float32 addition is not
+   * associative and a matrix streamed off disk can only be walked in gene
+   * order. Accumulating differently on the two paths made the same object
+   * score differently depending on whether it was held in memory or read from
+   * a collection — 2,043 of 2,638 cells disagreed, by up to 1.9e-7. That is
+   * numerically nothing and exactly the wrong thing to leave in place: the two
+   * numbers are answers to the same question. Matching the streamed order
+   * shifts scores from a previous release in their last bits, which is the
+   * lesser of the two.
    */
   order: Int32Array
   /** Control genes drawn, by index, for the record. */
@@ -205,7 +211,7 @@ export function scorePlan(
   for (const g of uniqueCtrl) weight[g] = -ctrlWeight[g]
   return {
     weight,
-    order: Int32Array.from([...usedIdx, ...uniqueCtrl]),
+    order: Int32Array.from([...usedIdx, ...uniqueCtrl]).sort(),
     control: Int32Array.from(uniqueCtrl),
   }
 }
@@ -242,11 +248,8 @@ export function scoreAccumPlan(spec: ScoreSpec) {
 }
 
 /**
- * The accumulation an in-memory object does, in the order it has always done it.
- *
- * Set genes first, then controls — not gene order. That is deliberate: changing
- * the order of a Float32 sum changes its last bits, and a 2 638-cell object must
- * report today the scores it reported yesterday.
+ * The accumulation an in-memory object does — in gene order, which is the only
+ * order a streamed matrix can offer, so both paths reach the same number.
  */
 export function scoreInline(src: Source, p: ScorePlan): Float32Array {
   const scores = new Float32Array(src.d.cells.length)
