@@ -3,9 +3,9 @@ import type { CellType, DERow } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import { deMarkersAll, isSig, markersSpec, thresholdFor } from '../lib/stats.ts'
 import { dotAt, dotGrid, type DotGrid } from '../lib/dots.ts'
-import { sci } from '../lib/chart.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
+import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { Card, Chips, Empty, Mono } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import { useJob } from '../lib/compute.ts'
@@ -115,14 +115,17 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   const W = PL + genes.length * cw + 24
   const H = PT + types.length * rh + 16
 
+  // Same columns and same two rules as the table above it: the adjusted p as a
+  // bound once it has underflowed, and the log-space significance beside it so
+  // the export carries the resolution the screen shows.
   const saveCsv = () => downloadCsv(
     'cluster_markers',
-    ['cluster', 'gene', 'log2FC', 'pct.1', 'pct.2', 'p', 'padj'],
+    ['cluster', 'gene', 'log2FC', 'pct.1', 'pct.2', 'p', 'padj', 'neg_log10_padj'],
     perCluster.flatMap((rows, ti) => rows
       .filter(r => isSig(r, th) && r.lfc > 0)
       .map(r => [types[ti].name, r.gene, r.lfc.toFixed(4),
         r.pct1?.toFixed(4), r.pct2?.toFixed(4),
-        r.p.toExponential(4), r.padj.toExponential(4)])))
+        pCsv(r.p), pCsv(r.padj), nlpCsv(r.nlp)])))
 
   return (
     <>
@@ -137,7 +140,7 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
       <Card
         eyebrow="Markers · one vs rest"
         title={`${genes.length} genes across ${types.length} clusters`}
-        sub="Top genes per cluster by adjusted p, shown as mean expression × fraction detected. Rename any cluster here — the name propagates to every tab and into Methods."
+        sub="Top genes per cluster by −log₁₀ adjusted p — the adjusted p itself underflows the double on an object this size, so the ranking is read in log space. Shown as mean expression × fraction detected. Rename any cluster here — the name propagates to every tab and into Methods."
       >
         <div className="mt-3.5 flex flex-wrap items-center gap-2">
           <Chips label="Top per cluster" value={topN} options={[3, 5, 8, 12]} onChange={setTopN} />
@@ -193,7 +196,13 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
 
         <div className="mt-5">
           <div className="eyebrow mb-2">Per cluster</div>
-          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
+          {/* 300, not 260: at 260 the open table was wider than its card, and the
+              column clipped was the last one — which is the significance. It was
+              already clipped before this column existed (padj wrapped onto two
+              lines and still ran off the edge), and a number a reader has to
+              scroll sideways to finish reading is not a number that has been
+              shown to them. */}
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
             {types.map((t, ti) => (
               <div key={t.key} className="rounded-xl px-3 py-2.5"
                 style={{ background: 'var(--sunk)' }}>
@@ -212,10 +221,21 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                 <div className="mono mt-1.5 text-[11.5px] italic" style={{ color: 'var(--ink-2)' }}>
                   {tops[ti].map(r => r.gene).join(', ') || 'no gene passes the cutoffs'}
                 </div>
+                {/* Four columns: a fifth does not fit even the widened card, and
+                    the one that would fall off the edge is the significance. So
+                    padj is replaced here rather than joined — under the floor it
+                    has nothing to say that this column does not say better, it
+                    is on the cell's tooltip for the rows where it is still a
+                    number, and the CSV carries both. The DEG table has the width
+                    and shows both there. */}
                 {open === ti && (
                   <div className="scrollx mt-2" style={{ maxHeight: 260 }}>
                     <table className="t">
-                      <thead><tr><th>Gene</th><th>log₂FC</th><th>pct.1</th><th>padj</th></tr></thead>
+                      <thead>
+                        <tr>
+                          <th>Gene</th><th>log₂FC</th><th>pct.1</th><th>−log₁₀ padj</th>
+                        </tr>
+                      </thead>
                       <tbody>
                         {perCluster[ti].filter(r => isSig(r, th) && r.lfc > 0).slice(0, 40)
                           .map((r: DERow) => (
@@ -225,7 +245,8 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                               <td className="mono font-semibold italic">{r.gene}</td>
                               <td className="num" style={{ color: 'var(--bad)' }}>+{r.lfc.toFixed(2)}</td>
                               <td className="num" style={{ color: 'var(--ink-2)' }}>{r.pct1?.toFixed(2)}</td>
-                              <td className="num mono text-[11.5px]">{sci(r.padj)}</td>
+                              <td className="num mono text-[11.5px] font-semibold"
+                                title={`adjusted p ${pTxt(r.padj)}`}>{nlpTxt(r.nlp)}</td>
                             </tr>
                           ))}
                       </tbody>
@@ -236,9 +257,16 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
             ))}
           </div>
           <p className="mt-2.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-            The count on each chip is every gene passing padj &lt; {th.padj} and log₂FC ≥ {th.lfc};
-            click it for the list. Renaming keeps results attached to the original cluster, so a
-            rename never detaches work already done. File names use the slug{' '}
+            The count on each chip is every gene passing padj &lt; {th.padj} — that is
+            −log₁₀ padj &gt; {(-Math.log10(th.padj)).toFixed(2)} — and log₂FC ≥ {th.lfc};
+            click it for the list. There the rows are ordered by <b>−log₁₀ padj</b>, which is
+            −log₁₀ of the adjusted p formed in log space. The adjusted p itself underflows the
+            double past z ≈ 38.6, where it stops being a measurement and becomes one shared
+            constant for every row alike, so it is not printed here — hover a value for it, and
+            the CSV carries it beside this column, written{' '}
+            <Mono>&lt;1e-308</Mono> from that floor down. Renaming keeps results attached to the
+            original cluster, so a rename never detaches work already done. File names use the
+            slug{' '}
             <Mono>{slug('cluster_markers')}</Mono>.
           </p>
         </div>

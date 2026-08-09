@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import { combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
-import { fmt, sci } from '../lib/chart.ts'
+import { fmt } from '../lib/chart.ts'
+import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { CsvButton } from './Figure.tsx'
 
-type SortKey = 'gene' | 'mean' | 'pct1' | 'pct2' | 'lfc' | 'combined' | 'p' | 'padj'
+type SortKey = 'gene' | 'mean' | 'pct1' | 'pct2' | 'lfc' | 'combined' | 'p' | 'padj' | 'nlp'
 
 /** Rows past a first render; anything more and the browser, not the science, is the limit. */
 const MAX_ROWS = 500
@@ -17,6 +18,7 @@ const cellVal = (r: DERow, k: SortKey): number | string | null => {
     case 'mean': return r.mean ?? null
     case 'pct1': return r.pct1 ?? null
     case 'pct2': return r.pct2 ?? null
+    case 'nlp': return r.nlp
     // Ascending −nlp is ascending p, and ascending adjusted p, exactly — they
     // are the same monotone function of the same z. The difference is that it
     // still separates the rows whose p has underflowed to one shared floor,
@@ -41,8 +43,12 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
 }) {
   const [q, setQ] = useState('')
   const [sigOnly, setSigOnly] = useState(false)
-  const [sort, setSort] = useState<SortKey>('padj')
-  const [asc, setAsc] = useState(true)
+  // Descending −log₁₀ padj, which is the same order ascending padj gave — the
+  // same monotone function of the same z — but the arrow now sits over the
+  // column that is actually deciding the order rather than over one whose top
+  // rows are all the same number.
+  const [sort, setSort] = useState<SortKey>('nlp')
+  const [asc, setAsc] = useState(false)
 
   const view = useMemo(() => {
     const query = q.trim().toUpperCase()
@@ -65,16 +71,22 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
     else { setSort(k); setAsc(k === 'gene' || k === 'p' || k === 'padj') }
   }
 
+  // The CSV carries the same two columns under the same two rules as the table.
+  // Exporting the floored constant while the screen showed resolution would
+  // hand the one reader most likely to fit something to it the one number that
+  // is not a measurement.
   const save = () => downloadCsv(
     `deg_${slug(label)}${sigOnly ? '_sig' : ''}`,
-    ['gene', ...(wilcox ? ['pct.1', 'pct.2'] : ['baseMean']), 'log2FC', 'combined', 'p', 'padj', 'direction'],
+    ['gene', ...(wilcox ? ['pct.1', 'pct.2'] : ['baseMean']), 'log2FC', 'combined',
+      'p', 'padj', 'neg_log10_padj', 'direction'],
     view.map(r => [
       r.gene,
       ...(wilcox ? [r.pct1?.toFixed(4), r.pct2?.toFixed(4)] : [r.mean?.toFixed(2)]),
       r.lfc.toFixed(4),
       combinedScore(r.lfc, r.nlp)?.toFixed(3),
-      r.p.toExponential(4),
-      r.padj.toExponential(4),
+      pCsv(r.p),
+      pCsv(r.padj),
+      nlpCsv(r.nlp),
       r.lfc > 0 ? `higher in ${cs}` : `higher in ${ctrl}`,
     ]))
 
@@ -87,6 +99,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
     ['combined', 'Combined', true],
     ['p', 'p', true],
     ['padj', 'p adjusted', true],
+    ['nlp', '−log₁₀ padj', true],
   ]
 
   return (
@@ -139,8 +152,9 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
                 <td className="num mono text-[11.5px]">{combinedScore(r.lfc, r.nlp)?.toFixed(1) ?? '—'}</td>
-                <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{sci(r.p)}</td>
-                <td className="num mono text-[11.5px]">{sci(r.padj)}</td>
+                <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{pTxt(r.p)}</td>
+                <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{pTxt(r.padj)}</td>
+                <td className="num mono text-[11.5px] font-semibold">{nlpTxt(r.nlp)}</td>
                 <td className="whitespace-nowrap">{r.lfc > 0 ? `higher in ${cs}` : `higher in ${ctrl}`}</td>
               </tr>
             ))}
@@ -155,6 +169,13 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
         </p>
       )}
       <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+        <b>−log₁₀ padj</b> is the significance column, and the one the table is sorted on: a
+        per-cell test over {fmt(rows.length)} genes reaches p-values far below the smallest
+        double, so <b>p</b> and <b>p adjusted</b> read <span className="mono">&lt; 10⁻³⁰⁸</span>{' '}
+        once they have underflowed — a bound, because the digits under it are the arithmetic&rsquo;s
+        floor and not a result. −log₁₀ padj is formed in log space and does not underflow, so
+        rows that share that bound are still separated here. Both columns are in the CSV, written
+        the same way.{' '}
         <b>Combined</b> = −log₁₀(adjusted p) × log₂FC, a signed ranking metric: large positive is strongly up
         and significant, large negative strongly down. Click a header to sort, again to reverse.
         Click any row to open that gene in <b>Gene expression</b>.

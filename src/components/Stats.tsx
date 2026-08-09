@@ -8,7 +8,8 @@ import {
 import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
-import { fmt } from '../lib/chart.ts'
+import { fmt, maxOf } from '../lib/chart.ts'
+import { nlpTxt, pTxt } from '../lib/significance.ts'
 import { Card, Empty, Mono, Seg } from './Ui.tsx'
 import Figure from './Figure.tsx'
 import DEGTableBody from './DEGTable.tsx'
@@ -376,11 +377,18 @@ export function Volcano(p: StatsProps) {
   const rows = useMemo(() => de?.rows ?? [], [de])
 
   const W = 760, H = 440, PL = 58, PB = 46, PT = 16, PR = 16
-  const maxX = Math.max(3, ...rows.map(r => Math.abs(r.lfc))) * 1.12
+  // maxOf, not `Math.max(...)`: the spread passes one argument per DE gene and
+  // V8 refuses past ~124 900 of them — measured on this machine. This atlas
+  // reports 31 053, so the old form did not crash here and would have on any
+  // larger gene list, taking the React tree down with it and leaving a white
+  // page. Both extents are remembered too, because each was allocating and
+  // walking a 31 053-element array on every render of the tab.
+  const maxX = useMemo(
+    () => Math.max(3, maxOf(rows.map(r => Math.abs(r.lfc)))) * 1.12, [rows])
   // r.nlp, not -log10(padj): on the atlas 11% of the rows have an adjusted p
   // below the smallest double, so that expression pinned every one of them to
   // the 1e-300 clamp and the top of the volcano was a flat line of 300s.
-  const maxY = Math.max(6, ...rows.map(r => r.nlp)) * 1.08
+  const maxY = useMemo(() => Math.max(6, maxOf(rows.map(r => r.nlp))) * 1.08, [rows])
   const X = (v: number) => PL + ((W - PL - PR) * (v + maxX)) / (2 * maxX)
   const Y = (v: number) => PT + (H - PT - PB) * (1 - v / maxY)
 
@@ -492,14 +500,22 @@ export function Volcano(p: StatsProps) {
         <span><i className="sw" style={{ background: '#3b82f6' }} />up in {p.ctrl}</span>
         <span><i className="sw" style={{ background: 'var(--ink-3)' }} />not significant</span>
         <span style={{ color: 'var(--ink-3)' }}>
+          {/* The same two columns the table shows, written the same way — a point
+              near the top of this axis has an adjusted p the double cannot hold,
+              and `padj.toExponential(1)` printed the floor as though it were the
+              reading. */}
           {hover
-            ? `${hover.gene} · log₂FC ${hover.lfc.toFixed(2)} · padj ${hover.padj.toExponential(1)}`
+            ? `${hover.gene} · log₂FC ${hover.lfc.toFixed(2)}`
+              + ` · −log₁₀ padj ${nlpTxt(hover.nlp)} · padj ${pTxt(hover.padj)}`
             : '· hover a point to read it, click to open it in Gene expression'}
         </span>
       </div>
 
       <figcaption className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-        Dashed lines are the cutoffs above, which the Methods text also reports.{' '}
+        Dashed lines are the cutoffs above, which the Methods text also reports. The y axis is
+        the table&rsquo;s <b>−log₁₀ padj</b> column, formed in log space rather than as −log₁₀ of
+        the adjusted p: past z ≈ 38.6 the adjusted p underflows the double, and taking its
+        logarithm flattened the whole top of this cloud onto one line.{' '}
         {p.method === 'wilcox'
           ? 'Note the y scale: per-cell tests reach exponents no bulk experiment ever produces, because n is the number of cells.'
           : 'Between-animal variance is in the model, so the y scale stays interpretable.'}
