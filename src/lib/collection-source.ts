@@ -24,7 +24,7 @@
 // part B's cluster 0 are usually different cell types.
 
 import type { CellType } from '../types.ts'
-import type { Bundle, BundleMeta, Embedding, Pseudobulk } from './bundle.ts'
+import type { Bundle, BundleMeta, Embedding, ExtraColumn, Pseudobulk } from './bundle.ts'
 import { bundleDataset, SCHEMA } from './bundle.ts'
 import { makeGeneNames } from './genes.ts'
 import {
@@ -96,9 +96,12 @@ export async function openCollection(
 ): Promise<Source> {
   const cmeta = index.meta
   if (!cmeta.parts?.length) fail('this collection lists no parts')
-  // Read without the index type having to know the field, so a studio built
-  // against an older collection.ts still reads a collection that carries it.
-  const { condOrder } = cmeta as CollectionMeta & { condOrder?: string[] }
+  // Read without the index type having to know the fields, so a studio built
+  // against an older collection.ts still reads a collection that carries them.
+  const { condOrder, extraOrder } = cmeta as CollectionMeta & {
+    condOrder?: string[]
+    extraOrder?: Record<string, string[]>
+  }
 
   const perPartCache = Math.max(2 << 20, Math.floor(CACHE_BUDGET / cmeta.parts.length))
   const parts: Part[] = []
@@ -123,6 +126,16 @@ export async function openCollection(
   let extraKeys: string[] = []
   const extras: Float32Array[][] = []
   const droppedEmb = new Set<string>()
+
+  // The extra categorical columns, the same way and for the same reason: the
+  // keys come from the first part, each part says where its own copy lives, and
+  // a part that cannot supply one drops it from the whole object rather than
+  // leaving a hole. Half a column would put a third of the atlas in whichever
+  // level happens to be code 0 — a figure, not an error.
+  let colKeys: string[] = []
+  const colLevels: string[][][] = []
+  const colCodes: Uint16Array[][] = []
+  const droppedCol = new Set<string>()
 
   for (let i = 0; i < cmeta.parts.length; i++) {
     const info = cmeta.parts[i]
@@ -212,6 +225,28 @@ export async function openCollection(
       mine.push(xy ?? new Float32Array(0))
     }
     extras.push(mine)
+
+    const carried = Array.isArray(meta.extras) ? meta.extras : []
+    if (i === 0) colKeys = carried.map(c => c.key)
+    const mineLevels: string[][] = []
+    const mineCodes: Uint16Array[] = []
+    for (const key of colKeys) {
+      const ent = carried.find(c => c.key === key)
+      const zip = ent?.file ? dir.get(ent.file) : undefined
+      const codes = zip ? view(Uint16Array, await readZipEntry(file, zip)) : null
+      const levels = ent?.levels ?? []
+      if (!codes || codes.length !== n || !levels.length) droppedCol.add(key)
+      else {
+        for (let k = 0; k < n; k++) {
+          if (codes[k] >= levels.length) { droppedCol.add(key); break }
+        }
+      }
+      mineLevels.push(levels)
+      mineCodes.push(codes ?? new Uint16Array(0))
+    }
+    colLevels.push(mineLevels)
+    colCodes.push(mineCodes)
+
     if (!meta.clusters?.length) fail(`part ${info.key} has no clusters`)
     if (!meta.samples?.length) fail(`part ${info.key} has no samples`)
     for (let k = 0; k < n; k++) {
@@ -299,6 +334,29 @@ export async function openCollection(
     fail('this object has more than 65 535 clusters or samples across its parts')
   }
 
+  // The extra columns, through the same union and against the same hazard: a
+  // part is written with the levels it uses, so part A's dissection 0 is
+  // usually not part B's. Their order is recorded by the lab for the reason
+  // condition order is — a dissection list in collation order is only ugly, but
+  // the machinery is one machinery and it may be an age next time.
+  const columns: ExtraColumn[] = []
+  colKeys.forEach((key, k) => {
+    if (droppedCol.has(key)) return
+    const u = unionLevels(colLevels.map(l => l[k]), extraOrder?.[key])
+    if (u.levels.length > 65535) { droppedCol.add(key); return }
+    const codes = new Uint16Array(nCells)
+    parts.forEach((p, pi) => {
+      const map = u.maps[pi]
+      const src = colCodes[pi][k]
+      for (let j = 0; j < p.nCells; j++) codes[p.offset + j] = map[src[j]]
+    })
+    columns.push({ key, levels: u.levels, codes })
+  })
+  if (droppedCol.size) {
+    notes.push(`${[...droppedCol].join(', ')} is annotated in some parts of this object and `
+      + 'not in others, so it is not offered as something to break a figure down by')
+  }
+
   // Concatenated in part order, exactly as embed.f32 is, so cell i means the
   // same cell in every embedding.
   const embeddings: Embedding[] = [{ key: parts[0].meta.embedding, xy: embed }]
@@ -337,7 +395,7 @@ export async function openCollection(
   const d = bundleDataset({
     meta: merged, genes: genes!,
     indptr: new Int32Array(0), indices: new Int32Array(0), data: new Float32Array(0),
-    cluster, sample, embed, qc, pseudobulk,
+    cluster, sample, embed, qc, pseudobulk, extras: columns,
   } as Bundle)
 
   const types: CellType[] = merged.clusters.map(name => ({

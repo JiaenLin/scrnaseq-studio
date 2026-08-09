@@ -3,6 +3,7 @@
 
     python export_h5ad.py in.h5ad out.zip --cluster louvain [--sample orig.ident]
                                           [--condition group] [--embedding X_umap]
+                                          [--extra dissection]…
 
 Handles both the modern AnnData layout and the legacy (< 0.7) one, in which obs,
 var and obsm are single compound datasets and categorical levels live in
@@ -47,6 +48,59 @@ def categorical(series):
     levels = list(dict.fromkeys(vals))          # first-appearance order, never sorted
     index = {v: i for i, v in enumerate(levels)}
     return np.array([index[v] for v in vals]), levels
+
+
+def safe_entry(s: str) -> str:
+    """An entry name that survives a zip and a file system."""
+    out = ''.join(c if (c.isalnum() or c in '._-') else '_' for c in s)
+    while '__' in out:
+        out = out.replace('__', '_')
+    return out.strip('_')[:40] or 'x'
+
+
+def groupings(a) -> list[tuple[str, int]]:
+    """Every obs column that groups the cells, with its level count.
+
+    Printed on every run, whatever was asked for. Which column holds the
+    dissection, the developmental stage or the coarse class is a question about
+    the experiment and not about the file, so this names what it can see and
+    lets the caller choose — the same reason --cluster is obeyed rather than
+    second-guessed. Anything here is a legal --extra.
+    """
+    import pandas as pd
+    out = []
+    for name in a.obs.columns:
+        s = a.obs[name]
+        if isinstance(s.dtype, pd.CategoricalDtype):
+            k = len(s.cat.categories)
+        elif s.dtype == object or pd.api.types.is_string_dtype(s):
+            k = int(s.nunique())
+        else:
+            continue
+        # One value is not a grouping and one value per cell is a barcode.
+        if 2 <= k <= 1000 and k < 0.9 * max(1, a.n_obs):
+            out.append((name, k))
+    return out
+
+
+def extra_column(a, name: str) -> tuple[object, list[str]]:
+    """One further categorical column, as codes and levels.
+
+    Cells with no annotation become their own level rather than joining the
+    first one, and levels no cell uses are dropped: a bundle should describe the
+    cells it actually holds.
+    """
+    codes, levels = categorical(a.obs[name])
+    codes = np.asarray(codes)
+    if (codes < 0).any():
+        levels = list(levels) + ['NA']
+        codes = np.where(codes < 0, len(levels) - 1, codes)
+    used = np.zeros(len(levels), dtype=bool)
+    used[np.unique(codes)] = True
+    if used.all():
+        return codes, list(levels)
+    remap = np.cumsum(used) - 1
+    return remap[codes], [l for l, u in zip(levels, used) if u]
 
 
 def pick_embedding(adata, wanted: str | None) -> str:
@@ -156,6 +210,9 @@ def main() -> None:
     ap.add_argument('--cluster', help='obs column holding the cell annotation')
     ap.add_argument('--sample', help='obs column holding the sample/animal id')
     ap.add_argument('--condition', help='obs column holding the experimental group')
+    ap.add_argument('--extra', action='append', metavar='COLUMN',
+                    help='any further categorical obs column to carry, under its own '
+                         'name; repeatable')
     ap.add_argument('--embedding', help='obsm key, e.g. X_umap')
     ap.add_argument('--label', help='name shown in the app')
     args = ap.parse_args()
@@ -167,6 +224,11 @@ def main() -> None:
     a = ad.read_h5ad(args.input)
     n = a.n_obs
     print(f'  {n} cells × {a.n_vars} genes · obs: {list(a.obs.columns)}')
+    cands = groupings(a)
+    if cands:
+        print('  groupings: ' + ' · '.join(f'{nm} ({k})' for nm, k in cands))
+        print('    --cluster / --sample / --condition take one each; any of the rest can '
+              'travel with --extra <column>, repeated')
 
     # ---- clusters ---------------------------------------------------------
     col = args.cluster
@@ -207,6 +269,29 @@ def main() -> None:
              'comparison tab stays empty rather than inventing a contrast')
         conditions = ['all cells']
         sample_cond = ['all cells'] * len(sample_ids)
+
+    # ---- everything else the object knows about a cell ---------------------
+    # Not a fourth role: carried under its own name, so the app can pair it with
+    # any of the three without one of them being the special one.
+    roles = {col, args.sample, args.condition}
+    extras = []
+    for name in args.extra or []:
+        if name in roles:
+            continue
+        if name not in a.obs:
+            note(f'obs has no {name!r}, so it is not carried')
+            continue
+        codes, levels = extra_column(a, name)
+        if len(levels) < 2:
+            note(f'{name} has one value across the whole object; not carried')
+            continue
+        if len(levels) > 65535:
+            note(f'{name} has {len(levels)} levels, too many to store as a column')
+            continue
+        extras.append({'key': name, 'file': f'extra.{safe_entry(name)}.u16',
+                       'levels': levels, 'codes': codes})
+        note(f'{name} travels with the cells as an extra grouping — {len(levels)} levels '
+             f'the studio can break a figure down by')
 
     # ---- embedding --------------------------------------------------------
     emb_key = pick_embedding(a, args.embedding)
@@ -255,10 +340,15 @@ def main() -> None:
         args.output, args.label or args.input, f'{args.input} (AnnData)',
         genes, clusters, sample_ids, sample_cond, conditions,
         cluster_codes, sample_codes, emb, total, ngene, mito,
-        disp, counts, emb_key,
+        disp, counts, emb_key, extras,
         provenance={
             'normalization': 'log1p(CP10K)' if 'log1p' in a.uns else None,
+            # Which column each role was read from. The app says "Group" because
+            # it has to say something; an object that calls it Age gets a menu
+            # that says Age.
             'clustering': col,
+            'condition': args.condition if args.condition in a.obs else None,
+            'sample': args.sample if args.sample in a.obs else None,
             'integration': 'harmony' if any('harmony' in k for k in a.obsm) else None,
             'doublets': next((k for k in a.obs if 'doublet' in k.lower() or 'scrublet' in k.lower()), None),
             'ambient': next((k for k in a.uns if k.lower() in ('soupx', 'cellbender', 'decontx')), None),
@@ -267,7 +357,7 @@ def main() -> None:
 
 def write_bundle(out, label, source, genes, clusters, sample_ids, sample_cond,
                  conditions, cluster_codes, sample_codes, emb, total, ngene, mito,
-                 disp, counts, emb_key, provenance):
+                 disp, counts, emb_key, extras, provenance):
     """Shared by both exporters — see BUNDLE.md."""
     from scipy import sparse
     n = len(cluster_codes)
@@ -286,6 +376,7 @@ def write_bundle(out, label, source, genes, clusters, sample_ids, sample_cond,
         'clusters': clusters,
         'samples': [{'id': s, 'condition': c} for s, c in zip(sample_ids, sample_cond)],
         'conditions': conditions,
+        'extras': [{'key': e['key'], 'file': e['file'], 'levels': e['levels']} for e in extras],
         'embedding': emb_key,
         'expression': 'log1p(CP10K)',
         'hasRawCounts': counts is not None,
@@ -299,6 +390,8 @@ def write_bundle(out, label, source, genes, clusters, sample_ids, sample_cond,
         z.writestr('genes.txt', '\n'.join(genes))
         z.writestr('cluster.u16', np.asarray(cluster_codes, dtype='<u2').tobytes())
         z.writestr('sample.u16', np.asarray(sample_codes, dtype='<u2').tobytes())
+        for e in extras:
+            z.writestr(e['file'], np.asarray(e['codes'], dtype='<u2').tobytes())
         z.writestr('embed.f32', xy.astype('<f4').tobytes())
         z.writestr('qc.f32', qc.astype('<f4').tobytes())
         z.writestr('expr.indptr.i32', csc.indptr.astype('<i4').tobytes())

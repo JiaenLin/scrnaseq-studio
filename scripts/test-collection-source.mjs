@@ -12,8 +12,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { zipSync, strToU8 } from 'fflate'
 import { CHUNK_GENES, writeChunked } from '../src/lib/chunked.ts'
+import { cellColumns } from '../src/lib/bundle.ts'
 import { readCollectionIndex, writeCollection } from '../src/lib/collection.ts'
 import { openCollection } from '../src/lib/collection-source.ts'
+import { compFields, compTable, fieldLabel } from '../src/lib/composition.ts'
 import { unionLevels } from '../src/lib/levels.ts'
 import { deMarkersAllAsync, deWilcoxAsync } from '../src/lib/stats.ts'
 
@@ -80,38 +82,46 @@ console.log('\nLEVELS COME BACK IN THE ORDER THE OBJECT HAD THEM')
 // 6 genes, 12 cells, 3 parts. Cluster names are chosen so that a reader which
 // forgets to remap produces a specific, checkable lie.
 const GENES = ['Aaa', 'Bbb', 'Ccc', 'Ddd', 'Eee', 'Fff']
+// `regions` is an extra categorical column, dropped to the levels each part
+// uses in exactly the way cluster and sample are — so part 2's region 0 is
+// Midbrain while part 1's is Cortex. Nothing about it is a role, which is the
+// point: it has to survive the same remap through code that never heard of it.
 const PARTS = [
   {
     key: 'p1',
     clusters: ['Astrocyte', 'Neuron'],
     samples: [{ id: 's1', condition: 'ctrl' }],
     conditions: ['ctrl'],
-    // per cell: [cluster code, sample code]
-    cells: [[0, 0], [1, 0], [1, 0], [0, 0]],
+    regions: ['Cortex', 'Midbrain'],
+    // per cell: [cluster code, sample code, region code]
+    cells: [[0, 0, 0], [1, 0, 1], [1, 0, 0], [0, 0, 1]],
   },
   {
     key: 'p2',
     clusters: ['Neuron', 'Microglia'],
     samples: [{ id: 's2', condition: 'drug' }],
     conditions: ['drug'],
-    cells: [[1, 0], [0, 0], [1, 0]],
+    regions: ['Midbrain', 'Hindbrain'],
+    cells: [[1, 0, 0], [0, 0, 1], [1, 0, 0]],
   },
   {
     key: 'p3',
     clusters: ['Astrocyte', 'Microglia'],
     samples: [{ id: 's3', condition: 'ctrl' }, { id: 's4', condition: 'drug' }],
     conditions: ['ctrl', 'drug'],
-    cells: [[0, 0], [1, 1], [0, 1], [1, 0], [0, 0]],
+    regions: ['Cortex', 'Hindbrain'],
+    cells: [[0, 0, 1], [1, 1, 0], [0, 1, 1], [1, 0, 0], [0, 0, 0]],
   },
 ]
 
 /** Deterministic sparse values: gene g, global cell c. */
 const valueAt = (g, c) => ((g * 7 + c * 3) % 5 === 0 ? 0 : ((g + 1) * (c + 2)) % 11)
 
-function buildPart(part, offset, chunkGenes) {
+function buildPart(part, offset, chunkGenes, dropRegion = false) {
   const n = part.cells.length
   const cluster = Uint16Array.from(part.cells.map(c => c[0]))
   const sample = Uint16Array.from(part.cells.map(c => c[1]))
+  const region = Uint16Array.from(part.cells.map(c => c[2]))
   const embed = Float32Array.from(part.cells.flatMap((_c, i) => [offset + i, -(offset + i)]))
   const qc = Float32Array.from(part.cells.flatMap((_c, i) => [1000 + offset + i, 500, 0.5]))
 
@@ -134,8 +144,11 @@ function buildPart(part, offset, chunkGenes) {
     label: `object ${part.key}`, source: 'fixture.h5ad',
     nCells: n, nGenes: GENES.length, nnz: indices.length,
     clusters: part.clusters, samples: part.samples, conditions: part.conditions,
+    extras: dropRegion
+      ? []
+      : [{ key: 'region', file: 'extra.region.u16', levels: part.regions }],
     embedding: 'X_umap', expression: 'log1p(CP10K)', hasRawCounts: true,
-    provenance: { normalization: 'log1p(CP10K)', clustering: 'leiden' },
+    provenance: { normalization: 'log1p(CP10K)', clustering: 'leiden', condition: 'timepoint' },
     notes: ['a fixture'], chunkGenes,
   }
   const files = {
@@ -143,6 +156,7 @@ function buildPart(part, offset, chunkGenes) {
     'genes.txt': strToU8(GENES.join('\n')),
     'cluster.u16': new Uint8Array(cluster.buffer),
     'sample.u16': new Uint8Array(sample.buffer),
+    ...(dropRegion ? {} : { 'extra.region.u16': new Uint8Array(region.buffer) }),
     'embed.f32': new Uint8Array(embed.buffer),
     'qc.f32': new Uint8Array(qc.buffer),
     'expr.indptr.i32': new Uint8Array(indptr.buffer),
@@ -153,10 +167,13 @@ function buildPart(part, offset, chunkGenes) {
   return zipSync({ ...files, 'expr.chunk.bin': [bin, { level: 0 }] }, { level: 6 })
 }
 
-function buildCollection({ chunkGenes = CHUNK_GENES, breakGenes = false } = {}) {
+function buildCollection({
+  chunkGenes = CHUNK_GENES, breakGenes = false, halfRegion = false,
+  orders = { extras: { region: ['Hindbrain', 'Midbrain', 'Cortex'] } },
+} = {}) {
   let offset = 0
   const bundles = PARTS.map((p, i) => {
-    const bytes = buildPart(p, offset, chunkGenes)
+    const bytes = buildPart(p, offset, chunkGenes, halfRegion && i === 1)
     offset += p.cells.length
     return { key: p.key, file: `parts/${p.key}.zip`, bytes, nCells: p.cells.length, i }
   })
@@ -173,6 +190,12 @@ function buildCollection({ chunkGenes = CHUNK_GENES, breakGenes = false } = {}) 
     label: 'one intact object', source: 'fixture.h5ad',
     splitBy: 'sample', reason: 'too large for one bundle',
     nCells: offset, nGenes: GENES.length,
+    // What the whole object's order was, before the parts dropped what they do
+    // not hold. Both are optional and a collection without them still opens —
+    // the levels are then reconstructed from the parts.
+    ...(orders
+      ? { condOrder: orders.conds ?? ['ctrl', 'drug'], extraOrder: orders.extras }
+      : {}),
     parts: bundles.map(b => ({
       key: b.key, file: b.file, nCells: b.nCells, nnz: 0, bytes: b.bytes.length,
     })),
@@ -186,8 +209,11 @@ const TRUTH = (() => {
   const cells = []
   let offset = 0
   for (const p of PARTS) {
-    for (const [c, s] of p.cells) {
-      cells.push({ cluster: p.clusters[c], sample: p.samples[s].id, cond: p.samples[s].condition })
+    for (const [c, s, r] of p.cells) {
+      cells.push({
+        cluster: p.clusters[c], sample: p.samples[s].id,
+        cond: p.samples[s].condition, region: p.regions[r],
+      })
     }
     offset += p.cells.length
   }
@@ -224,6 +250,46 @@ check('the groups are the union', src.d.conds, ['ctrl', 'drug'])
 check('the embedding follows the cells',
   [...src.d.cells.map(c => c.x)], TRUTH.cells.map((_c, i) => i))
 check('so does QC', [...src.d.cells.map(c => c.counts)], TRUTH.cells.map((_c, i) => 1000 + i))
+
+console.log('\nAN EXTRA COLUMN SURVIVES THE SPLIT TOO')
+{
+  const [region] = cellColumns(src.d).extras
+  check('it is there, under the object\'s own name', region?.key, 'region')
+  check('the recorded order wins over the one the parts imply',
+    region.levels, ['Hindbrain', 'Midbrain', 'Cortex'])
+  // Part 2's region 0 is Midbrain and part 1's is Cortex; a reader that
+  // concatenated the codes would relabel seven of these twelve cells.
+  check('regions, cell by cell',
+    [...region.codes].map(c => region.levels[c]), TRUTH.cells.map(c => c.region))
+
+  // And the composition machinery treats it as another field, with no idea
+  // which one it is.
+  check('it joins the fields a figure can be split by',
+    compFields(src.d), ['type', 'cond', 'extra0', 'sample'])
+  check('the menus say the object\'s word, not ours',
+    [fieldLabel(src.d, 'extra0'), fieldLabel(src.d, 'cond')], ['region', 'timepoint'])
+  const t = compTable(src.d, src.types, 'type', ['extra0'])
+  check('and the products count the cells',
+    t.rows.map(r => [region.levels[r.keys[0]], r.n]),
+    ['Hindbrain', 'Midbrain', 'Cortex'].map(name =>
+      [name, TRUTH.cells.filter(c => c.region === name).length]))
+}
+{
+  const plain = await openFixture({ orders: null })
+  const [region] = cellColumns(plain.d).extras
+  check('without a recorded order the levels are still all there, once',
+    [...region.levels].sort(), ['Cortex', 'Hindbrain', 'Midbrain'])
+  check('and every cell still has the region it had',
+    [...region.codes].map(c => region.levels[c]), TRUTH.cells.map(c => c.region))
+}
+{
+  // Half a column would put a third of the object in whichever level is code 0.
+  const partial = await openFixture({ halfRegion: true })
+  check('a column one part does not carry is not offered at all',
+    cellColumns(partial.d).extras.length, 0)
+  check('and the object says why',
+    partial.meta.notes.some(n => n.includes('region')), true)
+}
 
 console.log('\nA GENE READS BACK ACROSS EVERY PART')
 await src.ensure(GENES)

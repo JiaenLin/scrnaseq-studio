@@ -28,6 +28,7 @@ bundle.zip
 ├── gene_alias.txt      optional — the same genes named the other way, line for line
 ├── cluster.u16         uint16  per cell → index into meta.clusters
 ├── sample.u16          uint16  per cell → index into meta.samples
+├── extra.<name>.u16    optional — any further categorical column, same shape
 ├── embed.f32           float32 2 × nCells, interleaved x,y — the default embedding
 ├── embed.<name>.f32    optional — any further 2D embedding, same shape
 ├── qc.f32              float32 3 × nCells, interleaved counts, genes, mito%
@@ -50,6 +51,41 @@ the person who ran the conversion. So all of them travel. The default one stays 
 behaves exactly as it did; the rest sit beside it, named in `meta.embeddings`. The cost is
 8 bytes per cell per embedding — 2.3 MB on a 292 k-cell atlas, against a matrix measured
 in gigabytes.
+
+### Every other column the object annotated
+
+Three of the columns here are **roles**: the clusters are what every view is per, the samples
+are the unit of replication, the condition is what the experiment varied. Those three are the
+app's vocabulary and it says them in every caption.
+
+An object knows more than three things about a cell. The developing-mouse atlas annotates
+each one with the `dissection` it came from as well as its `Age`, and with a `Class` above its
+`Subclass` — and which of those a reader wants to break a figure down by is not a question the
+converter can answer. So they travel as themselves: one `extra.<name>.u16` per column, one
+uint16 level index per cell, listed in `meta.extras`. Nothing renames them. `key` is the obs /
+`meta.data` column the levels came from, and that is the word the menus use — the composition
+tab then offers every pairing of every column with every other, `dissection × Age` as readily
+as `Cell type × Sample`, without any of them being the special one.
+
+Two bytes per cell per column: 0.6 MB on a 292 k-cell atlas, against a matrix in gigabytes.
+
+None of this is required. A bundle with no `meta.extras` is the bundle this format has always
+written, and the app opens it exactly as it did.
+
+**Split objects.** When the lab cuts an object into parts, each part is written with only the
+levels it actually holds — so part 7's `dissection` 0 need not be part 8's — and the collection
+index records the whole object's level order in `condOrder` and `extraOrder` so nothing has to
+be guessed back. That is the same treatment `clusterOrder` has always had, and it exists
+because collation compares the digit run after the dot as a number: without a recorded order
+`e16.5` sorts before `e16.25`, no count changes, and every menu offers a sequence the
+experiment never had.
+
+### What the object calls its own columns
+
+`provenance.clustering`, `provenance.condition` and `provenance.sample` name the column each
+role was read from, or are `null` when the object had none. The app uses the condition's:
+"Group" is a placeholder for whatever an experiment varied, and an object that calls it `Age`
+gets a menu that says Age.
 
 ### Both namings of the genes
 
@@ -84,6 +120,11 @@ Two things happen to that list, both recorded in `meta.geneAlias` rather than hi
   "clusters": ["CD4 T cells", "CD14+ Monocytes", "..."],   // index = cluster.u16 value
   "samples":  [{ "id": "pbmc3k", "condition": "PBMC" }],   // index = sample.u16 value
   "conditions": ["PBMC"],            // the object's own order — never sorted
+  "extras": [                        // optional; absent ⇒ none, and nothing changes
+    { "key": "dissection",           // the obs column's own name — what the menus say
+      "file": "extra.dissection.u16",
+      "levels": ["Forebrain", "Midbrain", "..."] }   // index = the u16 value
+  ],
   "embedding": "X_umap",             // the default — always embeddings[0].key
   "embeddings": [                    // optional; absent ⇒ one embedding, embed.f32
     { "key": "X_umap", "file": "embed.f32" },
@@ -101,7 +142,9 @@ Two things happen to that list, both recorded in `meta.geneAlias` rather than hi
   "hasRawCounts": true,              // false ⇒ pseudobulk DESeq2 unavailable, and said so
   "provenance": {                    // null means "not recorded in the object"
     "normalization": "log1p(CP10K)",
-    "clustering": "louvain",
+    "clustering": "louvain",         // the column each role was read from
+    "condition": "group",
+    "sample": "orig.ident",
     "integration": null,
     "doublets": null,
     "ambient": null
@@ -119,12 +162,17 @@ generator refuses to describe a step that is `null`.
 ```bash
 # Scanpy / AnnData — handles both the modern and the legacy (< 0.7) layout
 python tools/export_h5ad.py in.h5ad out.zip \
-    --cluster louvain --sample orig.ident --condition group
+    --cluster louvain --sample orig.ident --condition group \
+    --extra dissection --extra Class
 
 # Seurat — needs no Seurat installation, only Matrix
 Rscript tools/export_seurat.R in.rds out.zip \
-    --cluster seurat_annotations --sample orig.ident
+    --cluster seurat_annotations --sample orig.ident --extra region
 ```
+
+`--extra` may be repeated, and defaults to nothing. Run either script with no options at all
+and it names the columns it can see — including the ones that would make usable `--extra`
+arguments — rather than guessing at them.
 
 Both print what they found, what they had to choose, and what they could not find. Every
 one of those messages also lands in `meta.notes` and is shown on the Overview tab, so the
@@ -140,3 +188,4 @@ person reading the figures sees the same caveats as the person who ran the conve
 | **A sample column** | composition, and pseudobulk columns | assumes one sample and says so |
 | **A condition column** | any comparison at all | opens single-condition; the contrast tabs stay empty |
 | **Raw counts** | pseudobulk → DESeq2 | Wilcoxon only, stated on Overview |
+| **Any further column** | more pairings on the composition tab | offers the three roles only |

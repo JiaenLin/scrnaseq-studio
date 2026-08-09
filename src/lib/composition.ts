@@ -6,6 +6,12 @@
 // "what is each animal made of" and "which animals is each cluster made of" are
 // the same three columns read two different ways. So the pairing is chosen.
 //
+// Nor are there only three columns. An object that annotates each cell with a
+// dissection as well as an age has a fourth, and the question the reader came
+// with is as likely to be about that one — so every column the bundle carries
+// is a field here, and the products come out of the same loop as the rest.
+// Nothing below knows which of them is "the region".
+//
 // What is NOT chosen is the rule that keeps the figure honest. A bar may not
 // merge the cells of several samples unless the samples are themselves what the
 // bar is divided into. Cells from one animal are not independent observations,
@@ -18,34 +24,70 @@
 // pairings in a row.
 
 import type { CellType, Dataset } from '../types.ts'
+import { cellColumns } from './bundle.ts'
 import { cellsBySample } from './chart.ts'
 
-/** The three categorical columns every bundle carries, one per cell. */
-export type CompField = 'type' | 'cond' | 'sample'
+/**
+ * A categorical column of this object, by role or by position.
+ *
+ * The first three are the roles every bundle carries. `extraN` is the Nth of
+ * whatever else the object brought — a dissection, a coarser annotation level —
+ * in the order the exporter wrote them. Nothing below treats them as a special
+ * case: a field is a level list and a code per cell, and that is all any of
+ * this needs, which is why the products come out of one loop.
+ */
+export type CompField = 'type' | 'cond' | 'sample' | `extra${number}`
 
-export const FIELD_LABEL: Record<CompField, string> = {
-  type: 'Cell type',
-  cond: 'Group',
-  sample: 'Sample',
+const EXTRA = /^extra(\d+)$/
+
+/** Which extra column a field names, or -1 for the three roles. */
+export function extraAt(f: CompField): number {
+  const m = EXTRA.exec(f)
+  return m ? Number(m[1]) : -1
+}
+
+/**
+ * What to call a field, in the object's own words where it has them.
+ *
+ * "Group" is a placeholder for whatever the experiment varied, and an object
+ * that calls it Age should have the menu say Age. Cell type and sample keep the
+ * studio's words: those are its whole vocabulary, spoken in every caption
+ * beside these menus.
+ */
+export function fieldLabel(d: Dataset, f: CompField): string {
+  if (f === 'type') return 'Cell type'
+  if (f === 'sample') return 'Sample'
+  const cols = cellColumns(d)
+  if (f === 'cond') return cols.cond ?? 'Group'
+  return cols.extras[extraAt(f)]?.key ?? f
 }
 
 /**
  * The fields this object can actually be split by.
  *
  * A single-condition object has nothing to say about groups, and offering the
- * choice would only produce a figure with one category in it.
+ * choice would only produce a figure with one category in it — which is the
+ * same test every extra column has to pass.
+ *
+ * The extras sit between the group and the sample because that is what they
+ * are: facts about the cells, like the group, rather than the unit of
+ * replication.
  */
 export function compFields(d: Dataset): CompField[] {
   const out: CompField[] = ['type']
   if (d.conds.length > 1) out.push('cond')
+  cellColumns(d).extras.forEach((c, i) => {
+    if (c.levels.length > 1) out.push(`extra${i}`)
+  })
   out.push('sample')
   return out
 }
 
 export function levelsOf(d: Dataset, types: CellType[], f: CompField): string[] {
-  return f === 'type' ? types.map(t => t.name)
-    : f === 'cond' ? d.conds
-    : d.samples.map(s => s.id)
+  if (f === 'type') return types.map(t => t.name)
+  if (f === 'cond') return d.conds
+  if (f === 'sample') return d.samples.map(s => s.id)
+  return cellColumns(d).extras[extraAt(f)]?.levels ?? []
 }
 
 /** A row definition: one field, or two nested outer-then-inner. */
@@ -63,13 +105,13 @@ export interface RowAxis {
  */
 export function rowAxes(d: Dataset, parts: CompField): RowAxis[] {
   const others = compFields(d).filter(f => f !== parts)
-  const out: RowAxis[] = others.map(f => ({ key: f, label: FIELD_LABEL[f], fields: [f] }))
+  const out: RowAxis[] = others.map(f => ({ key: f, label: fieldLabel(d, f), fields: [f] }))
   for (const a of others) {
     for (const b of others) {
       if (a === b || (a === 'sample' && b === 'cond')) continue
       out.push({
         key: `${a}+${b}`,
-        label: `${FIELD_LABEL[a]} × ${FIELD_LABEL[b]}`,
+        label: `${fieldLabel(d, a)} × ${fieldLabel(d, b)}`,
         fields: [a, b],
       })
     }
@@ -92,6 +134,15 @@ export interface CompTable {
   rowFields: CompField[]
   /** Only the combinations that hold cells, in level order. */
   rows: CompRow[]
+  /**
+   * How many combinations the row fields make, before the empty ones are cut.
+   *
+   * The gap between this and `rows.length` is the whole story of a product
+   * axis: 133 cell types × 11 dissections is 1 463 rows on paper and a few
+   * hundred in the object. A figure that does not say so looks like a figure
+   * with rows missing.
+   */
+  possible: number
   nParts: number
   /** counts[rowIndex * nParts + partIndex]. */
   counts: Float64Array
@@ -102,7 +153,9 @@ export interface CompTable {
   nCells: number
 }
 
-const CODE: Record<CompField, number> = { type: 0, cond: 1, sample: 2 }
+/** 0, 1, 2 for the three roles; 3 + N for the Nth extra column. */
+const codeOf = (f: CompField): number =>
+  f === 'type' ? 0 : f === 'cond' ? 1 : f === 'sample' ? 2 : 3 + extraAt(f)
 
 const CACHE = new WeakMap<Dataset, Map<string, CompTable>>()
 
@@ -162,14 +215,19 @@ function build(
   const nType = types.length
   const nCond = d.conds.length
   const nSample = d.samples.length
-  const size = (f: CompField) => (f === 'type' ? nType : f === 'cond' ? nCond : nSample)
+  const extras = cellColumns(d).extras
+  const size = (f: CompField) => (f === 'type' ? nType : f === 'cond' ? nCond
+    : f === 'sample' ? nSample : extras[extraAt(f)]?.levels.length ?? 1)
+  // Indexed by the code above minus 3, so the inner loop reaches an extra
+  // column's per-cell codes with an array read and no lookup.
+  const extraCodes = extras.map(c => c.codes)
 
   const condAt = new Map(d.conds.map((c, i) => [c, i]))
   const sampleCond = Int32Array.from(d.samples, s => condAt.get(s.cond) ?? 0)
 
   const nParts = Math.max(1, size(parts))
-  const partCode = CODE[parts]
-  const rowCodes = rowFields.map(f => CODE[f])
+  const partCode = codeOf(parts)
+  const rowCodes = rowFields.map(codeOf)
   const dims = rowFields.map(f => Math.max(1, size(f)))
   const nRows = dims.reduce((a, b) => a * b, 1)
 
@@ -188,14 +246,16 @@ function build(
     const ci = sampleCond[si]
     const idx = buckets[si]
     for (let k = 0; k < idx.length; k++) {
-      const ti = cells[idx[k]].t
+      const cell = idx[k]
+      const ti = cells[cell].t
       if (ti >= nType) continue
       let r = 0
       for (let j = 0; j < rowCodes.length; j++) {
         const c = rowCodes[j]
-        r = r * dims[j] + (c === 0 ? ti : c === 1 ? ci : si)
+        r = r * dims[j] + (c === 0 ? ti : c === 1 ? ci : c === 2 ? si : extraCodes[c - 3][cell])
       }
-      const p = partCode === 0 ? ti : partCode === 1 ? ci : si
+      const p = partCode === 0 ? ti : partCode === 1 ? ci
+        : partCode === 2 ? si : extraCodes[partCode - 3][cell]
       counts[r * nParts + p]++
       rowN[r]++
       nCells++
@@ -241,6 +301,7 @@ function build(
     parts,
     rowFields,
     rows,
+    possible: nRows,
     nParts,
     counts: packed,
     pools: rows.some(r => r.multiSample),

@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CellType, Dataset } from '../types.ts'
 import { maxOf, maxOfAll, minOf, niceStep, pctTxt } from '../lib/chart.ts'
 import {
-  compFields, compTable, defaultRowAxis, FIELD_LABEL, levelsOf, refuses, rowAxes,
+  compFields, compTable, defaultRowAxis, fieldLabel, levelsOf, refuses, rowAxes,
   type CompField, type CompTable,
 } from '../lib/composition.ts'
 import { downloadCsv } from '../lib/download.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
+import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Empty, Legend } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 
@@ -121,7 +122,24 @@ export default function Composition({ d, types, palKey }: {
   // samples unless the samples are what the bar is divided into.
   const violates = refuses(table)
 
-  const partsLabel = FIELD_LABEL[parts]
+  /**
+   * How much of the product this object actually has, and how much of that is
+   * too small to read.
+   *
+   * 11 dissections and 20 ages multiply to 220 combinations, and 133 cell types
+   * against either is well past a thousand — but an embryo is dissected at one
+   * age, so most of that grid is a combination that was never collected. Drawn
+   * without saying so it reads as rows missing rather than as rows that do not
+   * exist, and the rows that do exist are then a mix of ten thousand cells and
+   * two. The floor is the one the DE tab refuses a contrast at, because a row
+   * that cannot support a test cannot support a percentage either.
+   */
+  const thin = useMemo(
+    () => table.rows.reduce((n, r) => n + (r.n < MIN_CELLS_GROUP ? 1 : 0), 0),
+    [table])
+  const sparse = rowFields.length > 1 && table.rows.length * 2 < table.possible
+
+  const partsLabel = fieldLabel(d, parts)
   const name = `composition_${parts}_by_${rowFields.join('_')}`
 
   const saveCsv = () => {
@@ -160,7 +178,7 @@ export default function Composition({ d, types, palKey }: {
                 setChoice({ parts: next, rows: defaultRowAxis(d, types, next).key, only: -1 })
               }}
             >
-              {fields.map(f => <option key={f} value={f}>{FIELD_LABEL[f]}</option>)}
+              {fields.map(f => <option key={f} value={f}>{fieldLabel(d, f)}</option>)}
             </select>
           </label>
           <label className="flex items-center gap-1.5">
@@ -179,7 +197,7 @@ export default function Composition({ d, types, palKey }: {
                 className="sel max-w-[220px]" value={only}
                 onChange={e => set({ only: Number(e.target.value) })}
               >
-                <option value={-1}>every {FIELD_LABEL[outer].toLowerCase()}</option>
+                <option value={-1}>every {fieldLabel(d, outer).toLowerCase()}</option>
                 {outerLevels.map(k => <option key={k} value={k}>{outerNames[k]}</option>)}
               </select>
             </label>
@@ -224,6 +242,21 @@ export default function Composition({ d, types, palKey }: {
                 <b>Showing {drawn.length} of {chosen.length} rows.</b> Narrow it with the{' '}
                 {outer ? `“limit to” menu` : 'menus'} above — the CSV export still contains every
                 non-empty combination.
+              </div>
+            )}
+            {(sparse || thin > 0) && (
+              <div className="note mt-4">
+                {sparse && <>
+                  <b>{axis.label} makes {table.possible.toLocaleString('en-US')} combinations,
+                  and {table.rows.length.toLocaleString('en-US')} of them hold any
+                  cells.</b>{' '}These two were not crossed in the experiment — the rest are
+                  combinations that were never collected, not rows that went missing.{' '}
+                </>}
+                {thin > 0 && <>
+                  {thin.toLocaleString('en-US')} of the {table.rows.length.toLocaleString('en-US')}
+                  {' '}rows hold fewer than {MIN_CELLS_GROUP} cells. A bar drawn from two cells is
+                  0% or 100% and nothing else; the DE tab refuses a contrast at the same floor.
+                </>}
               </div>
             )}
             <Figure name={name} className="mt-4 pt-6">

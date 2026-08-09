@@ -6,7 +6,8 @@
 // rather than half-loaded. A half-loaded object is worse than none: the app
 // would draw figures from whatever survived.
 import { zipSync, strToU8 } from 'fflate'
-import { parseBundle, bundleDataset } from '../src/lib/bundle.ts'
+import { parseBundle, bundleDataset, cellColumns } from '../src/lib/bundle.ts'
+import { compFields, compTable, fieldLabel, rowAxes } from '../src/lib/composition.ts'
 import { bundleSource } from '../src/lib/source.ts'
 import { deMarkers, isSig, thresholdFor } from '../src/lib/stats.ts'
 
@@ -171,6 +172,47 @@ rejects('an embedding of the wrong length',
       { key: 'X_UMAP', file: 'embed.f32' }, { key: 'X_tSNE', file: 'embed.X_tSNE.f32' }] },
     files: { 'embed.X_tSNE.f32': bytes([1, 2], Float32Array) },
   }), 'expected 8')
+
+console.log('\nEVERY OTHER COLUMN THE OBJECT ANNOTATED')
+{
+  const b = parseBundle(build({
+    meta: {
+      provenance: { normalization: 'log1p(CP10K)', clustering: 'leiden', condition: 'Age' },
+      extras: [{
+        key: 'dissection', file: 'extra.dissection.u16', levels: ['Forebrain', 'Hindbrain'],
+      }],
+    },
+    files: { 'extra.dissection.u16': bytes([0, 1, 1, 0], Uint16Array) },
+  }))
+  const d = bundleDataset(b)
+  const cols = cellColumns(d)
+  check('it is read under its own name', cols.extras.map(c => c.key), ['dissection'])
+  check('one level index per cell', [...cols.extras[0].codes], [0, 1, 1, 0])
+  check('and the object\'s word for the groups', cols.cond, 'Age')
+
+  // It is a field like any other from here on, so the products come for free.
+  const types = [{ name: 'alpha' }, { name: 'beta' }]
+  check('it joins the fields a figure can be split by',
+    compFields(d), ['type', 'cond', 'extra0', 'sample'])
+  check('the menu says dissection, not "column 1"', fieldLabel(d, 'extra0'), 'dissection')
+  check('and Age, not "Group"', fieldLabel(d, 'cond'), 'Age')
+  check('every pairing with it is offered',
+    rowAxes(d, 'extra0').map(a => a.key),
+    ['type', 'cond', 'sample', 'type+cond', 'type+sample',
+      'cond+type', 'cond+sample', 'sample+type'])
+  const t = compTable(d, types, 'type', ['extra0'])
+  check('and the counts are the cells', t.rows.map(r => [r.keys[0], r.n]), [[0, 2], [1, 2]])
+  // Cells 0 and 3 are Forebrain, and they are one alpha and one beta.
+  check('with the cell types where they belong', [...t.counts], [1, 1, 1, 1])
+}
+rejects('an extra column the bundle does not carry',
+  () => build({ meta: { extras: [{ key: 'x', file: 'extra.x.u16', levels: ['a'] }] } }),
+  'extra.x.u16')
+rejects('an extra column with a code no level defines',
+  () => build({
+    meta: { extras: [{ key: 'x', file: 'extra.x.u16', levels: ['a'] }] },
+    files: { 'extra.x.u16': bytes([0, 0, 0, 3], Uint16Array) },
+  }), 'does not define')
 
 console.log('\nSYMBOLS TRAVEL WITH AN ACCESSION-INDEXED OBJECT')
 {

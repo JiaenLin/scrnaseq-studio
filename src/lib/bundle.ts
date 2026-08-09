@@ -14,6 +14,50 @@ export const SCHEMA = 'scrnaseq-studio/bundle@1'
 /** One 2D embedding, interleaved x,y, two values per cell. */
 export interface Embedding { key: string; xy: Float32Array }
 
+/**
+ * One further categorical column, one level index per cell.
+ *
+ * The bundle has always carried exactly three of these — cluster, sample,
+ * condition — because those are the three every view is built on. This is the
+ * rest of what the object knows about a cell: the dissection it came from as
+ * well as its age, the Class above its Subclass. None of them is a role, so
+ * none is renamed — `key` is the column's own name in the object, and that is
+ * what the menus say.
+ */
+export interface ExtraColumn {
+  key: string
+  levels: string[]
+  /** Level index per cell, aligned with cluster.u16. */
+  codes: Uint16Array
+}
+
+/**
+ * The columns of a Dataset that `Dataset` itself does not describe.
+ *
+ * A Dataset is built by three different producers — the demo generator, a
+ * bundle, a collection — and only the last two can have any of this. So it is
+ * attached where it exists and read through one accessor that answers "none"
+ * for everything else, which is also what every bundle written before today
+ * gets: the figures then behave exactly as they did.
+ *
+ * `cond` is the object's own name for the condition column. The studio calls it
+ * "Group" because it has to call it something, but the object usually knows
+ * better — on a developmental atlas the groups are Age — and a menu saying the
+ * object's own word is a menu that needs no explaining. Cell type and sample
+ * keep the studio's words: those two are its whole vocabulary, spoken in every
+ * caption on the page.
+ */
+export interface CellColumns {
+  cond: string | null
+  extras: ExtraColumn[]
+}
+
+const NO_COLUMNS: CellColumns = { cond: null, extras: [] }
+
+export function cellColumns(d: Dataset): CellColumns {
+  return (d as Dataset & { columns?: CellColumns }).columns ?? NO_COLUMNS
+}
+
 export interface BundleMeta {
   schema: string
   label: string
@@ -24,6 +68,14 @@ export interface BundleMeta {
   clusters: string[]
   samples: { id: string; condition: string }[]
   conditions: string[]
+  /**
+   * Further categorical columns, each in its own `extra.<name>.u16` entry.
+   *
+   * Absent in bundles written before today, which reads the same as empty. The
+   * entry names are written by the exporter and must be read from here, not
+   * rebuilt from the key.
+   */
+  extras?: { key: string; file: string; levels: string[] }[]
   embedding: string
   expression: string
   hasRawCounts: boolean
@@ -89,6 +141,8 @@ export interface Bundle {
   embed: Float32Array
   /** Every embedding the object carried, the default first. Never empty. */
   embeds: Embedding[]
+  /** Every categorical column beyond cluster, sample and condition. */
+  extras: ExtraColumn[]
   /**
    * The other naming of each gene, aligned by index with `genes`.
    *
@@ -171,6 +225,7 @@ export function parseBundle(buf: ArrayBuffer): Bundle {
   return {
     meta, genes, indptr, indices, data, cluster, sample, embed, qc,
     embeds: readEmbeddings(files, meta, embed, n),
+    extras: readExtras(files, meta, n),
     alias: readAlias(files, meta, genes),
     pseudobulk: files['pseudobulk.tsv']
       ? parsePseudobulk(new TextDecoder().decode(files['pseudobulk.tsv']), meta.nGenes)
@@ -202,6 +257,39 @@ function readEmbeddings(
       fail(`${e.file} has ${xy.length} values, expected ${2 * n} for ${n} cells`)
     }
     out.push({ key: e.key, xy })
+  }
+  return out
+}
+
+/**
+ * The extra categorical columns, in the order the exporter wrote them.
+ *
+ * A malformed one fails the open rather than being dropped. A dropped column is
+ * a menu entry that silently does not appear, and the reader is then left
+ * wondering whether the object ever had a dissection at all — which is a worse
+ * answer than a sentence naming the file that is wrong.
+ */
+function readExtras(
+  files: Record<string, Uint8Array>, meta: BundleMeta, n: number,
+): ExtraColumn[] {
+  const out: ExtraColumn[] = []
+  // Array.isArray, not ?? — an exporter that writes an empty object where a
+  // list belongs would otherwise throw inside a for…of, which is a stack trace
+  // rather than a sentence.
+  for (const e of Array.isArray(meta.extras) ? meta.extras : []) {
+    if (!e?.file || !e.key) fail('meta.json lists an extra column with no name or no file')
+    const codes = view(Uint16Array, need(files, e.file), 2, e.file)
+    if (codes.length !== n) {
+      fail(`${e.file} has ${codes.length} values, expected one per cell for ${n} cells`)
+    }
+    const levels = e.levels ?? []
+    if (!levels.length) fail(`the extra column "${e.key}" defines no levels`)
+    for (let i = 0; i < n; i++) {
+      if (codes[i] >= levels.length) {
+        fail(`${e.file} refers to a level that meta.json does not define for "${e.key}"`)
+      }
+    }
+    out.push({ key: e.key, levels, codes })
   }
   return out
 }
@@ -279,10 +367,18 @@ export function bundleDataset(b: Bundle): Dataset {
   for (const c of cells) nPerCond[c.cond] = (nPerCond[c.cond] ?? 0) + 1
 
   void condIndex
-  return {
+  const d: Dataset = {
     key: 'bundle', label: meta.label, file: meta.source,
     conds: meta.conditions, act, samples,
     cells, grid, prop, nPerCond,
     nCells: meta.nCells, multi: meta.conditions.length > 1,
   }
+  // Attached, not returned beside it: everything downstream passes the Dataset
+  // around and nothing would carry a second value with it. See cellColumns.
+  return Object.assign(d, {
+    columns: {
+      cond: meta.provenance?.condition ?? null,
+      extras: b.extras ?? [],
+    } satisfies CellColumns,
+  })
 }

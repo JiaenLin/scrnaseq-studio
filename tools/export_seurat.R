@@ -3,7 +3,8 @@
 #
 #   Rscript export_seurat.R in.rds out.zip --cluster seurat_annotations
 #                                          [--sample orig.ident] [--condition group]
-#                                          [--reduction umap] [--label "..."]
+#                                          [--extra region] [--reduction umap]
+#                                          [--label "..."]
 #
 # Deliberately does NOT require the Seurat package. readRDS deserializes the
 # object regardless and every slot is reachable through attributes() — only the
@@ -38,6 +39,13 @@ esc <- function(s) {
   s <- gsub("[[:cntrl:]]", " ", s)
   paste0("\"", s, "\"")
 }
+
+# A JSON array of one is still an array, and R cannot tell a length-1 vector
+# from a scalar — so the fields the format defines as lists say so. Without this
+# an object with one cluster or one group writes `"conditions": "all cells"`,
+# which the app reads with .map() and refuses to open. Length 0 and length > 1
+# are untouched, so nothing that already worked changes shape.
+arr <- function(x) if (length(x) == 1) structure(list(x), .Names = NULL) else x
 
 to_json <- function(x, ind = "") {
   pad <- paste0(ind, " ")
@@ -140,11 +148,26 @@ opt <- function(name, default = NULL) {
   i <- match(paste0("--", name), argv)
   if (is.na(i) || i == length(argv)) default else argv[i + 1]
 }
+# Repeatable, unlike the rest: the three roles take one column each, but there
+# is no limit to how many other things an object knows about a cell.
+opts <- function(name) {
+  i <- which(argv == paste0("--", name))
+  i <- i[i < length(argv)]
+  if (!length(i)) character(0) else argv[i + 1]
+}
 cluster_col <- opt("cluster")
 sample_col <- opt("sample")
 cond_col <- opt("condition")
+extra_names <- opts("extra")
 reduction <- opt("reduction")
 label <- opt("label", input)
+
+# An entry name that survives a zip and a file system.
+safe_entry <- function(s) {
+  s <- gsub("_+", "_", gsub("[^A-Za-z0-9._-]+", "_", s))
+  s <- gsub("^_|_$", "", substr(s, 1, 40))
+  if (!nzchar(s)) "x" else s
+}
 
 cat("reading ", input, "\n", sep = "")
 obj <- readRDS(input)
@@ -153,6 +176,24 @@ if (is.null(a$assays)) die("this does not look like a Seurat object (no assays s
 
 md <- a$meta.data
 cat("  ", nrow(md), " cells · meta.data: ", paste(names(md), collapse = ", "), "\n", sep = "")
+
+# Which of those columns group the cells, and how many ways. Which one holds the
+# dissection, the stage or the coarse class is a question about the experiment
+# and not about the file, so this names what it can see and lets the caller
+# choose — the same reason --cluster is obeyed rather than second-guessed.
+grp <- vapply(names(md), function(nm) {
+  v <- md[[nm]]
+  if (is.numeric(v) && !is.factor(v)) return(NA_integer_)
+  k <- length(unique(as.character(v)))
+  # One value is not a grouping and one value per cell is a barcode.
+  if (k < 2 || k > 1000 || k >= 0.9 * nrow(md)) NA_integer_ else k
+}, 0L)
+grp <- grp[!is.na(grp)]
+if (length(grp)) {
+  cat("  groupings: ", paste0(names(grp), " (", grp, ")", collapse = " · "), "\n", sep = "")
+  cat("    --cluster / --sample / --condition take one each; any of the rest can travel",
+      " with --extra <column>, repeated\n", sep = "")
+}
 
 # ---- assay ------------------------------------------------------------------
 assay_name <- if (!is.null(a$active.assay)) a$active.assay else names(a$assays)[1]
@@ -310,6 +351,34 @@ tg <- as(Matrix::t(dsub), "CsparseMatrix")   # cells x genes; CSC == gene-major
 
 wbin("cluster.u16", as.integer(match(as.character(cl), clusters) - 1L), 2L)
 wbin("sample.u16", as.integer(match(as.character(smp), sample_ids) - 1L), 2L)
+
+# ---- everything else the object knows about a cell --------------------------
+# Not a fourth role: carried under its own name, so the app can pair it with any
+# of the three without one of them being the special one.
+extra_cols <- list()
+roles <- c(cluster_col, sample_col, cond_col)
+for (nm in extra_names) {
+  if (nm %in% roles) next
+  if (!(nm %in% names(md))) {
+    note("meta.data has no ", nm, ", so it is not carried")
+    next
+  }
+  # droplevels for the same reason the clusters get it: a bundle should describe
+  # the cells it actually holds, not the ones the object was subset from.
+  v <- droplevels(factor(md[[nm]][keep]))
+  lv <- levels(v)
+  if (length(lv) < 2) {
+    note(nm, " has one value across these cells; not carried")
+  } else if (length(lv) > 65535) {
+    note(nm, " has ", length(lv), " levels, too many to store as a column")
+  } else {
+    f <- paste0("extra.", safe_entry(nm), ".u16")
+    wbin(f, as.integer(match(as.character(v), lv) - 1L), 2L)
+    extra_cols[[length(extra_cols) + 1]] <- list(key = nm, file = f, levels = arr(lv))
+    note(nm, " travels with the cells as an extra grouping — ", length(lv),
+         " levels the studio can break a figure down by")
+  }
+}
 wbin("embed.f32", as.numeric(t(emb)), 4L)
 wbin("qc.f32", as.numeric(rbind(total, ngene, mito)), 4L)
 wbin("expr.indptr.i32", as.integer(tg@p), 4L)
@@ -349,17 +418,24 @@ meta <- list(
   source = paste0(basename(input), " (Seurat ", as.character(a$version),
                   ", assay ", assay_name, ")"),
   nCells = sum(keep), nGenes = length(genes), nnz = length(tg@x),
-  clusters = clusters,
+  clusters = arr(clusters),
   samples = lapply(seq_along(sample_ids), function(i) {
     list(id = sample_ids[i], condition = unname(sample_cond[i]))
   }),
-  conditions = conditions,
+  conditions = arr(conditions),
+  # Absent rather than empty when there are none: to_json drops a NULL, and an
+  # empty R list would serialize as {} where the reader expects a list.
+  extras = if (length(extra_cols)) extra_cols else NULL,
   embedding = pick,
   expression = "log1p(CP10K)",
   hasRawCounts = !is.null(counts),
   provenance = list(
     normalization = "log1p(CP10K)",
+    # Which column each role was read from. The app says "Group" because it has
+    # to say something; an object that calls it Age gets a menu that says Age.
     clustering = cluster_col,
+    condition = if (!is.null(cond_col) && cond_col %in% names(md)) cond_col else NULL,
+    sample = if (!is.null(sample_col) && sample_col %in% names(md)) sample_col else NULL,
     integration = if ("integrated" %in% names(a$assays)) "Seurat integration" else NULL,
     doublets = grep("doublet|scrublet", names(md), ignore.case = TRUE, value = TRUE)[1],
     ambient = NULL
@@ -372,6 +448,7 @@ close(mcon)
 
 files <- c("meta.json", "genes.txt", "cluster.u16", "sample.u16", "embed.f32", "qc.f32",
            "expr.indptr.i32", "expr.indices.i32", "expr.data.f32")
+if (length(extra_cols)) files <- c(files, vapply(extra_cols, function(e) e$file, ""))
 if (has_pb) files <- c(files, "pseudobulk.tsv")
 out_abs <- if (grepl("^([A-Za-z]:|[/\\\\])", output)) output else file.path(getwd(), output)
 if (file.exists(out_abs)) unlink(out_abs)

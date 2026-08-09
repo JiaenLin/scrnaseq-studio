@@ -25,10 +25,25 @@ const dump = async (why) => {
 }
 
 const sel = (label) => `label:has(span.glabel:text-is("${label}")) select`
+/**
+ * Choose a menu entry by its VALUE, and report the word the object put on it.
+ *
+ * The values are the field keys — `type`, `cond`, `extra0`, `type+sample` — and
+ * they are the same whatever the object is. The visible text is not: a bundle
+ * that records what its condition column is called says "Age" where the demo
+ * says "Group", and an object carrying a dissection puts it on this menu under
+ * that name. Selecting by label would make this probe pass only on objects
+ * whose columns have no name of their own.
+ */
 const pick = async (label, value) => {
-  await page.selectOption(sel(label), { label: value })
+  await page.selectOption(sel(label), { value })
   await page.waitForTimeout(400)
+  const text = await page.locator(`${sel(label)} option[value="${value}"]`).textContent()
+  console.log(`  ${label} → ${value} ("${(text || '').trim()}")`)
 }
+/** Every option of one menu, as `value=text`. */
+const options = (label) => page.locator(`${sel(label)} option`).evaluateAll(
+  os => os.map(o => `${o.value}=${o.textContent.trim()}`))
 const rowCount = () => page.evaluate(() =>
   document.querySelectorAll('svg[role=img] g[clip-path]').length)
 const rectCount = () => page.evaluate(() =>
@@ -98,10 +113,12 @@ console.log(`  drew in ${s(Date.now() - t)} — ${await rowCount()} rows, ${awai
   if (!(b.minX >= 0)) await dump(`a row label sits at x=${b.minX}, outside the viewBox — the PNG export would lose the axis`)
 }
 console.log(`  legend/controls: ${(await cardText()).slice(0, 260)}`)
+console.log(`  bars menu:  ${(await options('Bars show')).join('  ')}`)
+console.log(`  rows menu:  ${(await options('One row per')).join('  ')}`)
 await page.screenshot({ path: `${shots}/comp-default.png` })
 
 console.log('\n=== the pooling refusal ===')
-await pick('One row per', 'Group')
+await pick('One row per', 'cond')
 const refused = await page.locator('text=would pool cells across samples').count()
 if (!refused) await dump('one row per Group was drawn instead of refused')
 console.log(`  refused: "${(await page.textContent('.empty')).replace(/\s+/g, ' ').trim().slice(0, 200)}"`)
@@ -125,8 +142,8 @@ console.log(`  title now: ${(await page.textContent('section.card h2')).trim()}`
 await page.screenshot({ path: `${shots}/comp-group-sample.png`, fullPage: false })
 
 console.log('\n=== bars = Sample, rows = Cell type (sample structure is on screen) ===')
-await pick('Bars show', 'Sample')
-await pick('One row per', 'Cell type')
+await pick('Bars show', 'sample')
+await pick('One row per', 'type')
 await page.waitForSelector('svg[role=img] g[clip-path]', { timeout: 120_000 })
   .catch(() => dump('Sample-by-Cell type drew nothing'))
 console.log(`  ${await rowCount()} rows, ${await rectCount()} segments`)
@@ -139,10 +156,10 @@ console.log(`  title: ${(await page.textContent('section.card h2')).trim()}`)
 await page.screenshot({ path: `${shots}/comp-sample-by-type.png` })
 
 console.log('\n=== the big one: rows = Cell type × Sample ===')
-await pick('Bars show', 'Group')
+await pick('Bars show', 'cond')
 await startBeat()
 t = Date.now()
-await pick('One row per', 'Cell type × Sample')
+await pick('One row per', 'type+sample')
 await page.waitForSelector('svg[role=img] g[clip-path]', { timeout: 180_000 })
   .catch(() => dump('the product axis drew nothing'))
 const bigMs = Date.now() - t
@@ -162,9 +179,55 @@ console.log(`  after limiting: ${await rowCount()} rows`)
 console.log(`  chose: "${await page.locator(sel('Limit to') + ' option').nth(1).textContent()}"`)
 await page.screenshot({ path: `${shots}/comp-limited.png` })
 
+// Only if this object brought one. Everything above runs on any bundle; this
+// runs on the ones that carry a fourth column, and skips itself otherwise
+// rather than reporting a pass it did not earn.
+const extras = (await options('Bars show')).filter(o => o.startsWith('extra'))
+if (extras.length) {
+  console.log(`\n=== the columns beyond the three roles: ${extras.join('  ')} ===`)
+  // Every pairing the human asked for by name, in both readings. A refusal is
+  // as real an answer as a figure — a row spanning several animals is exactly
+  // what this tab exists to refuse — so both are reported, with the counts.
+  const pairs = [
+    ['type', 'extra0', 'cell type per region, rows pooled across animals'],
+    ['type', 'extra0+sample', 'cell type per region × animal'],
+    ['type', 'extra0+cond', 'cell type per region × age'],
+    ['type', 'cond+extra0', 'cell type per age × region'],
+    ['extra0', 'cond', 'region per age'],
+    ['extra0', 'cond+sample', 'region per age × animal'],
+    ['extra0', 'type+sample', 'region per cell type × animal'],
+    ['cond', 'extra0+sample', 'age per region × animal'],
+    // With the animals on the bars, the pooling rule is satisfied by
+    // construction — the merge is what the bar is divided into — so these are
+    // the products the tab will draw whatever the object's nesting.
+    ['sample', 'extra0', 'animals per region'],
+    ['sample', 'extra0+cond', 'animals per region × age'],
+    ['sample', 'type+extra0', 'animals per cell type × region'],
+  ]
+  for (const [bars, rows, what] of pairs) {
+    await pick('Bars show', bars)
+    await pick('One row per', rows)
+    await page.waitForTimeout(600)
+    const refusal = await page.locator('text=would pool cells across samples').count()
+    if (refusal) {
+      console.log(`  ${what}: REFUSED — ${(await page.textContent('.empty')).replace(/\s+/g, ' ').trim().slice(0, 120)}`)
+      continue
+    }
+    await page.waitForSelector('svg[role=img] g[clip-path]', { timeout: 180_000 })
+      .catch(() => dump(`${what} drew nothing`))
+    const notes = await page.locator('section.card div.note').allTextContents()
+    console.log(`  ${what}: ${await rowCount()} rows, ${await rectCount()} segments`)
+    console.log(`     title: ${(await page.textContent('section.card h2')).trim()}`)
+    for (const n of notes) console.log(`     note: ${n.replace(/\s+/g, ' ').trim()}`)
+    const b = await labelBounds()
+    if (!(b.minX >= 0)) await dump(`a row label sits at x=${b.minX} for ${what}`)
+    await page.screenshot({ path: `${shots}/comp-${bars}-by-${rows.replace('+', '-')}.png` })
+  }
+}
+
 console.log('\n=== exports, from the pairing the user actually asked for ===')
-await pick('Bars show', 'Cell type')
-await pick('One row per', 'Group × Sample')
+await pick('Bars show', 'type')
+await pick('One row per', 'cond+sample')
 await page.waitForSelector('svg[role=img] g[clip-path]', { timeout: 120_000 })
   .catch(() => dump('Cell type by Group × Sample drew nothing'))
 console.log(`  ${await rowCount()} rows, ${await rectCount()} segments`)
@@ -200,8 +263,8 @@ const stillLimited = await page.locator(sel('Limit to')).inputValue()
 console.log(`  "limit to" still on option value ${stillLimited}, ${await rowCount()} rows`)
 
 console.log('\n=== back to the default ===')
-await pick('Bars show', 'Cell type')
-await pick('One row per', 'Sample')
+await pick('Bars show', 'type')
+await pick('One row per', 'sample')
 await page.waitForSelector('text=Cell type proportions, one row per sample', { timeout: 120_000 })
   .catch(() => dump('could not get back to the default pairing'))
 console.log(`  ${await rowCount()} rows, ${await rectCount()} segments`)
