@@ -32,5 +32,9 @@
     </p>
     <pre id="log"></pre>
     <script type="module" src="/src/bench.ts"></script>
+    <!-- The contrast bench: one Wilcoxon contrast, run in the worker and on the
+         page, compared row for row. Driven through window.benchDE rather than by
+         clicking, so it adds no buttons — see scripts/probe-de.mjs. -->
+    <script type="module" src="/src/bench-de.ts"></script>
   </body>
 </html>

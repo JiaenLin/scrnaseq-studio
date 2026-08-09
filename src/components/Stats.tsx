@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import type { CellType, DERow, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  deWilcox, deWilcoxAsync, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_REPS_PB, PCT_GATE,
-  pseudobulkColumns, type DEResult,
+  deWilcox, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_REPS_PB, PCT_GATE,
+  pseudobulkColumns, wilcoxSpec, type DEResult,
 } from '../lib/stats.ts'
-import { useCompute } from '../lib/compute.ts'
+import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt } from '../lib/chart.ts'
@@ -41,14 +41,27 @@ const contrastLabel = (p: StatsProps) => `${p.cs} vs ${p.ctrl} · ${p.t.name}`
  * rows that are already in hand, so on a collection it must not send the reader
  * back over the file. Switching between this tab, the volcano and enrichment
  * must not either, which is why the result is cached against the object.
+ *
+ * All three contrast tabs call this with the same key, which is what makes them
+ * one computation rather than three: whichever is opened first starts the pass,
+ * the other two find it already running (or already cached) and join it. In
+ * particular Enrichment does not test any gene of its own — it reads the rows
+ * this returns and runs the hypergeometric test over them.
+ *
+ * Changing the cell type or either side of the contrast changes the key, and a
+ * different key of the same object cancels the pass in flight. The old answer
+ * cannot arrive late and overwrite the new one because there is nothing left to
+ * deliver it to, and it cannot be rendered under the new key because the value
+ * returned is only ever the one stored under the key being asked for.
  */
 function useDE(p: StatsProps) {
-  return useCompute<DEResult>(
+  return useJob<'wilcox'>(
     p.src, `de|${p.ti}|${p.ctrl}|${p.cs}`,
     p.method === 'wilcox' && p.ctrl !== p.cs,
     () => deWilcox(p.src, p.ti, p.ctrl, p.cs),
-    (report, cancelled) => deWilcoxAsync(
-      p.src, p.ti, p.ctrl, p.cs, (d, t) => report('', d, t), cancelled),
+    // A fresh spec every time: the engine transfers these arrays rather than
+    // copying them, so a reused one would arrive detached.
+    () => ({ kind: 'wilcox', ...wilcoxSpec(p.src, p.ti, p.ctrl, p.cs) }),
   )
 }
 
