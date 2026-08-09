@@ -11,7 +11,8 @@ import { strToU8, zipSync } from 'fflate'
 import { bundleDataset, cellColumns, parseBundle } from '../src/lib/bundle.ts'
 import { demoSource } from '../src/lib/source.ts'
 import {
-  compFields, compTable, extraAt, fieldLabel, levelsOf, rowAxes,
+  compFields, compHeader, compName, compTable, extraAt, fieldExport, fieldLabel, levelsOf,
+  rowAxes,
 } from '../src/lib/composition.ts'
 
 let failed = 0
@@ -151,12 +152,17 @@ console.log('\nTHE ROW MENU')
     compTable(one.d, one.types, 'type', ['sample']).rows.length, 1)
 }
 
-console.log('\nAN OBJECT WITH MORE THAN THREE COLUMNS')
-{
-  // 12 cells: 3 cell types, 4 samples in 2 groups, and two further columns the
-  // object happens to carry. Neither of them nests inside a sample — s1 spans
-  // two dissections — because that is what a real atlas does and it is the case
-  // the row/part arithmetic can get wrong without throwing.
+/**
+ * 12 cells: 3 cell types, 4 samples in 2 groups, and two further columns the
+ * object happens to carry. Neither of them nests inside a sample — s1 spans two
+ * dissections — because that is what a real atlas does and it is the case the
+ * row/part arithmetic can get wrong without throwing.
+ *
+ * The two extra columns are named by the caller, because the names are half of
+ * what is under test here: everything the object exports has to arrive under
+ * them, including when they are names the studio already spends.
+ */
+function fourColumns(k0 = 'dissection', k1 = 'Class') {
   const u16 = a => new Uint8Array(Uint16Array.from(a).buffer)
   const f32 = a => new Uint8Array(Float32Array.from(a).buffer)
   const n = 12
@@ -169,9 +175,8 @@ console.log('\nAN OBJECT WITH MORE THAN THREE COLUMNS')
       { id: 's3', condition: 'e12.5' }, { id: 's4', condition: 'e12.5' }],
     conditions: ['e9.0', 'e12.5'],
     extras: [
-      { key: 'dissection', file: 'extra.dissection.u16',
-        levels: ['Forebrain', 'Midbrain', 'Hindbrain'] },
-      { key: 'Class', file: 'extra.Class.u16', levels: ['Neuroectoderm', 'Mesoderm'] },
+      { key: k0, file: 'extra.0.u16', levels: ['Forebrain', 'Midbrain', 'Hindbrain'] },
+      { key: k1, file: 'extra.1.u16', levels: ['Neuroectoderm', 'Mesoderm'] },
     ],
     embedding: 'X_umap', expression: 'log1p(CP10K)', hasRawCounts: false,
     provenance: { clustering: 'Subclass', condition: 'Age' },
@@ -185,13 +190,17 @@ console.log('\nAN OBJECT WITH MORE THAN THREE COLUMNS')
     'expr.data.f32': f32([1, 2, 3, 4]),
     'cluster.u16': u16([0, 1, 2, 0, 0, 1, 2, 2, 1, 0, 1, 2]),
     'sample.u16': u16([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3]),
-    'extra.dissection.u16': u16([0, 0, 1, 1, 2, 2, 0, 1, 2, 2, 1, 0]),
-    'extra.Class.u16': u16([0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1]),
+    'extra.0.u16': u16([0, 0, 1, 1, 2, 2, 0, 1, 2, 2, 1, 0]),
+    'extra.1.u16': u16([0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1]),
     'embed.f32': f32(Array.from({ length: 2 * n }, (_v, i) => i)),
     'qc.f32': f32(Array.from({ length: 3 * n }, () => 1)),
   }).buffer)
-  const d = bundleDataset(b)
-  const types = meta.clusters.map(name => ({ name, key: name }))
+  return { d: bundleDataset(b), types: meta.clusters.map(name => ({ name, key: name })) }
+}
+
+console.log('\nAN OBJECT WITH MORE THAN THREE COLUMNS')
+{
+  const { d, types } = fourColumns()
 
   check('all four columns are offered', compFields(d),
     ['type', 'cond', 'extra0', 'extra1', 'sample'])
@@ -217,6 +226,104 @@ console.log('\nAN OBJECT WITH MORE THAN THREE COLUMNS')
   check('a product row axis reports the empty half of the grid',
     [compTable(d, types, 'cond', ['type', 'extra0']).possible,
       compTable(d, types, 'cond', ['type', 'extra0']).rows.length], [9, 8])
+}
+
+console.log('\nTHE NAMES THAT LEAVE THE APP')
+{
+  // extra0 is a position in a list. It is fine on a menu's value attribute and
+  // it is not fine in a file, where it is the only thing the reader will have
+  // six months from now — so nothing that lands on disk may spell a column that
+  // way. The three roles keep the words the studio's other exports spend.
+  const { d } = fourColumns()
+  check('the three roles export under the studio\'s own words',
+    ['type', 'cond', 'sample'].map(f => fieldExport(d, f)), ['type', 'cond', 'sample'])
+  check('a carried column exports under the object\'s word, never its index',
+    compFields(d).map(f => fieldExport(d, f)),
+    ['type', 'cond', 'dissection', 'Class', 'sample'])
+
+  check('the CSV header names every column it writes',
+    compHeader(d, 'type', ['extra0']),
+    ['dissection', 'type', 'cells', 'row_total', 'samples', 'fraction'])
+  check('and does so whichever side the carried column is on',
+    compHeader(d, 'extra0', ['cond']),
+    ['cond', 'dissection', 'cells', 'row_total', 'samples', 'fraction'])
+  check('both fields of a product axis are named',
+    compHeader(d, 'type', ['cond', 'extra0']),
+    ['cond', 'dissection', 'type', 'cells', 'row_total', 'samples', 'fraction'])
+
+  check('the download name carries the column too',
+    [compName(d, 'type', ['extra0']), compName(d, 'extra0', ['cond']),
+      compName(d, 'type', ['cond', 'extra0'])],
+    ['composition_type_by_dissection', 'composition_dissection_by_cond',
+      'composition_type_by_cond_dissection'])
+  // Nothing on disk may still read as a list position, under any pairing.
+  const everyName = compFields(d).flatMap(p =>
+    rowAxes(d, p).flatMap(a => [compName(d, p, a.fields), ...compHeader(d, p, a.fields)]))
+  ok('no export name anywhere spells a column extraN',
+    !everyName.some(s => /extra\d/.test(s)), `${everyName.length} names checked`)
+
+  // A name a file system would refuse, or would silently change, is not a name.
+  const { d: odd } = fourColumns('Dissection / region', 'ages (E)')
+  check('a column name is sanitised the way the exporter sanitises an entry',
+    [fieldExport(odd, 'extra0'), fieldExport(odd, 'extra1')],
+    ['Dissection_region', 'ages_E'])
+
+  // Two fields cannot collide; two names can. A CSV with one name twice is a
+  // file a spreadsheet reads by silently picking one of them.
+  const { d: clash } = fourColumns('cells', 'Cell.type')
+  check('a carried column that lands on a column this table already writes is suffixed',
+    compHeader(clash, 'type', ['extra0']),
+    ['cells-2', 'type', 'cells', 'row_total', 'samples', 'fraction'])
+  const { d: twin } = fourColumns('cell type', 'cell/type')
+  check('and so are two carried columns that flatten to the same word',
+    compHeader(twin, 'sample', ['extra0', 'extra1']),
+    ['cell_type', 'cell_type-2', 'sample', 'cells', 'row_total', 'samples', 'fraction'])
+}
+
+console.log('\nWHAT THE REFUSAL IS ALLOWED TO CLAIM')
+{
+  // The card quotes these three numbers back at the reader, so they have to be
+  // the cells and not an approximation of them.
+  const { d, types } = fourColumns()
+  const perRegion = compTable(d, types, 'type', ['extra0'])
+  // Counted by hand off the fixture's own codes: dissection 1 holds cells from
+  // all four samples, the other two hold three each.
+  check('a row knows how many samples it merges',
+    perRegion.rows.map(r => r.nSamples), [3, 4, 3])
+  check('and the table totals it', [perRegion.pooledRows, perRegion.worstPool], [3, 4])
+  check('every sample of this fixture reaches more than one dissection',
+    perRegion.spanningSamples, d.samples.length)
+
+  // The atlas's shape, and the reason its three figures are refused: a sample
+  // sits in exactly one group, so no arrangement of the two separates them.
+  const cohort = demoSource('cohort')
+  const perGroup = compTable(cohort.d, cohort.types, 'type', ['cond'])
+  check('no sample of a one-group-per-animal object spans two groups',
+    perGroup.spanningSamples, 0)
+  check('so every group row is whole animals merged',
+    [perGroup.pooledRows, perGroup.rows.length],
+    [perGroup.rows.length, cohort.d.conds.length])
+  check('and the row sample counts add up to the object\'s samples',
+    perGroup.rows.reduce((a, r) => a + r.nSamples, 0), cohort.d.samples.length)
+
+  // The card offers exactly one fix, and claims it draws. It has to exist for
+  // every refused pairing, and it must not itself pool — a row that ends in a
+  // sample is inside one animal by construction, and the card says so.
+  let missing = 0
+  let stillPools = 0
+  for (const src of [fourColumns(), cohort]) {
+    for (const parts of compFields(src.d)) {
+      for (const a of rowAxes(src.d, parts)) {
+        const t = compTable(src.d, src.types, parts, a.fields)
+        if (!(t.pools && parts !== 'sample')) continue
+        const fix = rowAxes(src.d, parts).find(x => x.key === `${a.fields[0]}+sample`)
+        if (!fix) { missing++; continue }
+        if (compTable(src.d, src.types, parts, fix.fields).pools) stillPools++
+      }
+    }
+  }
+  check('every refused pairing has the fix the card offers', missing, 0)
+  check('and the fix never pools in its turn', stillPools, 0)
 }
 
 console.log(failed ? `\n${failed} FAILED` : '\nAll composition tests passed')

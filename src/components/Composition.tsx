@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CellType, Dataset } from '../types.ts'
 import { maxOf, maxOfAll, minOf, niceStep, pctTxt } from '../lib/chart.ts'
 import {
-  compFields, compTable, defaultRowAxis, fieldLabel, levelsOf, refuses, rowAxes,
+  compFields, compHeader, compName, compTable, defaultRowAxis, fieldLabel, levelsOf,
+  refuses, rowAxes,
   type CompField, type CompTable,
 } from '../lib/composition.ts'
 import { downloadCsv } from '../lib/download.ts'
@@ -123,6 +124,22 @@ export default function Composition({ d, types, palKey }: {
   const violates = refuses(table)
 
   /**
+   * The one-click fix, resolved rather than assumed: the samples nested inside
+   * the rows that were asked for.
+   *
+   * It exists whenever the figure refuses — a refusal means neither the rows nor
+   * the bars are the samples, so `sample` is still free to nest — and it can
+   * never itself pool, because a row ending in a sample is inside one animal by
+   * construction. That is why the card offers it as the answer rather than as a
+   * fallback. Looked up all the same, so that an object which somehow breaks the
+   * argument gets no button instead of a button that changes the figure to
+   * something else.
+   */
+  const fixAxis = violates ? axes.find(a => a.key === `${rowFields[0]}+sample`) : undefined
+  // The rows hold two fields, so nesting the samples costs the second one.
+  const dropped = fixAxis && rowFields.length > 1 ? rowFields[1] : null
+
+  /**
    * How much of the product this object actually has, and how much of that is
    * too small to read.
    *
@@ -140,10 +157,13 @@ export default function Composition({ d, types, palKey }: {
   const sparse = rowFields.length > 1 && table.rows.length * 2 < table.possible
 
   const partsLabel = fieldLabel(d, parts)
-  const name = `composition_${parts}_by_${rowFields.join('_')}`
+  // Both download names, in the object's own words — see compName. The screen
+  // has always called a carried column what the object called it; a file called
+  // composition_type_by_extra0.csv told its reader a list position instead.
+  const name = compName(d, parts, rowFields)
 
   const saveCsv = () => {
-    const header = [...rowFields.map(f => f), parts, 'cells', 'row_total', 'fraction']
+    const header = compHeader(d, parts, rowFields)
     const names = rowFields.map(f => levelsOf(d, types, f))
     const body: unknown[][] = []
     for (const row of chosen) {
@@ -152,7 +172,13 @@ export default function Composition({ d, types, palKey }: {
       for (let p = 0; p < table.nParts; p++) {
         const c = table.counts[row.i * table.nParts + p]
         if (!c) continue
-        body.push([...base, partNames[p], c, r.n, (c / r.n).toFixed(6)])
+        // `samples` is not decoration. This button sits above the refusal card
+        // as well as above a figure, so a pairing the tab will not draw can
+        // still be exported — and `fraction` is then exactly the pooled
+        // percentage the figure refused. Withholding the counts would be worse
+        // than exporting them; leaving the file unable to say which rows are
+        // several animals averaged together is what makes it dishonest.
+        body.push([...base, partNames[p], c, r.n, r.nSamples, (c / r.n).toFixed(6)])
       }
     }
     downloadCsv(name, header, body)
@@ -207,23 +233,71 @@ export default function Composition({ d, types, palKey }: {
 
         {violates ? (
           <Empty title={`One row per ${axis.label.toLowerCase()} would pool cells across samples`}>
-            Each row would put the cells of several samples into one bar. Cells from one animal
-            are not independent observations, so the resulting percentage would look far more
-            precise than the experiment supports — a single large sample would set the whole bar.
+            {/* Said with this object's numbers and this object's words. A rule that
+                cannot state how much it is refusing, or why this particular object
+                forces it, reads as the app being fussy — and the reader's next move
+                is to look for the setting that turns it off. */}
+            <div className="mx-auto max-w-[560px]">
+              {table.pooledRows === table.rows.length
+                ? <>Every one of these {table.rows.length.toLocaleString('en-US')} rows</>
+                : <>{table.pooledRows.toLocaleString('en-US')} of
+                  these {table.rows.length.toLocaleString('en-US')} rows</>} would merge whole
+              samples into one bar{table.worstPool > 1 && <>, up
+              to {table.worstPool.toLocaleString('en-US')} animals in a single row</>}.{' '}
+              {/* Which of the three sentences is the true one is a fact about how the
+                  object was collected, and it is the sentence that decides whether the
+                  reader believes the rule or goes looking for the switch that turns it
+                  off. "Only 93 of 93" was the version that read as a bug. */}
+              {table.spanningSamples === 0 ? (
+                <>Not one of this object&rsquo;s {d.samples.length.toLocaleString('en-US')} samples
+                reaches more than one <b>{axis.label}</b> — each was collected inside a single
+                one — so nothing about these two fields can separate the animals, and naming
+                them is the only thing that will. That is how the experiment was collected,
+                not something this tab declines to do.</>
+              ) : table.spanningSamples === d.samples.length ? (
+                <>Every one of this object&rsquo;s {d.samples.length.toLocaleString('en-US')}{' '}
+                samples reaches more than one <b>{axis.label}</b>, so each of these rows draws
+                on many animals at once.</>
+              ) : (
+                <>Only {table.spanningSamples.toLocaleString('en-US')} of this
+                object&rsquo;s {d.samples.length.toLocaleString('en-US')} samples reach more than
+                one <b>{axis.label}</b>, so most of these rows are whole animals averaged
+                together.</>
+              )}
+            </div>
+            <div className="mx-auto mt-2 max-w-[560px]">
+              Cells from one animal are not independent observations, so those percentages would
+              look far more precise than the experiment supports — a single large sample would
+              set the whole bar.
+            </div>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <button
-                className="btn btn-primary"
-                onClick={() => set({ rows: `${rowFields[0]}+sample`, only: -1 })}
-              >Break it down by sample as well</button>
+              {fixAxis && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => set({ rows: fixAxis.key, only: -1 })}
+                >Break it down by sample as well</button>
+              )}
               {parts === 'type' && (
                 <button className="btn" onClick={() => set({ rows: 'sample', only: -1 })}>
                   One row per sample
                 </button>
               )}
             </div>
+            {fixAxis && (
+              <div className="mx-auto mt-3 max-w-[560px] text-[12px]" style={{ color: 'var(--ink-3)' }}>
+                That draws one row per <b>{fixAxis.label}</b> — the same{' '}
+                {partsLabel.toLowerCase()} proportions over the same cells, with every animal on
+                its own row instead of averaged into its neighbours. It is the comparison you
+                asked for with the pooling undone, not a smaller question: the spread the merged
+                bar would have hidden is what you get back.
+                {dropped && <> The rows hold two fields, so <b>{fieldLabel(d, dropped)}</b> comes
+                off them to make room for the samples; it is still on the “bars show” menu
+                above.</>}
+              </div>
+            )}
             {parts === 'type' && rowFields[0] === 'cond' && (
-              <div className="mt-3 text-[12px]" style={{ color: 'var(--ink-3)' }}>
-                The panels below answer the same question honestly: a bar per group with the
+              <div className="mx-auto mt-3 max-w-[560px] text-[12px]" style={{ color: 'var(--ink-3)' }}>
+                The panels below answer the same question honestly too: a bar per group with the
                 individual samples drawn on top, so the spread between animals stays visible.
               </div>
             )}

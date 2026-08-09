@@ -63,6 +63,70 @@ export function fieldLabel(d: Dataset, f: CompField): string {
 }
 
 /**
+ * The exporter's entry-name rule, mirrored from scrnaseq-lab src/lib/build.ts
+ * (`safeEntry`).
+ *
+ * Deliberately the same rule and not this studio's own `slug`: it is the rule
+ * that turned this column's name into the zip entry `extra.dissection.u16` the
+ * cells were read out of, so a CSV column and the entry behind it are spelled
+ * the same way. Copied rather than imported because the lab is a separate app
+ * that this one shares no module with — it shares a file format.
+ */
+const safeName = (s: string) =>
+  (s || 'x').replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'x'
+
+/**
+ * What to call a field in a file, as opposed to on a menu.
+ *
+ * The three roles keep the words every other export in this studio spends —
+ * `deg_*.csv` says gene, `cluster_markers.csv` says cluster, the pseudobulk
+ * header says sample and cond — so a composition table joins to them on column
+ * names a reader already has.
+ *
+ * A column the object brought has no word of the studio's, and the internal one
+ * is not a name at all: `extra0` is a position in whatever list this object
+ * happened to carry, it means a different column in the next object, and
+ * composition_type_by_extra0.csv is a file nobody can read six months later.
+ * So it leaves under the name the object gave it. The screen has always shown
+ * that name (see fieldLabel); this is the same promise kept on the way out.
+ */
+export function fieldExport(d: Dataset, f: CompField): string {
+  const i = extraAt(f)
+  return i < 0 ? f : safeName(cellColumns(d).extras[i]?.key ?? f)
+}
+
+/** The three columns every composition table writes, whatever the pairing. */
+const FIXED = ['cells', 'row_total', 'samples', 'fraction']
+
+/**
+ * The header of the exported table.
+ *
+ * The names are made unique even though the fields already are, because two
+ * names can still collide where two fields cannot: an object carrying a column
+ * called "Sample", or "cells", or two columns that differ only in punctuation,
+ * lands on a word this header has already spent — and a CSV with one name twice
+ * is a file a spreadsheet reads by silently picking one. The studio's own
+ * columns keep their words and the newcomer takes the suffix, which is the same
+ * way round the exporter resolves it when two column names flatten to one zip
+ * entry.
+ */
+export function compHeader(d: Dataset, parts: CompField, rowFields: CompField[]): string[] {
+  const seen = new Set(FIXED)
+  const uniq = (n: string) => {
+    let name = n
+    for (let i = 2; seen.has(name); i++) name = `${n}-${i}`
+    seen.add(name)
+    return name
+  }
+  return [...rowFields.map(f => uniq(fieldExport(d, f))), uniq(fieldExport(d, parts)), ...FIXED]
+}
+
+/** The download name of the exported table and figure, in the object's words. */
+export function compName(d: Dataset, parts: CompField, rowFields: CompField[]): string {
+  return `composition_${fieldExport(d, parts)}_by_${rowFields.map(f => fieldExport(d, f)).join('_')}`
+}
+
+/**
  * The fields this object can actually be split by.
  *
  * A single-condition object has nothing to say about groups, and offering the
@@ -123,6 +187,8 @@ export interface CompRow {
   /** Level index per row field, outermost first. */
   keys: number[]
   n: number
+  /** How many samples this row merges. 1 is the honest case. */
+  nSamples: number
   /** True when this row's cells came from more than one sample. */
   multiSample: boolean
   /** The one sample this row belongs to, or -1 when it spans several. */
@@ -148,6 +214,19 @@ export interface CompTable {
   counts: Float64Array
   /** Some row merges cells from more than one sample. */
   pools: boolean
+  /**
+   * How much pooling, and why — the three numbers the refusal card quotes.
+   *
+   * A rule that cannot say how much it is refusing reads as an arbitrary one.
+   * `pooledRows` and `worstPool` measure the damage; `spanningSamples` is the
+   * reason, and it is the number that settles the argument: when none of the
+   * object's samples reaches more than one of these rows, no arrangement of
+   * these two fields separates them, and the refusal is a fact about how the
+   * experiment was collected rather than something the app declines to do.
+   */
+  pooledRows: number
+  worstPool: number
+  spanningSamples: number
   /** Every row falls in a single part, so the bars would carry no information. */
   degenerate: boolean
   nCells: number
@@ -234,7 +313,13 @@ function build(
   const counts = new Float64Array(nRows * nParts)
   const rowN = new Float64Array(nRows)
   const firstSample = new Int32Array(nRows).fill(-1)
-  const multi = new Uint8Array(nRows)
+  // How many samples each row merges, and how many rows each sample is spread
+  // over. Both fall out of walking sample by sample for nothing: inside one
+  // sample's cells the sample never changes, so a row is new to this sample
+  // exactly when the stamp it carries is not this sample's index.
+  const nSamp = new Int32Array(nRows)
+  const stamp = new Int32Array(nRows).fill(-1)
+  const rowsPerSample = new Int32Array(nSample)
 
   // Walking sample by sample means the sample and its group are known outside
   // the inner loop, so the only per-cell read is the cluster code. On the atlas
@@ -259,8 +344,12 @@ function build(
       counts[r * nParts + p]++
       rowN[r]++
       nCells++
-      if (firstSample[r] < 0) firstSample[r] = si
-      else if (firstSample[r] !== si) multi[r] = 1
+      if (stamp[r] !== si) {
+        stamp[r] = si
+        nSamp[r]++
+        rowsPerSample[si]++
+        if (firstSample[r] < 0) firstSample[r] = si
+      }
     }
   }
 
@@ -279,8 +368,9 @@ function build(
     rows.push({
       keys,
       n: rowN[r],
-      multiSample: multi[r] === 1,
-      sample: multi[r] === 1 ? -1 : firstSample[r],
+      nSamples: nSamp[r],
+      multiSample: nSamp[r] > 1,
+      sample: nSamp[r] > 1 ? -1 : firstSample[r],
     })
     kept.push(r)
   }
@@ -297,6 +387,18 @@ function build(
     if (seen > 1) degenerate = false
   }
 
+  let pooledRows = 0
+  let worstPool = 0
+  for (const r of rows) {
+    if (r.multiSample) pooledRows++
+    if (r.nSamples > worstPool) worstPool = r.nSamples
+  }
+  // Samples with no cells here are not counted as spanning and not counted as
+  // confined: they are silent, and a sentence built on this number says "of the
+  // object's samples", never "of the samples in this figure".
+  let spanningSamples = 0
+  for (let si = 0; si < nSample; si++) if (rowsPerSample[si] > 1) spanningSamples++
+
   return {
     parts,
     rowFields,
@@ -304,7 +406,10 @@ function build(
     possible: nRows,
     nParts,
     counts: packed,
-    pools: rows.some(r => r.multiSample),
+    pools: pooledRows > 0,
+    pooledRows,
+    worstPool,
+    spanningSamples,
     degenerate,
     nCells,
   }

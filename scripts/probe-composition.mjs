@@ -5,6 +5,7 @@
 // Every assertion is on a string grepped out of Composition.tsx, and every miss
 // prints the page text — a silent false negative looks exactly like a hang.
 
+import fs from 'node:fs'
 import { chromium } from 'playwright-core'
 
 const EXE = 'C:/Users/Lin/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe'
@@ -71,6 +72,42 @@ const cardText = () => page.evaluate(() => {
   const c = document.querySelector('section.card')
   return c ? c.textContent.replace(/\s+/g, ' ').trim() : '(no card)'
 })
+
+/**
+ * Click a download button and read what actually came out.
+ *
+ * The file is the point, not the click: a CSV header naming a column `extra0`
+ * downloads exactly as happily as one naming it `dissection`, and the only
+ * place the difference shows is in the bytes. So this returns the suggested
+ * name and the first lines, and every caller prints both.
+ */
+const grab = async (button) => {
+  const wait = page.waitForEvent('download', { timeout: 180_000 })
+  await page.click(`button:has-text("${button}")`)
+  const dl = await wait.catch(() => null)
+  if (!dl) await dump(`the ${button} button produced no download`)
+  const name = dl.suggestedFilename()
+  const path = `${shots}/${name}`
+  await dl.saveAs(path)
+  return { name, path, text: /\.csv$/.test(name) ? fs.readFileSync(path, 'utf8') : '' }
+}
+
+/**
+ * Nothing a user can read may spell a carried column as its list position.
+ *
+ * `extra0` is legitimate in a <select>'s value attribute — this probe steers by
+ * those — so this looks at rendered text and at exported bytes, which is where
+ * it would be a defect. textContent never includes an attribute, so the two do
+ * not overlap.
+ */
+const leaks = []
+const noIndexNames = async (where, ...strings) => {
+  const text = await page.textContent('body')
+  for (const s of [text, ...strings]) {
+    const hit = /extra\d/.exec(s || '')
+    if (hit) leaks.push(`${where}: "${hit[0]}"`)
+  }
+}
 
 const startBeat = () => page.evaluate(() => {
   window.__beat = { frames: 0, worst: 0, last: performance.now() }
@@ -184,6 +221,67 @@ await page.screenshot({ path: `${shots}/comp-limited.png` })
 // rather than reporting a pass it did not earn.
 const extras = (await options('Bars show')).filter(o => o.startsWith('extra'))
 if (extras.length) {
+  console.log(`\n=== the three figures asked for by name ===`)
+  // Region × age, region × cell type, cell type × region. Each is reached the
+  // way a reader reaches it — set the two menus, look at what the tab says —
+  // and then, whichever way it went, the CSV is downloaded and read. A refusal
+  // that draws nothing still has to export a file whose columns are named.
+  const NAMED = [
+    ['extra0', 'cond', 'region × age'],
+    ['extra0', 'type', 'region × cell type'],
+    ['type', 'extra0', 'cell type × region'],
+  ]
+  for (const [bars, rows, what] of NAMED) {
+    console.log(`\n  --- ${what} ---`)
+    await pick('Bars show', bars)
+    await pick('One row per', rows)
+    await page.waitForTimeout(500)
+    const refused = await page.locator('text=would pool cells across samples').count()
+    if (refused) {
+      const card = (await page.textContent('.empty')).replace(/\s+/g, ' ').trim()
+      console.log(`  REFUSED, in full:\n    ${card}`)
+      const buttons = await page.locator('.empty button').allTextContents()
+      console.log(`  buttons: ${buttons.map(b => `[${b.trim()}]`).join(' ')}`)
+      await page.screenshot({ path: `${shots}/named-${bars}-by-${rows}-refused.png` })
+      // The refused pairing still exports, so the file has to say how many
+      // animals each fraction merged.
+      const csv = await grab('CSV')
+      console.log(`  CSV of the refusal: ${csv.name}`)
+      console.log(`    header: ${csv.text.split('\n')[0]}`)
+      console.log(`    row 1:  ${csv.text.split('\n')[1]}`)
+      await noIndexNames(`${what} refusal`, csv.name, csv.text.split('\n')[0])
+
+      // The one-click fix must draw, and must be the same question.
+      if (!buttons.some(b => /Break it down by sample/.test(b))) {
+        await dump(`${what}: the refusal offered no "break it down by sample" button`)
+      }
+      await page.click('button:has-text("Break it down by sample as well")')
+      await page.waitForSelector('svg[role=img] g[clip-path]', { timeout: 180_000 })
+        .catch(() => dump(`${what}: the one-click fix drew nothing`))
+      console.log(`  fix drew: "${(await page.textContent('section.card h2')).trim()}"`)
+      console.log(`            ${await rowCount()} rows, ${await rectCount()} segments`)
+      const b = await labelBounds()
+      if (!(b.minX >= 0)) await dump(`${what}: a fixed-figure row label sits at x=${b.minX}`)
+      await page.screenshot({ path: `${shots}/named-${bars}-by-${rows}-fixed.png` })
+      const fcsv = await grab('CSV')
+      console.log(`  CSV of the fix: ${fcsv.name}`)
+      console.log(`    header: ${fcsv.text.split('\n')[0]}`)
+      console.log(`    row 1:  ${fcsv.text.split('\n')[1]}`)
+      await noIndexNames(`${what} fix`, fcsv.name, fcsv.text.split('\n')[0])
+      continue
+    }
+    await page.waitForSelector('svg[role=img] g[clip-path]', { timeout: 180_000 })
+      .catch(() => dump(`${what} neither drew nor refused`))
+    console.log(`  DREW: ${await rowCount()} rows, ${await rectCount()} segments`)
+    console.log(`    title: ${(await page.textContent('section.card h2')).trim()}`)
+    await page.screenshot({ path: `${shots}/named-${bars}-by-${rows}.png` })
+    const csv = await grab('CSV')
+    console.log(`  CSV: ${csv.name}`)
+    console.log(`    header: ${csv.text.split('\n')[0]}`)
+    console.log(`    row 1:  ${csv.text.split('\n')[1]}`)
+    await noIndexNames(what, csv.name, csv.text.split('\n')[0])
+  }
+
   console.log(`\n=== the columns beyond the three roles: ${extras.join('  ')} ===`)
   // Every pairing the human asked for by name, in both readings. A refusal is
   // as real an answer as a figure — a row spanning several animals is exactly
@@ -210,7 +308,8 @@ if (extras.length) {
     await page.waitForTimeout(600)
     const refusal = await page.locator('text=would pool cells across samples').count()
     if (refusal) {
-      console.log(`  ${what}: REFUSED — ${(await page.textContent('.empty')).replace(/\s+/g, ' ').trim().slice(0, 120)}`)
+      console.log(`  ${what}: REFUSED — ${(await page.textContent('.empty')).replace(/\s+/g, ' ').trim()}`)
+      await noIndexNames(`${what} refusal card`)
       continue
     }
     await page.waitForSelector('svg[role=img] g[clip-path]', { timeout: 180_000 })
@@ -236,18 +335,16 @@ console.log(`  ${await rowCount()} rows, ${await rectCount()} segments`)
   console.log(`  labels: minX=${b.minX} in viewBox ${b.viewBox} (widest "${(b.worst || '').slice(0, 40)}")`)
   if (!(b.minX >= 0)) await dump(`a row label sits at x=${b.minX}, outside the viewBox — the PNG export would lose the axis`)
 }
-const csv = page.waitForEvent('download', { timeout: 120_000 })
-await page.click('button:has-text("CSV")')
-const csvFile = await csv.catch(() => null)
-if (!csvFile) await dump('the CSV button produced no download')
-await csvFile.saveAs(`${shots}/${csvFile.suggestedFilename()}`)
-console.log(`  CSV: ${csvFile.suggestedFilename()}`)
-const png = page.waitForEvent('download', { timeout: 180_000 })
-await page.click('button:has-text("PNG")')
-const pngFile = await png.catch(() => null)
-if (!pngFile) await dump('the PNG button produced no download')
-await pngFile.saveAs(`${shots}/${pngFile.suggestedFilename()}`)
-console.log(`  PNG: ${pngFile.suggestedFilename()}`)
+const csvFile = await grab('CSV')
+console.log(`  CSV: ${csvFile.name}`)
+console.log(`    header: ${csvFile.text.split('\n')[0]}`)
+const pngFile = await grab('PNG')
+console.log(`  PNG: ${pngFile.name}`)
+// The PNG button's tooltip is the download name spelled out on screen, so it
+// is the one place a file name is also page text.
+console.log(`  PNG button title: "${await page.locator('button:has-text("PNG")').first().getAttribute('title')}"`)
+await noIndexNames('exports', csvFile.name, csvFile.text.split('\n')[0], pngFile.name,
+  await page.locator('button:has-text("PNG")').first().getAttribute('title'))
 
 console.log('\n=== the choice survives leaving the tab ===')
 const before = (await page.textContent('section.card h2')).trim()
@@ -269,6 +366,14 @@ await page.waitForSelector('text=Cell type proportions, one row per sample', { t
   .catch(() => dump('could not get back to the default pairing'))
 console.log(`  ${await rowCount()} rows, ${await rectCount()} segments`)
 await page.screenshot({ path: `${shots}/comp-back-to-default.png` })
+
+if (leaks.length) {
+  console.log(`\n!! a list position reached a reader in ${leaks.length} place(s):`)
+  for (const l of leaks) console.log(`   ${l}`)
+  await browser.close()
+  process.exit(1)
+}
+console.log('\nno rendered text or exported name spells a column as extraN')
 
 console.log('\nALL STEPS COMPLETED')
 await browser.close()
