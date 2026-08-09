@@ -4,8 +4,8 @@
 import { demoSource } from '../src/lib/source.ts'
 import {
   combinedScore, deMarkers, deMarkersAll, deWilcox, designFor, isSig, LFC_GATE,
-  logNormalTail, markersPlan, MIN_REPS_PB, minReplicates, nlpFromZ, normalTail, pbKey,
-  rankSumSparse, sigCount, thresholdFor,
+  logNormalTail, markersPlan, MIN_CELLS_GROUP, MIN_REPS_PB, minReplicates, nlpFromZ,
+  normalTail, pbKey, rankSumSparse, sigCount, thresholdFor, wilcoxPlan,
 } from '../src/lib/stats.ts'
 
 let failed = 0
@@ -158,6 +158,44 @@ console.log('\nTHE MARKER SORT ORDERS NEGATIVE VALUES')
   // a sign-blind key would put the order back to front.
   check('both sides reported a row', [ra.rows.length, rb.rows.length], [1, 1])
   check('the two sides are opposite in sign', ra.rows[0].lfc * rb.rows[0].lfc < 0, true)
+}
+
+console.log('\nA GROUP OF ONE OR TWO CELLS IS NOT TESTED')
+// Seurat's min.cells.group. Refusing only the empty case let PreOPC e18.0 (294
+// cells) against PreOPC e12.5 (one cell) return 6 741 rows with 88 under adjusted
+// p 0.05, every one of them at pct.1 = 0.000 and pct.2 = 1.000 — the whole table
+// was that one cell. The counts still come back, because the refusal has to be
+// able to say which side was short and by how much.
+{
+  const mk = (n1, n2) => {
+    const lab = new Int8Array(n1 + n2)
+    lab.fill(0, 0, n1); lab.fill(1, n1)
+    return wilcoxPlan({ lab, n1, n2, nGenes: 10 })
+  }
+  check('MIN_CELLS_GROUP is Seurat\'s default', MIN_CELLS_GROUP, 3)
+  check('one cell against many is refused', mk(1, 294).empty, true)
+  check('two against many is refused', mk(2, 294).empty, true)
+  check('three against three is tested', mk(3, 3).empty, false)
+  check('the refusal still reports both counts', [mk(1, 294).n1, mk(1, 294).n0], [1, 294])
+
+  // Same rule in the one-pass marker path: a two-cell cluster reports nothing
+  // while its neighbours in the same pass report normally.
+  const sizes = [2, 40, 40]
+  const owner = []
+  sizes.forEach((n, c) => { for (let i = 0; i < n; i++) owner.push(c) })
+  const plan = markersPlan({
+    owner: Int32Array.from(owner), size: Int32Array.from(sizes),
+    nUsed: owner.length, nGenes: 1,
+  })
+  let seed = 11
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
+  plan.visit(0, cb => owner.forEach((c, i) => {
+    const v = c === 1 ? 2 + rnd() : rnd() * 0.05
+    cb(i, Math.fround(v))
+  }))
+  const out = plan.done()
+  check('a two-cell cluster reports no markers', out[0].rows.length, 0)
+  check('and the clusters beside it still do', out[1].rows.length > 0, true)
 }
 
 console.log('\nWILCOXON NEEDS NO REPLICATES')

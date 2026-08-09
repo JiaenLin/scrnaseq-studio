@@ -22,6 +22,19 @@ export const MIN_REPS_PB = 4
 export const LFC_GATE = 0.25
 /** Seurat's min.pct. */
 export const PCT_GATE = 0.1
+/**
+ * Seurat's min.cells.group: a side smaller than this is not tested at all.
+ *
+ * Refusing only the empty case is not the same convention, and the difference is
+ * not academic. PreOPC at e18.0 (294 cells) against PreOPC at e12.5 (ONE cell)
+ * returned 6 741 rows, 88 of them at adjusted p below 0.05, the best at 6e-61 —
+ * and every one of those rows had pct.1 = 0.000 and pct.2 = 1.000, because the
+ * whole result was a description of that one cell. The rank-sum is happy to
+ * report it: with n2 = 1 the variance is small and the separation is perfect.
+ * This atlas has 211 cluster x group combinations holding one or two cells, and
+ * every one of them is reachable from the contrast picker.
+ */
+export const MIN_CELLS_GROUP = 3
 
 /**
  * Upper tail of the standard normal.
@@ -410,7 +423,7 @@ export function wilcoxPlan(spec: WilcoxSpec) {
   const { lab, n1, n2 } = spec
   const rows: RawRow[] = []
   return {
-    empty: !n1 || !n2,
+    empty: n1 < MIN_CELLS_GROUP || n2 < MIN_CELLS_GROUP,
     n0: n2,
     n1,
     visit: (gene: number, each: NonZeroWalk) => {
@@ -522,7 +535,7 @@ export function markersPlan(spec: MarkersSpec) {
     for (let c = 0; c < nT; c++) {
       const n1 = size[c]
       const n2 = nUsed - n1
-      if (!n1 || !n2) continue
+      if (n1 < MIN_CELLS_GROUP || n2 < MIN_CELLS_GROUP) continue
       const pct1 = d1[c] / n1
       const pct2 = (m - d1[c]) / n2
       if (pct1 < PCT_GATE && pct2 < PCT_GATE) continue
@@ -631,7 +644,8 @@ export function deMarkers(src: Source, ti: number, cond?: string | null): DEResu
   })
   const a = Int32Array.from(inCluster)
   const b = Int32Array.from(rest)
-  if (!a.length || !b.length) return { rows: [], n0: b.length, n1: a.length }
+  if (a.length < MIN_CELLS_GROUP || b.length < MIN_CELLS_GROUP)
+    return { rows: [], n0: b.length, n1: a.length }
   const plan = wilcoxPlan({
     lab: labels(src.d.cells.length, a, b),
     n1: a.length, n2: b.length, nGenes: src.genes.length,

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { CellType, DERow, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  deWilcox, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_REPS_PB, PCT_GATE,
+  deWilcox, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP, MIN_REPS_PB, PCT_GATE,
   pseudobulkColumns, wilcoxSpec, type DEResult,
 } from '../lib/stats.ts'
 import { useJob } from '../lib/compute.ts'
@@ -169,6 +169,17 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
     if (!n0 || !n1)
       return <Empty title={`No ${p.t.name} cells in one of these groups`}>
         {n0} cells in {p.ctrl}, {n1} in {p.cs}.
+      </Empty>
+    // Seurat's min.cells.group. A side of one or two cells does produce a table —
+    // a long one, with small p-values — but every row of it describes those cells
+    // rather than a difference between groups, and nothing on the page would say so.
+    if (n0 < MIN_CELLS_GROUP || n1 < MIN_CELLS_GROUP)
+      return <Empty title={`Too few ${p.t.name} cells to test one of these groups`}>
+        {n0} cell{n0 === 1 ? '' : 's'} in {p.ctrl}, {n1} in {p.cs}. A rank-sum test needs
+        at least {MIN_CELLS_GROUP} per group — Seurat&rsquo;s <Mono>min.cells.group</Mono> —
+        and below that the table it returns is a description of the {Math.min(n0, n1)} cell
+        {Math.min(n0, n1) === 1 ? '' : 's'} on the smaller side, at whatever p the
+        separation happens to give.
       </Empty>
     return null
   }
