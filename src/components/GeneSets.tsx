@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, Dataset, GroupBy } from '../types.ts'
+import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf } from '../lib/chart.ts'
 import { GENE_SETS } from '../lib/genesets.ts'
@@ -23,10 +24,12 @@ import Progress from './Progress.tsx'
  */
 const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
-export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }: {
+export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickGene }: {
   src: Source
   types: CellType[]
   ct: string
+  /** Which of the object's embeddings to draw the score on. */
+  emb: Embedding
   palKey: PaletteKey
   rampKey: RampKey
   onPickGene: (g: string) => void
@@ -41,9 +44,11 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
   const requested = useMemo(() => {
     if (!useCustom) return GENE_SETS.find(s => s.id === setId)?.genes ?? []
     // Parsed once. It was parsed twice — the whole gene list, per keystroke.
-    const { found, missing } = parseGeneList(custom, GENES)
+    // Either naming: on an accession-indexed object a pasted list of symbols
+    // resolves, and so does a pasted list of accessions.
+    const { found, missing } = parseGeneList(custom, GENES, src.names)
     return found.concat(missing)
-  }, [useCustom, custom, setId, GENES])
+  }, [useCustom, custom, setId, GENES, src.names])
 
   const { used, missing } = useMemo(() => resolve(src, requested), [src, requested])
 
@@ -53,7 +58,7 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
   // signature on an atlas cost one pass instead of two — the bins are already
   // remembered under a key that does not change.
   const { value: avg, pass: binPass } = useJob<'averages'>(
-    src, 'gene averages', used.length > 0,
+    src, 'averages', 'gene averages', used.length > 0,
     () => geneAveragesSync(src) ?? new Float64Array(src.genes.length),
     () => ({ kind: 'averages', ...averagesSpec(src) }),
   )
@@ -70,7 +75,7 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
   // switching back to a set already scored costs nothing, and switching away
   // mid-pass abandons it rather than letting it land on top of the new answer.
   const { value: scores, pass: scorePass } = useJob<'score'>(
-    src, `score|${used.join(',')}`, plan !== null,
+    src, 'score', `score|${used.join(',')}`, plan !== null,
     () => scoreInline(src, plan!),
     // The engine takes the buffer, so it gets a copy — the plan outlives the job.
     () => ({
@@ -171,7 +176,7 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
                   {name} on the embedding
                 </figcaption>
                 <Figure name={`module_score_${slug(name)}`}>
-                  <ScoreMap d={d} types={types} scores={scoreOf} rampKey={rampKey} />
+                  <ScoreMap d={d} types={types} xy={emb.xy} scores={scoreOf} rampKey={rampKey} />
                 </Figure>
                 <div className="legend mt-2">
                   <span style={{ color: 'var(--ink-3)' }}>low</span>
@@ -293,8 +298,8 @@ function useCellsByIdentity(
   }, [d, ids, nTypes, groupBy])
 }
 
-function ScoreMap({ d, types, scores, rampKey }: {
-  d: Dataset; types: CellType[]; scores: Float32Array; rampKey: RampKey
+function ScoreMap({ d, types, xy, scores, rampKey }: {
+  d: Dataset; types: CellType[]; xy: Float32Array; scores: Float32Array; rampKey: RampKey
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const size = 420
@@ -306,7 +311,7 @@ function ScoreMap({ d, types, scores, rampKey }: {
     if (!g) return
     g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()
     g.fillRect(0, 0, cv.width, cv.height)
-    const { x0, x1, y0, y1 } = embedExtent(d)
+    const { x0, x1, y0, y1 } = embedExtent(xy)
 
     // Typed throughout. `Array.from(scores)` boxed 292 495 doubles into a JS
     // array before sorting them, and the copy cost more than the sort.
@@ -321,17 +326,17 @@ function ScoreMap({ d, types, scores, rampKey }: {
     for (let i = 0; i < idx.length; i++) idx[i] = i
     idx.sort((a, b) => scores[a] - scores[b])
     for (const i of idx) {
-      const c = d.cells[i]
       g.fillStyle = rampColor((scores[i] - lo) / span, rampKey)
       g.beginPath()
-      g.arc(((c.x - x0) / (x1 - x0)) * cv.width, (1 - (c.y - y0) / (y1 - y0)) * cv.height, 1.9, 0, 6.284)
+      g.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
+        (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * cv.height, 1.9, 0, 6.284)
       g.fill()
     }
     g.font = '600 17px system-ui'
     g.textAlign = 'center'
     g.lineWidth = 3.5
     g.strokeStyle = 'rgba(255,255,255,.9)'
-    const at = clusterCentroids(d, types.length)
+    const at = clusterCentroids(xy, d, types.length)
     types.forEach((t, ti) => {
       const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
       const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height
@@ -339,7 +344,7 @@ function ScoreMap({ d, types, scores, rampKey }: {
       g.fillStyle = '#334155'
       g.fillText(t.name, X, Y)
     })
-  }, [d, types, scores, rampKey])
+  }, [d, types, xy, scores, rampKey])
 
   return (
     <canvas ref={ref} width={size * 2} height={size * 2}

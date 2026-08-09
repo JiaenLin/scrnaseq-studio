@@ -7,8 +7,12 @@
 
 import { unzipSync } from 'fflate'
 import type { Cell, Dataset, SampleRow } from '../types.ts'
+import type { GeneIdKind } from './genes.ts'
 
 export const SCHEMA = 'scrnaseq-studio/bundle@1'
+
+/** One 2D embedding, interleaved x,y, two values per cell. */
+export interface Embedding { key: string; xy: Float32Array }
 
 export interface BundleMeta {
   schema: string
@@ -33,6 +37,34 @@ export interface BundleMeta {
    * written with a different block size must still open.
    */
   chunkGenes?: number
+  /**
+   * Every 2D embedding the object carried, the default first.
+   *
+   * `embeddings[0].file` is always `embed.f32` and `embeddings[0].key` is always
+   * `embedding`, so a reader that ignores this field still opens the bundle it
+   * always opened. Absent in bundles written before more than one was carried —
+   * then there is exactly one, `embed.f32`, named by `embedding`.
+   *
+   * The entry names are sanitised by the exporter and must be read from here,
+   * not rebuilt from the key.
+   */
+  embeddings?: { key: string; file: string }[]
+  /** What `genes.txt` holds. Absent ⇒ unknown, which is NOT the same as 'symbol'. */
+  geneIdKind?: GeneIdKind
+  /**
+   * The other naming of the same genes, when the object carried one.
+   *
+   * `missing` rows had no alias and repeat `genes.txt`, so the file is always a
+   * usable label. `duplicated` rows share an alias with another row and NOTHING
+   * IS MERGED — see makeGeneNames in genes.ts for what is done with them.
+   */
+  geneAlias?: {
+    kind: 'symbol' | 'accession'
+    column: string
+    file: string
+    missing: number
+    duplicated: number
+  } | null
 }
 
 /** Summed raw counts, one column per sample × cluster. */
@@ -53,8 +85,17 @@ export interface Bundle {
   data: Float32Array
   cluster: Uint16Array
   sample: Uint16Array
-  /** Interleaved x,y per cell. */
+  /** Interleaved x,y per cell — the default embedding, same array as embeds[0].xy. */
   embed: Float32Array
+  /** Every embedding the object carried, the default first. Never empty. */
+  embeds: Embedding[]
+  /**
+   * The other naming of each gene, aligned by index with `genes`.
+   *
+   * null when the object had one naming only. Never blank on any row: where the
+   * object had no alias the exporter repeats the row's own name.
+   */
+  alias: string[] | null
   /** Interleaved counts, genes, mito% per cell. */
   qc: Float32Array
   pseudobulk: Pseudobulk | null
@@ -129,10 +170,61 @@ export function parseBundle(buf: ArrayBuffer): Bundle {
 
   return {
     meta, genes, indptr, indices, data, cluster, sample, embed, qc,
+    embeds: readEmbeddings(files, meta, embed, n),
+    alias: readAlias(files, meta, genes),
     pseudobulk: files['pseudobulk.tsv']
       ? parsePseudobulk(new TextDecoder().decode(files['pseudobulk.tsv']), meta.nGenes)
       : null,
   }
+}
+
+/**
+ * The default embedding, then every other one the object carried.
+ *
+ * A missing or malformed alternative fails the open rather than quietly
+ * offering a menu entry that draws the wrong points: the whole promise of the
+ * switcher is that two views of the same cells are the same cells.
+ */
+function readEmbeddings(
+  files: Record<string, Uint8Array>, meta: BundleMeta, embed: Float32Array, n: number,
+): Embedding[] {
+  const listed = meta.embeddings ?? []
+  const out: Embedding[] = [{ key: listed[0]?.key ?? meta.embedding, xy: embed }]
+  for (const e of listed.slice(1)) {
+    // The exporter never points a second entry at embed.f32, but a hand-edited
+    // meta.json could — and reading it twice would put one embedding on the menu
+    // under two names.
+    if (!e?.file || e.file === 'embed.f32') continue
+    const bytes = files[e.file]
+      ?? fail(`meta.json lists the embedding "${e.key}" in ${e.file}, which this bundle does not contain`)
+    const xy = view(Float32Array, bytes, 4, e.file)
+    if (xy.length !== 2 * n) {
+      fail(`${e.file} has ${xy.length} values, expected ${2 * n} for ${n} cells`)
+    }
+    out.push({ key: e.key, xy })
+  }
+  return out
+}
+
+/**
+ * The alias column, one name per row, aligned with genes.txt.
+ *
+ * Blank lines are not filtered out the way genes.txt's are: a dropped line
+ * would shift every following gene onto its neighbour's expression, which is the
+ * kind of wrongness that renders. A blank falls back to the row's own name.
+ */
+function readAlias(
+  files: Record<string, Uint8Array>, meta: BundleMeta, genes: string[],
+): string[] | null {
+  if (!meta.geneAlias) return null
+  const name = meta.geneAlias.file || 'gene_alias.txt'
+  const alias = new TextDecoder().decode(need(files, name))
+    .split('\n').map(g => g.replace(/\r$/, ''))
+  if (alias.length === meta.nGenes + 1 && alias[alias.length - 1] === '') alias.pop()
+  if (alias.length !== meta.nGenes) {
+    fail(`${name} has ${alias.length} names but meta says ${meta.nGenes} genes`)
+  }
+  return alias.map((a, i) => a || genes[i])
 }
 
 function parsePseudobulk(text: string, nGenes: number): Pseudobulk | null {

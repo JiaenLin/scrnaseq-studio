@@ -7,6 +7,31 @@ import { Card, Mono, Stat } from './Ui.tsx'
 
 type Kind = 'file' | 'here' | 'none'
 
+/**
+ * What the rows of the matrix are called, and where the names came from.
+ *
+ * Worth a line of its own because on an accession-indexed object the studio
+ * SHOWS something other than what the file's gene index holds. That is the right
+ * thing to show, and it is also exactly the kind of substitution a provenance
+ * table exists to declare rather than perform quietly.
+ */
+function geneNaming(src: Source): string {
+  const n = src.names
+  if (!n.renamed) {
+    return n.idKind
+      ? `${n.idKind}s, as the object stores them`
+      : 'as the object stores them'
+  }
+  const extra = [
+    n.duplicated ? `${n.duplicated} rows share a symbol and carry their ${n.idKind ?? 'accession'} `
+      + 'in the name, because they are separate genes and were not summed' : '',
+    n.missing ? `${n.missing} rows have no symbol and keep their ${n.idKind ?? 'accession'}` : '',
+  ].filter(Boolean)
+  return `matrix indexed by ${n.idKind ?? 'accession'}s; symbols shown, taken from `
+    + `${n.aliasColumn ?? 'the object'} in the same file — nothing is looked up`
+    + (extra.length ? `. ${extra.join('; ')}` : '')
+}
+
 export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }: {
   src: Source
   types: CellType[]
@@ -22,7 +47,14 @@ export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }:
     ['Normalization', prov.normalization ? 'file' : 'none', prov.normalization ?? 'not recorded'],
     ['Clustering', prov.clustering ? 'file' : 'none', prov.clustering ?? 'not recorded'],
     ['Batch integration', prov.integration ? 'file' : 'none', prov.integration ?? 'none recorded'],
-    ['Embedding', 'file', src.meta.embedding],
+    // Every embedding the object carried, not just the one it opens on — the
+    // switcher only appears over a figure, so this is where a user finds out
+    // there is more than one before going looking for it.
+    ['Embedding', 'file', src.embeddings.length > 1
+      ? `${src.embeddings.map(e => e.key).join(', ')} — ${src.embeddings[0].key} opens by default, `
+        + 'and any of them can be chosen wherever cells are drawn'
+      : src.meta.embedding],
+    ['Gene identifiers', 'file', geneNaming(src)],
     ['Expression', 'file', src.meta.expression],
     ['Raw counts', src.meta.hasRawCounts ? 'file' : 'none',
       src.meta.hasRawCounts ? 'present — pseudobulk columns are in the bundle' : 'absent'],

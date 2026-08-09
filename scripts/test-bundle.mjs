@@ -129,6 +129,75 @@ rejects('a cluster code meta.json does not define',
 rejects('a byte length that is not a multiple of the element size',
   () => build({ files: { 'qc.f32': new Uint8Array(7) } }), 'not a multiple')
 
+console.log('\nA BUNDLE WITHOUT THE NEW FIELDS IS UNCHANGED')
+{
+  const b = parseBundle(build())
+  check('exactly one embedding, named by meta.embedding',
+    b.embeds.map(e => e.key), ['X_umap'])
+  check('and it is the default array', b.embeds[0].xy === b.embed, true)
+  check('no alias', b.alias, null)
+  const src = bundleSource(b)
+  check('so the gene names are the file\'s own', src.genes, ['A', 'B', 'C'])
+  check('and nothing claims to be renamed', src.names.renamed, false)
+}
+
+console.log('\nEVERY EMBEDDING THE OBJECT CARRIED IS READ')
+{
+  const b = parseBundle(build({
+    meta: {
+      embeddings: [
+        { key: 'X_UMAP', file: 'embed.f32' },
+        { key: 'X_tSNE', file: 'embed.X_tSNE.f32' },
+      ],
+    },
+    files: { 'embed.X_tSNE.f32': bytes([9, 9, 8, 9, 1, 1, 2, 1], Float32Array) },
+  }))
+  check('the default comes first', b.embeds.map(e => e.key), ['X_UMAP', 'X_tSNE'])
+  check('the second is its own geometry', Array.from(b.embeds[1].xy.slice(0, 4)), [9, 9, 8, 9])
+  check('and it is the same cells, in the same order', b.embeds[1].xy.length, 2 * b.meta.nCells)
+  // Each embedding has its own range, so they must not share a cached extent —
+  // a UMAP drawn inside a t-SNE's extent is a plot of nothing.
+  const { embedExtent } = await import('../src/lib/chart.ts')
+  check('the extent is per embedding, not per object',
+    [embedExtent(b.embeds[0].xy).x1, embedExtent(b.embeds[1].xy).x1], [6.4, 9.4])
+}
+rejects('an embedding meta.json promises but the bundle does not carry',
+  () => build({ meta: { embeddings: [
+    { key: 'X_UMAP', file: 'embed.f32' }, { key: 'X_tSNE', file: 'embed.X_tSNE.f32' }] } }),
+  'does not contain')
+rejects('an embedding of the wrong length',
+  () => build({
+    meta: { embeddings: [
+      { key: 'X_UMAP', file: 'embed.f32' }, { key: 'X_tSNE', file: 'embed.X_tSNE.f32' }] },
+    files: { 'embed.X_tSNE.f32': bytes([1, 2], Float32Array) },
+  }), 'expected 8')
+
+console.log('\nSYMBOLS TRAVEL WITH AN ACCESSION-INDEXED OBJECT')
+{
+  const alias = { kind: 'symbol', column: 'Gene', file: 'gene_alias.txt', missing: 1, duplicated: 0 }
+  const b = parseBundle(build({
+    genes: 'ENSG1\nENSG2\nENSG3',
+    meta: { geneIdKind: 'accession', geneAlias: alias },
+    files: { 'gene_alias.txt': strToU8('Sox2\nGfap\nENSG3') },
+  }))
+  check('the alias is read, one per row', b.alias, ['Sox2', 'Gfap', 'ENSG3'])
+  const src = bundleSource(b)
+  check('the studio speaks in symbols', src.genes, ['Sox2', 'Gfap', 'ENSG3'])
+  check('and still knows the accessions', src.names.other, ['ENSG1', 'ENSG2', 'ENSG3'])
+  // The whole point: values must come back for the name that is on screen.
+  const vec = g => Array.from(src.vector(g)).map(v => +v.toFixed(3))
+  check('a symbol reads the right row', vec('Sox2'), [1.5, 1.2, 0, 0])
+  check('the second row too', vec('Gfap'), [0, 0, 2, 1.8])
+  check('searching the accession finds the symbol', src.names.match('ENSG2'), ['Gfap'])
+  check('markers are reported in symbols',
+    deMarkers(src, 0).rows.filter(r => r.lfc > 0)[0]?.gene, 'Sox2')
+}
+rejects('an alias file with the wrong number of rows',
+  () => build({
+    meta: { geneAlias: { kind: 'symbol', column: 'Gene', file: 'gene_alias.txt', missing: 0, duplicated: 0 } },
+    files: { 'gene_alias.txt': strToU8('Sox2\nGfap') },
+  }), 'has 2 names')
+
 console.log('\nLINE ENDINGS DO NOT SILENTLY BREAK LOOKUPS')
 // R's writeLines emits CRLF and a trailing newline. That once put a carriage
 // return on every gene name, so every search missed and nothing said why.

@@ -93,6 +93,11 @@ export default function App() {
   const [padjMax, setPadjMax] = useState(0.05)
   const [lfcMin, setLfcMin] = useState(thresholdFor('wilcox').lfc)
 
+  // Which 2D embedding every view draws on. ONE choice for the whole studio: a
+  // per-tab setting would let Cells show a UMAP while the feature plot beside it
+  // shows a t-SNE, and the two would be read as one figure.
+  const [embKey, setEmbKey] = useState('')
+
   const [colorBy, setColorBy] = useState<ColorBy>('type')
   const [split, setSplit] = useState(true)
   const [plot, setPlot] = useState<PlotKind>('violin')
@@ -120,6 +125,8 @@ export default function App() {
     setLfcMin(thresholdFor('wilcox').lfc)
     setGroupBy('type')
     setPlot('violin')
+    // The object's own default — what the lab chose when it was converted.
+    setEmbKey(next.embeddings[0]?.key ?? '')
     setGenes(defaultGenes.filter(g => next.genes.includes(g)).slice(0, 4))
     setTab('overview')
     setOpenError(null)
@@ -148,8 +155,10 @@ export default function App() {
           setOpenNote(`${phase} — ${done} of ${total}`))
         : bundleSource(parseBundle(await file.arrayBuffer()))
       // Pick starting genes that exist rather than a fixed list that may not.
+      // Through the object's naming, so these symbols still land on an object
+      // whose matrix is indexed by accessions.
       const wanted = ['CD3D', 'MS4A1', 'LYZ', 'GNLY', 'PPBP', 'Ascl1', 'Gfap']
-      const found = wanted.filter(g => next.genes.includes(g))
+      const found = wanted.flatMap(g => next.names.match(g))
       const start = (found.length ? found : next.genes.slice(0, 4)).slice(0, 4)
       // Load them before the first render, so no view ever draws a gene the
       // object has not handed over yet.
@@ -228,9 +237,21 @@ export default function App() {
   // A blocked tab shows an explanation, not a view, so nothing above it is a
   // parameter of anything.
   const needs = blocked ? NOTHING : needsOf(tab, groupBy)
+
+  // The embedding selector belongs where cells are actually drawn on it, and
+  // nowhere else — over a violin panel or a DEG table it would be a control with
+  // no visible effect. The CHOICE still lives here, so it survives the trip
+  // through those tabs; only the select comes and goes.
+  const drawsCells = !blocked
+    && (tab === 'cells' || tab === 'sets' || (tab === 'expr' && plot === 'feature'))
+  // One entry is not a choice, so an object with a single embedding shows no
+  // control at all rather than a menu that cannot change anything.
+  const showEmb = drawsCells && src.embeddings.length > 1
+  const emb = src.embeddings.find(e => e.key === embKey) ?? src.embeddings[0]
+
   // The gene readout is progress on a request already in flight, so it outlives
   // the controls: keep the bar for it even where no selector belongs.
-  const showBar = needs.ct || needs.contrast || geneBusy
+  const showBar = needs.ct || needs.contrast || geneBusy || showEmb
 
   const chipStyle = chip.cls === 'ok'
     ? { background: 'var(--good-soft)', color: 'var(--good)', borderColor: 'color-mix(in srgb, var(--good) 25%, transparent)' }
@@ -302,9 +323,21 @@ export default function App() {
                 </select>
               </label>
             )}
-            {needs.contrast && d.multi && (
+            {showEmb && (
               <>
                 {needs.ct && <div className="gsep" />}
+                <label className="flex items-center gap-1.5">
+                  <span className="glabel">Embedding</span>
+                  <select className="sel max-w-[200px]" value={emb.key}
+                    onChange={e => setEmbKey(e.target.value)}>
+                    {src.embeddings.map(x => <option key={x.key}>{x.key}</option>)}
+                  </select>
+                </label>
+              </>
+            )}
+            {needs.contrast && d.multi && (
+              <>
+                {(needs.ct || showEmb) && <div className="gsep" />}
                 <label className="flex items-center gap-1.5">
                   <span className="glabel">Control</span>
                   <select className="sel" value={ctrl} onChange={e => setCtrl(e.target.value)}>
@@ -355,7 +388,8 @@ export default function App() {
             <Overview src={src} types={types} palKey={palKey} rampKey={rampKey}
               onPal={setPalKey} onRamp={setRampKey} />
           ) : tab === 'cells' ? (
-            <Cells src={src} types={types} gene={genes[genes.length - 1] ?? ''} colorBy={colorBy}
+            <Cells src={src} types={types} gene={genes[genes.length - 1] ?? ''} emb={emb}
+              colorBy={colorBy}
               split={split} palKey={palKey} rampKey={rampKey}
               onColorBy={setColorBy} onSplit={setSplit} />
           ) : tab === 'composition' ? (
@@ -386,13 +420,13 @@ export default function App() {
             </ContrastFrame>
           ) : tab === 'expr' ? (
             <GeneExpression
-              src={src} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes}
+              src={src} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes} emb={emb}
               plot={plot} groupBy={groupBy} cols={cols} relative={relative} dotScale={dotScale}
               palKey={palKey} rampKey={rampKey}
               onGenes={applyGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
               onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey} />
           ) : tab === 'sets' ? (
-            <GeneSets src={src} types={types} ct={ct} palKey={palKey} rampKey={rampKey}
+            <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
               onPickGene={pickGene} />
           ) : (
             <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}

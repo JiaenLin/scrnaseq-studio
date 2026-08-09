@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, GroupBy, Identity, PlotKind } from '../types.ts'
+import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import {
   clusterCentroids, density, embedExtent, identities, nonZeroPercentile, quantiles,
 } from '../lib/chart.ts'
-import { MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
+import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import { mix, rampColor, rampCss, RAMPS, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Chips, Seg } from './Ui.tsx'
 
@@ -15,6 +16,8 @@ export interface GeneProps {
   ctrl: string
   cs: string
   genes: string[]
+  /** Which of the object's embeddings the feature plot draws on. */
+  emb: Embedding
   plot: PlotKind
   groupBy: GroupBy
   cols: number
@@ -33,12 +36,27 @@ export interface GeneProps {
 
 export default function GeneExpression(p: GeneProps) {
   const GENES = p.src.genes
+  const names = p.src.names
   const [q, setQ] = useState('')
   const [missing, setMissing] = useState<string[]>([])
-  const hits = useMemo(() => rankGenes(q, GENES), [q, GENES])
+  // Ranked over both namings, so "Sox2" and "ENSMUSG00000074637" find the same
+  // row — and the row still comes back under the one name the studio uses.
+  const hits = useMemo(() => rankGenes(q, GENES, 8, names), [q, GENES, names])
+  /**
+   * The row's other name — always the accession, whichever way round the file
+   * stored them: `other` is by construction the naming that is NOT displayed,
+   * and the displayed one is the symbol in both layouts.
+   */
+  const idOf = (g: string): string | null => {
+    if (!names.other) return null
+    // The map is remembered per gene list, so this is a lookup and not a scan of
+    // 31 053 names once per chip.
+    const i = geneIndex(names.display).get(g)
+    return i === undefined ? null : names.other[i] ?? null
+  }
 
   const add = (text: string) => {
-    const { found, missing: miss } = parseGeneList(text, GENES)
+    const { found, missing: miss } = parseGeneList(text, GENES, names)
     if (found.length) p.onGenes(mergeGenes(p.genes, found))
     setMissing(miss)
     setQ('')
@@ -70,7 +88,7 @@ export default function GeneExpression(p: GeneProps) {
         <div className="relative">
           <input
             className="inp mono w-[210px]" value={q} autoComplete="off"
-            placeholder="one gene, or paste a list…"
+            placeholder={names.other ? 'symbol or accession…' : 'one gene, or paste a list…'}
             aria-label="Search a gene or paste a gene list"
             onChange={e => setQ(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit() } }}
@@ -81,7 +99,7 @@ export default function GeneExpression(p: GeneProps) {
           />
           {hits.length > 0 && (
             <div
-              className="absolute left-0 top-full z-40 mt-1 w-[210px] overflow-hidden rounded-[10px]"
+              className="absolute left-0 top-full z-40 mt-1 w-[250px] overflow-hidden rounded-[10px]"
               style={{ background: 'var(--surface)', border: '1px solid var(--line-2)',
                        boxShadow: '0 8px 24px rgba(15,23,42,.14)' }}
             >
@@ -92,7 +110,17 @@ export default function GeneExpression(p: GeneProps) {
                     g.toLowerCase() === q.trim().toLowerCase() ? 'font-bold' : ''}`}
                   style={g.toLowerCase() === q.trim().toLowerCase() ? { color: 'var(--accent-ink)' } : undefined}
                   onClick={() => { p.onGenes(mergeGenes(p.genes, [g])); setMissing([]); setQ('') }}
-                >{g}</button>
+                >
+                  {g}
+                  {/* The accession under the symbol: a symbol is not a stable
+                      identifier, and two rows can carry the same one. Skipped
+                      when the name already carries it, which is exactly the
+                      case of a symbol two rows share. */}
+                  {idOf(g) && !g.includes(idOf(g)!) && (
+                    <span className="block text-[10.5px] font-normal"
+                      style={{ color: 'var(--ink-3)' }}>{idOf(g)}</span>
+                  )}
+                </button>
               ))}
             </div>
           )}
@@ -103,6 +131,17 @@ export default function GeneExpression(p: GeneProps) {
         Paste a list separated by commas, spaces or newlines — case does not matter.
         Up to {MAX_GENES} genes.
       </p>
+      {names.renamed && (
+        <p className="mt-1.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+          This object&rsquo;s matrix is indexed by <b>{names.idKind ?? 'accession'}s</b>; the symbols
+          shown come from <span className="mono">{names.aliasColumn ?? 'the object'}</span> and
+          travel with the file — nothing is looked up. Search either.
+          {names.duplicated > 0 && <> {names.duplicated} rows share a symbol with another row;
+            those carry their accession in the name, because summing them would put two
+            genes under one label.</>}
+          {names.missing > 0 && <> {names.missing} rows have no symbol and keep their accession.</>}
+        </p>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {p.genes.length === 0 && (
@@ -113,6 +152,7 @@ export default function GeneExpression(p: GeneProps) {
             key={g}
             className="inline-flex items-center gap-0.5 rounded-full py-[3px] pl-2.5 pr-[5px] text-xs font-semibold italic"
             style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
+            title={idOf(g) ? `${g} — ${idOf(g)}` : g}
           >
             {g}
             <button
@@ -493,6 +533,9 @@ function FeatureRow({ p, gene, panels, size }: {
     return { vals: v, top: nonZeroPercentile(v, 0.99) }
   }, [gene, p.src])
 
+  const names = p.src.names
+  const accession = names.other?.[geneIndex(names.display).get(gene) ?? -1] ?? null
+
   return (
     <figure>
       <figcaption className="mb-1.5 text-[12.5px] font-semibold italic" style={{ color: 'var(--ink)' }}>
@@ -500,6 +543,12 @@ function FeatureRow({ p, gene, panels, size }: {
         <span className="mono ml-1.5 font-normal not-italic" style={{ color: 'var(--ink-3)' }}>
           0 – {top.toFixed(1)}
         </span>
+        {/* The stable identifier under the label the figure is titled with. */}
+        {accession && (
+          <span className="mono ml-1.5 font-normal not-italic" style={{ color: 'var(--ink-3)' }}>
+            · {accession}
+          </span>
+        )}
       </figcaption>
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${panels.length}, minmax(0, 1fr))` }}>
         {panels.map(pan => (
@@ -526,7 +575,8 @@ function FeatureCanvas({ p, vals, top, cond, size }: {
     const surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()
     ctx.fillStyle = surface
     ctx.fillRect(0, 0, cv.width, cv.height)
-    const { x0, x1, y0, y1 } = embedExtent(p.src.d)
+    const xy = p.emb.xy
+    const { x0, x1, y0, y1 } = embedExtent(xy)
 
     // Typed, and counted before it is filled: a JS array of 292 495 boxed
     // indices per panel was a measurable part of every redraw of a split view.
@@ -542,13 +592,13 @@ function FeatureCanvas({ p, vals, top, cond, size }: {
     const r = idx.length > 12000 ? 1.5 : 2.1
 
     for (const i of idx) {
-      const c = p.src.d.cells[i]
       // Zero takes the ramp's own low colour rather than a neutral grey. With a
       // dark-low ramp like viridis a grey would be *lighter* than the lowest real
       // value, so the scale would run backwards at its own floor.
       ctx.fillStyle = rampColor(Math.min(1, vals[i] / top), p.rampKey)
       ctx.beginPath()
-      ctx.arc(((c.x - x0) / (x1 - x0)) * cv.width, (1 - (c.y - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)
+      ctx.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
+        (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)
       ctx.fill()
     }
 
@@ -558,7 +608,7 @@ function FeatureCanvas({ p, vals, top, cond, size }: {
       ctx.textAlign = 'center'
       ctx.lineWidth = 3.5
       ctx.strokeStyle = 'rgba(255,255,255,.9)'
-      const at = clusterCentroids(p.src.d, p.types.length)
+      const at = clusterCentroids(xy, p.src.d, p.types.length)
       p.types.forEach((t, ti) => {
         const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
         const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height

@@ -7,7 +7,8 @@
 // can quietly diverge from the real one.
 
 import type { CellType, Dataset } from '../types.ts'
-import { bundleDataset, type Bundle } from './bundle.ts'
+import { bundleDataset, type Bundle, type Embedding } from './bundle.ts'
+import { makeGeneNames, type GeneNames } from './genes.ts'
 import type { MatrixPlan } from './part-scan.ts'
 import {
   buildDataset, cellExpr, DATASETS, GENES as DEMO_GENES, hash, makeTypes, meanExpr,
@@ -69,7 +70,25 @@ export interface Source {
    * know which kind of object it is looking at.
    */
   types: CellType[]
+  /**
+   * What every gene is called, in row order.
+   *
+   * The DISPLAY name, which on an accession-indexed object with symbols in it
+   * is the symbol — see genes.ts. Every accessor below is keyed by these, so
+   * there is one vocabulary in the studio and no view has to know which kind of
+   * object it is looking at.
+   */
   genes: string[]
+  /** Both namings of every row, for searching and for showing the accession. */
+  names: GeneNames
+  /**
+   * Every 2D embedding the object carried, the default first. Never empty.
+   *
+   * embeddings[0].xy is the same geometry as `d.cells[i].x/.y`; the others are
+   * the same cells in the same order, so switching is a change of coordinates
+   * and nothing else — no index, no cache and no computed result depends on it.
+   */
+  embeddings: Embedding[]
   /** Dense per-cell values for one gene. Cached; do not mutate. */
   vector(gene: string): Float32Array
   /**
@@ -139,16 +158,18 @@ function memo<T>(limit: number) {
  * grouping, means and violin sampling and slowly disagree with this file.
  */
 export function baseSource(
-  d: Dataset, types: CellType[], genes: string[], meta: SourceMeta,
+  d: Dataset, types: CellType[], names: GeneNames, meta: SourceMeta,
   vector: (gene: string) => Float32Array,
   nonZero: (gene: string, cb: (cell: number, value: number) => void) => void,
   pseudobulk: Bundle['pseudobulk'],
+  embeddings: Embedding[],
 ): Source {
   const vecCache = memo<Float32Array>(64)
   const grpCache = memo<Int32Array>(256)
+  const genes = names.display
 
   const src: Source = {
-    meta, d, types, genes, pseudobulk,
+    meta, d, types, genes, names, embeddings, pseudobulk,
     lazy: false, nParts: 1, remote: null,
     clusters: types.map(t => t.name),
 
@@ -243,7 +264,12 @@ export function demoSource(key: string): Source {
     if (!v) { v = vector(gene); cache.set(gene, v) }
     return v
   }
-  return baseSource(d, types, DEMO_GENES, {
+  // The generator places cells directly, so the embedding has to be read back
+  // out of them — this is the one Source whose coordinates were never a file.
+  const xy = new Float32Array(d.cells.length * 2)
+  d.cells.forEach((c, i) => { xy[2 * i] = c.x; xy[2 * i + 1] = c.y })
+
+  return baseSource(d, types, makeGeneNames(DEMO_GENES, null), {
     label: spec.label,
     source: `${spec.file} — a built-in demo object, not a file you opened`,
     expression: 'log1p(CP10K)',
@@ -259,14 +285,22 @@ export function demoSource(key: string): Source {
       + 'something to draw. Open a bundle to work with real data.',
     ],
     isDemo: true,
-  }, vecOf, nonZero, null)
+  }, vecOf, nonZero, null, [{ key: 'X_umap', xy }])
 }
 
 /* ---------------- a real bundle ---------------- */
 
 export function bundleSource(b: Bundle): Source {
   const d = bundleDataset(b)
-  const index = new Map(b.genes.map((g, i) => [g.toUpperCase(), i]))
+  const names = makeGeneNames(b.genes, b.alias, {
+    idKind: b.meta.geneIdKind,
+    aliasKind: b.meta.geneAlias?.kind,
+    aliasColumn: b.meta.geneAlias?.column,
+    missing: b.meta.geneAlias?.missing,
+  })
+  // Keyed by the DISPLAY name, so a row that is shown as Sox2 is also fetched as
+  // Sox2 and there is no second vocabulary anywhere below this line.
+  const index = new Map(names.display.map((g, i) => [g.toUpperCase(), i]))
   const n = b.meta.nCells
 
   const vector = (gene: string): Float32Array => {
@@ -288,7 +322,7 @@ export function bundleSource(b: Bundle): Source {
     name, key: name, cx: 0, cy: 0, sd: 0, base: 0, resp: 0, mk: [],
   }))
 
-  return baseSource(d, types, b.genes, {
+  return baseSource(d, types, names, {
     label: b.meta.label,
     source: b.meta.source,
     expression: b.meta.expression,
@@ -297,5 +331,7 @@ export function bundleSource(b: Bundle): Source {
     provenance: b.meta.provenance ?? {},
     notes: b.meta.notes ?? [],
     isDemo: false,
-  }, vector, nonZero, b.pseudobulk)
+    // Row-aligned with genes.txt, so it takes the display name too — an exported
+    // pseudobulk matrix must not be the one table still in accessions.
+  }, vector, nonZero, b.pseudobulk && { ...b.pseudobulk, genes: names.display }, b.embeds)
 }

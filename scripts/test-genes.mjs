@@ -1,6 +1,6 @@
 // Gene search regressions (npm test, and in CI before deploy).
 // Runs the real src/lib/genes.ts via Node's built-in TypeScript type-stripping.
-import { mergeGenes, parseGeneList, rankGenes, MAX_GENES } from '../src/lib/genes.ts'
+import { makeGeneNames, mergeGenes, parseGeneList, rankGenes, MAX_GENES } from '../src/lib/genes.ts'
 
 let failed = 0
 const check = (name, got, want) => {
@@ -43,6 +43,62 @@ check('never duplicates', mergeGenes(['Gfap', 'Sox2'], ['Sox2']), ['Gfap', 'Sox2
   check('keeps the most recent', out[out.length - 1], `G${MAX_GENES + 5}`)
 }
 
+
+console.log(String.fromCharCode(10) + 'AN ACCESSION-INDEXED OBJECT IS SHOWN, AND SEARCHED, IN SYMBOLS')
+// The failure this exists for: the developing-mouse atlas is indexed by Ensembl
+// accessions, so every table said ENSMUSG00000074637 where it meant Sox2 and
+// every built-in gene set matched nothing at all on an object that measures all
+// of their genes. The symbols were in the file the whole time.
+{
+  const ids = ['ENSMUSG01', 'ENSMUSG02', 'ENSMUSG03', 'ENSMUSG04']
+  // Row 3 has no symbol, so the exporter repeats the accession; rows 1 and 2
+  // genuinely share one — several accessions per symbol is normal, and there are
+  // 71 such rows on the real atlas.
+  const alias = ['Sox2', 'Sox2', 'Gfap', 'ENSMUSG04']
+  const n = makeGeneNames(ids, alias, { idKind: 'accession', aliasKind: 'symbol', aliasColumn: 'Gene', missing: 1 })
+
+  check('an unshared symbol is shown bare', n.display[2], 'Gfap')
+  check('a shared symbol carries its accession, so both rows stay reachable',
+    [n.display[0], n.display[1]], ['Sox2 (ENSMUSG01)', 'Sox2 (ENSMUSG02)'])
+  check('no name is used twice', new Set(n.display).size, n.display.length)
+  check('a row with no symbol keeps its accession', n.display[3], 'ENSMUSG04')
+  check('and is not written as "X (X)"', n.display[3].includes('('), false)
+  check('the collision is counted', n.duplicated, 2)
+  check('the accession is still there for every row', n.other, ids)
+
+  check('a symbol finds every row that carries it', n.match('Sox2'), ['Sox2 (ENSMUSG01)', 'Sox2 (ENSMUSG02)'])
+  check('an accession finds exactly its own row', n.match('ENSMUSG02'), ['Sox2 (ENSMUSG02)'])
+  check('case does not matter', n.match('gfap'), ['Gfap'])
+  check('an unknown name finds nothing', n.match('Nope'), [])
+
+  check('a pasted list of symbols resolves against accessions',
+    parseGeneList('Gfap, Sox2', n.display, n).found,
+    ['Gfap', 'Sox2 (ENSMUSG01)', 'Sox2 (ENSMUSG02)'])
+  check('a pasted list of accessions resolves too',
+    parseGeneList('ENSMUSG03', n.display, n).found, ['Gfap'])
+  check('typing an accession ranks its row', rankGenes('ENSMUSG03', n.display, 8, n), ['Gfap'])
+  check('typing the symbol ranks it too', rankGenes('Gfap', n.display, 8, n), ['Gfap'])
+
+  // The bug this caught in the browser: a shared symbol's display name only
+  // PREFIX-matches the symbol, so an unrelated longer symbol that starts the
+  // same way sorted above the rows the user asked for.
+  const wide = makeGeneNames(
+    ['E1', 'E2', 'E3', 'E4'], ['Gene2', 'Gene2', 'Gene20', 'Gene21'],
+    { idKind: 'accession', aliasKind: 'symbol' })
+  check('an exact symbol outranks a longer one that shares its prefix',
+    rankGenes('Gene2', wide.display, 8, wide).slice(0, 2), ['Gene2 (E1)', 'Gene2 (E2)'])
+}
+
+console.log(String.fromCharCode(10) + 'AN OBJECT WITH ONE NAMING IS UNTOUCHED')
+{
+  const n = makeGeneNames(GENES, null)
+  check('the display names are the file\'s own', n.display, GENES)
+  check('there is no second naming', n.other, null)
+  check('nothing claims to be renamed', n.renamed, false)
+  check('and the old two-argument search still behaves', rankGenes('Sox2', n.display)[0], 'Sox2')
+  check('as does the old list parse',
+    parseGeneList('sox2, gfap', n.display).found, ['Sox2', 'Gfap'])
+}
 
 console.log(String.fromCharCode(10) + 'EXTENTS DO NOT SPREAD PER-CELL ARRAYS INTO A CALL')
 // Math.min(...xs) passes every element as an argument and V8 refuses past about

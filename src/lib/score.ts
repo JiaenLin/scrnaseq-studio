@@ -112,12 +112,28 @@ async function geneAveragesAsync(
   return avg
 }
 
-/** Which of the requested genes this object measures, in the order asked. */
+/**
+ * Which of the requested genes this object measures, in the order asked.
+ *
+ * Matched through the object's naming, so a set written in symbols resolves
+ * against an object whose matrix is indexed by accessions — which is the whole
+ * reason the built-in sets used to report "none of these genes are measured" on
+ * an Ensembl-indexed atlas that measures every one of them.
+ *
+ * A symbol that names several rows brings back all of them. Nothing was merged
+ * when the bundle was written and nothing is merged here: two accessions under
+ * one symbol are two genes, and the score says so by counting both.
+ */
 export function resolve(src: Source, requested: string[]) {
   const byLower = lowerIndex(src.genes)
   const used: string[] = []
   const missing: string[] = []
   for (const g of requested) {
+    const hits = src.names ? src.names.match(g) : []
+    if (hits.length) {
+      for (const h of hits) if (!used.includes(h)) used.push(h)
+      continue
+    }
     const hit = byLower.get(g.toLowerCase())
     if (!hit) missing.push(g)
     else if (!used.includes(hit)) used.push(hit)

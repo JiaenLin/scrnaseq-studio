@@ -168,8 +168,8 @@ export function axisRange(
  * repeated for every panel of a split view. Nothing about the answer depends on
  * anything but `d`, so computing it more than once was only ever a cost.
  */
-const EXTENT = new WeakMap<Dataset, ReturnType<typeof computeExtent>>()
-const CENTROIDS = new WeakMap<Dataset, Map<number, { x: number; y: number }[]>>()
+const EXTENT = new WeakMap<Float32Array, ReturnType<typeof computeExtent>>()
+const CENTROIDS = new WeakMap<Float32Array, Map<number, { x: number; y: number }[]>>()
 const BY_SAMPLE = new WeakMap<Dataset, number[][]>()
 
 /**
@@ -193,14 +193,14 @@ export function cellsBySample(d: Dataset): number[][] {
   return hit
 }
 
-function computeExtent(d: Dataset) {
+function computeExtent(xy: Float32Array) {
   // Read in one pass rather than materialising two 292k-element arrays first.
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-  for (const c of d.cells) {
-    if (c.x < x0) x0 = c.x
-    if (c.x > x1) x1 = c.x
-    if (c.y < y0) y0 = c.y
-    if (c.y > y1) y1 = c.y
+  for (let i = 0; i < xy.length; i += 2) {
+    if (xy[i] < x0) x0 = xy[i]
+    if (xy[i] > x1) x1 = xy[i]
+    if (xy[i + 1] < y0) y0 = xy[i + 1]
+    if (xy[i + 1] > y1) y1 = xy[i + 1]
   }
   const fin = (v: number) => (Number.isFinite(v) ? v : 0)
   return {
@@ -209,10 +209,16 @@ function computeExtent(d: Dataset) {
   }
 }
 
-/** Shared axis extent for the embedding, so split panels never rescale. */
-export function embedExtent(d: Dataset) {
-  let hit = EXTENT.get(d)
-  if (!hit) { hit = computeExtent(d); EXTENT.set(d, hit) }
+/**
+ * Shared axis extent for one embedding, so split panels never rescale.
+ *
+ * Keyed on the coordinate array rather than the Dataset, because an object can
+ * carry several embeddings of the same cells and each has its own range — a UMAP
+ * drawn inside a t-SNE's extent is a plot of nothing.
+ */
+export function embedExtent(xy: Float32Array) {
+  let hit = EXTENT.get(xy)
+  if (!hit) { hit = computeExtent(xy); EXTENT.set(xy, hit) }
   return hit
 }
 
@@ -224,22 +230,26 @@ export function embedExtent(d: Dataset) {
  * means, because a handful of cells stranded on the far side of a UMAP would
  * otherwise drag the label into empty space.
  */
-export function clusterCentroids(d: Dataset, nTypes: number): { x: number; y: number }[] {
-  let per = CENTROIDS.get(d)
-  if (!per) { per = new Map(); CENTROIDS.set(d, per) }
+export function clusterCentroids(
+  xy: Float32Array, d: Dataset, nTypes: number,
+): { x: number; y: number }[] {
+  let per = CENTROIDS.get(xy)
+  if (!per) { per = new Map(); CENTROIDS.set(xy, per) }
   const hit = per.get(nTypes)
   if (hit) return hit
-  const out = computeCentroids(d, nTypes)
+  const out = computeCentroids(xy, d, nTypes)
   per.set(nTypes, out)
   return out
 }
 
-function computeCentroids(d: Dataset, nTypes: number): { x: number; y: number }[] {
+function computeCentroids(
+  xy: Float32Array, d: Dataset, nTypes: number,
+): { x: number; y: number }[] {
   const xs: number[][] = Array.from({ length: nTypes }, () => [])
   const ys: number[][] = Array.from({ length: nTypes }, () => [])
-  for (const c of d.cells) {
-    if (c.t < nTypes) { xs[c.t].push(c.x); ys[c.t].push(c.y) }
-  }
+  d.cells.forEach((c, i) => {
+    if (c.t < nTypes) { xs[c.t].push(xy[2 * i]); ys[c.t].push(xy[2 * i + 1]) }
+  })
   const mid = (v: number[]) => {
     if (!v.length) return 0
     const s = [...v].sort((a, b) => a - b)

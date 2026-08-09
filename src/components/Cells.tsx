@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { CellType, ColorBy, Dataset } from '../types.ts'
+import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { clusterCentroids, embedExtent, fmt, nonZeroPercentile } from '../lib/chart.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Legend } from './Ui.tsx'
 
-export default function Cells({ src, types, gene, colorBy, split, palKey, rampKey, onColorBy, onSplit }: {
+export default function Cells({ src, types, gene, emb, colorBy, split, palKey, rampKey, onColorBy, onSplit }: {
   src: Source
   types: CellType[]
   gene: string
+  /** Which of the object's embeddings to draw. Chosen once, in App, for every tab. */
+  emb: Embedding
   colorBy: ColorBy
   split: boolean
   palKey: PaletteKey
@@ -42,7 +45,7 @@ export default function Cells({ src, types, gene, colorBy, split, palKey, rampKe
     <Card>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="eyebrow">Embedding · UMAP from your file</div>
+          <div className="eyebrow">Embedding · {emb.key} from your file</div>
           <h2 className="mt-1 text-[14.5px] font-semibold">{fmt(d.nCells)} cells</h2>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -74,7 +77,7 @@ export default function Cells({ src, types, gene, colorBy, split, palKey, rampKe
               </div>
             )}
             <Scatter
-              d={d} types={types} cond={p} values={values} vmax={vmax} colorBy={colorBy}
+              d={d} types={types} xy={emb.xy} cond={p} values={values} vmax={vmax} colorBy={colorBy}
               palKey={palKey} rampKey={rampKey}
               w={size} h={height} labels={panels.length <= 2}
             />
@@ -102,9 +105,10 @@ export default function Cells({ src, types, gene, colorBy, split, palKey, rampKe
   )
 }
 
-function Scatter({ d, types, cond, values, vmax, colorBy, palKey, rampKey, w, h, labels }: {
+function Scatter({ d, types, xy, cond, values, vmax, colorBy, palKey, rampKey, w, h, labels }: {
   d: Dataset
   types: CellType[]
+  xy: Float32Array
   cond: string | null
   values: Float32Array | null
   vmax: number
@@ -128,7 +132,7 @@ function Scatter({ d, types, cond, values, vmax, colorBy, palKey, rampKey, w, h,
 
     g.fillStyle = sunk
     g.fillRect(0, 0, cv.width, cv.height)
-    const { x0, x1, y0, y1 } = embedExtent(d)
+    const { x0, x1, y0, y1 } = embedExtent(xy)
     const r = labels ? (cond ? 1.7 : 1.9) : 1.4
 
     // Expression is drawn low-to-high so a small positive population is not
@@ -146,7 +150,8 @@ function Scatter({ d, types, cond, values, vmax, colorBy, palKey, rampKey, w, h,
         : colorBy === 'mito' ? rampColor(Math.min(1, c.mito / 9), rampKey)
         : rampColor(values ? Math.min(1, values[i] / (vmax || 1)) : 0, rampKey)
       g.beginPath()
-      g.arc(((c.x - x0) / (x1 - x0)) * cv.width, (1 - (c.y - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)
+      g.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
+        (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)
       g.fill()
     }
 
@@ -155,7 +160,7 @@ function Scatter({ d, types, cond, values, vmax, colorBy, palKey, rampKey, w, h,
       g.textAlign = 'center'
       g.strokeStyle = surface
       g.lineWidth = 4
-      const at = clusterCentroids(d, types.length)
+      const at = clusterCentroids(xy, d, types.length)
       types.forEach((t, ti) => {
         const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
         const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height
@@ -164,7 +169,7 @@ function Scatter({ d, types, cond, values, vmax, colorBy, palKey, rampKey, w, h,
         g.fillText(t.name, X, Y)
       })
     }
-  }, [d, types, cond, values, vmax, colorBy, palKey, rampKey, labels])
+  }, [d, types, xy, cond, values, vmax, colorBy, palKey, rampKey, labels])
 
   return (
     <canvas

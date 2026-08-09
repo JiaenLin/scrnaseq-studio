@@ -24,8 +24,9 @@
 // part B's cluster 0 are usually different cell types.
 
 import type { CellType } from '../types.ts'
-import type { Bundle, BundleMeta, Pseudobulk } from './bundle.ts'
+import type { Bundle, BundleMeta, Embedding, Pseudobulk } from './bundle.ts'
 import { bundleDataset, SCHEMA } from './bundle.ts'
+import { makeGeneNames } from './genes.ts'
 import {
   chunkCount, makeChunkCache, readGenes,
   type ChunkCache, type GeneVector, type GetBytes,
@@ -108,8 +109,17 @@ export async function openCollection(
   const pbTexts: (string | null)[] = []
   let genes: string[] | null = null
   let geneBytes: Uint8Array | null = null
+  let alias: string[] | null = null
   let offset = 0
   let nnz = 0
+
+  // The extra embeddings, by key, one entry per part in part order. The keys
+  // come from the FIRST part, because every part is written from one object —
+  // but each part's own meta says where its copy lives, since the entry name is
+  // sanitised and two parts need not agree on it.
+  let extraKeys: string[] = []
+  const extras: Float32Array[][] = []
+  const droppedEmb = new Set<string>()
 
   for (let i = 0; i < cmeta.parts.length; i++) {
     const info = cmeta.parts[i]
@@ -136,6 +146,20 @@ export async function openCollection(
       // Parts are pieces of one object; a different gene list means they are not.
       fail(`part ${info.key} has a different gene list from the first part — `
         + 'these bundles are not pieces of one object and cannot be opened together')
+    }
+
+    // The alias is a property of the gene list, and the gene list is checked
+    // above to be identical in every part — so it is read from the first only,
+    // exactly as genes.txt is.
+    if (i === 0 && meta.geneAlias) {
+      const name = meta.geneAlias.file || 'gene_alias.txt'
+      const lines = dec.decode(await readZipEntry(file, need(dir, name, info.key)))
+        .split('\n').map(g => g.replace(/\r$/, ''))
+      if (lines.length === meta.nGenes + 1 && lines[lines.length - 1] === '') lines.pop()
+      if (lines.length !== meta.nGenes) {
+        fail(`part ${info.key} has ${lines.length} gene aliases but ${meta.nGenes} genes`)
+      }
+      alias = lines.map((a, k) => a || genes![k])
     }
 
     const chunk = need(dir, 'expr.chunk.bin', info.key)
@@ -169,6 +193,22 @@ export async function openCollection(
     }
     if (embed.length !== 2 * n) fail(`part ${info.key} has a malformed embedding`)
     if (qc.length !== 3 * n) fail(`part ${info.key} has a malformed QC table`)
+
+    // Every embedding other than the default. A part that cannot supply one
+    // drops it from the whole menu rather than leaving a hole: half an
+    // embedding would draw that part's cells stacked on the origin, which looks
+    // like a result.
+    const listed = meta.embeddings ?? [{ key: meta.embedding, file: 'embed.f32' }]
+    if (i === 0) extraKeys = listed.slice(1).map(e => e.key)
+    const mine: Float32Array[] = []
+    for (const key of extraKeys) {
+      const ent = listed.find(e => e.key === key)
+      const zip = ent && ent.file !== 'embed.f32' ? dir.get(ent.file) : undefined
+      const xy = zip ? view(Float32Array, await readZipEntry(file, zip)) : null
+      if (!xy || xy.length !== 2 * n) droppedEmb.add(key)
+      mine.push(xy ?? new Float32Array(0))
+    }
+    extras.push(mine)
     if (!meta.clusters?.length) fail(`part ${info.key} has no clusters`)
     if (!meta.samples?.length) fail(`part ${info.key} has no samples`)
     for (let k = 0; k < n; k++) {
@@ -245,6 +285,20 @@ export async function openCollection(
     fail('this object has more than 65 535 clusters or samples across its parts')
   }
 
+  // Concatenated in part order, exactly as embed.f32 is, so cell i means the
+  // same cell in every embedding.
+  const embeddings: Embedding[] = [{ key: parts[0].meta.embedding, xy: embed }]
+  extraKeys.forEach((key, k) => {
+    if (droppedEmb.has(key)) return
+    const xy = new Float32Array(nCells * 2)
+    parts.forEach((p, pi) => xy.set(extras[pi][k], p.offset * 2))
+    embeddings.push({ key, xy })
+  })
+  if (droppedEmb.size) {
+    notes.push(`${[...droppedEmb].join(', ')} could not be assembled across every part, `
+      + 'so only the embeddings every part carries are offered')
+  }
+
   const meta0 = parts[0].meta
   // Merged first, because whether the summed counts survived the merge is what
   // "raw counts: present" on Overview is actually promising.
@@ -277,7 +331,18 @@ export async function openCollection(
   }))
 
   // ---- gene values, read from the file on demand --------------------------
-  const geneIndex = new Map(genes!.map((g, i) => [g.toUpperCase(), i]))
+  // Named exactly as a one-part bundle is: the display name is the only name
+  // anything above this file uses, and the accession stays reachable through
+  // `names` for searching and for showing beside the symbol.
+  const meta1 = parts[0].meta
+  const names = makeGeneNames(genes!, alias, {
+    idKind: meta1.geneIdKind,
+    aliasKind: meta1.geneAlias?.kind,
+    aliasColumn: meta1.geneAlias?.column,
+    missing: meta1.geneAlias?.missing,
+  })
+  const display = names.display
+  const geneIndex = new Map(display.map((g, i) => [g.toUpperCase(), i]))
   const loaded = new Map<string, Sparse>()
   let loadedBytes = 0
 
@@ -311,7 +376,7 @@ export async function openCollection(
     const names: string[] = []
     const idxs: number[] = []
     for (const g of want) {
-      const canonical = genes![geneIndex.get(g.toUpperCase()) ?? -1]
+      const canonical = display[geneIndex.get(g.toUpperCase()) ?? -1]
       if (canonical === undefined || loaded.has(canonical) || names.includes(canonical)) continue
       names.push(canonical)
       idxs.push(geneIndex.get(g.toUpperCase())!)
@@ -338,7 +403,7 @@ export async function openCollection(
   }
 
   const nonZero = (gene: string, cb: (cell: number, value: number) => void) => {
-    const s = loaded.get(genes![geneIndex.get(gene.toUpperCase()) ?? -1] ?? '')
+    const s = loaded.get(display[geneIndex.get(gene.toUpperCase()) ?? -1] ?? '')
     if (!s) return
     for (let k = 0; k < s.cells.length; k++) cb(s.cells[k], s.values[k])
   }
@@ -365,7 +430,7 @@ export async function openCollection(
   const scan: Source['scan'] = (visit, onScanProgress, cancelled) =>
     scanMatrix(file, plan, visit, onScanProgress, cancelled)
 
-  const src = baseSource(d, types, genes!, {
+  const src = baseSource(d, types, names, {
     label: merged.label,
     source: merged.source,
     expression: merged.expression,
@@ -374,7 +439,10 @@ export async function openCollection(
     provenance: merged.provenance,
     notes,
     isDemo: false,
-  }, vector, nonZero, pseudobulk)
+    // The summed counts are indexed by row, so they carry the display name too —
+    // an exported pseudobulk matrix must not be the one table in a different
+    // vocabulary from every figure beside it.
+  }, vector, nonZero, pseudobulk && { ...pseudobulk, genes: display }, embeddings)
 
   return Object.assign(src, {
     lazy: true,
