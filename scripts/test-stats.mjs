@@ -4,7 +4,8 @@
 import { demoSource } from '../src/lib/source.ts'
 import {
   combinedScore, deMarkers, deMarkersAll, deWilcox, designFor, isSig, LFC_GATE,
-  MIN_REPS_PB, minReplicates, normalTail, pbKey, rankSumSparse, sigCount, thresholdFor,
+  markersPlan, MIN_REPS_PB, minReplicates, normalTail, pbKey, rankSumSparse, sigCount,
+  thresholdFor,
 } from '../src/lib/stats.ts'
 
 let failed = 0
@@ -82,6 +83,37 @@ const sparseOf = (a, b) => {
   check('an empty side returns 1', sparseOf([], [1, 2, 3]), 1)
   near('a clean separation is significant',
     sparseOf(Array(40).fill(5), Array(40).fill(0)), 0, 1e-6)
+}
+
+console.log('\nTHE MARKER SORT ORDERS NEGATIVE VALUES')
+// The marker pass sorts on the IEEE754 total-order key rather than by
+// comparator, and the negative half of that transform is the half no real object
+// reaches: log-normalized expression is never below zero, so on the atlas the
+// branch is dead. It is exercised here instead, against the same dense reference
+// the sparse test is held to.
+//
+// Every cell carries a stored value, so there is no implicit zero block and the
+// ranks come from nothing but the sort. The values are exact in float32 — the
+// key is built from the float32 bits, and every Source walks a Float32Array, so
+// this is the precision the sort actually sees.
+{
+  const a = [2.5, -0.75, 3.25, -0.75, 0.5, 4, -2.5, 1.25, 2.5, -0.25]
+  const b = [-1.5, 0.25, -0.75, 1.75, -3.5, 0.5, -0.25, -1.25, 2.5, -0.5]
+  const owner = Int32Array.from([...a.map(() => 0), ...b.map(() => 1)])
+  const all = [...a, ...b]
+  const plan = markersPlan({
+    owner, size: Int32Array.from([a.length, b.length]), nUsed: all.length, nGenes: 1,
+  })
+  plan.visit(0, cb => { all.forEach((v, i) => cb(i, v)) })
+  const [ra, rb] = plan.done()
+  near('cluster A against the rest matches a dense rank-sum',
+    ra.rows[0].p, denseRankSum(a, b), 1e-12)
+  near('cluster B against the rest matches a dense rank-sum',
+    rb.rows[0].p, denseRankSum(b, a), 1e-12)
+  // Ties that straddle zero, and a value on each side of it, are the cases where
+  // a sign-blind key would put the order back to front.
+  check('both sides reported a row', [ra.rows.length, rb.rows.length], [1, 1])
+  check('the two sides are opposite in sign', ra.rows[0].lfc * rb.rows[0].lfc < 0, true)
 }
 
 console.log('\nWILCOXON NEEDS NO REPLICATES')
