@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import { GENE_SETS, SET_SOURCES } from '../lib/genesets.ts'
 import { runORA, type ORAResult } from '../lib/ora.ts'
-import { sci } from '../lib/chart.ts'
+import { maxOf, sci } from '../lib/chart.ts'
 import { combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
@@ -249,10 +249,21 @@ function Bars({ results, palKey, onPick, selected }: {
   const rowH = 26, gap = 5, PT = 8, PR = 60, AX = 44
   // Full set names, never truncated — the bulk studio clipped them and it was
   // the first thing reported. The label column sizes to the longest name.
-  const PL = Math.min(430, Math.max(180, ...results.map(r => r.name.length * 6.2)))
+  //
+  // Both extents go through maxOf rather than a spread, for two reasons that are
+  // easy to confuse. The one everyone names is the argument limit: `Math.max(...xs)`
+  // throws past ~124 900 arguments on this machine, and the only thing standing
+  // between this line and that number is `top`, a Chips constant declared eighty
+  // lines up — a bound that lives nowhere near the code depending on it is a bound
+  // waiting for someone to raise it. The one that would have bitten first is
+  // narrower: a single NaN padj poisons a spread, `Math.max(NaN, 1.5)` is NaN, and
+  // every x below becomes NaN, so the whole figure renders with no bars and no
+  // axis and nothing says why. maxOf skips what it cannot compare and falls back,
+  // so one bad row costs one bar. See chart.ts.
+  const PL = Math.min(430, Math.max(180, maxOf(results.map(r => r.name.length * 6.2))))
   const W = 900
   const H = PT + results.length * (rowH + gap) + AX
-  const maxV = Math.max(...results.map(r => -Math.log10(Math.max(r.padj, 1e-300))), 1.5) * 1.05
+  const maxV = Math.max(1.5, maxOf(results.map(r => -Math.log10(Math.max(r.padj, 1e-300))))) * 1.05
   const X = (v: number) => PL + ((W - PL - PR) * v) / maxV
   const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => maxV * f)
 
