@@ -13,12 +13,15 @@
 // so a round trip changes no digit of any number.
 
 import type { MatrixPlan } from './part-scan.ts'
+import type { AveragesSpec, ScoreSpec } from './score.ts'
 import type { DEResult, MarkersSpec, RawResult, WilcoxSpec } from './stats.ts'
 
 /** A question for the worker. The engine takes ownership of the typed arrays. */
 export type Job =
   | ({ kind: 'markers' } & MarkersSpec)
   | ({ kind: 'wilcox' } & WilcoxSpec)
+  | ({ kind: 'averages' } & AveragesSpec)
+  | ({ kind: 'score' } & ScoreSpec)
 
 /** A DE table, column by column. Parallel arrays, in final ranked order. */
 export interface Table {
@@ -32,15 +35,26 @@ export interface Table {
   n1: number
 }
 
-/** One table per cluster for markers, one table for a contrast. */
+/**
+ * One table per cluster for markers, one table for a contrast.
+ *
+ * The two per-cell jobs need no encoder: their answer already IS one typed
+ * array, so it transfers as it stands.
+ */
 export type JobResult =
   | { kind: 'markers'; tables: Table[] }
   | { kind: 'wilcox'; table: Table }
+  | { kind: 'averages'; avg: Float64Array }
+  | { kind: 'score'; scores: Float32Array }
 
 /** What a view gets back, per job kind. */
 export interface ResultOf {
   markers: DEResult[]
   wilcox: DEResult
+  /** Mean expression per gene, by gene index. */
+  averages: Float64Array
+  /** Module score per cell, in dataset order. */
+  score: Float32Array
 }
 
 export function encodeTable(r: RawResult): Table {

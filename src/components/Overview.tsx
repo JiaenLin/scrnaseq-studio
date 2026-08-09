@@ -1,6 +1,6 @@
 import type { CellType, Dataset } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { axisRange, fmt, quantiles, density, minOf, maxOf } from '../lib/chart.ts'
+import { axisRange, cellsBySample, fmt, quantiles, density, minOf, maxOf } from '../lib/chart.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
 import { pal, PALETTES, RAMPS, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Mono, Stat } from './Ui.tsx'
@@ -178,7 +178,7 @@ function QcPanel({ d, title, get, tick, palKey }: {
   palKey: PaletteKey
 }) {
   const W = 330, H = 190, PL = 46, PB = 30, PT = 16, PR = 8
-  const per = d.samples.map(s => d.cells.filter(c => c.s === s.id).map(get))
+  const per = cellsBySample(d).map(idx => idx.map(i => get(d.cells[i])))
   const all = per.flat()
   // None of these covariates can be negative, so the axis must not imply it can.
   const { y0, y1 } = axisRange(minOf(all), maxOf(all), { fromZero: true })

@@ -96,7 +96,6 @@ export function identities(
     })))
 }
 
-/** Shared axis extent for the embedding, so split panels never rescale. */
 /**
  * Smallest and largest of a list, without spreading it into a call.
  *
@@ -116,6 +115,27 @@ export function maxOf(xs: ArrayLike<number>, fallback = 0): number {
   let m = -Infinity
   for (let i = 0; i < xs.length; i++) if (xs[i] > m) m = xs[i]
   return Number.isFinite(m) ? m : fallback
+}
+
+/**
+ * A colour ceiling one outlier cannot set: the qth percentile of the cells that
+ * express the gene at all.
+ *
+ * Typed from end to end. Written as `Array.from(v).filter(x => x > 0).sort()` it
+ * boxed 292 495 doubles into a JS array and then sorted them with a callback —
+ * on the atlas that was most of the cost of colouring the embedding by a gene,
+ * and it ran during render, so the frame that should have shown the new gene
+ * was the frame that was busy sorting. Same values, same order, same answer.
+ */
+export function nonZeroPercentile(v: Float32Array, q: number): number {
+  let n = 0
+  for (let i = 0; i < v.length; i++) if (v[i] > 0) n++
+  if (!n) return 1
+  const nz = new Float32Array(n)
+  let k = 0
+  for (let i = 0; i < v.length; i++) if (v[i] > 0) nz[k++] = v[i]
+  nz.sort()
+  return nz[Math.floor(n * q)]
 }
 
 
@@ -139,13 +159,61 @@ export function axisRange(
   return { y0, y1: y1 > y0 ? y1 : y0 + 1 }
 }
 
-export function embedExtent(d: Dataset) {
-  const xs = d.cells.map(c => c.x)
-  const ys = d.cells.map(c => c.y)
-  return {
-    x0: minOf(xs) - 0.4, x1: maxOf(xs) + 0.4,
-    y0: minOf(ys) - 0.4, y1: maxOf(ys) + 0.4,
+/**
+ * Remembered per Dataset, because a Dataset never changes and these do not
+ * either.
+ *
+ * Both of the functions below walk every cell, and both are called from inside
+ * a canvas effect — so on an atlas they were a 292 495-cell pass per redraw,
+ * repeated for every panel of a split view. Nothing about the answer depends on
+ * anything but `d`, so computing it more than once was only ever a cost.
+ */
+const EXTENT = new WeakMap<Dataset, ReturnType<typeof computeExtent>>()
+const CENTROIDS = new WeakMap<Dataset, Map<number, { x: number; y: number }[]>>()
+const BY_SAMPLE = new WeakMap<Dataset, number[][]>()
+
+/**
+ * The cells of each sample, in one pass, remembered.
+ *
+ * The QC card draws three panels and each was filtering every cell once per
+ * sample — samples × cells × 3. The buckets do not depend on which covariate is
+ * being drawn, so they are found once and the panels differ only in what they
+ * read out of them.
+ */
+export function cellsBySample(d: Dataset): number[][] {
+  let hit = BY_SAMPLE.get(d)
+  if (hit) return hit
+  const slot = new Map(d.samples.map((s, i) => [s.id, i]))
+  hit = d.samples.map<number[]>(() => [])
+  for (let i = 0; i < d.cells.length; i++) {
+    const k = slot.get(d.cells[i].s)
+    if (k !== undefined) hit[k].push(i)
   }
+  BY_SAMPLE.set(d, hit)
+  return hit
+}
+
+function computeExtent(d: Dataset) {
+  // Read in one pass rather than materialising two 292k-element arrays first.
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
+  for (const c of d.cells) {
+    if (c.x < x0) x0 = c.x
+    if (c.x > x1) x1 = c.x
+    if (c.y < y0) y0 = c.y
+    if (c.y > y1) y1 = c.y
+  }
+  const fin = (v: number) => (Number.isFinite(v) ? v : 0)
+  return {
+    x0: fin(x0) - 0.4, x1: fin(x1) + 0.4,
+    y0: fin(y0) - 0.4, y1: fin(y1) + 0.4,
+  }
+}
+
+/** Shared axis extent for the embedding, so split panels never rescale. */
+export function embedExtent(d: Dataset) {
+  let hit = EXTENT.get(d)
+  if (!hit) { hit = computeExtent(d); EXTENT.set(d, hit) }
+  return hit
 }
 
 /**
@@ -157,6 +225,16 @@ export function embedExtent(d: Dataset) {
  * otherwise drag the label into empty space.
  */
 export function clusterCentroids(d: Dataset, nTypes: number): { x: number; y: number }[] {
+  let per = CENTROIDS.get(d)
+  if (!per) { per = new Map(); CENTROIDS.set(d, per) }
+  const hit = per.get(nTypes)
+  if (hit) return hit
+  const out = computeCentroids(d, nTypes)
+  per.set(nTypes, out)
+  return out
+}
+
+function computeCentroids(d: Dataset, nTypes: number): { x: number; y: number }[] {
   const xs: number[][] = Array.from({ length: nTypes }, () => [])
   const ys: number[][] = Array.from({ length: nTypes }, () => [])
   for (const c of d.cells) {

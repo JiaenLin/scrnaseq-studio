@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, GroupBy, Identity, PlotKind } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { clusterCentroids, density, embedExtent, identities, quantiles } from '../lib/chart.ts'
+import {
+  clusterCentroids, density, embedExtent, identities, nonZeroPercentile, quantiles,
+} from '../lib/chart.ts'
 import { MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import { mix, rampColor, rampCss, RAMPS, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Chips, Seg } from './Ui.tsx'
@@ -486,10 +488,9 @@ function FeatureRow({ p, gene, panels, size }: {
   // The whole-dataset values are needed for the shared clip, so compute once here.
   const { vals, top } = useMemo(() => {
     const v = p.src.vector(gene)
-    const nz = Array.from(v).filter(x => x > 0).sort((a, b) => a - b)
     // Clipped at the gene's own 99th percentile, so one runaway cell cannot
     // flatten every other panel to the floor colour.
-    return { vals: v, top: nz.length ? nz[Math.floor(nz.length * 0.99)] : 1 }
+    return { vals: v, top: nonZeroPercentile(v, 0.99) }
   }, [gene, p.src])
 
   return (
@@ -527,8 +528,14 @@ function FeatureCanvas({ p, vals, top, cond, size }: {
     ctx.fillRect(0, 0, cv.width, cv.height)
     const { x0, x1, y0, y1 } = embedExtent(p.src.d)
 
-    const idx: number[] = []
-    p.src.d.cells.forEach((c, i) => { if (!cond || c.cond === cond) idx.push(i) })
+    // Typed, and counted before it is filled: a JS array of 292 495 boxed
+    // indices per panel was a measurable part of every redraw of a split view.
+    const cells = p.src.d.cells
+    let n = 0
+    for (let i = 0; i < cells.length; i++) if (!cond || cells[i].cond === cond) n++
+    const idx = new Int32Array(n)
+    let k = 0
+    for (let i = 0; i < cells.length; i++) if (!cond || cells[i].cond === cond) idx[k++] = i
     // Seurat's `order = TRUE`: positive cells land on top instead of being buried
     // under the negative majority, which can otherwise erase a real signal.
     idx.sort((a, b) => vals[a] - vals[b])

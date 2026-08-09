@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { CellType, ColorBy, Dataset } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { clusterCentroids, embedExtent, fmt } from '../lib/chart.ts'
+import { clusterCentroids, embedExtent, fmt, nonZeroPercentile } from '../lib/chart.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Legend } from './Ui.tsx'
 
@@ -18,7 +18,10 @@ export default function Cells({ src, types, gene, colorBy, split, palKey, rampKe
 }) {
   const d = src.d
   const values = colorBy === 'gene' && gene ? src.vector(gene) : null
-  const vmax = values ? percentile(values, 0.99) : 1
+  // Held across renders: the ceiling depends only on the gene, but this sits in
+  // the render body, so without a memo every palette or split toggle re-sorted
+  // every expressing cell before anything could paint.
+  const vmax = useMemo(() => (values ? nonZeroPercentile(values, 0.99) : 1), [values])
   const panels = split && d.multi ? d.conds : [null]
   const wide = panels.length === 1
   const size = wide ? 700 : Math.max(240, 840 / panels.length)
@@ -130,9 +133,9 @@ function Scatter({ d, types, cond, values, vmax, colorBy, palKey, rampKey, w, h,
 
     // Expression is drawn low-to-high so a small positive population is not
     // buried under the negative majority — the same rule as the feature plot.
-    const order = values
-      ? Array.from(d.cells.keys()).sort((a, b) => values[a] - values[b])
-      : Array.from(d.cells.keys())
+    const order = new Int32Array(d.cells.length)
+    for (let i = 0; i < order.length; i++) order[i] = i
+    if (values) order.sort((a, b) => values[a] - values[b])
     for (const i of order) {
       const c = d.cells[i]
       if (cond && c.cond !== cond) continue
@@ -171,8 +174,3 @@ function Scatter({ d, types, cond, values, vmax, colorBy, palKey, rampKey, w, h,
   )
 }
 
-/** Upper percentile of a vector, for a colour ceiling one outlier cannot set. */
-function percentile(v: Float32Array, q: number): number {
-  const nz = Array.from(v).filter(x => x > 0).sort((a, b) => a - b)
-  return nz.length ? nz[Math.floor(nz.length * q)] : 1
-}

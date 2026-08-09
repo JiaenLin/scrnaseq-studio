@@ -24,6 +24,7 @@ import {
   type FromWorker, type Job, type JobResult, type ToWorker,
 } from './jobs.ts'
 import { scanMatrix, type MatrixPlan } from './part-scan.ts'
+import { averagesPlan, scoreAccumPlan } from './score.ts'
 import { markersPlan, wilcoxPlan } from './stats.ts'
 
 const post = (m: FromWorker, transfer: Transferable[] = []) =>
@@ -103,14 +104,41 @@ function reporter(id: number, phase: string) {
   }
 }
 
+/**
+ * What the bar should say while this job runs.
+ *
+ * A module score reads the object twice and the two passes are not the same
+ * work, so they are named separately rather than both called "testing every
+ * gene" — a bar that returns to zero without explaining itself reads as a
+ * restart, which is exactly the kind of dishonesty the progress card exists to
+ * avoid.
+ */
+const PHASE: Record<Job['kind'], string> = {
+  markers: 'testing every gene',
+  wilcox: 'testing every gene',
+  averages: 'expression bins',
+  score: 'module score',
+}
+
 async function run(id: number, job: Job): Promise<void> {
   if (!file || !plan) throw new Error('the compute worker was asked to run before it was given a file')
   const gone = () => dropped.has(id)
-  const report = reporter(id, 'testing every gene')
-  post({ id, event: 'progress', phase: 'testing every gene', done: 0, total: plan.nGenes })
+  const phase = PHASE[job.kind]
+  const report = reporter(id, phase)
+  post({ id, event: 'progress', phase, done: 0, total: plan.nGenes })
 
   let result: JobResult
-  if (job.kind === 'markers') {
+  if (job.kind === 'averages') {
+    const p = averagesPlan(job)
+    await scanMatrix(file, plan, p.visit, report, gone)
+    if (gone()) return
+    result = { kind: 'averages', avg: p.done() }
+  } else if (job.kind === 'score') {
+    const p = scoreAccumPlan(job)
+    await scanMatrix(file, plan, p.visit, report, gone)
+    if (gone()) return
+    result = { kind: 'score', scores: p.done() }
+  } else if (job.kind === 'markers') {
     const p = markersPlan(job)
     if (p.empty) {
       result = { kind: 'markers', tables: [] }
@@ -138,6 +166,15 @@ async function run(id: number, job: Job): Promise<void> {
   // this is the last instant at which the page's answer is still the one it
   // asked for.
   if (gone()) return
-  const tables = result.kind === 'markers' ? result.tables : [result.table]
-  post({ id, event: 'done', result }, tables.flatMap(tableBuffers) as Transferable[])
+  post({ id, event: 'done', result }, resultBuffers(result))
+}
+
+/** Every buffer in a result, so the answer moves rather than copies. */
+function resultBuffers(r: JobResult): Transferable[] {
+  switch (r.kind) {
+    case 'markers': return r.tables.flatMap(tableBuffers) as Transferable[]
+    case 'wilcox': return tableBuffers(r.table) as Transferable[]
+    case 'averages': return [r.avg.buffer as Transferable]
+    case 'score': return [r.scores.buffer as Transferable]
+  }
 }

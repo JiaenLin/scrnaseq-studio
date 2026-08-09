@@ -1,7 +1,9 @@
 // Enrichment and module-score regressions.
 import { bh, hyperTail, runORA } from '../src/lib/ora.ts'
 import { GENE_SETS, SET_SOURCES } from '../src/lib/genesets.ts'
-import { moduleScore, summarise } from '../src/lib/score.ts'
+import {
+  geneAveragesSync, moduleScore, resolve, SCORE_DEFAULTS, scoreAccumPlan, scorePlan, summarise,
+} from '../src/lib/score.ts'
 import { GENES } from '../src/lib/demo.ts'
 import { demoSource } from '../src/lib/source.ts'
 import { deWilcox, thresholdFor, isSig } from '../src/lib/stats.ts'
@@ -132,6 +134,40 @@ console.log('\nMODULE SCORE')
     moduleScore(src, ['Nope1', 'Nope2']).missing, ['Nope1', 'Nope2'])
   check('scoring is deterministic',
     moduleScore(src, set.genes).scores[0], sc.scores[0])
+
+  // Pinned numbers, not properties.
+  //
+  // The score was split into two passes so a collection can run it in a worker,
+  // and every part of that split — averages held by index instead of by name,
+  // the control draw by index, the order the accumulation walks — is somewhere a
+  // value could move in its last bits with every property above still holding.
+  // These are the values the studio produced before any of it, to nine figures.
+  check('the first five cells score exactly what they always have',
+    Array.from(sc.scores.slice(0, 5)).map(v => v.toPrecision(9)),
+    ['-0.552917600', '-0.780632317', '-0.548532963', '-0.980110765', '-0.581761241'])
+  check('and the whole object still sums to the same number',
+    sc.scores.reduce((a, b) => a + b, 0).toPrecision(12), '828.353288167')
+  check('the same control genes are drawn, in the same order',
+    sc.control.slice(0, 5), ['Mcm5', 'Sp8', 'Cenpf', 'Slc1a3', 'Gfap'])
+
+  // The worker runs `scorePlan` then `scoreAccumPlan` over a scan and never
+  // calls moduleScore at all. This is that path, on an object small enough to
+  // hold in one piece, so the two can be compared without a file.
+  const avg = geneAveragesSync(src)
+  const { used } = resolve(src, set.genes)
+  const p = scorePlan(src, used, avg, SCORE_DEFAULTS)
+  // The engine transfers the buffer, so a job carries a copy — as the view sends.
+  const acc = scoreAccumPlan({
+    weight: p.weight.slice(), nCells: src.d.nCells, nGenes: src.genes.length,
+  })
+  src.scanSync(acc.visit)
+  const streamed = acc.done()
+  check('the plan the worker is given names the same control genes',
+    Array.from(p.control, i => src.genes[i]), sc.control)
+  // Gene order, not set-then-controls order, so the two sums round differently
+  // in their last bits — as they did before this change. Nothing else may move.
+  check('and it scores every cell to within a float32 rounding of the inline path',
+    Array.from(streamed).every((v, i) => Math.abs(v - sc.scores[i]) < 1e-5), true)
 }
 
 console.log('\nSUMMARIES')

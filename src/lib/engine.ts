@@ -19,7 +19,7 @@
 // question would be paid for on every tab switch.
 
 import type { Source } from './source.ts'
-import type { FromWorker, Job, ResultOf, ToWorker } from './jobs.ts'
+import type { FromWorker, Job, JobResult, ResultOf, ToWorker } from './jobs.ts'
 import { decodeTable } from './jobs.ts'
 
 /** A running job: its answer, and the ability to withdraw the question. */
@@ -99,10 +99,7 @@ class Engine {
         onProgress,
         settle: (d) => {
           if (d.event === 'error') { reject(new Error(d.message)); return }
-          const r = d.result
-          resolve((r.kind === 'markers'
-            ? r.tables.map(t => decodeTable(genes, t))
-            : decodeTable(genes, r.table)) as ResultOf[K])
+          resolve(deliver(genes, d.result) as ResultOf[K])
         },
       })
       cancel = () => {
@@ -125,11 +122,30 @@ class Engine {
   }
 }
 
+/**
+ * The one place a raw result becomes what a view renders.
+ *
+ * The DE kinds get their gene names attached here, on the page, because that is
+ * the only side that has them. The per-cell kinds are already in their final
+ * form — a value per gene or a value per cell — and are passed straight through.
+ */
+function deliver(genes: readonly string[], r: JobResult): ResultOf[Job['kind']] {
+  switch (r.kind) {
+    case 'markers': return r.tables.map(t => decodeTable(genes, t))
+    case 'wilcox': return decodeTable(genes, r.table)
+    case 'averages': return r.avg
+    case 'score': return r.scores
+  }
+}
+
 /** The job's arrays move rather than copy; the caller must not reuse them. */
 function jobBuffers(job: Job): Transferable[] {
-  return job.kind === 'markers'
-    ? [job.owner.buffer as Transferable, job.size.buffer as Transferable]
-    : [job.lab.buffer as Transferable]
+  switch (job.kind) {
+    case 'markers': return [job.owner.buffer as Transferable, job.size.buffer as Transferable]
+    case 'wilcox': return [job.lab.buffer as Transferable]
+    case 'averages': return []
+    case 'score': return [job.weight.buffer as Transferable]
+  }
 }
 
 /**

@@ -29,6 +29,31 @@ export function rankGenes(query: string, genes: string[], limit = 8): string[] {
     .map(([g]) => g)
 }
 
+/**
+ * The gene list keyed by its own lower-cased names, remembered per list.
+ *
+ * Every case-insensitive lookup in the studio wants this map, and rebuilding it
+ * is 31 053 `toLowerCase` calls and a 31 053-entry Map. The gene-set box does
+ * that on every keystroke; before this it did it three times per keystroke. The
+ * list belongs to a Source and never changes, so neither does the map.
+ */
+const LOWER = new WeakMap<readonly string[], Map<string, string>>()
+
+export function lowerIndex(genes: readonly string[]): Map<string, string> {
+  let hit = LOWER.get(genes)
+  if (!hit) { hit = new Map(genes.map(g => [g.toLowerCase(), g])); LOWER.set(genes, hit) }
+  return hit
+}
+
+/** The same list keyed by its exact names, for turning a name into an index. */
+const INDEX = new WeakMap<readonly string[], Map<string, number>>()
+
+export function geneIndex(genes: readonly string[]): Map<string, number> {
+  let hit = INDEX.get(genes)
+  if (!hit) { hit = new Map(genes.map((g, i) => [g, i])); INDEX.set(genes, hit) }
+  return hit
+}
+
 export interface ParsedList {
   /** Resolved to the object's own capitalisation, in the order given, deduplicated. */
   found: string[]
@@ -44,7 +69,7 @@ export interface ParsedList {
  * search is the worst possible answer to `ASCL1` in a mouse object.
  */
 export function parseGeneList(text: string, genes: string[]): ParsedList {
-  const byLower = new Map(genes.map(g => [g.toLowerCase(), g]))
+  const byLower = lowerIndex(genes)
   const found: string[] = []
   const missing: string[] = []
   for (const raw of text.split(SEPS)) {

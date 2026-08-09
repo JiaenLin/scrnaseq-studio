@@ -29,3 +29,6 @@ dist-ssr
 *.h5Seurat
 *.loom
 *.zip
+
+# Written by scripts/score-baseline.mjs while a proof runs, then deleted.
+scripts/.score-baseline.generated.ts

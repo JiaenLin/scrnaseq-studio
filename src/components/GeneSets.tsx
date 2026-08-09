@@ -4,13 +4,24 @@ import type { Source } from '../lib/source.ts'
 import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf } from '../lib/chart.ts'
 import { GENE_SETS } from '../lib/genesets.ts'
 import { parseGeneList } from '../lib/genes.ts'
-import { moduleScore, moduleScoreAsync, SCORE_DEFAULTS, summarise, type ModuleScore } from '../lib/score.ts'
+import {
+  averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
+} from '../lib/score.ts'
 import { rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { Card, Mono, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
-import { useCompute } from '../lib/compute.ts'
+import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
+
+/**
+ * The card between deciding to compute and the first word back from the worker.
+ *
+ * A zero total is what Progress draws as "starting", so this needs no start
+ * time — there is nothing yet to estimate from, and a guess would be the one
+ * kind of progress this studio does not show.
+ */
+const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
 export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }: {
   src: Source
@@ -28,29 +39,66 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
 
   const requested = useMemo(() => {
-    if (useCustom) return parseGeneList(custom, GENES).found.concat(parseGeneList(custom, GENES).missing)
-    return GENE_SETS.find(s => s.id === setId)?.genes ?? []
+    if (!useCustom) return GENE_SETS.find(s => s.id === setId)?.genes ?? []
+    // Parsed once. It was parsed twice — the whole gene list, per keystroke.
+    const { found, missing } = parseGeneList(custom, GENES)
+    return found.concat(missing)
   }, [useCustom, custom, setId, GENES])
 
-  // Every cell × every set gene — recompute only when the set or object changes.
-  // On a collection this reads the file, so the request is keyed on the genes
-  // themselves and the answer is kept: switching back to a set already scored
-  // costs nothing.
-  const { value: computed, pass } = useCompute<ModuleScore>(
-    src, `score|${requested.join(',')}`, requested.length > 0,
-    () => moduleScore(src, requested),
-    (report, cancelled) => moduleScoreAsync(src, requested, SCORE_DEFAULTS, report, cancelled),
+  const { used, missing } = useMemo(() => resolve(src, requested), [src, requested])
+
+  // A module score reads the object twice, and the two reads are different
+  // questions: the expression bins belong to the OBJECT and are asked once ever,
+  // the accumulation belongs to the SET. Splitting them is what makes the second
+  // signature on an atlas cost one pass instead of two — the bins are already
+  // remembered under a key that does not change.
+  const { value: avg, pass: binPass } = useJob<'averages'>(
+    src, 'gene averages', used.length > 0,
+    () => geneAveragesSync(src) ?? new Float64Array(src.genes.length),
+    () => ({ kind: 'averages', ...averagesSpec(src) }),
   )
-  const empty = useMemo(
-    () => ({ scores: new Float32Array(d.cells.length), used: [], missing: [], control: [] }),
-    [d.cells.length])
-  const score = computed ?? empty
+
+  // Which control genes, and what each gene contributes. Decided here, on the
+  // page, for both paths: it is cheap (a sort of the gene list) next to a pass
+  // over the matrix, and deciding it once is what stops the two paths drawing a
+  // different control set and reporting different scores.
+  const plan = useMemo(
+    () => (avg && used.length ? scorePlan(src, used, avg, SCORE_DEFAULTS) : null),
+    [src, used, avg])
+
+  // Every cell × every weighted gene. Keyed on the genes themselves, so
+  // switching back to a set already scored costs nothing, and switching away
+  // mid-pass abandons it rather than letting it land on top of the new answer.
+  const { value: scores, pass: scorePass } = useJob<'score'>(
+    src, `score|${used.join(',')}`, plan !== null,
+    () => scoreInline(src, plan!),
+    // The engine takes the buffer, so it gets a copy — the plan outlives the job.
+    () => ({
+      kind: 'score', weight: plan!.weight.slice(),
+      nCells: d.cells.length, nGenes: src.genes.length,
+    }),
+  )
+  const pass = binPass ?? scorePass
+  const empty = useMemo(() => new Float32Array(d.cells.length), [d.cells.length])
+  const scoreOf = scores ?? empty
+
+  // An object read off disk has no answer in its first frame, and drawing the
+  // figures from an all-zero array for that frame would show a flat embedding
+  // that is not a result. So the card waits from the moment it knows it must,
+  // which is before the pass has reported anything.
+  const waiting = src.remote !== null && used.length > 0 && scores === null
 
   const name = useCustom
-    ? `Custom set (${score.used.length} gene${score.used.length === 1 ? '' : 's'})`
+    ? `Custom set (${used.length} gene${used.length === 1 ? '' : 's'})`
     : GENE_SETS.find(s => s.id === setId)?.name ?? ''
 
-  const ids = identities(d, types, groupBy, ct, palKey)
+  const ids = useMemo(
+    () => identities(d, types, groupBy, ct, palKey), [d, types, groupBy, ct, palKey])
+  const perId = useCellsByIdentity(d, ids, types.length, groupBy)
+  // Not while the pass is running: the table it feeds is not on screen, and
+  // summarising 292 495 zeroes to draw nothing is work the user waits through.
+  const stats = useMemo(
+    () => (waiting ? [] : perId.map(idx => summarise(scoreOf, idx))), [waiting, perId, scoreOf])
   const modes: { k: GroupBy; label: string }[] = [
     { k: 'type', label: 'Across cell types' },
     ...(d.multi
@@ -95,21 +143,21 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
         </div>
 
         <p className="mt-2.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-          {pass ? `${requested.length} genes requested` : `${score.used.length} of ${requested.length} genes found in this object`}
-          {!pass && score.missing.length > 0 && (
+          {`${used.length} of ${requested.length} genes found in this object`}
+          {missing.length > 0 && (
             <> · <span style={{ color: 'var(--warn)' }}>not measured:{' '}
-              <span className="mono">{score.missing.slice(0, 8).join(', ')}
-                {score.missing.length > 8 ? ` +${score.missing.length - 8}` : ''}</span></span></>
+              <span className="mono">{missing.slice(0, 8).join(', ')}
+                {missing.length > 8 ? ` +${missing.length - 8}` : ''}</span></span></>
           )}
           {' '}· {SCORE_DEFAULTS.ctrl} control genes per set gene, drawn from{' '}
           {SCORE_DEFAULTS.nbin} expression bins
         </p>
 
-        {pass ? (
-          <Progress pass={pass} title={useCustom
+        {waiting ? (
+          <Progress pass={pass ?? STARTING} title={useCustom
             ? `Scoring ${requested.length} gene${requested.length === 1 ? '' : 's'} across every cell`
             : `Scoring ${name} across every cell`} />
-        ) : score.used.length === 0 ? (
+        ) : used.length === 0 ? (
           <div className="empty mt-4">
             {useCustom && !custom.trim()
               ? 'Paste a gene list to score.'
@@ -123,7 +171,7 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
                   {name} on the embedding
                 </figcaption>
                 <Figure name={`module_score_${slug(name)}`}>
-                  <ScoreMap d={d} types={types} scores={score.scores} rampKey={rampKey} />
+                  <ScoreMap d={d} types={types} scores={scoreOf} rampKey={rampKey} />
                 </Figure>
                 <div className="legend mt-2">
                   <span style={{ color: 'var(--ink-3)' }}>low</span>
@@ -139,12 +187,8 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
                   <table className="t">
                     <thead><tr><th>Identity</th><th>Cells</th><th>Median</th><th>Mean</th></tr></thead>
                     <tbody>
-                      {ids.map(id => {
-                        const idx: number[] = []
-                        d.cells.forEach((c, i) => {
-                          if (c.t === id.ti && (groupBy === 'type' || c.cond === id.cond)) idx.push(i)
-                        })
-                        const s = summarise(score.scores, idx)
+                      {ids.map((id, k) => {
+                        const s = stats[k]
                         return (
                           <tr key={id.full}>
                             <td>
@@ -169,12 +213,8 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
                   <CsvButton onClick={() => downloadCsv(
                     `module_score_${slug(name)}`,
                     ['identity', 'cells', 'median', 'mean', 'q1', 'q3'],
-                    ids.map(id => {
-                      const idx: number[] = []
-                      d.cells.forEach((c, i) => {
-                        if (c.t === id.ti && (groupBy === 'type' || c.cond === id.cond)) idx.push(i)
-                      })
-                      const st = summarise(score.scores, idx)
+                    ids.map((id, k) => {
+                      const st = stats[k]
                       return [id.full, st.n, st.med.toFixed(4), st.mean.toFixed(4),
                         st.q1.toFixed(4), st.q3.toFixed(4)]
                     }))} />
@@ -185,7 +225,7 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
             <div className="mt-4">
               <div className="eyebrow mb-2">Genes in this set</div>
               <div className="flex flex-wrap gap-1.5">
-                {score.used.map(g => (
+                {used.map(g => (
                   <button key={g} className="chip italic"
                     title={`Open ${g} in Gene expression`}
                     onClick={() => onPickGene(g)}>{g}</button>
@@ -202,7 +242,7 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
               <Seg<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
             </div>
             <Figure name={`module_score_by_identity_${slug(name)}`} className="mt-1">
-              <ScoreViolins d={d} scores={score.scores} ids={ids} groupBy={groupBy} />
+              <ScoreViolins scores={scoreOf} ids={ids} perId={perId} groupBy={groupBy} />
             </Figure>
             <p className="sub mt-2.5">
               A score near zero means the set is no higher than genes of comparable abundance in
@@ -214,6 +254,43 @@ export default function GeneSets({ src, types, ct, palKey, rampKey, onPickGene }
       </Card>
     </>
   )
+}
+
+/**
+ * Which cells belong to each row of the identity axis, in ONE pass.
+ *
+ * The obvious way to write this is a filter of every cell per identity, and it
+ * was written that way. On the atlas that is 133 identities × 292 495 cells =
+ * 38.9 million property reads, twice per render, on the main thread — the
+ * figures took seconds to appear after a score that had cost nothing extra to
+ * compute. One pass with a lookup gives the same lists, in the same order, for
+ * 292 495 reads.
+ */
+function useCellsByIdentity(
+  d: Dataset, ids: ReturnType<typeof identities>, nTypes: number, groupBy: GroupBy,
+): number[][] {
+  return useMemo(() => {
+    const nC = d.conds.length
+    const condAt = new Map(d.conds.map((c, i) => [c, i]))
+    // Across cell types the group is ignored, so the key is the cluster alone;
+    // otherwise it is the (cluster, group) pair flattened into one number.
+    const width = groupBy === 'type' ? 1 : nC
+    const slot = new Int32Array(nTypes * width).fill(-1)
+    ids.forEach((id, k) => {
+      const s = id.ti * width + (groupBy === 'type' ? 0 : condAt.get(id.cond) ?? -1)
+      if (id.ti >= 0 && id.ti < nTypes && s >= 0 && s < slot.length) slot[s] = k
+    })
+    const out: number[][] = ids.map(() => [])
+    for (let i = 0; i < d.cells.length; i++) {
+      const c = d.cells[i]
+      if (c.t < 0 || c.t >= nTypes) continue
+      const ci = groupBy === 'type' ? 0 : condAt.get(c.cond) ?? -1
+      if (ci < 0) continue
+      const k = slot[c.t * width + ci]
+      if (k >= 0) out[k].push(i)
+    }
+    return out
+  }, [d, ids, nTypes, groupBy])
 }
 
 function ScoreMap({ d, types, scores, rampKey }: {
@@ -231,15 +308,18 @@ function ScoreMap({ d, types, scores, rampKey }: {
     g.fillRect(0, 0, cv.width, cv.height)
     const { x0, x1, y0, y1 } = embedExtent(d)
 
-    const sorted = Array.from(scores).sort((a, b) => a - b)
+    // Typed throughout. `Array.from(scores)` boxed 292 495 doubles into a JS
+    // array before sorting them, and the copy cost more than the sort.
+    const sorted = scores.slice().sort()
     const lo = sorted[Math.floor(sorted.length * 0.01)]
     const hi = sorted[Math.floor(sorted.length * 0.99)]
     const span = hi - lo || 1
 
     // Same ordering rule as the feature plot: high cells last, so a small
     // positive population is not buried under the negative majority.
-    const idx = Array.from({ length: d.nCells }, (_, i) => i)
-      .sort((a, b) => scores[a] - scores[b])
+    const idx = new Int32Array(d.nCells)
+    for (let i = 0; i < idx.length; i++) idx[i] = i
+    idx.sort((a, b) => scores[a] - scores[b])
     for (const i of idx) {
       const c = d.cells[i]
       g.fillStyle = rampColor((scores[i] - lo) / span, rampKey)
@@ -267,20 +347,17 @@ function ScoreMap({ d, types, scores, rampKey }: {
   )
 }
 
-function ScoreViolins({ d, scores, ids, groupBy }: {
-  d: Dataset
+function ScoreViolins({ scores, ids, perId, groupBy }: {
   scores: Float32Array
   ids: ReturnType<typeof identities>
+  perId: number[][]
   groupBy: GroupBy
 }) {
   const per = ids.length
   const W = 860, H = 280, PL = 46, PT = 14, PR = 10
   const PB = groupBy === 'both' ? 88 : 68
-  const values = ids.map(id => {
-    const out: number[] = []
-    d.cells.forEach((c, i) => {
-      if (c.t === id.ti && (groupBy === 'type' || c.cond === id.cond)) out.push(scores[i])
-    })
+  const values = perId.map(idx => {
+    const out = idx.map(i => scores[i])
     // Violins do not need every cell; a stride keeps the density honest and fast.
     const stride = Math.max(1, Math.floor(out.length / 400))
     return out.filter((_v, k) => k % stride === 0)
