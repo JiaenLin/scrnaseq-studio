@@ -17,6 +17,7 @@ import Enrichment from './components/Enrichment.tsx'
 import GeneExpression from './components/GeneExpression.tsx'
 import GeneSets from './components/GeneSets.tsx'
 import Methods from './components/Methods.tsx'
+import ViewBoundary from './components/Boundary.tsx'
 import { Empty } from './components/Ui.tsx'
 
 const TABS: [TabId | 'div', string][] = [
@@ -25,6 +26,36 @@ const TABS: [TabId | 'div', string][] = [
   ['degs', 'DEG table'], ['volcano', 'Volcano'], ['enrich', 'Enrichment'],
   ['expr', 'Gene expression'], ['sets', 'Gene sets'], ['methods', 'Methods'],
 ]
+
+/** A tab's own word for itself, so the boundary names what broke as the user does. */
+const LABEL = new Map(TABS.map(([id, label]) => [id, label]))
+
+/**
+ * Make one tab throw during render, on purpose: `?crash=markers`.
+ *
+ * The boundary in Boundary.tsx is the one piece of this app whose entire value
+ * is what it does when something else is broken, and there is no way to watch it
+ * work without breaking something. So the app carries its own fault injector and
+ * `scripts/probe-boundary.mjs` drives it in Chromium.
+ *
+ * Read on every render rather than once at load, and that is the whole point:
+ * the interesting claim is that a pass in flight OUTLIVES the crash, and a
+ * reload to arm the fault would close the object and prove nothing. The probe
+ * starts a real four-minute pass, arms this with history.replaceState, watches
+ * the view die, and then finds the same pass still counting. Nothing else in the
+ * app reads the URL, so this is not a pattern to copy — it is one line of
+ * impurity bought for the one test that cannot be written any other way.
+ *
+ * Not gated on `import.meta.env.DEV`, deliberately: the white page the verifier
+ * hit was in a production build, and a proof that only runs against the dev
+ * server says nothing about the artifact people are actually given.
+ */
+const crashTab = () => new URLSearchParams(window.location.search).get('crash')
+
+function CrashOnRender({ tab }: { tab: TabId }): never {
+  throw new Error(`Deliberate fault in the ${LABEL.get(tab) ?? tab} view `
+    + `(?crash=${tab} is in the URL). Nothing is actually wrong with this object.`)
+}
 
 /** Tabs that describe a comparison, and so cannot exist without two groups. */
 const NEEDS_CONTRAST = new Set<TabId>(['degs', 'volcano', 'enrich'])
@@ -106,6 +137,11 @@ export default function App() {
   const [relative, setRelative] = useState(false)
   const [dotScale, setDotScale] = useState(true)
   const [genes, setGenes] = useState<string[]>([])
+
+  // Bumped by the error boundary's Try again, and part of its key, so that one
+  // click both rebuilds the view from current state and gives it a boundary that
+  // has not caught anything yet. Nothing else reads it; it exists to be changed.
+  const [attempt, setAttempt] = useState(0)
 
   const [palKey, setPalKey] = useState<PaletteKey>('npg')
   const [rampKey, setRampKey] = useState<RampKey>('seurat')
@@ -253,6 +289,12 @@ export default function App() {
   // the controls: keep the bar for it even where no selector belongs.
   const showBar = needs.ct || needs.contrast || geneBusy || showEmb
 
+  // Where a broken view offers to send you. Overview describes the object and
+  // reads no part of the selection, so it cannot be broken by whatever broke the
+  // view you are leaving — and it needs no contrast, so it is never the blocked
+  // tab either. From Overview itself, Cells, on the same reasoning.
+  const escapeTo: TabId = tab === 'overview' ? 'cells' : 'overview'
+
   const chipStyle = chip.cls === 'ok'
     ? { background: 'var(--good-soft)', color: 'var(--good)', borderColor: 'color-mix(in srgb, var(--good) 25%, transparent)' }
     : chip.cls === 'bad'
@@ -374,64 +416,93 @@ export default function App() {
 
       <main className="pb-16 pt-5">
         <div className="wrap">
-          {blocked ? (
-            <Empty title="This object has one condition, so there is nothing to contrast">
-              Differential expression between groups needs at least two. What is still available:{' '}
-              <b>Markers</b> tests every cluster against the rest, and <b>Gene expression</b>{' '}
-              searches any gene across every cell type.
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <button className="btn" onClick={() => setTab('markers')}>Go to Markers</button>
-                <button className="btn btn-primary" onClick={() => setTab('expr')}>Search a gene</button>
-              </div>
-            </Empty>
-          ) : tab === 'overview' ? (
-            <Overview src={src} types={types} palKey={palKey} rampKey={rampKey}
-              onPal={setPalKey} onRamp={setRampKey} />
-          ) : tab === 'cells' ? (
-            <Cells src={src} types={types} gene={genes[genes.length - 1] ?? ''} emb={emb}
-              colorBy={colorBy}
-              split={split} palKey={palKey} rampKey={rampKey}
-              onColorBy={setColorBy} onSplit={setSplit} />
-          ) : tab === 'composition' ? (
-            <Composition d={d} types={types} palKey={palKey} />
-          ) : tab === 'markers' ? (
-            <Markers src={src} types={types} palKey={palKey} onPickGene={pickGene}
-              onRename={(i, name) => {
-                setTypes(prev => {
-                  const next = [...prev]
-                  const was = next[i].name
-                  next[i] = { ...next[i], name: name.trim() || next[i].key }
-                  if (ct === was) setCt(next[i].name)
-                  return next
-                })
-              }} />
-          ) : tab === 'degs' ? (
-            <DEGTable {...statsProps} />
-          ) : tab === 'volcano' ? (
-            <Volcano {...statsProps} />
-          ) : tab === 'enrich' ? (
-            <ContrastFrame {...statsProps}>
-              {rows => (
-                <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
-                  genes={src.genes} ctrl={ctrl} cs={cs}
-                  label={`${cs} vs ${ctrl} · ${ct}`}
-                  palKey={palKey} onPickGene={pickGene} />
-              )}
-            </ContrastFrame>
-          ) : tab === 'expr' ? (
-            <GeneExpression
-              src={src} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes} emb={emb}
-              plot={plot} groupBy={groupBy} cols={cols} relative={relative} dotScale={dotScale}
-              palKey={palKey} rampKey={rampKey}
-              onGenes={applyGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
-              onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey} />
-          ) : tab === 'sets' ? (
-            <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
-              onPickGene={pickGene} />
-          ) : (
-            <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
-              padjMax={padjMax} lfcMin={lfcMin} />
-          )}
+          {/*
+            One tab's work, and the only thing a bad render is allowed to take
+            with it. Boundary.tsx carries the argument for why it sits HERE and
+            not around <App/>: the cache and the running passes are keyed by
+            `src`, which this component holds, so unmounting a view costs the
+            view and unmounting App costs the four minutes.
+
+            The key is the reset, and it has two parts. `tab` means navigating
+            builds a fresh boundary, so a caught error cannot outlive the view it
+            came from — you leave a broken tab and come back to one that tries
+            again. `attempt` is Try again: the click bumps it, App re-renders, the
+            children below are derived afresh from whatever the state says NOW,
+            and they get a boundary with no error on it. Changing a selector in
+            the bar above deliberately does not reset anything, so a broken view
+            does not flicker back and forth while you are reaching for the tab bar.
+          */}
+          <ViewBoundary
+            key={`${tab}#${attempt}`}
+            what={LABEL.get(tab) ?? tab}
+            escape={{ label: `Go to ${LABEL.get(escapeTo)}`, go: () => setTab(escapeTo) }}
+            onRetry={() => setAttempt(a => a + 1)}
+            note={<>
+              Nothing else has moved. <b>{src.meta.label}</b> is still open, everything
+              already computed is still in hand, and a pass still running is still
+              running — leaving a view has never ended one. Every other tab above
+              works; this one has a bug.
+            </>}
+          >
+            {crashTab() === tab ? <CrashOnRender tab={tab} /> : blocked ? (
+              <Empty title="This object has one condition, so there is nothing to contrast">
+                Differential expression between groups needs at least two. What is still available:{' '}
+                <b>Markers</b> tests every cluster against the rest, and <b>Gene expression</b>{' '}
+                searches any gene across every cell type.
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <button className="btn" onClick={() => setTab('markers')}>Go to Markers</button>
+                  <button className="btn btn-primary" onClick={() => setTab('expr')}>Search a gene</button>
+                </div>
+              </Empty>
+            ) : tab === 'overview' ? (
+              <Overview src={src} types={types} palKey={palKey} rampKey={rampKey}
+                onPal={setPalKey} onRamp={setRampKey} />
+            ) : tab === 'cells' ? (
+              <Cells src={src} types={types} gene={genes[genes.length - 1] ?? ''} emb={emb}
+                colorBy={colorBy}
+                split={split} palKey={palKey} rampKey={rampKey}
+                onColorBy={setColorBy} onSplit={setSplit} />
+            ) : tab === 'composition' ? (
+              <Composition d={d} types={types} palKey={palKey} />
+            ) : tab === 'markers' ? (
+              <Markers src={src} types={types} palKey={palKey} onPickGene={pickGene}
+                onRename={(i, name) => {
+                  setTypes(prev => {
+                    const next = [...prev]
+                    const was = next[i].name
+                    next[i] = { ...next[i], name: name.trim() || next[i].key }
+                    if (ct === was) setCt(next[i].name)
+                    return next
+                  })
+                }} />
+            ) : tab === 'degs' ? (
+              <DEGTable {...statsProps} />
+            ) : tab === 'volcano' ? (
+              <Volcano {...statsProps} />
+            ) : tab === 'enrich' ? (
+              <ContrastFrame {...statsProps}>
+                {rows => (
+                  <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
+                    genes={src.genes} ctrl={ctrl} cs={cs}
+                    label={`${cs} vs ${ctrl} · ${ct}`}
+                    palKey={palKey} onPickGene={pickGene} />
+                )}
+              </ContrastFrame>
+            ) : tab === 'expr' ? (
+              <GeneExpression
+                src={src} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes} emb={emb}
+                plot={plot} groupBy={groupBy} cols={cols} relative={relative} dotScale={dotScale}
+                palKey={palKey} rampKey={rampKey}
+                onGenes={applyGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
+                onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey} />
+            ) : tab === 'sets' ? (
+              <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
+                onPickGene={pickGene} />
+            ) : (
+              <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
+                padjMax={padjMax} lfcMin={lfcMin} />
+            )}
+          </ViewBoundary>
         </div>
       </main>
     </>
