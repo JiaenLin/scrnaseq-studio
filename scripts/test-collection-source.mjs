@@ -288,7 +288,7 @@ console.log('\nAN EXTRA COLUMN SURVIVES THE SPLIT TOO')
   check('a column one part does not carry is not offered at all',
     cellColumns(partial.d).extras.length, 0)
   check('and the object says why',
-    partial.meta.notes.some(n => n.includes('region')), true)
+    partial.meta.notes.some(n => n.includes('region') && n.includes('every part')), true)
 }
 
 console.log('\nA GENE READS BACK ACROSS EVERY PART')

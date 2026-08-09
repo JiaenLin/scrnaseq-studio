@@ -353,8 +353,8 @@ export async function openCollection(
     columns.push({ key, levels: u.levels, codes })
   })
   if (droppedCol.size) {
-    notes.push(`${[...droppedCol].join(', ')} is annotated in some parts of this object and `
-      + 'not in others, so it is not offered as something to break a figure down by')
+    notes.push(`${[...droppedCol].join(', ')} could not be assembled across every part of `
+      + 'this object, so it is not offered as something to break a figure down by')
   }
 
   // Concatenated in part order, exactly as embed.f32 is, so cell i means the
