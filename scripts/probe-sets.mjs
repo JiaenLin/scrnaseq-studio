@@ -150,26 +150,16 @@ console.log(`  scrolling while scoring: ${scrolled.frames} frames, worst gap `
   + `${scrolled.worst.toFixed(0)} ms, scrollY=${await page.evaluate(() => window.scrollY)}`)
 await page.evaluate(() => window.scrollTo(0, 0))
 
-// A tab switch mid-pass: the pass must survive it, and the tab it lands on must
-// draw. Cells paints 292 495 points to a canvas — the heaviest thing the studio
-// does that is not a pass.
-await startBeat()
-const swap = Date.now()
-await page.click('[role=tab]:has-text("Cells")')
-await page.waitForTimeout(2500)
-const painted = await page.evaluate(() => {
-  const c = document.querySelector('canvas')
-  if (!c) return 'no canvas'
-  const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
-  let ink = 0
-  for (let i = 3; i < px.length; i += 4000) if (px[i] > 0) ink++
-  return `${c.width}x${c.height}, ${ink}/${Math.ceil(px.length / 4000)} sampled pixels painted`
-})
-const swapped = await readBeat()
-console.log(`  switched to Cells mid-pass in ${s(Date.now() - swap)}: ${painted}`)
-console.log(`  ${swapped.frames} frames during the switch, worst gap ${swapped.worst.toFixed(0)} ms`)
-await page.click('[role=tab]:has-text("Gene sets")')
-await page.waitForTimeout(500)
+// NOT a tab switch here, however tempting.
+//
+// Leaving the tab unmounts GeneSets, and the set being scored is that
+// component's own useState — so coming back selects the first built-in set
+// again. On an object whose genes are Ensembl IDs that set matches nothing, the
+// card correctly says there is nothing to score, and a probe waiting for a table
+// waits for one that is never coming. It read as a fifteen-minute hang, and it
+// was a probe changing the question and then complaining about the answer. The
+// tab switch is worth testing and is tested below, once there is a result to
+// come back to.
 
 // The custom list is now the question being asked, and the built-in set's pass
 // must have been abandoned rather than allowed to land on top of it.
@@ -196,15 +186,16 @@ async function settled(rows) {
 const customTable = await readTable()
 check('the table has a row per identity', Array.isArray(customTable) && customTable.length > 0,
   `${customTable?.length ?? 0} rows`)
+check('and the score is not flat — the figure says something',
+  customTable?.some(r => r[2] !== '+0.00' && r[2] !== '-0.00'))
 await page.screenshot({ path: `${shots}/sets-custom.png` })
 
-// --- the numbers -------------------------------------------------------------
-// Only when a reference exists. On an object whose genes are Ensembl IDs there
-// is no built-in set to compare against, and this file may carry a gene list
-// alone — the responsiveness and cancellation checks above still stand.
-if (want?.rows) {
-  // The set that was typed while the previous pass was still running. If the
-  // abandoned pass had been allowed to land, this is where its numbers would be.
+// --- the typed set's numbers, BEFORE anything can change the question ---------
+// Leaving this until after the tab switch below compared the wrong table for one
+// run: the switch remounts the card and re-selects the first built-in set, so
+// what is on screen afterwards is a different set's answer and is entirely
+// correct for the set it belongs to.
+if (want?.customRows) {
   const gotCustom = await settled(want.customRows)
   const sameCustom = JSON.stringify(gotCustom) === JSON.stringify(want.customRows)
   check('the typed set shows ITS numbers, not the abandoned pass\'s', sameCustom)
@@ -212,7 +203,35 @@ if (want?.rows) {
     console.log('    page:', JSON.stringify(gotCustom?.slice(0, 4)))
     console.log('    node:', JSON.stringify(want.customRows.slice(0, 4)))
   }
+}
 
+// --- the heaviest thing left on the main thread -------------------------------
+// Cells paints one arc per cell. That is not a pass and cannot be handed to a
+// worker without an OffscreenCanvas, so it is measured rather than claimed.
+await startBeat()
+const swap = Date.now()
+await page.click('[role=tab]:has-text("Cells")')
+await page.waitForTimeout(3000)
+const painted = await page.evaluate(() => {
+  const c = document.querySelector('canvas')
+  if (!c) return 'no canvas'
+  const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+  let ink = 0
+  for (let i = 3; i < px.length; i += 4000) if (px[i] > 0) ink++
+  return `${c.width}x${c.height}, ${ink}/${Math.ceil(px.length / 4000)} sampled pixels painted`
+})
+const swapped = await readBeat()
+console.log(`  Cells drew in ${s(Date.now() - swap)}: ${painted}`)
+console.log(`  ${swapped.frames} frames during the switch, worst gap ${swapped.worst.toFixed(0)} ms`
+  + ' (this is canvas painting, not the score)')
+await page.click('[role=tab]:has-text("Gene sets")')
+await page.waitForTimeout(800)
+
+// --- the numbers -------------------------------------------------------------
+// Only when a reference exists. On an object whose genes are Ensembl IDs there
+// is no built-in set to compare against, and this file may carry a gene list
+// alone — the responsiveness and cancellation checks above still stand.
+if (want?.rows) {
   // Back to the built-in set the reference was computed for.
   await page.click('button:has-text("Built-in set")')
   await page.selectOption('select[aria-label="Gene set"]', want.setId)
