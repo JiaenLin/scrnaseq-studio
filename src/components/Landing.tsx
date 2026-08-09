@@ -92,15 +92,23 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
           onDragLeave={() => setOver(false)}
           onDrop={e => { e.preventDefault(); setOver(false); take(e.dataTransfer.files) }}
         >
+          {/* .scstudio as well as .zip. Chromium runs a Safe Browsing check
+              over a finished archive before putting it in place, and on a file
+              of several gigabytes that check does not come back — so the lab
+              writes a large object under a name its download protection does
+              not claim. The bytes are a zip either way; nothing below reads the
+              name. Leaving it off the filter would hide the file in the picker
+              and send the user hunting for a .zip that was never written. */}
           <input
-            ref={input} type="file" accept=".zip" className="hidden"
+            ref={input} type="file" accept=".zip,.scstudio" className="hidden"
             onChange={e => take(e.target.files)}
           />
           <button className="btn btn-primary" disabled={busy} onClick={() => input.current?.click()}>
             {busy ? 'Opening…' : 'Open a bundle'}
           </button>
           <p className="mt-2.5 text-[12px]" style={{ color: 'var(--ink-3)' }}>
-            {note ?? <>or drop it here — a <code className="mono">.zip</code> from scRNA-seq Lab</>}
+            {note ?? <>or drop it here — a <code className="mono">.zip</code> or{' '}
+              <code className="mono">.scstudio</code> from scRNA-seq Lab</>}
           </p>
         </div>
 
@@ -134,6 +142,8 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
             One <code className="mono">.zip</code> from scRNA-seq Lab, or from{' '}
             <code className="mono">tools/export_*</code>. Not the{' '}
             <code className="mono">.h5ad</code> or <code className="mono">.rds</code> itself.
+            A large object arrives as <code className="mono">.scstudio</code> instead — the same
+            file under a name the browser will let it be written under.
           </p>
           <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-2)' }}>
             Size is not a limit. An object too large to hold at once arrives as one file the
