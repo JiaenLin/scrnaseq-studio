@@ -77,7 +77,15 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   const inline = useMemo(
     () => (src.lazy ? null : dotGrid(src, wanted ? wanted.split(',') : [], types.length)),
     [src, wanted, types.length])
-  const [streamed, setStreamed] = useState<DotGrid | null>(null)
+  // The grid is stored with the gene list it was built for, and read back only
+  // when the two still agree. A render always precedes the effect that would
+  // clear a stale grid, so between the pass finishing and that effect running
+  // there is one frame where `genes` is the new 505 and the grid is the old
+  // one — built when `genes` was empty, and therefore zero-length. A
+  // zero-length grid is an object, so a null check waves it through, and the
+  // render then reads past the end of `mean` and calls `toFixed` on undefined.
+  // With no error boundary in the tree that took the whole app to a white page.
+  const [streamed, setStreamed] = useState<{ key: string; grid: DotGrid } | null>(null)
   const [dotError, setDotError] = useState<string | null>(null)
   useEffect(() => {
     if (!src.lazy) return
@@ -85,12 +93,12 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
     setStreamed(null)
     setDotError(null)
     void streamDots(src, wanted ? wanted.split(',') : [], types.length).then(
-      g => { if (!dead) setStreamed(g) },
+      g => { if (!dead) setStreamed({ key: wanted, grid: g }) },
       (e: unknown) => { if (!dead) setDotError(e instanceof Error ? e.message : String(e)) },
     )
     return () => { dead = true }
   }, [src, wanted, types.length])
-  const grid = inline ?? streamed
+  const grid = inline ?? (streamed?.key === wanted ? streamed.grid : null)
 
   if (pass) {
     return (
