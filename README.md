@@ -2,14 +2,18 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Open a processed single-cell object and explore it — in your browser, without re-running
-anything.**
+**Open a processed single-cell object and compute on it — in your browser.**
 
 Convert a Scanpy `.h5ad` or a Seurat `.rds` in [scRNA-seq
 Lab](https://jiaenlin.github.io/scrnaseq-lab/), then open the one file it gives you here. The
-studio shows what is actually in it and produces the figures, the statistics and the Methods
-paragraph. **Your file never leaves your computer** — there is no server and nothing is
-uploaded.
+studio shows what is actually in it and runs the analysis on top: one-vs-rest markers,
+differential expression, over-representation enrichment and per-cell module scores, with the
+figures, the tables and the Methods paragraph that go with them.
+
+It is a studio, not a pipeline. **It does not cluster, integrate or normalise** — the object
+arrives with those already done, and the Overview marks every such step as coming *from your
+file* rather than quietly redoing it. **Your file never leaves your computer** — there is no
+server and nothing is uploaded.
 
 **→ [jiaenlin.github.io/scrnaseq-studio](https://jiaenlin.github.io/scrnaseq-studio/)**
 

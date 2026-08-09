@@ -211,7 +211,8 @@
     <div class="mark" style="margin: 0 auto 14px">sc</div>
     <h1 style="font-size:19px;letter-spacing:-.02em">scRNA-seq Studio</h1>
     <p style="color:var(--ink-2);font-size:13.5px;margin:8px 0 18px">
-      Open a processed single-cell object and explore it — without re-running anything.
+      Open a processed single-cell object and compute on it — markers, differential expression,
+      enrichment and module scores, without re-running your pipeline.
       Your file never leaves this browser.
     </p>
     <button class="btn primary" onclick="openDemo('cohort')">Open .h5ad or Seurat .rds</button>
@@ -267,7 +268,7 @@
         <div class="mark">sc</div>
         <div>
           <div class="brandname">scRNA-seq Studio</div>
-          <div class="brandsub">read-only explorer · nothing is re-processed</div>
+          <div class="brandsub">computes on a prepared object · your pipeline is not re-run</div>
         </div>
         <div class="project">
           <div class="name" id="pname"></div>

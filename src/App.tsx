@@ -29,6 +29,53 @@ const TABS: [TabId | 'div', string][] = [
 /** Tabs that describe a comparison, and so cannot exist without two groups. */
 const NEEDS_CONTRAST = new Set<TabId>(['degs', 'volcano', 'enrich'])
 
+/** What a tab reads out of the shared selection above it. */
+interface Needs {
+  /** The Cell type select changes what this tab answers. */
+  ct: boolean
+  /** Control / Compare — and therefore the design badge — change what it answers. */
+  contrast: boolean
+}
+
+const NOTHING: Needs = { ct: false, contrast: false }
+const BOTH: Needs = { ct: true, contrast: true }
+
+/**
+ * Which shared controls belong above a given tab.
+ *
+ * These selectors used to sit above every tab, which made them noise on the
+ * six that ignore them and, worse, a claim: a contrast bar over an unfiltered
+ * view reads as "this is showing you {cs} vs {ctrl}" when it is showing you
+ * every cell. So each control is offered only where the answer below it moves
+ * when the control moves. The selection itself lives in App either way, so a
+ * control that disappears on one tab still holds what you set on another.
+ *
+ * Derived by reading each component's props and what it does with them:
+ *
+ * - Overview, Cells, Composition, Markers take neither. They describe the whole
+ *   object — Markers in particular tests *every* cluster one-vs-rest, so a
+ *   single cell type is not a parameter of it.
+ * - DEG table, Volcano, Enrichment take both: `useDE` is keyed on
+ *   `ti|ctrl|cs` and nothing else.
+ * - Methods takes both: the paragraph names the cell type and both sides.
+ * - Gene expression takes both, but only once Group by leaves "Across cell
+ *   types" — that is when `identities()` starts filtering to `ct` and the
+ *   per-facet Δlog₂ label starts reading `ctrl`/`cs`.
+ * - Gene sets takes the cell type: its own Group by can summarise the module
+ *   score within one type. That switch is local to the card, so the select is
+ *   offered whenever the tab is open rather than blinking in and out of a
+ *   sticky bar as the user toggles something further down the page. No
+ *   contrast — a module score is not a comparison.
+ */
+function needsOf(tab: TabId, groupBy: GroupBy): Needs {
+  switch (tab) {
+    case 'degs': case 'volcano': case 'enrich': case 'methods': return BOTH
+    case 'expr': return groupBy === 'type' ? NOTHING : BOTH
+    case 'sets': return { ct: true, contrast: false }
+    default: return NOTHING
+  }
+}
+
 export default function App() {
   const [src, setSrc] = useState<Source | null>(null)
   const [openError, setOpenError] = useState<string | null>(null)
@@ -178,6 +225,13 @@ export default function App() {
     : design.pbOK ? { cls: 'ok', text: `Pseudobulk matrix · ${design.n0} vs ${design.n1}` }
     : { cls: 'bad', text: `Pseudobulk needs > 3 per group — have ${design.n0} vs ${design.n1}` }
 
+  // A blocked tab shows an explanation, not a view, so nothing above it is a
+  // parameter of anything.
+  const needs = blocked ? NOTHING : needsOf(tab, groupBy)
+  // The gene readout is progress on a request already in flight, so it outlives
+  // the controls: keep the bar for it even where no selector belongs.
+  const showBar = needs.ct || needs.contrast || geneBusy
+
   const chipStyle = chip.cls === 'ok'
     ? { background: 'var(--good-soft)', color: 'var(--good)', borderColor: 'color-mix(in srgb, var(--good) 25%, transparent)' }
     : chip.cls === 'bad'
@@ -197,8 +251,12 @@ export default function App() {
             >sc</button>
             <div>
               <div className="text-[15px] font-semibold tracking-[-0.01em]">scRNA-seq Studio</div>
+              {/* Not "read-only explorer" any more: markers, differential
+                  expression, enrichment and module scores are all computed
+                  here. What it still does not do is re-run the pipeline —
+                  no clustering, no integration, no normalisation. */}
               <div className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-                read-only explorer · nothing is re-processed
+                computes on a prepared object · your pipeline is not re-run
               </div>
             </div>
             {/* min-w-0 is what lets a long project name wrap instead of overflowing. */}
@@ -233,45 +291,53 @@ export default function App() {
         </div>
       </header>
 
-      <div className="sticky z-20" style={{ top: 96, background: 'var(--sunk)', borderBottom: '1px solid var(--line)' }}>
-        <div className="wrap flex flex-wrap items-center gap-2.5 py-2.5">
-          <label className="flex items-center gap-1.5">
-            <span className="glabel">Cell type</span>
-            <select className="sel max-w-[240px]" value={ct} onChange={e => setCt(e.target.value)}>
-              {types.map(x => <option key={x.key}>{x.name}</option>)}
-            </select>
-          </label>
-          {d.multi && (
-            <>
-              <div className="gsep" />
+      {showBar && (
+        <div className="sticky z-20" style={{ top: 96, background: 'var(--sunk)', borderBottom: '1px solid var(--line)' }}>
+          <div className="wrap flex flex-wrap items-center gap-2.5 py-2.5">
+            {needs.ct && (
               <label className="flex items-center gap-1.5">
-                <span className="glabel">Control</span>
-                <select className="sel" value={ctrl} onChange={e => setCtrl(e.target.value)}>
-                  {d.conds.map(c => <option key={c}>{c}</option>)}
+                <span className="glabel">Cell type</span>
+                <select className="sel max-w-[240px]" value={ct} onChange={e => setCt(e.target.value)}>
+                  {types.map(x => <option key={x.key}>{x.name}</option>)}
                 </select>
               </label>
-              <label className="flex items-center gap-1.5">
-                <span className="glabel">Compare</span>
-                <select className="sel" value={cs} onChange={e => setCs(e.target.value)}>
-                  {d.conds.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </label>
-            </>
-          )}
-          {geneBusy && (
-            <span className="ml-auto text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-              reading gene…
-            </span>
-          )}
-          <span
-            className={`${geneBusy ? '' : 'ml-auto '}inline-flex items-center gap-[7px] rounded-full px-[11px] py-1 text-[11.5px] font-semibold`}
-            style={{ ...chipStyle, borderWidth: 1, borderStyle: 'solid' }}
-          >
-            <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
-            {chip.text}
-          </span>
+            )}
+            {needs.contrast && d.multi && (
+              <>
+                {needs.ct && <div className="gsep" />}
+                <label className="flex items-center gap-1.5">
+                  <span className="glabel">Control</span>
+                  <select className="sel" value={ctrl} onChange={e => setCtrl(e.target.value)}>
+                    {d.conds.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <span className="glabel">Compare</span>
+                  <select className="sel" value={cs} onChange={e => setCs(e.target.value)}>
+                    {d.conds.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </label>
+              </>
+            )}
+            {geneBusy && (
+              <span className="ml-auto text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+                reading gene…
+              </span>
+            )}
+            {/* The badge reads the contrast, so it travels with it — over Cells
+                or Composition it would describe a test nothing on screen ran. */}
+            {needs.contrast && (
+              <span
+                className={`${geneBusy ? '' : 'ml-auto '}inline-flex items-center gap-[7px] rounded-full px-[11px] py-1 text-[11.5px] font-semibold`}
+                style={{ ...chipStyle, borderWidth: 1, borderStyle: 'solid' }}
+              >
+                <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
+                {chip.text}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <main className="pb-16 pt-5">
         <div className="wrap">

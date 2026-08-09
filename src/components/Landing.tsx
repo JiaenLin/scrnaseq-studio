@@ -70,7 +70,14 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
           >sc</div>
           <h1 className="text-[20px] tracking-[-0.02em]">scRNA-seq Studio</h1>
           <p className="mx-auto mt-1.5 max-w-[470px] text-[13px]" style={{ color: 'var(--ink-2)' }}>
-            Explore a processed single-cell object — nothing re-run, nothing uploaded.
+            Open a processed single-cell object and compute on it — markers, differential
+            expression, enrichment and module scores, in your browser.
+          </p>
+          {/* The limit, stated with the claim rather than buried below it: this
+              is a studio, not a pipeline, and it should not be mistaken for one. */}
+          <p className="mx-auto mt-1.5 max-w-[470px] text-[12px]" style={{ color: 'var(--ink-3)' }}>
+            It does not cluster, integrate or normalise — the object arrives with those already
+            done, and nothing is uploaded.
           </p>
         </header>
 

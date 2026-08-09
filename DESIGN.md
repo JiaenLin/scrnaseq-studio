@@ -1,8 +1,10 @@
 # scRNA-seq Studio — design
 
 Fourth app in the family. Same contract as `rnaseq-studio`: **read a finished object,
-explore it honestly, and produce statistics you can defend.** Nothing is re-processed
-behind the user's back.
+compute on it honestly, and produce statistics you can defend.** Markers, differential
+expression, enrichment and module scores are all run here, in the browser. Upstream
+processing — clustering, integration, normalisation — is not: it comes from the file, is
+labelled as coming from the file, and is never silently redone.
 
 - `rnaseq-service` — raw FASTQ → counts (request builder)
 - `rnaseq-lab` — count matrix → DESeq2
