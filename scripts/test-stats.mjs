@@ -4,8 +4,8 @@
 import { demoSource } from '../src/lib/source.ts'
 import {
   combinedScore, deMarkers, deMarkersAll, deWilcox, designFor, isSig, LFC_GATE,
-  markersPlan, MIN_REPS_PB, minReplicates, normalTail, pbKey, rankSumSparse, sigCount,
-  thresholdFor,
+  logNormalTail, markersPlan, MIN_REPS_PB, minReplicates, normalTail, pbKey,
+  rankSumSparse, sigCount, thresholdFor,
 } from '../src/lib/stats.ts'
 
 let failed = 0
@@ -34,6 +34,50 @@ check('isSig respects the method', [
   isSig({ padj: 0.01, lfc: 0.4 }, thresholdFor('wilcox')),
   isSig({ padj: 0.01, lfc: 0.4 }, thresholdFor('pseudobulk')),
 ], [true, false])
+
+console.log('\nTHE NORMAL TAIL IS ACCURATE WHERE IT IS SMALL')
+// The reference column is scipy's norm.sf / log_ndtr, printed to 17 figures.
+// What is being defended is RELATIVE accuracy: the previous approximation was
+// accurate to 7.5e-8 ABSOLUTE, which past z = 6 is no accuracy at all — it was
+// out by 2 % at z = 6-10 and 16 % at z = 30-38, so every small p in the atlas
+// was wrong in its second figure.
+{
+  const TAIL = [
+    [0.5, 3.08537538725986882e-01], [1, 1.58655253931457074e-01],
+    [2, 2.27501319481791947e-02], [3, 1.34989803163009328e-03],
+    [5, 2.86651571879193277e-07], [8, 6.22096057427174049e-16],
+    [12, 1.77648211207765304e-33], [20, 2.75362411860615560e-89],
+    [30, 4.90671392714790795e-198], [37, 5.72557122252392658e-300],
+  ]
+  let worst = 0
+  for (const [z, want] of TAIL) worst = Math.max(worst, Math.abs(normalTail(z) - want) / want)
+  check(`the tail is within 1e-12 relative out to z = 37 (worst ${worst.toExponential(1)})`,
+    worst < 1e-12, true)
+
+  const LOG = [
+    [1, -1.84102164500926335e+00], [5, -1.50649983939887271e+01],
+    [20, -2.03917155371097294e+02], [38.5, -7.45695270290411258e+02],
+    [50, -1.25483136113941987e+03], [80, -3.20530112135689069e+03],
+    [120, -7.20570649970837985e+03], [150, -1.12559296182668077e+04],
+  ]
+  let worstLog = 0
+  for (const [z, want] of LOG) worstLog = Math.max(worstLog, Math.abs(logNormalTail(z) - want))
+  check(`the log tail is within 1e-11 absolute out to z = 150 (worst ${worstLog.toExponential(1)})`,
+    worstLog < 1e-11, true)
+
+  // The point of carrying the log at all: past here the tail is not a double.
+  check('the tail floors where the double runs out, the log does not',
+    [normalTail(60) === Number.MIN_VALUE, logNormalTail(60) < -1800], [true, true])
+  check('and the log still separates two rows the floor cannot',
+    logNormalTail(60) < logNormalTail(50), true)
+
+  // Monotone, so nothing downstream can be reordered by the tail itself.
+  let mono = true
+  for (let z = 0.1; z < 60; z += 0.05) {
+    if (normalTail(z + 0.05) > normalTail(z) || logNormalTail(z + 0.05) > logNormalTail(z)) mono = false
+  }
+  check('both are non-increasing in z', mono, true)
+}
 
 console.log('\nTHE RANK-SUM AGREES WITH A DENSE REFERENCE')
 // The shipped test skips every zero and treats them as one tie block. This is

@@ -23,14 +23,73 @@ export const LFC_GATE = 0.25
 /** Seurat's min.pct. */
 export const PCT_GATE = 0.1
 
-/** Upper tail of the standard normal — Abramowitz & Stegun 26.2.17. */
+/**
+ * Upper tail of the standard normal.
+ *
+ * This was Abramowitz & Stegun 26.2.17, which is a 7.5e-8 ABSOLUTE approximation
+ * — and absolute accuracy is worth nothing here, because the tail it is
+ * approximating is 1e-20. Measured against scipy, the error it actually made was
+ * 2.0 % relative at z = 6–10, 8.0 % at 10–20, 13.1 % at 20–30 and 16.2 % at
+ * 30–38. It is monotone, so it never reordered a table, but every p past z ≈ 5
+ * was wrong in its second significant figure and the atlas is full of them.
+ *
+ * The Chebyshev erfc below is accurate to 3.4e-13 RELATIVE over every z the
+ * double can represent a tail for.
+ *
+ * The floor stays, and is now the only thing here that is not exact: past
+ * z = 38.6 the tail is smaller than the smallest double and no arrangement of
+ * this arithmetic will change that. `logNormalTail` is where the answer past
+ * that point lives.
+ */
 export function normalTail(z: number): number {
+  return Math.max(Number.MIN_VALUE, 0.5 * erfc(Math.abs(z) / Math.SQRT2))
+}
+
+/**
+ * The same tail in logs, which does not underflow.
+ *
+ * exp(-z²/2) leaves the double at z = 38.6, so `normalTail` returns its floor
+ * for every z past that and cannot tell 1e-330 from 1e-2174. On the atlas that
+ * is not an edge case: 11.1 % of all rows and 96 % of the rows in a displayed
+ * top ten sit on that floor, which is why the ranking, the volcano axis and the
+ * combined score read this function instead.
+ *
+ * Below z = 2 the tail is O(1) and the erfc serves. Above it the Laplace
+ * continued fraction
+ *
+ *     Q(x) = phi(x) / (x + 1/(x + 2/(x + 3/(x + ...))))
+ *
+ * converges quickly and never evaluates the tail itself. Measured against
+ * scipy's log_ndtr on 5 892 points: 3.6e-12 absolute in the log over
+ * z = 0.5..150, which is one to two ulp of the log value — at z = 150 the
+ * -z²/2 term alone cannot be formed more accurately than that in a double.
+ */
+export function logNormalTail(z: number): number {
   const x = Math.abs(z)
-  const t = 1 / (1 + 0.2316419 * x)
-  const d = 0.3989422804014327 * Math.exp((-x * x) / 2)
-  const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937
-    + t * (-1.821255978 + t * 1.330274429))))
-  return Math.max(Number.MIN_VALUE, p)
+  if (x < 2) return Math.log(0.5 * erfc(x / Math.SQRT2))
+  let f = 0
+  for (let k = 80; k >= 1; k--) f = k / (x + f)
+  // log(1 / sqrt(2 * pi))
+  return -0.5 * x * x - 0.9189385332046728 - Math.log(x + f)
+}
+
+/**
+ * Complementary error function for x >= 0 — Chebyshev, Numerical Recipes 3rd ed.
+ * §6.2.2. Only ever called with |z| / sqrt(2), so the reflection for negative x
+ * is not written; it would be a branch nothing takes.
+ */
+function erfc(x: number): number {
+  const t = 2 / (2 + x)
+  const ty = 4 * t - 2
+  const cof = [-1.3026537197817094, 6.4196979235649026e-1, 1.9476473204185836e-2,
+    -9.561514786808631e-3, -9.46595344482036e-4, 3.66839497852761e-4, 4.2523324806907e-5,
+    -2.0278578112534e-5, -1.624290004647e-6, 1.303655835580e-6, 1.5626441722e-8,
+    -8.5238095915e-8, 6.529054439e-9, 5.059343495e-9, -9.91364156e-10, -2.27365122e-10,
+    9.6467911e-11, 2.394038e-12, -6.886027e-12, 8.94487e-13, 3.13092e-13,
+    -1.12708e-13, 3.81e-16, 7.106e-15]
+  let d = 0, dd = 0
+  for (let j = cof.length - 1; j > 0; j--) { const tmp = d; d = ty * d - dd + cof[j]; dd = tmp }
+  return t * Math.exp(-x * x + 0.5 * (cof[0] + ty * d) - dd)
 }
 
 /**
