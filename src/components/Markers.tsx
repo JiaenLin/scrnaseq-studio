@@ -147,6 +147,23 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
           <div className="ml-auto"><CsvButton onClick={saveCsv} /></div>
         </div>
 
+        {/* Reading the values is a second pass, after the statistics. On the
+            atlas it streams 505 genes a window at a time and takes about 52 s,
+            through all of which every axis label is drawn and no dot is — a
+            figure that reads as finished and empty rather than as unfinished.
+            That is the same lie as the "No markers to show" flash, and it has
+            already fooled one reviewer into reporting the plot as broken. So it
+            is said here, against the figure, and not only in the legend below it.
+
+            role=status deliberately: a pass IS still running, and anything that
+            treats Progress.tsx's status node as "still working" should see this
+            one too rather than call the tab finished while it is still reading. */}
+        {!grid && !dotError && (
+          <div role="status" className="note mt-4">
+            Reading {genes.length} genes from the file — the dots arrive when it
+            finishes. The table below is already final.
+          </div>
+        )}
         <Figure name="cluster_markers" className="mt-4 pt-6">
           <div className="overflow-x-auto">
             <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
