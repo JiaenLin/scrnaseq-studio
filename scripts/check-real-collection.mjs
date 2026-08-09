@@ -12,7 +12,10 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import { readCollectionIndex } from '../src/lib/collection.ts'
 import { openCollection } from '../src/lib/collection-source.ts'
-import { parseBundle } from '../src/lib/bundle.ts'
+import { cellColumns, parseBundle } from '../src/lib/bundle.ts'
+import {
+  compFields, compTable, fieldLabel, levelsOf, refuses, rowAxes,
+} from '../src/lib/composition.ts'
 import { bundleSource } from '../src/lib/source.ts'
 
 const args = process.argv.slice(2)
@@ -108,6 +111,38 @@ if (flat) {
     used(src.d.cells, c => c.s), used(flat.d.cells, c => c.s))
   check('same groups, as a set',
     used(src.d.cells, c => c.cond), used(flat.d.cells, c => c.cond))
+}
+
+console.log('\nTHE COLUMNS A FIGURE CAN BE SPLIT BY')
+{
+  const d = src.d
+  const cols = cellColumns(d)
+  for (const f of compFields(d)) {
+    console.log(`       ${f.padEnd(8)} "${fieldLabel(d, f)}" — ${levelsOf(d, src.types, f).length} levels`)
+  }
+  // A column assembled wrongly across parts does not throw; it relabels cells.
+  // So every level index has to name a level, and every level has to be used —
+  // a level nothing uses is one the union invented.
+  for (const c of cols.extras) {
+    const seen = new Set(c.codes)
+    check(`${c.key}: every code names a level`,
+      [...seen].every(v => v < c.levels.length), true)
+    check(`${c.key}: every level is used by some cell`, seen.size, c.levels.length)
+    check(`${c.key}: one code per cell`, c.codes.length, src.d.nCells)
+  }
+  // Every pairing the tab offers, with what it would actually draw. A product
+  // that is mostly empty is a fact about the experiment, not a fault, but it
+  // has to be visible here or the figure is the first place anyone finds out.
+  for (const parts of compFields(d)) {
+    for (const a of rowAxes(d, parts)) {
+      const t = compTable(d, src.types, parts, a.fields)
+      console.log(`       bars=${parts.padEnd(7)} rows=${a.key.padEnd(16)} `
+        + (refuses(t)
+          ? 'refused — the rows would pool several samples into one bar'
+          : `${String(t.rows.length).padStart(5)} of ${String(t.possible).padStart(6)} combinations hold cells`
+            + (t.degenerate ? ', and every row is one solid bar' : '')))
+    }
+  }
 }
 
 let map = null
