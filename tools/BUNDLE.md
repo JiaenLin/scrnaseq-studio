@@ -24,10 +24,12 @@ So the bundle is the contract, and the two exporters do the interpreting.
 ```
 bundle.zip
 ├── meta.json           everything small — see below
-├── genes.txt           one gene symbol per line, in matrix column order
+├── genes.txt           one gene name per line, in matrix row order
+├── gene_alias.txt      optional — the same genes named the other way, line for line
 ├── cluster.u16         uint16  per cell → index into meta.clusters
 ├── sample.u16          uint16  per cell → index into meta.samples
-├── embed.f32           float32 2 × nCells, interleaved x,y
+├── embed.f32           float32 2 × nCells, interleaved x,y — the default embedding
+├── embed.<name>.f32    optional — any further 2D embedding, same shape
 ├── qc.f32              float32 3 × nCells, interleaved counts, genes, mito%
 ├── expr.indptr.i32     int32   nGenes + 1   ┐ CSC — gene-major, so one gene
 ├── expr.indices.i32    int32   nnz          │ is a contiguous slice and no
@@ -38,6 +40,38 @@ bundle.zip
 All binary is little-endian. `expr` holds **log-normalized expression**, never scaled
 values: scaled data is z-scored and clipped, so it contains negatives and cannot be used
 for a violin, a dot plot or a module score.
+
+### Every 2D embedding, not just one
+
+An object usually holds several — a UMAP and a t-SNE of the same cells, often a PCA as
+well — and which one to look at is a question for the person reading the figure, not for
+the person who ran the conversion. So all of them travel. The default one stays in
+`embed.f32` under its old name, so a reader that has never heard of `meta.embeddings`
+behaves exactly as it did; the rest sit beside it, named in `meta.embeddings`. The cost is
+8 bytes per cell per embedding — 2.3 MB on a 292 k-cell atlas, against a matrix measured
+in gigabytes.
+
+### Both namings of the genes
+
+`genes.txt` is what the matrix rows are *indexed by*, whatever that is:
+`ENSMUSG00000038751` in objects built off a reference, `Sox2` in objects built off
+CellRanger's symbols. `meta.geneIdKind` says which, decided from the names themselves
+rather than from the column they came out of.
+
+Where the object also carried the other naming — a `Gene`, `feature_name` or `gene_ids`
+column in `var` — it is written to `gene_alias.txt`, one line per matrix row, aligned with
+`genes.txt` so conversion is by index and never by lookup. No mapping table ships with the
+app: a table would be species-specific and would go stale, and the file being converted
+already knows the answer.
+
+Two things happen to that list, both recorded in `meta.geneAlias` rather than hidden:
+
+- **Genes the object had no alias for** repeat their `genes.txt` name, so every line is a
+  usable label and never a blank. `missing` counts them.
+- **Several accessions sharing one symbol** — read-through transcripts and paralogue
+  annotations both do it — keep their own rows. Nothing is merged: summing two genes'
+  expression under one name is not a display decision. `duplicated` counts the rows
+  affected, and disambiguating them is the reader's business.
 
 ### meta.json
 
@@ -50,7 +84,19 @@ for a violin, a dot plot or a module score.
   "clusters": ["CD4 T cells", "CD14+ Monocytes", "..."],   // index = cluster.u16 value
   "samples":  [{ "id": "pbmc3k", "condition": "PBMC" }],   // index = sample.u16 value
   "conditions": ["PBMC"],            // the object's own order — never sorted
-  "embedding": "X_umap",
+  "embedding": "X_umap",             // the default — always embeddings[0].key
+  "embeddings": [                    // optional; absent ⇒ one embedding, embed.f32
+    { "key": "X_umap", "file": "embed.f32" },
+    { "key": "X_tSNE", "file": "embed.X_tSNE.f32" }
+  ],
+  "geneIdKind": "accession",         // optional; what genes.txt holds: accession|symbol|mixed
+  "geneAlias": {                     // optional; null when the object had one naming only
+    "kind": "symbol",                // what gene_alias.txt holds — the other one
+    "column": "Gene",                // the var column it was read from
+    "file": "gene_alias.txt",
+    "missing": 12,                   // rows with no alias; they repeat genes.txt
+    "duplicated": 68                 // rows sharing an alias; never merged
+  },
   "expression": "log1p(CP10K)",
   "hasRawCounts": true,              // false ⇒ pseudobulk DESeq2 unavailable, and said so
   "provenance": {                    // null means "not recorded in the object"

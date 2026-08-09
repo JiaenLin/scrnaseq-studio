@@ -47,6 +47,26 @@ export interface CollectionMeta {
    * should feel no difference".
    */
   clusterOrder?: string[]
+  /**
+   * The 2D embeddings every part carries, the default first.
+   *
+   * Every part is written from the same object, so this is a property of the
+   * collection and not of a part. It is here so the studio can offer the choice
+   * from the index alone, before any part has been read. Absent in collections
+   * written before embeddings were carried in the plural — then there is one,
+   * and only the part knows its name.
+   */
+  embeddings?: string[]
+  /** What the parts' `genes.txt` holds. Absent in older collections. */
+  geneIdKind?: 'accession' | 'symbol' | 'mixed'
+  /**
+   * The other naming of the same genes, when the object carried one.
+   *
+   * The names themselves are in each part's `gene_alias.txt`; this says only
+   * that they are there and what they are, so the index can be trusted to
+   * describe the collection without opening it.
+   */
+  geneAlias?: { kind: 'symbol' | 'accession'; column: string } | null
   parts: PartInfo[]
   notes: string[]
 }
