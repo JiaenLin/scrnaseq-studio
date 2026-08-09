@@ -298,6 +298,12 @@ for (const [label, src] of [['cohort', cohort], ['course', course], ['wt', wt]])
   let worst = 0
   let n = 0
   src.types.forEach((_t, k) => {
+    // deMarkersAll applies MIN_CELLS_GROUP and deMarkers does not, on purpose —
+    // see the note on deMarkers. Every cluster of these three objects is far past
+    // the floor, so the two are comparable throughout; the skip is here so that
+    // adding a tiny cluster to a fixture reads as "not compared" rather than as
+    // a disagreement about the arithmetic.
+    if (src.d.cells.filter(c => c.t === k).length < MIN_CELLS_GROUP) return
     const one = deMarkers(src, k)
     n += one.rows.length
     if (one.rows.length !== all[k].rows.length) { exact = false; return }

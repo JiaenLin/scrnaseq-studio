@@ -634,7 +634,17 @@ export async function deMarkersAllAsync(
   return plan.done().map(r => named(src.genes, r))
 }
 
-/** One cluster against every other cell. Kept for tests and single-cluster use. */
+/**
+ * One cluster against every other cell. Kept for tests and single-cluster use.
+ *
+ * Deliberately without the MIN_CELLS_GROUP floor that `markersPlan` and
+ * `wilcoxPlan` apply. This is the per-cluster reference the one-pass
+ * implementation is checked against, and a reference carrying the same policy as
+ * the thing it is checking would agree with it for the wrong reason. The floor
+ * belongs at the entry points the app reaches — which are those two plans, both
+ * of which the worker consults before it scans anything; nothing in src/ calls
+ * this.
+ */
 export function deMarkers(src: Source, ti: number, cond?: string | null): DEResult {
   const inCluster: number[] = []
   const rest: number[] = []
@@ -644,8 +654,7 @@ export function deMarkers(src: Source, ti: number, cond?: string | null): DEResu
   })
   const a = Int32Array.from(inCluster)
   const b = Int32Array.from(rest)
-  if (a.length < MIN_CELLS_GROUP || b.length < MIN_CELLS_GROUP)
-    return { rows: [], n0: b.length, n1: a.length }
+  if (!a.length || !b.length) return { rows: [], n0: b.length, n1: a.length }
   const plan = wilcoxPlan({
     lab: labels(src.d.cells.length, a, b),
     n1: a.length, n2: b.length, nGenes: src.genes.length,
