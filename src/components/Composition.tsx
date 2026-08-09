@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CellType, Dataset } from '../types.ts'
-import { niceStep, pctTxt } from '../lib/chart.ts'
+import { maxOf, maxOfAll, minOf, niceStep, pctTxt } from '../lib/chart.ts'
 import {
-  compFields, compTable, FIELD_LABEL, levelsOf, rowAxes,
+  compFields, compTable, defaultRowAxis, FIELD_LABEL, levelsOf, refuses, rowAxes,
   type CompField, type CompTable,
 } from '../lib/composition.ts'
 import { downloadCsv } from '../lib/download.ts'
@@ -38,7 +38,15 @@ interface Choice {
  */
 const REMEMBERED = new WeakMap<Dataset, Choice>()
 
-const DEFAULT: Choice = { parts: 'type', rows: 'sample', only: -1 }
+/**
+ * Cell types, one row per animal — the figure this tab has always opened on.
+ *
+ * The row axis is not named here. It is asked for, by the same rule the bars
+ * menu uses, so the arrival state and every later change agree about what is
+ * drawable; see defaultRowAxis.
+ */
+const arrival = (d: Dataset, types: CellType[]): Choice =>
+  ({ parts: 'type', rows: defaultRowAxis(d, types, 'type').key, only: -1 })
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
@@ -50,7 +58,7 @@ export default function Composition({ d, types, palKey }: {
   types: CellType[]
   palKey: PaletteKey
 }) {
-  const [choice, setChoice] = useState<Choice>(() => REMEMBERED.get(d) ?? DEFAULT)
+  const [choice, setChoice] = useState<Choice>(() => REMEMBERED.get(d) ?? arrival(d, types))
   useEffect(() => { REMEMBERED.set(d, choice) }, [d, choice])
 
   const fields = compFields(d)
@@ -111,7 +119,7 @@ export default function Composition({ d, types, palKey }: {
 
   // The rule this figure is built on: a bar may not merge the cells of several
   // samples unless the samples are what the bar is divided into.
-  const violates = table.pools && parts !== 'sample'
+  const violates = refuses(table)
 
   const partsLabel = FIELD_LABEL[parts]
   const name = `composition_${parts}_by_${rowFields.join('_')}`
@@ -149,7 +157,7 @@ export default function Composition({ d, types, palKey }: {
               className="sel" value={parts}
               onChange={e => {
                 const next = e.target.value as CompField
-                setChoice({ parts: next, rows: rowAxes(d, next)[0].key, only: -1 })
+                setChoice({ parts: next, rows: defaultRowAxis(d, types, next).key, only: -1 })
               }}
             >
               {fields.map(f => <option key={f} value={f}>{FIELD_LABEL[f]}</option>)}
@@ -403,7 +411,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
   const per = d.conds.map(c =>
     d.samples.map((s, si) => (s.cond === c ? d.prop[si][ti] : null))
       .filter((v): v is number => v !== null))
-  const step = niceStep(Math.max(...per.flat(), 1e-4) / 2)
+  const step = niceStep(Math.max(maxOfAll(per), 1e-4) / 2)
   const maxV = step * 2
   const Y = (v: number) => PT + (H - PT - PB) * (1 - v / maxV)
   const bw = (W - PL - PR) / d.conds.length
@@ -435,7 +443,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
               </rect>
               {vals.length > 1 && (
                 <>
-                  <line x1={cx} x2={cx} y1={Y(Math.min(...vals))} y2={Y(Math.max(...vals))}
+                  <line x1={cx} x2={cx} y1={Y(minOf(vals))} y2={Y(maxOf(vals))}
                     stroke={col} strokeWidth={1.4} opacity=".85" />
                   {vals.map((v, k) => (
                     <circle key={k} cx={cx + (k - (vals.length - 1) / 2) * 4.6} cy={Y(v)} r={2.6}

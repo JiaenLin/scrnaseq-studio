@@ -3,7 +3,8 @@ import type { CellType, GroupBy, Identity, PlotKind } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  clusterCentroids, density, embedExtent, identities, nonZeroPercentile, quantiles,
+  clusterCentroids, density, embedExtent, identities, maxOf, maxOfAll, nonZeroPercentile,
+  quantiles,
 } from '../lib/chart.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import { mix, rampColor, rampCss, RAMPS, type PaletteKey, type RampKey } from '../lib/palette.ts'
@@ -290,7 +291,10 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
     base = v.reduce((a, b) => a + b, 0) / v.length || 1
   }
   const scaled = series.map(v => v.map(x => x / base))
-  const hi = Math.max(...scaled.flat()) * 1.06 || 1
+  // Every sampled cell in the panel, which on the atlas is 133 clusters × 20
+  // groups × 400 — a spread of that many arguments is the RangeError that
+  // unmounts the tab, so the extent is taken by loop. See maxOf in chart.ts.
+  const hi = maxOfAll(scaled) * 1.06 || 1
   const lo = 0
   const Y = (v: number) => PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo))
   const bw = (W - PL - PR) / per
@@ -299,7 +303,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
     : Math.log2((p.src.mean(p.gene, p.types.findIndex(t => t.name === p.ct), p.cs) + 0.05)
       / (p.src.mean(p.gene, p.types.findIndex(t => t.name === p.ct), p.ctrl) + 0.05))
   const pcts = cats.map(c => p.src.pct(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond))
-  const maxPct = Math.max(...pcts)
+  const maxPct = maxOf(pcts)
 
   return (
     <figure>
@@ -333,31 +337,22 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
         {cats.map((c, i) => {
           const v = scaled[i]
           const cx = PL + bw * (i + 0.5)
-          const q = quantiles(v)
-          const dens = density(v, lo, hi)
-          const half = bw * 0.36
-          const pts = [
-            ...dens.map((x, k) => `${(cx + x * half).toFixed(1)},${Y(lo + (hi - lo) * k / 26).toFixed(1)}`),
-            ...dens.map((x, k) => `${(cx - x * half).toFixed(1)},${Y(lo + (hi - lo) * k / 26).toFixed(1)}`).reverse(),
-          ].join(' ')
           const col = c.dim !== undefined ? mix('#e2e8f0', c.color, 0.3 + c.dim * 0.7) : c.color
-          const bwid = Math.max(1, bw * 0.62 * pcts[i])
           return (
             <g key={c.full}>
-              <polygon points={pts} fill={col} opacity=".26" />
-              <line x1={cx} x2={cx} y1={Y(q.q1)} y2={Y(q.q3)} stroke={col}
-                strokeWidth={Math.max(2, Math.min(6, bw * 0.34))} opacity=".65" />
-              <line x1={cx - Math.min(8, bw * 0.4)} x2={cx + Math.min(8, bw * 0.4)}
-                y1={Y(q.med)} y2={Y(q.med)} stroke={col} strokeWidth={2} />
+              {/* A cluster can hold no cells at all in one group — cell type ×
+                  group on the atlas is mostly empty — and there is no
+                  distribution to draw for it. quantiles of nothing are NaN, and
+                  SVG rejects a NaN attribute one at a time: 272 console errors
+                  per render, which is enough to bury a real one. The slot keeps
+                  its tick and stays blank. */}
+              {v.length > 0 && (
+                <Violin v={v} cx={cx} bw={bw} col={col} lo={lo} hi={hi} Y={Y}
+                  pct={pcts[i]} gene={p.gene} yDet={H - PB + 3} />
+              )}
               <text className="axis" transform={`rotate(-42 ${cx} ${H - PB + DET + 11})`}
                 x={cx} y={H - PB + DET + 11} textAnchor="end"
                 style={{ fontSize: per > 10 ? 9 : 10 }}>{c.label}</text>
-              {/* Detection bar. Without it a gene with heavy dropout is just a spike
-                  at zero, with no way to tell "absent here" from "absent everywhere". */}
-              <rect x={cx - bwid / 2} y={H - PB + 3} width={bwid} height={3.5} rx={1.75}
-                fill={col} opacity=".8">
-                <title>{(pcts[i] * 100).toFixed(0)}% of cells detect {p.gene}</title>
-              </rect>
             </g>
           )
         })}
@@ -382,6 +377,44 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   )
 }
 
+/** One category's distribution: outline, box, median, and the detection bar. */
+function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet }: {
+  v: number[]
+  cx: number
+  bw: number
+  col: string
+  lo: number
+  hi: number
+  Y: (value: number) => number
+  pct: number
+  gene: string
+  yDet: number
+}) {
+  const q = quantiles(v)
+  const dens = density(v, lo, hi)
+  const half = bw * 0.36
+  const pts = [
+    ...dens.map((x, k) => `${(cx + x * half).toFixed(1)},${Y(lo + (hi - lo) * k / 26).toFixed(1)}`),
+    ...dens.map((x, k) => `${(cx - x * half).toFixed(1)},${Y(lo + (hi - lo) * k / 26).toFixed(1)}`).reverse(),
+  ].join(' ')
+  const bwid = Math.max(1, bw * 0.62 * pct)
+  return (
+    <>
+      <polygon points={pts} fill={col} opacity=".26" />
+      <line x1={cx} x2={cx} y1={Y(q.q1)} y2={Y(q.q3)} stroke={col}
+        strokeWidth={Math.max(2, Math.min(6, bw * 0.34))} opacity=".65" />
+      <line x1={cx - Math.min(8, bw * 0.4)} x2={cx + Math.min(8, bw * 0.4)}
+        y1={Y(q.med)} y2={Y(q.med)} stroke={col} strokeWidth={2} />
+      {/* Detection bar. Without it a gene with heavy dropout is just a spike
+          at zero, with no way to tell "absent here" from "absent everywhere". */}
+      <rect x={cx - bwid / 2} y={yDet} width={bwid} height={3.5} rx={1.75}
+        fill={col} opacity=".8">
+        <title>{(pct * 100).toFixed(0)}% of cells detect {gene}</title>
+      </rect>
+    </>
+  )
+}
+
 /* ---------------- Seurat dot plot ---------------- */
 
 /**
@@ -397,8 +430,8 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
   const cw = 42, rh = 26, PT = 12, PR = 24
   // The left margin follows the longest identity — "Oligodendrocyte · Reactivated"
   // is more than twice the width of "TAP", and a clipped row label is unreadable.
-  const PL = Math.max(110, Math.min(250, 22 + Math.max(...rows.map(r => r.full.length)) * 6.1))
-  const labelH = Math.min(96, 22 + Math.max(...genes.map(g => g.length)) * 4.6)
+  const PL = Math.max(110, Math.min(250, 22 + maxOf(rows.map(r => r.full.length)) * 6.1))
+  const labelH = Math.min(96, 22 + maxOf(genes.map(g => g.length)) * 4.6)
   const W = PL + genes.length * cw + PR
   const H = PT + rows.length * rh + labelH
 
@@ -411,7 +444,7 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
     return col.map(x => Math.max(-2.5, Math.min(2.5, (x - m) / sd)))
   })
   const lo = p.dotScale ? -2.5 : 0
-  const hi = p.dotScale ? 2.5 : Math.max(...avg.flat(), 0.01)
+  const hi = p.dotScale ? 2.5 : Math.max(maxOfAll(avg), 0.01)
 
   return (
     <>

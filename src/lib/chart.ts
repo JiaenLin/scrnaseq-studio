@@ -118,6 +118,20 @@ export function maxOf(xs: ArrayLike<number>, fallback = 0): number {
 }
 
 /**
+ * The largest value across a list of lists.
+ *
+ * `Math.max(...rows.flat())` is the same bug twice: the spread throws past
+ * ~124,000 arguments, and `flat()` first materialises the million numbers it is
+ * going to throw on. A violin panel of 133 clusters × 20 groups × 400 sampled
+ * cells goes through here.
+ */
+export function maxOfAll(rows: readonly ArrayLike<number>[], fallback = 0): number {
+  let m = -Infinity
+  for (const r of rows) for (let i = 0; i < r.length; i++) if (r[i] > m) m = r[i]
+  return Number.isFinite(m) ? m : fallback
+}
+
+/**
  * A colour ceiling one outlier cannot set: the qth percentile of the cells that
  * express the gene at all.
  *

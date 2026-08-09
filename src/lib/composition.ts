@@ -126,6 +126,36 @@ export function compTable(
   return out
 }
 
+/**
+ * The rule at the top of this file, asked of a finished table.
+ *
+ * One predicate for both of its uses — refusing a pairing and choosing one — so
+ * a menu can never open on something the figure will then refuse to draw.
+ */
+export function refuses(t: CompTable): boolean {
+  return t.pools && t.parts !== 'sample'
+}
+
+/**
+ * The row axis to open on, for a given bars field.
+ *
+ * `rowAxes` is ordered by field and knows nothing about the cells, so on an
+ * object with several animals per group its first entry is one this figure
+ * refuses: cell types by group pools those animals. Taking `axes[0]` on arrival,
+ * and again on every change of the bars menu, therefore put a refusal card where
+ * the figure was under a pairing the reader never chose — and setting the bars
+ * menu back the way it had been did not bring the figure back. The axis to open
+ * on is the first that survives the test the figure itself applies.
+ *
+ * Falls back to `axes[0]` when every axis pools, which is a real object: one
+ * group of several animals, with nothing but those animals to put on the rows.
+ * The tab then refuses and says why, which is the honest answer.
+ */
+export function defaultRowAxis(d: Dataset, types: CellType[], parts: CompField): RowAxis {
+  const axes = rowAxes(d, parts)
+  return axes.find(a => !refuses(compTable(d, types, parts, a.fields))) ?? axes[0]
+}
+
 function build(
   d: Dataset, types: CellType[], parts: CompField, rowFields: CompField[],
 ): CompTable {
