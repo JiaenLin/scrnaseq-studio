@@ -8,6 +8,7 @@
 
 import type { CellType, Dataset } from '../types.ts'
 import { bundleDataset, type Bundle } from './bundle.ts'
+import type { MatrixPlan } from './part-scan.ts'
 import {
   buildDataset, cellExpr, DATASETS, GENES as DEMO_GENES, hash, makeTypes, meanExpr,
 } from './demo.ts'
@@ -29,8 +30,15 @@ export interface SourceMeta {
 /** Walks one gene's non-zero entries. Valid only for the duration of the call. */
 export type NonZeroWalk = (cb: (cell: number, value: number) => void) => void
 
-/** Called once per gene by a scan, with a walker over that gene's values. */
-export type GeneVisit = (gene: string, each: NonZeroWalk) => void
+/**
+ * Called once per gene by a scan, with a walker over that gene's values.
+ *
+ * The gene arrives as its index into `genes`, not as its name. A scan is the
+ * hot loop of every whole-transcriptome view, and an index is what both a
+ * result row and a worker message want to carry; `src.genes[i]` is there for
+ * the one caller that needs the string.
+ */
+export type GeneVisit = (gene: number, each: NonZeroWalk) => void
 
 export interface Source {
   meta: SourceMeta
@@ -42,6 +50,16 @@ export interface Source {
   lazy: boolean
   /** How many bundles the object is stored in. 1 unless it is a collection. */
   nParts: number
+  /**
+   * The file, and where every gene lives in it — everything a second thread
+   * would need to answer a whole-transcriptome question without this Source.
+   *
+   * null when the values are already in memory, which is exactly the case where
+   * handing the work to a worker would cost more than doing it. So this being
+   * non-null IS the condition for using the compute engine; there is no separate
+   * flag to keep in step with it.
+   */
+  remote: { file: Blob; plan: MatrixPlan } | null
   /** Cluster names, in bundle order. */
   clusters: string[]
   /**
@@ -131,7 +149,7 @@ export function baseSource(
 
   const src: Source = {
     meta, d, types, genes, pseudobulk,
-    lazy: false, nParts: 1,
+    lazy: false, nParts: 1, remote: null,
     clusters: types.map(t => t.name),
 
     vector: (gene) => vecCache(gene, () => vector(gene)),
@@ -141,7 +159,7 @@ export function baseSource(
     ensure: () => Promise.resolve(),
 
     scanSync(visit) {
-      for (const gene of genes) visit(gene, cb => nonZero(gene, cb))
+      for (let i = 0; i < genes.length; i++) visit(i, cb => nonZero(genes[i], cb))
       return true
     },
 
@@ -153,7 +171,7 @@ export function baseSource(
       for (let i = 0; i < genes.length; i += STEP) {
         if (cancelled?.()) return
         const end = Math.min(genes.length, i + STEP)
-        for (let g = i; g < end; g++) visit(genes[g], cb => nonZero(genes[g], cb))
+        for (let g = i; g < end; g++) visit(g, cb => nonZero(genes[g], cb))
         onProgress?.(end, genes.length)
         await new Promise(r => setTimeout(r, 0))
       }

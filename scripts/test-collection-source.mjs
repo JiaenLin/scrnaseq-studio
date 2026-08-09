@@ -262,11 +262,11 @@ console.log('\nA WHOLE-TRANSCRIPTOME PASS SEES EVERY GENE, ONCE')
   const seen = []
   const sums = new Map()
   const steps = []
-  await src.scan((gene, each) => {
-    seen.push(gene)
+  await src.scan((gi, each) => {
+    seen.push(src.genes[gi])
     let s = 0
     each((cell, value) => { s += value * (cell + 1) })
-    sums.set(gene, s)
+    sums.set(src.genes[gi], s)
   }, (done, total) => steps.push([done, total]))
   check('every gene, in order', seen, GENES)
   check('progress ends at the last gene', steps[steps.length - 1], [GENES.length, GENES.length])

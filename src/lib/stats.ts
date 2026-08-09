@@ -58,6 +58,39 @@ export interface DEResult {
 }
 
 /**
+ * A result row while it is still being computed, carrying the gene's index
+ * rather than its name.
+ *
+ * Names are attached at the very end, by `named`. The reason is the worker: a
+ * job crosses to it as numbers and comes back as numbers, and 31 053 gene names
+ * have no business being copied into another thread and back to say which rows
+ * won. Everything up to `named` is the same arithmetic either way.
+ */
+export interface RawRow {
+  gene: number
+  lfc: number
+  p: number
+  padj: number
+  pct1: number
+  pct2: number
+}
+
+export interface RawResult {
+  rows: RawRow[]
+  n0: number
+  n1: number
+}
+
+/** Attach the gene names. The last step of every path, and the only one. */
+export const named = (genes: readonly string[], r: RawResult): DEResult => ({
+  rows: r.rows.map(x => ({
+    gene: genes[x.gene], lfc: x.lfc, p: x.p, padj: x.padj, pct1: x.pct1, pct2: x.pct2,
+  })),
+  n0: r.n0,
+  n1: r.n1,
+})
+
+/**
  * Seurat's avg_log2FC for log-normalized data: undo the log, average on the
  * linear scale, then take the ratio. Averaging the logs instead reports a
  * geometric mean, which is a different and systematically smaller number.
@@ -144,8 +177,8 @@ function labels(nCells: number, a: Int32Array, b: Int32Array): Int8Array {
  * minute.
  */
 function testGene(
-  gene: string, each: NonZeroWalk, lab: Int8Array, n1: number, n2: number,
-): DERow | null {
+  gene: number, each: NonZeroWalk, lab: Int8Array, n1: number, n2: number,
+): RawRow | null {
   const xs: number[] = []
   const gs: number[] = []
   let d1 = 0, d2 = 0, s1 = 0, s2 = 0
@@ -203,43 +236,97 @@ export function rankSumSparse(
   return Math.min(1, 2 * normalTail(z))
 }
 
-function finish(rows: DERow[], nTested: number): DERow[] {
+function finish(rows: RawRow[], nTested: number): RawRow[] {
   for (const r of rows) r.padj = Math.min(1, r.p * nTested)
   rows.sort((x, y) => x.padj - y.padj || Math.abs(y.lfc) - Math.abs(x.lfc))
   return rows
+}
+
+/* ---------------- what a job is, apart from where it runs ---------------- */
+
+/**
+ * A question, stated in numbers only.
+ *
+ * These are what cross to the worker. They hold no closures, no Source and no
+ * strings, so the same value can be built on the page, structured-cloned, and
+ * answered on either side — and there is nothing in them a worker could
+ * interpret differently.
+ */
+export interface WilcoxSpec {
+  /** 0 = the "1" side (pct.1, fold-change numerator), 1 = control, -1 = not tested. */
+  lab: Int8Array
+  n1: number
+  n2: number
+  nGenes: number
+}
+
+export interface MarkersSpec {
+  /** Per cell: its cluster, or -1 for a cell the condition filter excludes. */
+  owner: Int32Array
+  /** Cells per cluster, after that filter. */
+  size: Int32Array
+  nUsed: number
+  nGenes: number
+}
+
+/** The comparison a DEG table asks for, as numbers. */
+export function wilcoxSpec(src: Source, ti: number, ctrl: string, cs: string): WilcoxSpec {
+  // `a` is the "1" side: pct.1, and the numerator of the fold change.
+  const a = src.group(ti, cs)
+  const b = src.group(ti, ctrl)
+  return {
+    lab: labels(src.d.cells.length, a, b),
+    n1: a.length,
+    n2: b.length,
+    nGenes: src.genes.length,
+  }
+}
+
+/** Which cells take part in FindAllMarkers, and which cluster each belongs to. */
+export function markersSpec(src: Source, cond?: string | null): MarkersSpec {
+  const nT = src.types.length
+  const n = src.d.cells.length
+  const owner = new Int32Array(n)
+  const size = new Int32Array(nT)
+  let nUsed = 0
+  for (let i = 0; i < n; i++) {
+    const c = src.d.cells[i]
+    if (cond && c.cond !== cond) { owner[i] = -1; continue }
+    owner[i] = c.t
+    size[c.t]++
+    nUsed++
+  }
+  return { owner, size, nUsed, nGenes: src.genes.length }
 }
 
 /**
  * FindMarkers: two groups within one cluster.
  *
  * Split into "set up the comparison" and "fold one gene in", so the same
- * arithmetic serves an object held in memory and one streamed off disk. There is
- * no second implementation to drift.
+ * arithmetic serves an object held in memory, one streamed off disk, and one
+ * streamed inside a worker. There is no second implementation to drift.
  */
-function wilcoxPlan(src: Source, ti: number, ctrl: string, cs: string) {
-  // `a` is the "1" side: pct.1, and the numerator of the fold change.
-  const a = src.group(ti, cs)
-  const b = src.group(ti, ctrl)
-  const lab = labels(src.d.cells.length, a, b)
-  const rows: DERow[] = []
+export function wilcoxPlan(spec: WilcoxSpec) {
+  const { lab, n1, n2 } = spec
+  const rows: RawRow[] = []
   return {
-    empty: !a.length || !b.length,
-    n0: b.length,
-    n1: a.length,
-    visit: (gene: string, each: NonZeroWalk) => {
-      const r = testGene(gene, each, lab, a.length, b.length)
+    empty: !n1 || !n2,
+    n0: n2,
+    n1,
+    visit: (gene: number, each: NonZeroWalk) => {
+      const r = testGene(gene, each, lab, n1, n2)
       if (r) rows.push(r)
     },
-    done: (): DEResult => ({
-      rows: finish(rows, src.genes.length), n0: b.length, n1: a.length,
-    }),
+    done: (): RawResult => ({ rows: finish(rows, spec.nGenes), n0: n2, n1 }),
   }
 }
 
 export function deWilcox(src: Source, ti: number, ctrl: string, cs: string): DEResult {
-  const plan = wilcoxPlan(src, ti, ctrl, cs)
-  if (plan.empty || !src.scanSync(plan.visit)) return { rows: [], n0: plan.n0, n1: plan.n1 }
-  return plan.done()
+  const plan = wilcoxPlan(wilcoxSpec(src, ti, ctrl, cs))
+  if (plan.empty || !src.scanSync((gi, each) => plan.visit(gi, each))) {
+    return { rows: [], n0: plan.n0, n1: plan.n1 }
+  }
+  return named(src.genes, plan.done())
 }
 
 export async function deWilcoxAsync(
@@ -247,10 +334,10 @@ export async function deWilcoxAsync(
   onProgress?: (done: number, total: number) => void,
   cancelled?: () => boolean,
 ): Promise<DEResult> {
-  const plan = wilcoxPlan(src, ti, ctrl, cs)
+  const plan = wilcoxPlan(wilcoxSpec(src, ti, ctrl, cs))
   if (plan.empty) return { rows: [], n0: plan.n0, n1: plan.n1 }
   await src.scan(plan.visit, onProgress, cancelled)
-  return plan.done()
+  return named(src.genes, plan.done())
 }
 
 /**
@@ -268,21 +355,10 @@ export async function deWilcoxAsync(
  * cluster, which `scripts/test-stats.mjs` asserts row for row; on a 64-cluster
  * object it is what makes the tab finish at all.
  */
-function markersPlan(src: Source, cond?: string | null) {
-  const nT = src.types.length
-  const n = src.d.cells.length
-  // -1 for a cell taking no part, else its cluster.
-  const owner = new Int32Array(n)
-  const size = new Int32Array(nT)
-  let nUsed = 0
-  for (let i = 0; i < n; i++) {
-    const c = src.d.cells[i]
-    if (cond && c.cond !== cond) { owner[i] = -1; continue }
-    owner[i] = c.t
-    size[c.t]++
-    nUsed++
-  }
-  const rows: DERow[][] = Array.from({ length: nT }, () => [])
+export function markersPlan(spec: MarkersSpec) {
+  const { owner, size, nUsed } = spec
+  const nT = size.length
+  const rows: RawRow[][] = Array.from({ length: nT }, () => [])
 
   // Reused across genes: a gene touches a few hundred cells and allocating
   // three arrays per gene per cluster is most of the cost otherwise.
@@ -293,7 +369,7 @@ function markersPlan(src: Source, cond?: string | null) {
   const d1 = new Int32Array(nT)
   const s1 = new Float64Array(nT)
 
-  const visit = (gene: string, each: NonZeroWalk) => {
+  const visit = (gene: number, each: NonZeroWalk) => {
     let m = 0
     let sAll = 0
     r1.fill(0); d1.fill(0); s1.fill(0)
@@ -347,8 +423,8 @@ function markersPlan(src: Source, cond?: string | null) {
   return {
     empty: !nUsed,
     visit,
-    done: (): DEResult[] => rows.map((rs, c) => ({
-      rows: finish(rs, src.genes.length), n0: nUsed - size[c], n1: size[c],
+    done: (): RawResult[] => rows.map((rs, c) => ({
+      rows: finish(rs, spec.nGenes), n0: nUsed - size[c], n1: size[c],
     })),
   }
 }
@@ -367,10 +443,10 @@ function rankFromSums(r1: number, n1: number, n2: number, tieSum: number): numbe
 
 /** Every cluster's markers, synchronously. Empty when the source is lazy. */
 export function deMarkersAll(src: Source, cond?: string | null): DEResult[] {
-  const plan = markersPlan(src, cond)
+  const plan = markersPlan(markersSpec(src, cond))
   const blank = src.types.map(() => ({ rows: [], n0: 0, n1: 0 }))
   if (plan.empty || !src.scanSync(plan.visit)) return blank
-  return plan.done()
+  return plan.done().map(r => named(src.genes, r))
 }
 
 export async function deMarkersAllAsync(
@@ -378,10 +454,10 @@ export async function deMarkersAllAsync(
   onProgress?: (done: number, total: number) => void,
   cancelled?: () => boolean,
 ): Promise<DEResult[]> {
-  const plan = markersPlan(src, cond)
+  const plan = markersPlan(markersSpec(src, cond))
   if (plan.empty) return src.types.map(() => ({ rows: [], n0: 0, n1: 0 }))
   await src.scan(plan.visit, onProgress, cancelled)
-  return plan.done()
+  return plan.done().map(r => named(src.genes, r))
 }
 
 /** One cluster against every other cell. Kept for tests and single-cluster use. */
@@ -395,13 +471,12 @@ export function deMarkers(src: Source, ti: number, cond?: string | null): DEResu
   const a = Int32Array.from(inCluster)
   const b = Int32Array.from(rest)
   if (!a.length || !b.length) return { rows: [], n0: b.length, n1: a.length }
-  const lab = labels(src.d.cells.length, a, b)
-  const rows: DERow[] = []
-  if (!src.scanSync((gene, each) => {
-    const r = testGene(gene, each, lab, a.length, b.length)
-    if (r) rows.push(r)
-  })) return { rows: [], n0: b.length, n1: a.length }
-  return { rows: finish(rows, src.genes.length), n0: b.length, n1: a.length }
+  const plan = wilcoxPlan({
+    lab: labels(src.d.cells.length, a, b),
+    n1: a.length, n2: b.length, nGenes: src.genes.length,
+  })
+  if (!src.scanSync(plan.visit)) return { rows: [], n0: b.length, n1: a.length }
+  return named(src.genes, plan.done())
 }
 
 /* ---------------- pseudobulk ---------------- */

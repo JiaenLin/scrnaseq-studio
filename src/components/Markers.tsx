@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CellType, DERow } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { deMarkersAll, deMarkersAllAsync, isSig, thresholdFor, type DEResult } from '../lib/stats.ts'
+import { deMarkersAll, isSig, markersSpec, thresholdFor } from '../lib/stats.ts'
+import { dotAt, dotGrid } from '../lib/dots.ts'
 import { sci } from '../lib/chart.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
 import { Card, Chips, Empty, Mono } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
-import { useCompute } from '../lib/compute.ts'
+import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
 
 export default function Markers({ src, types, palKey, onRename, onPickGene }: {
@@ -23,10 +24,13 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   // One Wilcoxon per cluster against every other cell, all clusters in one pass
   // over the genes. Keyed on the object alone: renaming a cluster must not throw
   // the results away, and no threshold here feeds the test.
-  const { value: results, pass } = useCompute<DEResult[]>(
+  //
+  // Two lines, and neither of them knows where the work happens. A demo object
+  // computes in the useMemo; the atlas computes in the worker and reports back.
+  const { value: results, pass } = useJob<'markers'>(
     src, 'markers', true,
     () => deMarkersAll(src),
-    (report, cancelled) => deMarkersAllAsync(src, null, (d, t) => report('', d, t), cancelled),
+    () => ({ kind: 'markers', ...markersSpec(src, null) }),
   )
 
   const th = thresholdFor('wilcox')
@@ -46,6 +50,12 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
     void src.ensure(wanted ? wanted.split(',') : []).then(() => { if (!dead) setDots(true) })
     return () => { dead = true }
   }, [src, wanted])
+
+  // Every dot's mean and detection rate, computed once for the whole grid. See
+  // dots.ts for why this is not `src.mean(g, ti)` inside the render.
+  const grid = useMemo(
+    () => dotGrid(src, dots && wanted ? wanted.split(',') : [], types.length),
+    [src, wanted, dots, types.length])
 
   if (pass) {
     return (
@@ -111,8 +121,8 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                     <text className="axis" x={PL - 12} y={y + 4} textAnchor="end"
                       style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: 550 }}>{t.name}</text>
                     {dots && genes.map((g, gi) => {
-                      const m = src.mean(g, ti)
-                      const pct = src.pct(g, ti)
+                      const m = grid.mean[dotAt(grid, gi, ti)]
+                      const pct = grid.pct[dotAt(grid, gi, ti)]
                       if (pct < 0.02) return null
                       return (
                         <circle key={g} cx={PL + cw * (gi + 0.5)} cy={y}

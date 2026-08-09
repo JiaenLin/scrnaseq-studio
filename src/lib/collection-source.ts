@@ -32,6 +32,7 @@ import {
 } from './chunked.ts'
 import type { CollectionIndex, PartEntry } from './collection.ts'
 import { unionLevels } from './levels.ts'
+import { scanMatrix, type MatrixPlan } from './part-scan.ts'
 import { baseSource, type Source } from './source.ts'
 import { readZipDir, payloadStart, readZipEntry, type ZipEntry } from './zipdir.ts'
 
@@ -54,6 +55,8 @@ interface Part {
   nCells: number
   /** Where this part's cells start in the global numbering. */
   offset: number
+  /** Byte offset of this part's expr.chunk.bin payload within the container. */
+  base: number
   indptr: Int32Array
   chunkptr: Int32Array
   chunkGenes: number
@@ -174,7 +177,7 @@ export async function openCollection(
     }
 
     parts.push({
-      key: info.key, nCells: n, offset, indptr, chunkptr, chunkGenes, meta,
+      key: info.key, nCells: n, offset, base, indptr, chunkptr, chunkGenes, meta,
       cache: makeChunkCache(perPartCache),
       getBytes: async (from, to) =>
         new Uint8Array(await file.slice(base + from, base + to).arrayBuffer()),
@@ -346,34 +349,21 @@ export async function openCollection(
     return out
   }
 
-  const chunkGenes = parts[0].chunkGenes
-  const nChunks = chunkCount(nGenes, chunkGenes)
-
-  const scan: Source['scan'] = async (visit, onScanProgress, cancelled) => {
-    // One chunk of genes at a time, every part in parallel, nothing kept: this
-    // is one forward pass over the file whatever the object weighs.
-    const scratch = parts.map(() => makeChunkCache(1))
-    const idxs: number[] = []
-    for (let k = 0; k < nChunks; k++) {
-      if (cancelled?.()) return
-      const lo = k * chunkGenes
-      const hi = Math.min(nGenes, lo + chunkGenes)
-      idxs.length = 0
-      for (let g = lo; g < hi; g++) idxs.push(g)
-      const perPart = await Promise.all(parts.map((p, pi) =>
-        readGenes(p.getBytes, p.chunkptr, p.indptr, p.chunkGenes, idxs, scratch[pi])))
-      for (let gi = 0; gi < idxs.length; gi++) {
-        visit(genes![lo + gi], cb => {
-          for (let pi = 0; pi < parts.length; pi++) {
-            const v = perPart[pi][gi]
-            const off = parts[pi].offset
-            for (let m = 0; m < v.cells.length; m++) cb(v.cells[m] + off, v.values[m])
-          }
-        })
-      }
-      onScanProgress?.(hi, nGenes)
-    }
+  // Where every gene lives, as numbers only — no Blob slices bound into
+  // closures, nothing that cannot be structured-cloned. This is what the compute
+  // worker is handed, and it is also what this Source's own scan runs on, so
+  // page and worker walk the file by the same description.
+  const plan: MatrixPlan = {
+    nGenes,
+    chunkGenes: parts[0].chunkGenes,
+    parts: parts.map(p => ({
+      base: p.base, offset: p.offset,
+      indptr: p.indptr, chunkptr: p.chunkptr, chunkGenes: p.chunkGenes,
+    })),
   }
+
+  const scan: Source['scan'] = (visit, onScanProgress, cancelled) =>
+    scanMatrix(file, plan, visit, onScanProgress, cancelled)
 
   const src = baseSource(d, types, genes!, {
     label: merged.label,
@@ -389,6 +379,7 @@ export async function openCollection(
   return Object.assign(src, {
     lazy: true,
     nParts: parts.length,
+    remote: { file, plan },
     ensure,
     scan,
     scanSync: () => false,

@@ -51,10 +51,10 @@ function geneAveragesSync(src: Source): Map<string, number> | null {
   if (hit) return hit
   const n = src.d.cells.length
   const out = new Map<string, number>()
-  if (!src.scanSync((gene, each) => {
+  if (!src.scanSync((gi, each) => {
     let sum = 0
     each((_cell, value) => { sum += value })
-    out.set(gene, sum / n)
+    out.set(src.genes[gi], sum / n)
   })) return null
   AVERAGES.set(src, out)
   return out
@@ -69,10 +69,10 @@ async function geneAveragesAsync(
   if (hit) return hit
   const n = src.d.cells.length
   const out = new Map<string, number>()
-  await src.scan((gene, each) => {
+  await src.scan((gi, each) => {
     let sum = 0
     each((_cell, value) => { sum += value })
-    out.set(gene, sum / n)
+    out.set(src.genes[gi], sum / n)
   }, onProgress, cancelled)
   if (cancelled?.()) return out
   AVERAGES.set(src, out)
@@ -184,8 +184,8 @@ export async function moduleScoreAsync(
 
   const { weight, control } = plan(src, used, avg, opts)
   const scores = new Float32Array(n)
-  await src.scan((gene, each) => {
-    const w = weight.get(gene)
+  await src.scan((gi, each) => {
+    const w = weight.get(src.genes[gi])
     if (w) each(fold(scores, w))
   }, (a, b) => onProgress?.('module score', a, b), cancelled)
   return { scores, used, missing, control }

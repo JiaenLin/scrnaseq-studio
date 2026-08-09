@@ -114,7 +114,7 @@ console.log('\nTHE STREAM SEES THE WHOLE OBJECT')
   let nonzeros = 0
   let sum = 0
   let outOfRange = 0
-  await src.scan((gene, each) => {
+  await src.scan((_gi, each) => {
     genes++
     each((cell, value) => {
       nonzeros++

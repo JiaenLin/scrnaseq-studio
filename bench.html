@@ -1,0 +1,36 @@
+<!doctype html>
+<!--
+  A measuring bench, served by `npm run dev` only.
+
+  It is not referenced from index.html and it is not a build input, so it never
+  reaches dist/ or the deployed site. It exists to answer one question with
+  numbers instead of opinion: should the compute worker read the file itself, or
+  should the page read gene vectors and post them in?
+
+    npm run dev -- --port 4261
+    open http://localhost:4261/bench.html, choose the collection, press a button
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>scRNA-seq Studio — compute bench</title>
+    <style>
+      body { font: 13px/1.6 ui-monospace, monospace; margin: 24px; max-width: 900px }
+      pre { white-space: pre-wrap; background: #f6f7f9; padding: 12px; border-radius: 8px }
+      button { font: inherit; padding: 6px 10px; margin-right: 6px }
+    </style>
+  </head>
+  <body>
+    <h1>compute bench</h1>
+    <input type="file" id="file" accept=".zip" />
+    <p>
+      <button id="open">open</button>
+      <button id="shapeA">shape A — worker reads the file</button>
+      <button id="shapeB">shape B — page reads, posts vectors in</button>
+      <button id="oldPath">the current main-thread path</button>
+      <button id="compare">compare A against the main-thread path</button>
+    </p>
+    <pre id="log"></pre>
+    <script type="module" src="/src/bench.ts"></script>
+  </body>
+</html>
