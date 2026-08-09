@@ -142,15 +142,14 @@ if (!renamed) {
   check('the search box says so', await page.$eval('.inp.mono', i => i.placeholder),
     'symbol or accession…')
 
-  // The names on this object, taken from the object rather than assumed.
-  const probe = await page.evaluate(() => {
-    const t = document.body.innerText
-    return t.length
-  })
-  void probe
-
-  const hits = await suggest(process.env.PROBE_SYMBOL ?? 'Sox2')
-  console.log(`  "${process.env.PROBE_SYMBOL ?? 'Sox2'}" suggests: ${JSON.stringify(hits.slice(0, 4))}`)
+  // A query this object can actually answer, taken FROM the object rather than
+  // assumed: the genes already selected at open are on screen as chips, so the
+  // first of them is a name that exists here whatever the species.
+  const chip = (await page.$$eval('span[title]', ss => ss.map(s => s.textContent.replace(/×$/, '').trim())))
+    .find(Boolean)
+  const query = process.env.PROBE_SYMBOL ?? chip ?? 'Sox2'
+  const hits = await suggest(query)
+  console.log(`  "${query}" suggests: ${JSON.stringify(hits.slice(0, 4))}`)
   claim('a symbol finds rows', hits.length > 0, 'the dropdown was empty')
   claim('and the accession is shown beside it',
     hits.some(h => /ENS[A-Z]*\d{6,}/.test(h)), JSON.stringify(hits.slice(0, 3)))
@@ -169,8 +168,8 @@ if (!renamed) {
 
   // Committing one, and drawing it: the name on screen must be a name the
   // object answers for, or the panel comes back empty.
-  await page.fill(box, process.env.PROBE_SYMBOL ?? 'Sox2')
-  await page.waitForTimeout(120)
+  await page.fill(box, query)
+  await page.waitForTimeout(200)
   await page.click('.absolute button.mono')
   await page.click('button:has-text("Feature plot")')
   await page.waitForSelector('figcaption', { timeout: 300_000 })
