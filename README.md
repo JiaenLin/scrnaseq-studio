@@ -2,33 +2,48 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Open a processed single-cell object and explore it — in your browser, without re-running anything.**
+**Open a processed single-cell object and explore it — in your browser, without re-running
+anything.**
 
-Convert a Scanpy `.h5ad` or a Seurat `.rds` into a bundle once, offline, then open the bundle
-here. The studio shows you what is actually in it and produces the figures, the statistics and
-the Methods paragraph. **Your file never leaves your computer** — there is no server and nothing
-is uploaded.
+Convert a Scanpy `.h5ad` or a Seurat `.rds` in [scRNA-seq
+Lab](https://jiaenlin.github.io/scrnaseq-lab/), then open the one file it gives you here. The
+studio shows what is actually in it and produces the figures, the statistics and the Methods
+paragraph. **Your file never leaves your computer** — there is no server and nothing is
+uploaded.
 
-```bash
-python tools/export_h5ad.py   in.h5ad out.zip --cluster louvain
-Rscript tools/export_seurat.R in.rds  out.zip --cluster seurat_annotations
-```
+**→ [jiaenlin.github.io/scrnaseq-studio](https://jiaenlin.github.io/scrnaseq-studio/)**
 
-Conversion is offline because that is where the formats' quirks live: an `.rds` cannot be
-partially read and is mostly `scale.data` this app never plots, and an `.h5ad` may keep scaled
-values in `X`, log-normalized counts in `.raw`, and use either of two incompatible layouts.
-[tools/BUNDLE.md](tools/BUNDLE.md) is the format and the requirements.
+## Any size
 
-Fourth app in the family:
+An atlas opens as one intact dataset. Nothing about how it is stored reaches the interface:
+there is no part picker, no "viewing 3 of 43", no tab that works only on small objects.
 
-| App | Input | Output |
-|---|---|---|
-| [rnaseq-service](https://github.com/JiaenLin/rnaseq-service) | raw FASTQ | analysis request + sample sheet |
-| [rnaseq-lab](https://github.com/JiaenLin/rnaseq-lab) | bulk count matrix | DESeq2 result bundle |
-| [rnaseq-studio](https://github.com/JiaenLin/rnaseq-studio) | result bundle | figures + Methods |
-| **scrnaseq-studio** | `.h5ad` / `.rds` | figures + Methods |
+Measured on the deployed site, on a 9.3 GB source object — 292,495 cells, 31,053 genes,
+133 clusters, delivered as one 5.83 GB file the lab split into 43 pieces:
 
----
+| | |
+|---|---|
+| opens in | **4.0 s**, showing all 292,495 cells |
+| one gene, read on demand | **3.9 ms** cold, **0.018 ms** warm |
+| worst main-thread freeze while `FindAllMarkers` runs | **22 ms** — 0 gaps over 100 ms |
+
+Three things make that work:
+
+- **Cell-level data is resident, expression is not.** Clusters, samples, embedding and QC for
+  every cell come to about 7 MB. The matrix — 5.9 GB — is never held: each gene is read from the
+  file when a view asks for it, out of a gene-chunked, deflate-compressed, indexed layout.
+- **Whole-transcriptome tests run off the page.** Markers, differential expression, enrichment
+  and gene-set scoring run in a worker that reads the file itself, reporting honest progress and
+  cancelling cleanly. Before this, the same computation blocked the tab for 3.5 seconds at a
+  time; now the longest block over a four-minute pass is 22 ms, and the total for the whole
+  operation is 1.71 s.
+- **A withdrawn job cannot land.** Cancelling deletes its entry from the only route a worker
+  message has to page state, so a stale answer has nowhere to be delivered — rather than being
+  ignored by a flag someone must remember to check. Showing the wrong numbers is worse than
+  being slow.
+
+Small objects are unaffected: a bundle already in memory computes inline, exactly as before,
+with no worker and no progress card.
 
 ## What it does
 
@@ -103,15 +118,25 @@ colour-vision deficiency.
 
 ## Status
 
-Real data works end to end. Opening PBMC 3k — 2,638 cells, 13,714 genes — parses in ~200 ms and
-a full one-vs-rest marker test across all 8 clusters takes ~1.6 s, returning CD79A/MS4A1 for B
-cells, S100A9/CD14 for monocytes, GZMB/GNLY for NK, GP9/ITGA2B for megakaryocytes.
+Real data works end to end, from PBMC 3k to a 292,495-cell atlas. Opening PBMC 3k — 2,638
+cells, 13,714 genes — parses in ~200 ms and a full one-vs-rest marker test across all 8 clusters
+takes ~1.6 s, returning CD79A/MS4A1 for B cells, S100A9/CD14 for monocytes, GZMB/GNLY for NK,
+GP9/ITGA2B for megakaryocytes.
 
 What remains:
 
 - [ ] **DESeq2 on pseudobulk.** The bundle carries the summed counts and the app exports them,
       but fitting the model is not wired into the browser. Rather than label some other test
       "DESeq2", the pseudobulk tab hands you the matrix for `DESeqDataSetFromMatrix`.
+- [ ] **A marker pass is off the page but not yet fast** — 266 s on the 292,495-cell atlas,
+      against 272 s before. The tab stays live throughout, which was the point, but the work
+      itself is unchanged. Markers treat every gene independently and the engine already
+      describes the matrix as a gene range, so splitting the pass across several workers would
+      be close to linear; the care needed is that merging must restore gene order exactly or
+      sort ties move.
+- [ ] **The inline path is ungated by size.** A plain single bundle always computes on the main
+      thread, however large — a 2,638-cell object still blocks for ~470 ms. The collection
+      format is what lifts the ceiling, not the engine.
 - [ ] Opening a `.h5ad` or `.rds` directly, without the conversion step (h5wasm and webR —
       see [DESIGN.md](DESIGN.md) §1.1–1.2)
 - [ ] MSigDB import; the studio currently ships 18 sets across GO:BP, KEGG, Hallmark and

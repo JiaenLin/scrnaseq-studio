@@ -124,10 +124,15 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
         <div className="mt-7">
           <SectionTitle>Input format</SectionTitle>
           <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-2)' }}>
-            A <code className="mono">.zip</code> written by scRNA-seq Lab or by{' '}
-            <code className="mono">tools/export_*</code> — schema{' '}
-            <code className="mono">scrnaseq-studio/bundle@1</code>. Not the{' '}
+            One <code className="mono">.zip</code> from scRNA-seq Lab, or from{' '}
+            <code className="mono">tools/export_*</code>. Not the{' '}
             <code className="mono">.h5ad</code> or <code className="mono">.rds</code> itself.
+          </p>
+          <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-2)' }}>
+            Size is not a limit. An object too large to hold at once arrives as one file the
+            lab stored in several pieces, and opens here as the whole thing — every cell, every
+            tab. Expression is read a gene at a time as you ask for it, and whole-transcriptome
+            tests run off the page, so nothing freezes while it works.
           </p>
           <div className="mt-2.5 grid gap-1.5">
             {NEEDS.map(([name, required, what]) => (
