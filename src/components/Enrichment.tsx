@@ -49,7 +49,7 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
   // can see that rather than infer it.
   const ranked = useMemo(() => {
     const scored = rows
-      .map(r => ({ gene: r.gene, comb: combinedScore(r.lfc, r.p) ?? 0, r }))
+      .map(r => ({ gene: r.gene, comb: combinedScore(r.lfc, r.nlp) ?? 0, r }))
       .sort((a, b) => Math.abs(b.comb) - Math.abs(a.comb))
     return new Map(scored.map((x, i) => [x.gene, { ...x, rank: i + 1 }]))
   }, [rows])

@@ -74,23 +74,36 @@ export function logNormalTail(z: number): number {
 }
 
 /**
- * Complementary error function for x >= 0 — Chebyshev, Numerical Recipes 3rd ed.
- * §6.2.2. Only ever called with |z| / sqrt(2), so the reflection for negative x
- * is not written; it would be a branch nothing takes.
+ * Chebyshev coefficients for erfc — Numerical Recipes 3rd ed. §6.2.2. Written to
+ * the last digit a double actually holds, so that what is read here is what runs.
+ * Module scope because `erfc` is called once per reported row.
+ */
+const ERFC_COF = [-1.3026537197817094, 6.419697923564902e-1, 1.9476473204185836e-2,
+  -9.56151478680863e-3, -9.46595344482036e-4, 3.66839497852761e-4, 4.2523324806907e-5,
+  -2.0278578112534e-5, -1.624290004647e-6, 1.30365583558e-6, 1.5626441722e-8,
+  -8.5238095915e-8, 6.529054439e-9, 5.059343495e-9, -9.91364156e-10, -2.27365122e-10,
+  9.6467911e-11, 2.394038e-12, -6.886027e-12, 8.94487e-13, 3.13092e-13,
+  -1.12708e-13, 3.81e-16, 7.106e-15]
+
+/**
+ * Complementary error function for x >= 0.
+ *
+ * Only ever called with |z| / sqrt(2), so the reflection for negative x is not
+ * written; it would be a branch nothing takes.
  */
 function erfc(x: number): number {
   const t = 2 / (2 + x)
   const ty = 4 * t - 2
-  const cof = [-1.3026537197817094, 6.4196979235649026e-1, 1.9476473204185836e-2,
-    -9.561514786808631e-3, -9.46595344482036e-4, 3.66839497852761e-4, 4.2523324806907e-5,
-    -2.0278578112534e-5, -1.624290004647e-6, 1.303655835580e-6, 1.5626441722e-8,
-    -8.5238095915e-8, 6.529054439e-9, 5.059343495e-9, -9.91364156e-10, -2.27365122e-10,
-    9.6467911e-11, 2.394038e-12, -6.886027e-12, 8.94487e-13, 3.13092e-13,
-    -1.12708e-13, 3.81e-16, 7.106e-15]
   let d = 0, dd = 0
-  for (let j = cof.length - 1; j > 0; j--) { const tmp = d; d = ty * d - dd + cof[j]; dd = tmp }
-  return t * Math.exp(-x * x + 0.5 * (cof[0] + ty * d) - dd)
+  for (let j = ERFC_COF.length - 1; j > 0; j--) {
+    const tmp = d; d = ty * d - dd + ERFC_COF[j]; dd = tmp
+  }
+  return t * Math.exp(-x * x + 0.5 * (ERFC_COF[0] + ty * d) - dd)
 }
+
+/** −log10 of the two-sided p, from the z statistic. This one never saturates. */
+export const nlpFromZ = (z: number): number =>
+  Math.max(0, -(logNormalTail(z) + Math.LN2) / Math.LN10)
 
 /**
  * Significance threshold, per method.
@@ -130,6 +143,14 @@ export interface RawRow {
   lfc: number
   p: number
   padj: number
+  /**
+   * −log10 of the adjusted p, carried alongside it because `padj` cannot hold
+   * the answer. Filled in by `finish`, exactly as `padj` is; until then it is
+   * −log10 of the RAW p. This is the significance the ranking, the volcano and
+   * the combined score use — `p` and `padj` stay as they are so exports,
+   * thresholds and everything a user reads keep their present meaning.
+   */
+  nlp: number
   pct1: number
   pct2: number
 }
@@ -143,7 +164,8 @@ export interface RawResult {
 /** Attach the gene names. The last step of every path, and the only one. */
 export const named = (genes: readonly string[], r: RawResult): DEResult => ({
   rows: r.rows.map(x => ({
-    gene: genes[x.gene], lfc: x.lfc, p: x.p, padj: x.padj, pct1: x.pct1, pct2: x.pct2,
+    gene: genes[x.gene], lfc: x.lfc, p: x.p, padj: x.padj, nlp: x.nlp,
+    pct1: x.pct1, pct2: x.pct2,
   })),
   n0: r.n0,
   n1: r.n1,
@@ -256,20 +278,25 @@ function testGene(
   const lfc = Math.log2(s1 / n1 + 1) - Math.log2(s2 / n2 + 1)
   if (!Number.isFinite(lfc) || Math.abs(lfc) < LFC_GATE) return null
 
-  const p = rankSumSparse(xs, gs, n1 - d1, n2 - d2)
-  return { gene, lfc, p, padj: 1, pct1, pct2 }
+  const { p, nlp } = rankSumSparseFull(xs, gs, n1 - d1, n2 - d2)
+  return { gene, lfc, p, padj: 1, nlp, pct1, pct2 }
 }
 
 /** Two-sided Wilcoxon rank-sum from the non-zero values plus the zero counts. */
-export function rankSumSparse(
+export const rankSumSparse = (
   xs: number[], gs: number[], z1: number, z2: number,
-): number {
+): number => rankSumSparseFull(xs, gs, z1, z2).p
+
+/** The same, keeping the log-scale significance the linear p cannot hold. */
+export function rankSumSparseFull(
+  xs: number[], gs: number[], z1: number, z2: number,
+): { p: number; nlp: number } {
   const n1 = gs.reduce((k, g) => k + (g === 0 ? 1 : 0), 0) + z1
   const n2 = gs.length - (n1 - z1) + z2
   const n = n1 + n2
-  if (!n1 || !n2 || n < 3) return 1
+  if (!n1 || !n2 || n < 3) return { p: 1, nlp: 0 }
   const zeros = z1 + z2
-  if (!xs.length) return 1
+  if (!xs.length) return { p: 1, nlp: 0 }
 
   const order = xs.map((_x, i) => i).sort((p, q) => xs[p] - xs[q])
   // Ranks 1..zeros are the zero block — one tie group of that size.
@@ -290,14 +317,28 @@ export function rankSumSparse(
   const u = r1 - (n1 * (n1 + 1)) / 2
   const mu = (n1 * n2) / 2
   const varU = ((n1 * n2) / 12) * (n + 1 - tieSum / (n * (n - 1)))
-  if (varU <= 0) return 1
+  if (varU <= 0) return { p: 1, nlp: 0 }
   const z = (Math.abs(u - mu) - 0.5) / Math.sqrt(varU)
-  return Math.min(1, 2 * normalTail(z))
+  return { p: Math.min(1, 2 * normalTail(z)), nlp: nlpFromZ(z) }
 }
 
+/**
+ * Adjust, then rank.
+ *
+ * The sort key is `nlp`, not `padj`. They are the same ordering wherever `padj`
+ * is a number — but past z = 38.46 `padj` is the Number.MIN_VALUE floor for
+ * every row alike, and on the atlas that is 11% of all rows and 96% of every
+ * displayed top ten. A sort on `padj` there is a sort on a constant, so the
+ * order fell through to the |log2FC| tiebreak and the marker table's primary
+ * key was doing nothing. `nlp` still separates those rows.
+ */
 function finish(rows: RawRow[], nTested: number): RawRow[] {
-  for (const r of rows) r.padj = Math.min(1, r.p * nTested)
-  rows.sort((x, y) => x.padj - y.padj || Math.abs(y.lfc) - Math.abs(x.lfc))
+  const shift = Math.log10(nTested)
+  for (const r of rows) {
+    r.padj = Math.min(1, r.p * nTested)
+    r.nlp = Math.max(0, r.nlp - shift)
+  }
+  rows.sort((x, y) => y.nlp - x.nlp || Math.abs(y.lfc) - Math.abs(x.lfc))
   return rows
 }
 
@@ -533,8 +574,8 @@ export function markersPlan(spec: MarkersSpec) {
       const pct2 = (m - d1[c]) / n2
       const lfc = Math.log2(s1[c] / n1 + 1) - Math.log2((sAll - s1[c]) / n2 + 1)
       // The zero block contributes z1 cells at the mean rank of ranks 1..zeros.
-      const p = rankFromSums(r1[c] + (n1 - d1[c]) * ((1 + zeros) / 2), n1, n2, tieSum)
-      rows[c].push({ gene, lfc, p, padj: 1, pct1, pct2 })
+      const { p, nlp } = rankFromSums(r1[c] + (n1 - d1[c]) * ((1 + zeros) / 2), n1, n2, tieSum)
+      rows[c].push({ gene, lfc, p, padj: 1, nlp, pct1, pct2 })
     }
   }
 
@@ -548,15 +589,17 @@ export function markersPlan(spec: MarkersSpec) {
 }
 
 /** The tail of the rank-sum test, once the group's rank total is known. */
-function rankFromSums(r1: number, n1: number, n2: number, tieSum: number): number {
+function rankFromSums(
+  r1: number, n1: number, n2: number, tieSum: number,
+): { p: number; nlp: number } {
   const n = n1 + n2
-  if (!n1 || !n2 || n < 3) return 1
+  if (!n1 || !n2 || n < 3) return { p: 1, nlp: 0 }
   const u = r1 - (n1 * (n1 + 1)) / 2
   const mu = (n1 * n2) / 2
   const varU = ((n1 * n2) / 12) * (n + 1 - tieSum / (n * (n - 1)))
-  if (varU <= 0) return 1
+  if (varU <= 0) return { p: 1, nlp: 0 }
   const z = (Math.abs(u - mu) - 0.5) / Math.sqrt(varU)
-  return Math.min(1, 2 * normalTail(z))
+  return { p: Math.min(1, 2 * normalTail(z)), nlp: nlpFromZ(z) }
 }
 
 /** Every cluster's markers, synchronously. Empty when the source is lazy. */
@@ -651,8 +694,14 @@ export const pbKey = (t: CellType, ctrl: string, cs: string) => `${t.key}|${ctrl
  * Sorting by p alone puts a tiny, highly significant change above a large one;
  * sorting by fold change alone promotes noise. The product keeps both, and its
  * sign keeps the direction, so one column orders a table sensibly.
+ *
+ * It takes `nlp`, not `p`. Taking −log10 of a saturated p gives 323 for every
+ * row that saturated, so this column reported 323 × log2FC — a fold-change
+ * ranking wearing a significance column's name — for 96% of every displayed top
+ * ten on the atlas. The old `p <= 0 ? 300` guard never fired at all: normalTail
+ * is floored at MIN_VALUE and so never returns zero.
  */
-export function combinedScore(lfc: number, p: number): number | null {
-  if (!Number.isFinite(lfc) || !Number.isFinite(p)) return null
-  return (p <= 0 ? 300 : -Math.log10(p)) * lfc
+export function combinedScore(lfc: number, nlp: number): number | null {
+  if (!Number.isFinite(lfc) || !Number.isFinite(nlp)) return null
+  return nlp * lfc
 }

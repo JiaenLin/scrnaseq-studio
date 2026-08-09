@@ -4,7 +4,7 @@
 import { demoSource } from '../src/lib/source.ts'
 import {
   combinedScore, deMarkers, deMarkersAll, deWilcox, designFor, isSig, LFC_GATE,
-  logNormalTail, markersPlan, MIN_REPS_PB, minReplicates, normalTail, pbKey,
+  logNormalTail, markersPlan, MIN_REPS_PB, minReplicates, nlpFromZ, normalTail, pbKey,
   rankSumSparse, sigCount, thresholdFor,
 } from '../src/lib/stats.ts'
 
@@ -217,12 +217,30 @@ check('group order is the file order, never sorted',
   course.d.conds, ['0 h', '6 h', '24 h', '72 h'])
 
 console.log('\nCOMBINED RANKING SCORE')
+// The argument is -log10(adjusted p), not the p itself. It used to be the p, and
+// these cases used to pass a p — which is why they went on passing after the
+// units changed, asserting nothing about either version.
 check('sign follows the fold change',
-  [combinedScore(2, 1e-10) > 0, combinedScore(-2, 1e-10) < 0], [true, true])
-check('a bigger effect at equal p ranks higher',
-  Math.abs(combinedScore(2, 1e-10)) > Math.abs(combinedScore(1, 1e-10)), true)
-check('p = 0 is clamped rather than infinite', Number.isFinite(combinedScore(1, 0)), true)
-check('non-finite input returns null', combinedScore(NaN, 0.01), null)
+  [combinedScore(2, 10) > 0, combinedScore(-2, 10) < 0], [true, true])
+check('a bigger effect at equal significance ranks higher',
+  Math.abs(combinedScore(2, 10)) > Math.abs(combinedScore(1, 10)), true)
+check('more significant at equal effect ranks higher',
+  Math.abs(combinedScore(2, 400)) > Math.abs(combinedScore(2, 10)), true)
+// The case that bites. Both of these rows have an adjusted p below the smallest
+// double, so both report padj = 0 or its floor and -log10(padj) is one constant
+// for the pair; scored off p they were indistinguishable, and the column fell
+// back to being log2FC times 323. Scored off nlp the more significant one wins
+// even though its fold change is smaller.
+{
+  const far = nlpFromZ(120)   // padj far past the floor
+  const near = nlpFromZ(45)   // also past the floor, but not as far
+  check('two rows past the p floor still order by significance',
+    [near > 300 && far > 300, Math.abs(combinedScore(1.0, far)) > Math.abs(combinedScore(1.2, near))],
+    [true, true])
+  check('and the p they would have been scored off is the same floor for both',
+    Math.min(1, 2 * normalTail(120)) === Math.min(1, 2 * normalTail(45)), true)
+}
+check('non-finite input returns null', combinedScore(NaN, 2), null)
 check('sigCount respects the threshold',
   sigCount([{ padj: 0.01, lfc: 2 }, { padj: 0.5, lfc: 2 }], { padj: 0.05, lfc: 1 }), 1)
 

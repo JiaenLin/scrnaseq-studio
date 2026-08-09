@@ -13,7 +13,7 @@ const MAX_ROWS = 500
 const cellVal = (r: DERow, k: SortKey): number | string | null => {
   switch (k) {
     case 'gene': return r.gene
-    case 'combined': return combinedScore(r.lfc, r.p)
+    case 'combined': return combinedScore(r.lfc, r.nlp)
     case 'mean': return r.mean ?? null
     case 'pct1': return r.pct1 ?? null
     case 'pct2': return r.pct2 ?? null
@@ -64,7 +64,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
       r.gene,
       ...(wilcox ? [r.pct1?.toFixed(4), r.pct2?.toFixed(4)] : [r.mean?.toFixed(2)]),
       r.lfc.toFixed(4),
-      combinedScore(r.lfc, r.p)?.toFixed(3),
+      combinedScore(r.lfc, r.nlp)?.toFixed(3),
       r.p.toExponential(4),
       r.padj.toExponential(4),
       r.lfc > 0 ? `higher in ${cs}` : `higher in ${ctrl}`,
@@ -130,7 +130,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
                 <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--bad)' : 'var(--lo)' }}>
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
-                <td className="num mono text-[11.5px]">{combinedScore(r.lfc, r.p)?.toFixed(1) ?? '—'}</td>
+                <td className="num mono text-[11.5px]">{combinedScore(r.lfc, r.nlp)?.toFixed(1) ?? '—'}</td>
                 <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{sci(r.p)}</td>
                 <td className="num mono text-[11.5px]">{sci(r.padj)}</td>
                 <td className="whitespace-nowrap">{r.lfc > 0 ? `higher in ${cs}` : `higher in ${ctrl}`}</td>
@@ -147,7 +147,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
         </p>
       )}
       <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-        <b>Combined</b> = −log₁₀(p) × log₂FC, a signed ranking metric: large positive is strongly up
+        <b>Combined</b> = −log₁₀(adjusted p) × log₂FC, a signed ranking metric: large positive is strongly up
         and significant, large negative strongly down. Click a header to sort, again to reverse.
         Click any row to open that gene in <b>Gene expression</b>.
       </p>

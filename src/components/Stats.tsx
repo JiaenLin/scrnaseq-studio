@@ -366,7 +366,10 @@ export function Volcano(p: StatsProps) {
 
   const W = 760, H = 440, PL = 58, PB = 46, PT = 16, PR = 16
   const maxX = Math.max(3, ...rows.map(r => Math.abs(r.lfc))) * 1.12
-  const maxY = Math.max(6, ...rows.map(r => -Math.log10(Math.max(r.padj, 1e-300)))) * 1.08
+  // r.nlp, not -log10(padj): on the atlas 11% of the rows have an adjusted p
+  // below the smallest double, so that expression pinned every one of them to
+  // the 1e-300 clamp and the top of the volcano was a flat line of 300s.
+  const maxY = Math.max(6, ...rows.map(r => r.nlp)) * 1.08
   const X = (v: number) => PL + ((W - PL - PR) * (v + maxX)) / (2 * maxX)
   const Y = (v: number) => PT + (H - PT - PB) * (1 - v / maxY)
 
@@ -374,7 +377,7 @@ export function Volcano(p: StatsProps) {
     () => rows.map(r => ({
       r,
       x: X(r.lfc),
-      y: Y(-Math.log10(Math.max(r.padj, 1e-300))),
+      y: Y(r.nlp),
       sig: isSig(r, { padj: p.padjMax, lfc: p.lfcMin }),
     })),
     // X and Y are pure functions of maxX/maxY, which derive from rows.

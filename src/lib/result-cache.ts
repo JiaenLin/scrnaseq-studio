@@ -14,18 +14,22 @@
 /**
  * What a cached answer costs, in bytes.
  *
- * Typed arrays know their own size. A DE table is counted in rows: six doubles
+ * Typed arrays know their own size. A DE table is counted in rows: seven doubles
  * plus a reference to a gene name shared with the Source, which V8 lays out in
- * roughly 80 bytes. ROW_BYTES rounds up, because the one direction this estimate
+ * roughly 88 bytes. ROW_BYTES rounds up, because the one direction this estimate
  * must not err in is optimism — undercounting is how a bound stops bounding.
+ *
+ * Seven, not six, since a row began carrying `nlp` — the log-scale significance
+ * the adjusted p is too small to hold. A field added to DERow has to be added
+ * here too, or the bound quietly stops covering the thing it is bounding.
  */
-export const ROW_BYTES = 96
+export const ROW_BYTES = 104
 
 /**
  * How much of one object's answers to keep, in bytes.
  *
  * The largest single answer the studio can produce is FindAllMarkers on the
- * 292 495-cell atlas: 400 324 rows across 133 clusters, 36.7 MB by the count
+ * 292 495-cell atlas: 400 324 rows across 133 clusters, 39.7 MB by the count
  * above. 256 MB therefore holds that pass and some fifty contrasts beside it
  * before anything is dropped — which in practice means that for one open object
  * nothing is ever recomputed, and the bound exists for the session that goes

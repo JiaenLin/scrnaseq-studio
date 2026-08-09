@@ -61,6 +61,16 @@ export interface DERow {
   lfc: number
   p: number
   padj: number
+  /**
+   * −log10 of the adjusted p, computed in log space.
+   *
+   * Not a convenience: on an object of this size the adjusted p underflows the
+   * double and every strongly significant row reports the same 3.07e-319. This
+   * is the number that still separates them, and it is what the ranking, the
+   * volcano axis and the combined score read. `p` and `padj` keep their present
+   * meaning for display, export and the significance thresholds.
+   */
+  nlp: number
   /** Wilcoxon only — fraction detected in the comparison and control groups. */
   pct1?: number
   pct2?: number
