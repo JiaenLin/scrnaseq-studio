@@ -372,7 +372,15 @@ for (nm in extra_names) {
   } else if (length(lv) > 65535) {
     note(nm, " has ", length(lv), " levels, too many to store as a column")
   } else {
+    # Two column names can flatten onto one entry name, and two entries with
+    # one name would leave the reader pointing twice at the same bytes.
     f <- paste0("extra.", safe_entry(nm), ".u16")
+    taken <- vapply(extra_cols, function(e) e$file, "")
+    i <- 2
+    while (f %in% taken) {
+      f <- paste0("extra.", safe_entry(nm), "-", i, ".u16")
+      i <- i + 1
+    }
     wbin(f, as.integer(match(as.character(v), lv) - 1L), 2L)
     extra_cols[[length(extra_cols) + 1]] <- list(key = nm, file = f, levels = arr(lv))
     note(nm, " travels with the cells as an extra grouping — ", length(lv),

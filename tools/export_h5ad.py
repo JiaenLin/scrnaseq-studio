@@ -288,8 +288,15 @@ def main() -> None:
         if len(levels) > 65535:
             note(f'{name} has {len(levels)} levels, too many to store as a column')
             continue
-        extras.append({'key': name, 'file': f'extra.{safe_entry(name)}.u16',
-                       'levels': levels, 'codes': codes})
+        # Two column names can flatten onto one entry name — "cell type" and
+        # "cell_type" both become extra.cell_type.u16 — and two entries with one
+        # name would leave the reader pointing twice at the same bytes.
+        file = f'extra.{safe_entry(name)}.u16'
+        i = 2
+        while any(e['file'] == file for e in extras):
+            file = f'extra.{safe_entry(name)}-{i}.u16'
+            i += 1
+        extras.append({'key': name, 'file': file, 'levels': levels, 'codes': codes})
         note(f'{name} travels with the cells as an extra grouping — {len(levels)} levels '
              f'the studio can break a figure down by')
 
