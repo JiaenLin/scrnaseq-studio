@@ -76,10 +76,16 @@ const tabNames = () => page.$$eval('[role=tab]', els => els.map(e => e.textConte
  * minutes looking exactly like an app that had hung. page.$ returns null now.
  */
 const genesDone = async () => {
-  const el = await page.$('[role=status]')
-  if (!el) return null
-  const m = /([\d,]+) of ([\d,]+) genes/.exec((await el.textContent()) || '')
-  return m ? +m[1].replace(/,/g, '') : null
+  // Every status node, not the first. Markers mounts a second one while it
+  // reads the winning genes' values ("Reading 505 genes from the file…"), and
+  // that one carries no count — so asking only the first returns null there,
+  // which is indistinguishable from "no pass is running". That is the answer
+  // that makes a poller wait forever on exactly the window it should measure.
+  for (const el of await page.$$('[role=status]')) {
+    const m = /([\d,]+) of ([\d,]+) genes/.exec((await el.textContent()) || '')
+    if (m) return +m[1].replace(/,/g, '')
+  }
+  return null
 }
 /** Markers says it is finished by titling the card, never by removing role=status alone. */
 const markersFinished = () => page.$('text=/genes across \\d+ clusters/')
