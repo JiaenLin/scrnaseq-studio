@@ -17,6 +17,14 @@ const cellVal = (r: DERow, k: SortKey): number | string | null => {
     case 'mean': return r.mean ?? null
     case 'pct1': return r.pct1 ?? null
     case 'pct2': return r.pct2 ?? null
+    // Ascending −nlp is ascending p, and ascending adjusted p, exactly — they
+    // are the same monotone function of the same z. The difference is that it
+    // still separates the rows whose p has underflowed to one shared floor,
+    // which on this object is most of the ones anybody looks at. Sorting on the
+    // columns themselves gives the right answer today only because the rows
+    // arrive ranked and Array#sort is stable, and that is a fact about two
+    // other files.
+    case 'p': case 'padj': return -r.nlp
     default: return r[k]
   }
 }
