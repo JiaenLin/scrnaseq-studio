@@ -434,7 +434,7 @@ export default function App() {
           */}
           <ViewBoundary
             key={`${tab}#${attempt}`}
-            what={LABEL.get(tab) ?? tab}
+            what={`${LABEL.get(tab) ?? tab} view`}
             escape={{ label: `Go to ${LABEL.get(escapeTo)}`, go: () => setTab(escapeTo) }}
             onRetry={() => setAttempt(a => a + 1)}
             note={<>

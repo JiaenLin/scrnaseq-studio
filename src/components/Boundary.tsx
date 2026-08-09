@@ -45,7 +45,12 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Empty } from './Ui.tsx'
 
 interface Props {
-  /** What failed, in the words the user is already reading on the tab. */
+  /**
+   * What failed, as a noun phrase — "the Markers view", "the studio". The whole
+   * phrase rather than a bare name, because the root is not a view and a card
+   * headed "The studio view could not be drawn" would be telling the user about
+   * a thing that does not exist.
+   */
   what: string
   /**
    * What survived. The boundary cannot work this out — it depends on where it
@@ -94,7 +99,7 @@ export default class ViewBoundary extends Component<Props, State> {
     if (!error) return this.props.children
     const { what, note, escape, onRetry } = this.props
     return (
-      <Empty title={`The ${what} view could not be drawn`}>
+      <Empty title={`The ${what} could not be drawn`}>
         {note}
         {/* Verbatim, not paraphrased. The people using this read stack traces,
             and a studio that hides the message is a studio they have to
