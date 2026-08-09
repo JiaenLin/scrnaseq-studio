@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CellType, DERow } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import { deMarkersAll, isSig, markersSpec, thresholdFor } from '../lib/stats.ts'
-import { dotAt, dotGrid } from '../lib/dots.ts'
+import { dotAt, dotGrid, type DotGrid } from '../lib/dots.ts'
 import { sci } from '../lib/chart.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
@@ -10,6 +10,26 @@ import { Card, Chips, Empty, Mono } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
+
+/**
+ * The same grid `dotGrid` builds, filled one window of genes at a time.
+ *
+ * Each window is copied in whole — a window's block of the grid is contiguous,
+ * because the grid is gene-major — so every value is the number dotGrid would
+ * have produced with all of the genes resident, not an equivalent of it.
+ */
+async function streamDots(src: Source, genes: string[], nT: number): Promise<DotGrid> {
+  const mean = new Float64Array(genes.length * nT)
+  const pct = new Float64Array(genes.length * nT)
+  await src.withGenes(genes, (win, at) => {
+    const part = dotGrid(src, win, nT)
+    for (let k = 0; k < win.length; k++) {
+      mean.set(part.mean.subarray(k * nT, (k + 1) * nT), at[k] * nT)
+      pct.set(part.pct.subarray(k * nT, (k + 1) * nT), at[k] * nT)
+    }
+  })
+  return { mean, pct, nT }
+}
 
 export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   src: Source
@@ -43,23 +63,34 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
     rows.filter(r => isSig(r, th) && r.lfc > 0).slice(0, topN))
   const genes = [...new Set(tops.flat().map(r => r.gene))]
 
-  // The dot plot needs the winning genes' actual values, which for a collection
-  // are still in the file. One more read, of the few dozen genes on screen.
-  const wanted = genes.join(',')
-  const [dots, setDots] = useState(!src.lazy)
-  useEffect(() => {
-    if (!src.lazy) { setDots(true); return }
-    let dead = false
-    setDots(false)
-    void src.ensure(wanted ? wanted.split(',') : []).then(() => { if (!dead) setDots(true) })
-    return () => { dead = true }
-  }, [src, wanted])
-
   // Every dot's mean and detection rate, computed once for the whole grid. See
   // dots.ts for why this is not `src.mean(g, ti)` inside the render.
-  const grid = useMemo(
-    () => dotGrid(src, dots && wanted ? wanted.split(',') : [], types.length),
-    [src, wanted, dots, types.length])
+  //
+  // The values are still in the file for a collection, and at twelve genes a
+  // cluster there are more of them than it will hold — 818 columns is 215 MB of
+  // atlas. So the grid is accumulated a window at a time: the Source makes a
+  // window answerable, this adds those columns, and the window is released
+  // before the next is read. A grid is a sum, so it never needed every column
+  // at once. An object already in memory is one window and is built inside the
+  // render, exactly as it was.
+  const wanted = genes.join(',')
+  const inline = useMemo(
+    () => (src.lazy ? null : dotGrid(src, wanted ? wanted.split(',') : [], types.length)),
+    [src, wanted, types.length])
+  const [streamed, setStreamed] = useState<DotGrid | null>(null)
+  const [dotError, setDotError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!src.lazy) return
+    let dead = false
+    setStreamed(null)
+    setDotError(null)
+    void streamDots(src, wanted ? wanted.split(',') : [], types.length).then(
+      g => { if (!dead) setStreamed(g) },
+      (e: unknown) => { if (!dead) setDotError(e instanceof Error ? e.message : String(e)) },
+    )
+    return () => { dead = true }
+  }, [src, wanted, types.length])
+  const grid = inline ?? streamed
 
   if (pass) {
     return (
@@ -124,7 +155,7 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                   <g key={t.key}>
                     <text className="axis" x={PL - 12} y={y + 4} textAnchor="end"
                       style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: 550 }}>{t.name}</text>
-                    {dots && genes.map((g, gi) => {
+                    {grid && genes.map((g, gi) => {
                       const m = grid.mean[dotAt(grid, gi, ti)]
                       const pct = grid.pct[dotAt(grid, gi, ti)]
                       if (pct < 0.02) return null
@@ -145,7 +176,8 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
           </div>
         </Figure>
         <div className="legend mt-2.5">
-          {!dots && <span style={{ color: 'var(--ink-3)' }}>reading these genes…</span>}
+          {!grid && !dotError && <span style={{ color: 'var(--ink-3)' }}>reading these genes…</span>}
+          {dotError && <span style={{ color: 'var(--bad)' }}>{dotError}</span>}
           <span>dot size = % of cells detecting the gene</span>
           <span>colour = mean expression within the cluster</span>
           <span>ring = one of this cluster&rsquo;s own top genes</span>

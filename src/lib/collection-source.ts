@@ -31,7 +31,7 @@ import {
   chunkCount, makeChunkCache, readGenes,
   type ChunkCache, type GeneVector, type GetBytes,
 } from './chunked.ts'
-import type { CollectionIndex, PartEntry } from './collection.ts'
+import type { CollectionIndex, CollectionMeta, PartEntry } from './collection.ts'
 import { unionLevels } from './levels.ts'
 import { scanMatrix, type MatrixPlan } from './part-scan.ts'
 import { baseSource, type Source } from './source.ts'
@@ -96,6 +96,9 @@ export async function openCollection(
 ): Promise<Source> {
   const cmeta = index.meta
   if (!cmeta.parts?.length) fail('this collection lists no parts')
+  // Read without the index type having to know the field, so a studio built
+  // against an older collection.ts still reads a collection that carries it.
+  const { condOrder } = cmeta as CollectionMeta & { condOrder?: string[] }
 
   const perPartCache = Math.max(2 << 20, Math.floor(CACHE_BUDGET / cmeta.parts.length))
   const parts: Part[] = []
@@ -243,9 +246,20 @@ export async function openCollection(
   // ---- one set of levels across every part --------------------------------
   // The writer records the whole object's cluster order; using it keeps a
   // cell type the colour it had before the object was ever split.
+  //
+  // Group order is recorded the same way and matters for a different reason.
+  // Reconstructed order falls back to numeric collation for the pairs no part
+  // orders, and that compares the digit run after the dot as a number: the
+  // developing-mouse timepoints come out e16.0, e16.5, e16.25, e17.0, so the
+  // Groups menu, both contrast pickers and every per-group axis offer a
+  // sequence the experiment never had. No number moves — the maps are keyed by
+  // name — but the reading of every one of them does.
+  //
+  // Optional, like clusterOrder: a collection written before the lab recorded
+  // it still opens, and still gets the reconstruction in levels.ts.
   const cl = unionLevels(clusterLevels, cmeta.clusterOrder)
   const sm = unionLevels(sampleLevels)
-  const cd = unionLevels(condLevels)
+  const cd = unionLevels(condLevels, condOrder)
 
   // A sample can appear in more than one part, and the exporter records one
   // condition per sample by looking at that part's first cell — so two parts can
@@ -345,12 +359,47 @@ export async function openCollection(
   const geneIndex = new Map(display.map((g, i) => [g.toUpperCase(), i]))
   const loaded = new Map<string, Sparse>()
   let loadedBytes = 0
+  // Genes somebody is being shown right now, which eviction may not take: the
+  // whole of the newest ensure(), plus whatever a call currently in flight is
+  // in the middle of reading. Without this a request evicts inside its own call
+  // and hands back genes that read as all-zero — and an evicted gene and a gene
+  // nobody expresses are then the same picture.
+  const promised = new Set<string>()
+  const holds = new Map<string, number>()
+  const held = (gene: string) => promised.has(gene) || holds.has(gene)
+  const hold = (gs: readonly string[]) => {
+    for (const g of gs) holds.set(g, (holds.get(g) ?? 0) + 1)
+  }
+  const release = (gs: readonly string[]) => {
+    for (const g of gs) {
+      const n = (holds.get(g) ?? 0) - 1
+      if (n > 0) holds.set(g, n)
+      else holds.delete(g)
+    }
+  }
+
+  const indexOf = (gene: string): number => geneIndex.get(gene.toUpperCase()) ?? -1
+
+  /** What one gene costs assembled, from the offsets alone — nothing is read. */
+  const costOf = (gi: number): number => {
+    let nnz = 0
+    for (const p of parts) nnz += p.indptr[gi + 1] - p.indptr[gi]
+    return nnz * 8
+  }
+
+  const forget = (gene: string) => {
+    const s = loaded.get(gene)
+    if (!s) return
+    loaded.delete(gene)
+    loadedBytes -= s.cells.length * 8
+  }
 
   const remember = (gene: string, s: Sparse) => {
     loaded.set(gene, s)
     loadedBytes += s.cells.length * 8
     for (const [k, v] of loaded) {
-      if (loadedBytes <= GENE_BUDGET || loaded.size <= 1) break
+      if (loadedBytes <= GENE_BUDGET) break
+      if (held(k)) continue
       loaded.delete(k)
       loadedBytes -= v.cells.length * 8
     }
@@ -372,22 +421,36 @@ export async function openCollection(
     return { cells, values }
   }
 
-  const ensure = async (want: readonly string[]) => {
+  /** The distinct genes of `want` this object has, and where they were asked. */
+  const resolve = (want: readonly string[]) => {
     const names: string[] = []
     const idxs: number[] = []
-    for (const g of want) {
-      const canonical = display[geneIndex.get(g.toUpperCase()) ?? -1]
-      if (canonical === undefined || loaded.has(canonical) || names.includes(canonical)) continue
-      names.push(canonical)
-      idxs.push(geneIndex.get(g.toUpperCase())!)
-    }
-    if (!names.length) return
-    // In batches, and a few parts at a time. One readGenes call holds every
-    // chunk its genes touch, so asking for the marker panel's 300 genes across
-    // 43 parts in one go would inflate most of the matrix at once — which is
-    // exactly what this file exists to avoid. Sorted first, so a batch stays
-    // within a few neighbouring chunks.
-    const order = names.map((_n, i) => i).sort((a, b) => idxs[a] - idxs[b])
+    const at: number[] = []
+    const seen = new Set<string>()
+    want.forEach((g, i) => {
+      const gi = indexOf(g)
+      if (gi < 0 || seen.has(display[gi])) return
+      seen.add(display[gi])
+      names.push(display[gi])
+      idxs.push(gi)
+      at.push(i)
+    })
+    return { names, idxs, at }
+  }
+
+  /**
+   * Read genes into memory, in batches and a few parts at a time.
+   *
+   * One readGenes call holds every chunk its genes touch, so asking for the
+   * marker panel's 300 genes across 43 parts in one go would inflate most of
+   * the matrix at once — which is exactly what this file exists to avoid.
+   * Sorted first, so a batch stays within a few neighbouring chunks. The caller
+   * must be holding `names`, or a later batch can evict an earlier one.
+   */
+  const fetch = async (names: string[], idxs: number[]) => {
+    const order = names.map((_n, i) => i)
+      .filter(i => !loaded.has(names[i]))
+      .sort((a, b) => idxs[a] - idxs[b])
     for (let at = 0; at < order.length; at += GENE_BATCH) {
       const batch = order.slice(at, at + GENE_BATCH)
       const wanted = batch.map(i => idxs[i])
@@ -402,8 +465,77 @@ export async function openCollection(
     }
   }
 
+  const ensure = async (want: readonly string[]) => {
+    const { names, idxs } = resolve(want)
+    if (!names.length) return
+    // What the request costs is in the offsets, so one that cannot be held is
+    // refused before a byte is read. The alternative is what this used to do:
+    // evict inside its own call and return genes that read as all-zero, which
+    // no caller can tell from a gene nobody expresses — 49 % of the marker dot
+    // plot was that, and the Gene tab went grey behind it.
+    let cost = 0
+    for (const gi of idxs) cost += costOf(gi)
+    if (cost > GENE_BUDGET) {
+      fail(`${names.length} genes come to ${(cost / (1 << 20)).toFixed(0)} MB of values, past `
+        + `the ${GENE_BUDGET >> 20} MB this object holds at once — a set this large has to be `
+        + 'read with withGenes, which streams it a window at a time')
+    }
+    hold(names)
+    try {
+      await fetch(names, idxs)
+      promised.clear()
+      for (const n of names) promised.add(n)
+    } finally {
+      release(names)
+    }
+  }
+
+  const withGenes: Source['withGenes'] = async (want, visit) => {
+    const { names, idxs, at } = resolve(want)
+    // Planned over the file's own order, so the pass walks the matrix forwards
+    // instead of coming back for a chunk it has already inflated; `at` carries
+    // where each gene was asked for, so the caller still gets its own order.
+    const order = names.map((_n, i) => i).sort((a, b) => idxs[a] - idxs[b])
+    // Whatever the panel was promised is not room this pass may spend.
+    let kept = 0
+    for (const g of promised) kept += (loaded.get(g)?.cells.length ?? 0) * 8
+    const budget = Math.max(1, GENE_BUDGET - kept)
+
+    for (let from = 0; from < order.length;) {
+      let to = from
+      for (let cost = 0; to < order.length; to++) {
+        const c = costOf(idxs[order[to]])
+        if (to > from && cost + c > budget) break
+        cost += c
+      }
+      const win = order.slice(from, to)
+      const gs = win.map(i => names[i])
+      hold(gs)
+      try {
+        await fetch(gs, win.map(i => idxs[i]))
+        visit(gs, Int32Array.from(win, i => at[i]))
+      } finally {
+        release(gs)
+      }
+      // Dropped here rather than left for the next window to evict by size.
+      // Eviction takes the oldest gene in the object, which is whichever one
+      // the Gene tab is drawing — so a marker plot that let it run would empty
+      // the panel behind it, and nothing re-reads that panel.
+      for (const g of gs) if (!held(g)) forget(g)
+      from = to
+    }
+  }
+
+  const resident = (gene: string): boolean => {
+    const gi = indexOf(gene)
+    // A gene this object does not carry needs nothing read: zero is its whole
+    // answer. It is the genes it does carry and has not read that the
+    // synchronous accessors below cannot speak for.
+    return gi < 0 || loaded.has(display[gi])
+  }
+
   const nonZero = (gene: string, cb: (cell: number, value: number) => void) => {
-    const s = loaded.get(display[geneIndex.get(gene.toUpperCase()) ?? -1] ?? '')
+    const s = loaded.get(display[indexOf(gene)] ?? '')
     if (!s) return
     for (let k = 0; k < s.cells.length; k++) cb(s.cells[k], s.values[k])
   }
@@ -442,13 +574,14 @@ export async function openCollection(
     // The summed counts are indexed by row, so they carry the display name too —
     // an exported pseudobulk matrix must not be the one table in a different
     // vocabulary from every figure beside it.
-  }, vector, nonZero, pseudobulk && { ...pseudobulk, genes: display }, embeddings)
+  }, vector, nonZero, pseudobulk && { ...pseudobulk, genes: display }, embeddings, resident)
 
   return Object.assign(src, {
     lazy: true,
     nParts: parts.length,
     remote: { file, plan },
     ensure,
+    withGenes,
     scan,
     scanSync: () => false,
   })

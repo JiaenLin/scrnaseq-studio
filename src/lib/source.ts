@@ -92,6 +92,17 @@ export interface Source {
   /** Dense per-cell values for one gene. Cached; do not mutate. */
   vector(gene: string): Float32Array
   /**
+   * Whether the accessors above can answer for this gene right now.
+   *
+   * Always true for an object held in memory, and true for a gene the object
+   * does not carry — zero is that gene's whole answer and nothing has to be
+   * read for it. It is false only for a gene of a collection that is not in
+   * memory, and that case is why this exists: without it an evicted gene and a
+   * gene nobody expresses are the same all-zero vector, and a dot plot draws
+   * the difference as fact.
+   */
+  resident(gene: string): boolean
+  /**
    * The non-zero entries of one gene.
    *
    * Everything statistical is O(non-zeros) rather than O(cells) if it is written
@@ -113,8 +124,33 @@ export interface Source {
    * A no-op for an object held in memory. For a collection it reads each gene's
    * chunk out of the file — so a view that draws a gene awaits this first, and
    * then behaves exactly as it does for a small object.
+   *
+   * All of them or none of them. A collection holds a bounded number of gene
+   * vectors, and a request past that throws rather than resolving with some of
+   * the genes silently reading as zero — a partial answer is indistinguishable
+   * from a gene nobody expresses, which is the one failure a figure cannot
+   * show. Ask for a panel here; ask for a marker plot's hundreds through
+   * `withGenes`, which does not have to hold them at once.
    */
   ensure(genes: readonly string[]): Promise<void>
+  /**
+   * Read a gene set larger than the object will hold, one window at a time.
+   *
+   * `visit` is called once per window, and every gene in that window is
+   * resident for exactly the duration of that call — so it must not await.
+   * Every gene the object can answer for appears in exactly one window, but the
+   * windows are chosen for how the file is laid out rather than for the order
+   * asked in: `at[k]` is where `window[k]` sat in `genes`.
+   *
+   * This is the shape a dot plot wants. A grid is an accumulation, so it never
+   * needs every column resident at once, and the window a pass has finished
+   * with is released before the next is read — which also keeps a marker plot
+   * from evicting the panel another tab is drawing.
+   */
+  withGenes(
+    genes: readonly string[],
+    visit: (window: readonly string[], at: Int32Array) => void,
+  ): Promise<void>
   /**
    * Walk every gene, once, in whatever order is cheapest for this source.
    *
@@ -137,25 +173,42 @@ export interface Source {
   scanSync(visit: GeneVisit): boolean
 }
 
-/** Small cache — enough for a gene panel, bounded so a long session cannot grow. */
-function memo<T>(limit: number) {
+/**
+ * Small cache — enough for a gene panel, bounded so a long session cannot grow.
+ *
+ * Bounded two ways, because the two things that run away are different sizes. A
+ * demo object's vector is a few kilobytes and only the count matters; one
+ * vector of the 292 495-cell atlas is 1.2 MB, so sixty-four of them are 75 MB
+ * parked to speed up a cache that a dot plot rotates completely on every pass.
+ */
+function memo<T>(limit: number, bytesOf?: (v: T) => number, maxBytes = Infinity) {
   const m = new Map<string, T>()
+  let bytes = 0
   return (key: string, make: () => T): T => {
     const hit = m.get(key)
     if (hit !== undefined) return hit
     const val = make()
-    if (m.size >= limit) m.delete(m.keys().next().value as string)
     m.set(key, val)
+    bytes += bytesOf?.(val) ?? 0
+    for (const [k, v] of m) {
+      if ((m.size <= limit && bytes <= maxBytes) || m.size <= 1) break
+      m.delete(k)
+      bytes -= bytesOf?.(v) ?? 0
+    }
     return val
   }
 }
 
+/** Dense per-cell vectors kept for the panel. One atlas vector is 1.2 MB. */
+const VEC_BUDGET = 24 << 20
+
 /**
  * The half of a Source that is the same however the values are stored.
  *
- * Exported so a collection can build on it and then replace exactly the three
- * things that differ — `ensure`, `scan`, `scanSync` — rather than reimplement
- * grouping, means and violin sampling and slowly disagree with this file.
+ * Exported so a collection can build on it and then replace exactly the things
+ * that differ — `ensure`, `withGenes`, `scan`, `scanSync`, and the residency
+ * the accessors turn on — rather than reimplement grouping, means and violin
+ * sampling and slowly disagree with this file.
  */
 export function baseSource(
   d: Dataset, types: CellType[], names: GeneNames, meta: SourceMeta,
@@ -163,8 +216,9 @@ export function baseSource(
   nonZero: (gene: string, cb: (cell: number, value: number) => void) => void,
   pseudobulk: Bundle['pseudobulk'],
   embeddings: Embedding[],
+  resident: (gene: string) => boolean = () => true,
 ): Source {
-  const vecCache = memo<Float32Array>(64)
+  const vecCache = memo<Float32Array>(64, v => v.byteLength, VEC_BUDGET)
   const grpCache = memo<Int32Array>(256)
   const genes = names.display
 
@@ -173,11 +227,22 @@ export function baseSource(
     lazy: false, nParts: 1, remote: null,
     clusters: types.map(t => t.name),
 
-    vector: (gene) => vecCache(gene, () => vector(gene)),
+    resident,
+
+    // A gene that is not resident still answers, because a render must not
+    // throw — but that answer is zeros meaning "not read", so it is never kept:
+    // cached once, the gene would stay empty for the rest of the session even
+    // after it is back.
+    vector: (gene) => (resident(gene) ? vecCache(gene, () => vector(gene)) : vector(gene)),
 
     forEachNonZero: (gene, cb) => nonZero(gene, cb),
 
     ensure: () => Promise.resolve(),
+
+    withGenes(list, visit) {
+      visit(list, Int32Array.from(list, (_g, i) => i))
+      return Promise.resolve()
+    },
 
     scanSync(visit) {
       for (let i = 0; i < genes.length; i++) visit(i, cb => nonZero(genes[i], cb))
