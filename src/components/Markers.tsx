@@ -44,18 +44,33 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   const [topN, setTopN] = useState(5)
   const [open, setOpen] = useState<number | null>(null)
 
+  /**
+   * Whether the pass may start.
+   *
+   * An object held in memory answers in milliseconds, so asking permission for
+   * it would be a dialog in front of an instant result. A collection is minutes,
+   * and opening a tab is not consent to spend them — arriving here used to
+   * commit the reader to a four-minute pass before they had read the heading.
+   *
+   * Restricting the pass to ONE cell type would not help, and the shape of the
+   * computation is why: markersPlan sorts each gene's values once and then
+   * answers every cluster from that one ordering. The sort is 76% of the work
+   * and is shared, so one cluster costs very nearly what 133 cost. The saving
+   * is in not starting, not in narrowing — narrowing is for reading.
+   */
+  const [go, setGo] = useState(!src.lazy)
+
   // One Wilcoxon per cluster against every other cell, all clusters in one pass
   // over the genes. Keyed on the object alone: renaming a cluster must not throw
   // the results away, and no threshold here feeds the test.
   //
-  // Its own slot, so the contrast tabs cannot cancel it. This pass is four
-  // minutes on the atlas and the key never changes, which together mean it is
-  // computed at most once per object no matter how the user moves around.
+  // Its own slot, so the contrast tabs cannot cancel it. The key never changes,
+  // so it is computed at most once per object no matter how the user moves.
   //
   // Two lines, and neither of them knows where the work happens. A demo object
   // computes in the useMemo; the atlas computes in the worker and reports back.
   const { value: results, pass } = useJob<'markers'>(
-    src, 'markers', 'markers', true,
+    src, 'markers', 'markers', go,
     () => deMarkersAll(src),
     () => ({ kind: 'markers', ...markersSpec(src, null) }),
   )
@@ -107,6 +122,25 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
     return (
       <Card eyebrow="Markers · one vs rest" title="Testing every gene in every cluster">
         <Progress pass={pass} title="One Wilcoxon per cluster, against every other cell" />
+      </Card>
+    )
+  }
+  // Not started. Stated as a cost the reader agrees to, with the number that
+  // decides it — every gene against every cluster is the same amount of work
+  // whichever cell type they are actually interested in.
+  if (!go) {
+    return (
+      <Card eyebrow="Markers · one vs rest" title="Markers are not computed yet">
+        <p className="sub mt-1">
+          Every gene is tested in every cluster, in one pass over the file —{' '}
+          {src.genes.length.toLocaleString('en-US')} genes across{' '}
+          {types.length} cell types. On an object this size that takes a couple of minutes,
+          so it is not started until you ask. It runs off the page and the tab stays usable,
+          and the answer is kept for as long as this object is open.
+        </p>
+        <button className="btn btn-primary mt-3.5" onClick={() => setGo(true)}>
+          Find markers
+        </button>
       </Card>
     )
   }
@@ -174,8 +208,19 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
             one too rather than call the tab finished while it is still reading. */}
         {!grid && !dotError && (
           <div role="status" className="note mt-4">
-            Reading {genes.length} genes from the file — the dots arrive when it
-            finishes. The table below is already final.
+            <div className="flex items-baseline justify-between gap-3">
+              <span>Reading {genes.length} genes from the file — the dots arrive when it finishes.</span>
+              <span style={{ color: 'var(--ink-3)' }}>the table below is already final</span>
+            </div>
+            {/* Indeterminate on purpose. The read is windowed by BYTES, not by
+                gene, so the fraction of genes done is not the fraction of work
+                done and a percentage here would be a number the app invented. A
+                moving bar says "still going" without claiming to know how far. */}
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full"
+              style={{ background: 'var(--line)' }}>
+              <div className="h-full w-1/3 rounded-full"
+                style={{ background: 'var(--accent)', animation: 'slide 1.4s ease-in-out infinite' }} />
+            </div>
           </div>
         )}
         <Figure name="cluster_markers" className="mt-4 pt-6">

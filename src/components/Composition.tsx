@@ -10,7 +10,7 @@ import { downloadCsv } from '../lib/download.ts'
 import { MARK_EDGE } from '../lib/figure-ink.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
-import { Card, Empty, Legend } from './Ui.tsx'
+import { Card, Legend } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 
 /**
@@ -137,8 +137,6 @@ export default function Composition({ d, types, palKey }: {
    * something else.
    */
   const fixAxis = violates ? axes.find(a => a.key === `${rowFields[0]}+sample`) : undefined
-  // The rows hold two fields, so nesting the samples costs the second one.
-  const dropped = fixAxis && rowFields.length > 1 ? rowFields[1] : null
 
   /**
    * How much of the product this object actually has, and how much of that is
@@ -232,78 +230,31 @@ export default function Composition({ d, types, palKey }: {
           <div className="ml-auto"><CsvButton onClick={saveCsv} /></div>
         </div>
 
-        {violates ? (
-          <Empty title={`One row per ${axis.label.toLowerCase()} would pool cells across samples`}>
-            {/* Said with this object's numbers and this object's words. A rule that
-                cannot state how much it is refusing, or why this particular object
-                forces it, reads as the app being fussy — and the reader's next move
-                is to look for the setting that turns it off. */}
-            <div className="mx-auto max-w-[560px]">
+        {/* Pooling is drawn, not refused. The figure the reader asked for is
+            the figure they get; what pooling costs is said in one line above it
+            and the way to undo it is one button, not a page of argument. The
+            note stays because a percentage over several animals really is a
+            different claim from one over a single animal — that is worth a
+            sentence, and it was worth about fifteen too many. */}
+        {violates && (
+          <div className="note note-warn mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span>
+              <b>Cells pooled across samples.</b>{' '}
               {table.pooledRows === table.rows.length
-                ? <>Every one of these {table.rows.length.toLocaleString('en-US')} rows</>
+                ? <>All {table.rows.length.toLocaleString('en-US')} rows merge</>
                 : <>{table.pooledRows.toLocaleString('en-US')} of
-                  these {table.rows.length.toLocaleString('en-US')} rows</>} would merge whole
-              samples into one bar{table.worstPool > 1 && <>, up
-              to {table.worstPool.toLocaleString('en-US')} animals in a single row</>}.{' '}
-              {/* Which of the three sentences is the true one is a fact about how the
-                  object was collected, and it is the sentence that decides whether the
-                  reader believes the rule or goes looking for the switch that turns it
-                  off. "Only 93 of 93" was the version that read as a bug. */}
-              {table.spanningSamples === 0 ? (
-                <>Not one of this object&rsquo;s {d.samples.length.toLocaleString('en-US')} samples
-                reaches more than one <b>{axis.label}</b> — each was collected inside a single
-                one — so nothing about these two fields can separate the animals, and naming
-                them is the only thing that will. That is how the experiment was collected,
-                not something this tab declines to do.</>
-              ) : table.spanningSamples === d.samples.length ? (
-                <>Every one of this object&rsquo;s {d.samples.length.toLocaleString('en-US')}{' '}
-                samples reaches more than one <b>{axis.label}</b>, so each of these rows draws
-                on many animals at once.</>
-              ) : (
-                <>Only {table.spanningSamples.toLocaleString('en-US')} of this
-                object&rsquo;s {d.samples.length.toLocaleString('en-US')} samples reach more than
-                one <b>{axis.label}</b>, so most of these rows are whole animals averaged
-                together.</>
-              )}
-            </div>
-            <div className="mx-auto mt-2 max-w-[560px]">
-              Cells from one animal are not independent observations, so those percentages would
-              look far more precise than the experiment supports — a single large sample would
-              set the whole bar.
-            </div>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {fixAxis && (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => set({ rows: fixAxis.key, only: -1 })}
-                >Break it down by sample as well</button>
-              )}
-              {parts === 'type' && (
-                <button className="btn" onClick={() => set({ rows: 'sample', only: -1 })}>
-                  One row per sample
-                </button>
-              )}
-            </div>
+                  {' '}{table.rows.length.toLocaleString('en-US')} rows merge</>}
+              {table.worstPool > 1 && <> up to {table.worstPool.toLocaleString('en-US')} animals</>}
+              , so the spread between animals is not visible here.
+            </span>
             {fixAxis && (
-              <div className="mx-auto mt-3 max-w-[560px] text-[12px]" style={{ color: 'var(--ink-3)' }}>
-                That draws one row per <b>{fixAxis.label}</b> — the same{' '}
-                {partsLabel.toLowerCase()} proportions over the same cells, with every animal on
-                its own row instead of averaged into its neighbours. It is the comparison you
-                asked for with the pooling undone, not a smaller question: the spread the merged
-                bar would have hidden is what you get back.
-                {dropped && <> The rows hold two fields, so <b>{fieldLabel(d, dropped)}</b> comes
-                off them to make room for the samples; it is still on the “bars show” menu
-                above.</>}
-              </div>
+              <button className="chip" onClick={() => set({ rows: fixAxis.key, only: -1 })}>
+                Show each sample
+              </button>
             )}
-            {parts === 'type' && rowFields[0] === 'cond' && (
-              <div className="mx-auto mt-3 max-w-[560px] text-[12px]" style={{ color: 'var(--ink-3)' }}>
-                The panels below answer the same question honestly too: a bar per group with the
-                individual samples drawn on top, so the spread between animals stays visible.
-              </div>
-            )}
-          </Empty>
-        ) : (
+          </div>
+        )}
+        {(
           <>
             {table.degenerate && (
               <div className="note mt-4">

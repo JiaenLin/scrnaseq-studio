@@ -30,9 +30,13 @@ export default function Cells({ src, types, gene, emb, colorBy, split, palKey, r
   const size = wide ? 700 : Math.max(240, 840 / panels.length)
   const height = wide ? 500 : 330
 
+  // "Expression", not "Gene: Ascl1". The gene is named on the figure itself and
+  // in the colour bar beside it; putting it in the button too made the widest
+  // control on the row change width every time the reader picked a gene, which
+  // shifted every other button under the pointer.
   const modes: [ColorBy, string][] = [
     ['type', 'Cell type'], ['cond', 'Group'], ['sample', 'Sample'],
-    ['mito', '% mito'], ['gene', `Gene: ${gene}`],
+    ['mito', '% mito'], ['gene', 'Expression'],
   ]
 
   const legend: [string, string][] =

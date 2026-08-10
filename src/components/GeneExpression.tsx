@@ -107,10 +107,21 @@ export default function GeneExpression(p: GeneProps) {
     else setMissing([t])
   }
 
+  /**
+   * The cell type these figures are about, chosen here.
+   *
+   * It used to be the contrast bar's selection, shared with the DEG tabs. That
+   * made this tab move when the reader changed a control that belongs to a
+   * different question — and it put a "Control / Compare" pair above a figure
+   * that is not a comparison. The type lives with the figures that use it.
+   */
+  const [ct, setCt] = useState(p.types[0]?.name ?? '')
+  const ctName = p.types.some(t => t.name === ct) ? ct : (p.types[0]?.name ?? '')
+
   // Hidden types leave the violin panel and the dot plot entirely — an identity
   // with no cells is a blank column, and a panel of blank columns is worse than
   // the population the reader was trying to get rid of.
-  const ids = identities(p.src.d, p.types, p.groupBy, p.ct, p.palKey)
+  const ids = identities(p.src.d, p.types, p.groupBy, ctName, p.palKey)
     .filter(i => !p.hidden.has(i.ti))
   const modes: { k: GroupBy; label: string }[] = [
     { k: 'type', label: 'Across cell types' },
@@ -231,6 +242,20 @@ export default function GeneExpression(p: GeneProps) {
         <div className="gsep h-6" />
         <span className="glabel">Group by</span>
         <Seg<GroupBy> value={p.groupBy} onChange={p.onGroupBy} options={modes} />
+        {/* Only where it changes the answer: across cell types every type is on
+            screen, so there is nothing to pick. */}
+        {p.groupBy !== 'type' && (
+          <>
+            <div className="gsep h-6" />
+            <label className="flex items-center gap-1.5">
+              <span className="glabel">Cell type</span>
+              <select className="sel" value={ctName} onChange={e => setCt(e.target.value)}>
+                {p.types.filter((_t, i) => !p.hidden.has(i))
+                  .map(t => <option key={t.key} value={t.name}>{t.name}</option>)}
+              </select>
+            </label>
+          </>
+        )}
 
         {p.plot === 'dot' ? (
           <>
@@ -459,9 +484,13 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   const Y = (v: number) => PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo))
   const bw = (W - PL - PR) / per
 
-  const dl = p.groupBy === 'type' ? 0
-    : Math.log2((p.src.mean(p.gene, p.types.findIndex(t => t.name === p.ct), p.cs) + 0.05)
-      / (p.src.mean(p.gene, p.types.findIndex(t => t.name === p.ct), p.ctrl) + 0.05))
+  // Last group against first, in the object's own order — which for a time
+  // course is the change over the course. It used to read the contrast bar's
+  // Control and Compare, controls this tab no longer shows.
+  const first = cats[0], last = cats[cats.length - 1]
+  const dl = p.groupBy === 'type' || cats.length < 2 || !first || !last ? 0
+    : Math.log2((p.src.mean(p.gene, last.ti, last.cond) + 0.05)
+      / (p.src.mean(p.gene, first.ti, first.cond) + 0.05))
   const pcts = cats.map(c => p.src.pct(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond))
   const maxPct = maxOf(pcts)
 
@@ -731,14 +760,21 @@ function FeaturePlot(p: GeneProps) {
   const split = p.groupBy !== 'type' && p.src.d.multi
   const panels: (string | null)[] = split ? p.src.d.conds : [null]
   const cols = split ? 1 : Math.max(1, Math.min(p.cols, 4))
-  const size = split ? Math.max(150, 760 / panels.length) : Math.min(320, Math.max(170, 700 / cols))
+  // A few groups share the width; twenty of them cannot. Dividing by the count
+  // gave 38 px panels on the atlas — every group present and none of them
+  // legible. Past four, each panel takes a readable width and the row scrolls,
+  // which is the only honest way to show twenty maps of the same embedding.
+  const size = split
+    ? (panels.length <= 4 ? Math.max(180, 760 / panels.length) : 230)
+    : Math.min(320, Math.max(170, 700 / cols))
+  const scrolls = split && panels.length > 4
   const anyHidden = p.hidden.size > 0
 
   return (
     <>
       <div className="grid gap-[18px]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {p.genes.map(g => (
-          <FeatureRow key={g} p={p} gene={g} panels={panels} size={size} />
+          <FeatureRow key={g} p={p} gene={g} panels={panels} size={size} scrolls={scrolls} />
         ))}
       </div>
       <div className="legend mt-3.5">
@@ -760,8 +796,8 @@ function FeaturePlot(p: GeneProps) {
   )
 }
 
-function FeatureRow({ p, gene, panels, size }: {
-  p: GeneProps; gene: string; panels: (string | null)[]; size: number
+function FeatureRow({ p, gene, panels, size, scrolls }: {
+  p: GeneProps; gene: string; panels: (string | null)[]; size: number; scrolls: boolean
 }) {
   // The whole-dataset values are needed for the shared clip, so compute once here.
   const { vals, top } = useMemo(() => {
@@ -787,13 +823,17 @@ function FeatureRow({ p, gene, panels, size }: {
           {accession}
         </figcaption>
       )}
-      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${panels.length}, minmax(0, 1fr))` }}>
+      <div className={scrolls ? 'overflow-x-auto pb-1' : ''}>
+      <div className="grid gap-2" style={{
+        gridTemplateColumns: `repeat(${panels.length}, ${scrolls ? `${size}px` : 'minmax(0, 1fr)'})`,
+      }}>
         {panels.map(pan => (
           <div key={pan ?? 'all'}>
             <FeatureCanvas p={p} vals={vals} top={top} cond={pan} size={size} gene={gene}
               name={`${gene}${pan ? `_${pan}` : ''}_feature`} />
           </div>
         ))}
+      </div>
       </div>
     </figure>
   )

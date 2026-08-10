@@ -99,10 +99,13 @@ const BOTH: Needs = { ct: true, contrast: true }
  *   sticky bar as the user toggles something further down the page. No
  *   contrast — a module score is not a comparison.
  */
-function needsOf(tab: TabId, groupBy: GroupBy): Needs {
+function needsOf(tab: TabId): Needs {
   switch (tab) {
     case 'degs': case 'volcano': case 'enrich': case 'methods': return BOTH
-    case 'expr': return groupBy === 'type' ? NOTHING : BOTH
+    // Nothing. Gene expression picks its own cell type beside the figures that
+    // use it, and it is not a comparison — a Control / Compare pair over it read
+    // as a claim that the panels below were showing that contrast.
+    case 'expr': return NOTHING
     case 'sets': return { ct: true, contrast: false }
     default: return NOTHING
   }
@@ -298,7 +301,7 @@ export default function App() {
 
   // A blocked tab shows an explanation, not a view, so nothing above it is a
   // parameter of anything.
-  const needs = blocked ? NOTHING : needsOf(tab, groupBy)
+  const needs = blocked ? NOTHING : needsOf(tab)
 
   // The embedding selector belongs where cells are actually drawn on it, and
   // nowhere else — over a violin panel or a DEG table it would be a control with

@@ -340,6 +340,21 @@ svg {
     stroke-width: 0.6;
   }
 
+  /* An indeterminate progress bar, for work whose remaining size is not known.
+     Respects a reduced-motion preference by holding still rather than by
+     disappearing — the bar still has to say that something is running. */
+  @keyframes slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [style*='animation: slide'] {
+      animation: none !important;
+      width: 100% !important;
+      opacity: 0.5;
+    }
+  }
+
   .prose-methods {
     @apply text-[13.5px] leading-[1.75];
     max-width: 66ch;
