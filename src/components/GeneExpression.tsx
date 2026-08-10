@@ -6,10 +6,12 @@ import {
   clusterCentroids, density, embedExtent, identities, maxOf, maxOfAll, nonZeroPercentile,
   quantiles,
 } from '../lib/chart.ts'
-import { drawFeature } from '../lib/feature-plot.ts'
+import { drawFeature, panelHeight } from '../lib/feature-plot.ts'
+import { AXIS_INK, GRID_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import { mix, pal, rampColor, rampCss, RAMPS, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import Figure from './Figure.tsx'
+import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { Card, Chips, Seg } from './Ui.tsx'
 
 export interface GeneProps {
@@ -222,6 +224,19 @@ export default function GeneExpression(p: GeneProps) {
               title="Seurat scale = TRUE — z-score each gene across identities"
               onClick={() => p.onDotScale(!p.dotScale)}
             >Scale each gene</button>
+            {/* The dot plot has always coloured from this ramp; the control for
+                it was only ever shown on the feature plot, so the one figure
+                most likely to go into a paper had no way to change its colours. */}
+            <div className="gsep h-6" />
+            <label className="flex items-center gap-1.5">
+              <span className="glabel">Colour</span>
+              <select className="sel" value={p.rampKey}
+                onChange={e => p.onRamp(e.target.value as RampKey)}>
+                {Object.entries(RAMPS).map(([k, r]) => (
+                  <option key={k} value={k}>{r.label}</option>
+                ))}
+              </select>
+            </label>
           </>
         ) : (
           <>
@@ -550,13 +565,23 @@ function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet }: {
 function DotPlot(p: GeneProps & { ids: Identity[] }) {
   const rows = p.ids
   const genes = p.genes
-  const cw = 42, rh = 26, PT = 12, PR = 24
+  const cw = 42, rh = 26, PT = 14, PR = 26
   // The left margin follows the longest identity — "Oligodendrocyte · Reactivated"
   // is more than twice the width of "TAP", and a clipped row label is unreadable.
   const PL = Math.max(110, Math.min(250, 22 + maxOf(rows.map(r => r.full.length)) * 6.1))
-  const labelH = Math.min(96, 22 + maxOf(genes.map(g => g.length)) * 4.6)
-  const W = PL + genes.length * cw + PR
-  const H = PT + rows.length * rh + labelH
+  const labelH = Math.min(96, 24 + maxOf(genes.map(g => g.length)) * 4.6)
+  // The legend is part of the figure, in the figure. It used to be laid out in
+  // HTML beside it, so every exported dot plot arrived in a manuscript with no
+  // size key and no colour bar — the two things that make the marks mean
+  // anything.
+  const legendH = 62
+  // Wide enough for the legend, not just for the data. The colour bar's title
+  // is the longest string in the figure and was being cut off at the edge —
+  // "Average expression (scale".
+  const BAR_X = 200, BAR_W = 130
+  const W = Math.max(PL + genes.length * cw + PR, PL + BAR_X + BAR_W + 26)
+  const plotB = PT + rows.length * rh
+  const H = plotB + labelH + legendH
 
   const avg = rows.map(r => genes.map(g => p.src.mean(g, r.ti, p.groupBy === 'type' ? null : r.cond)))
   const cv = genes.map((_g, gi) => {
@@ -568,6 +593,9 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
   })
   const lo = p.dotScale ? -2.5 : 0
   const hi = p.dotScale ? 2.5 : Math.max(maxOfAll(avg), 0.01)
+  const radius = (f: number) => +(1.4 + f * 9).toFixed(2)
+  const X = (gi: number) => PL + cw * (gi + 0.5)
+  const Y = (ri: number) => PT + rh * (ri + 0.5)
 
   return (
     <>
@@ -575,69 +603,75 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
         <div className="overflow-x-auto">
           <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
             aria-label={`Dot plot of ${genes.join(', ')}`}>
-          {rows.map((r, ri) => {
-            const y = PT + rh * (ri + 0.5)
-            return (
+            {/* Grid first, so the marks sit on it rather than under it. Banded
+                rows were doing this job and doing it badly: a stripe is a block
+                of colour competing with the data for the reader's eye, where a
+                hairline just carries it across a wide panel. */}
+            {rows.map((r, ri) => (
+              <line key={`h${r.full}`} x1={PL} x2={PL + genes.length * cw}
+                y1={Y(ri)} y2={Y(ri)} stroke={GRID_INK} strokeWidth={0.6} />
+            ))}
+            {genes.map((g, gi) => (
+              <line key={`v${g}`} x1={X(gi)} x2={X(gi)} y1={PT} y2={plotB}
+                stroke={GRID_INK} strokeWidth={0.6} />
+            ))}
+
+            {/* Axes and ticks in black — SCpubr sets axis.text and axis.ticks to
+                black rather than the theme's grey, because a figure is judged on
+                paper where grey-on-white reads as faint. */}
+            <line x1={PL} x2={PL} y1={PT} y2={plotB} stroke={AXIS_INK} strokeWidth={0.8} />
+            <line x1={PL} x2={PL + genes.length * cw} y1={plotB} y2={plotB}
+              stroke={AXIS_INK} strokeWidth={0.8} />
+
+            {rows.map((r, ri) => (
               <g key={r.full}>
-                {ri % 2 === 0 && (
-                  <rect x={PL - 6} y={PT + rh * ri} width={genes.length * cw + 12} height={rh}
-                    fill="var(--sunk)" opacity=".55" />
-                )}
-                <text className="axis" x={PL - 12} y={y + 4} textAnchor="end"
-                  style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: 550 }}>{r.full}</text>
-                {genes.map((g, gi) => {
-                  const pct = p.src.pct(g, r.ti, p.groupBy === 'type' ? null : r.cond)
-                  if (pct < 0.01) return null
-                  return (
-                    <circle key={g} cx={PL + cw * (gi + 0.5)} cy={y} r={+(1.4 + pct * 9).toFixed(2)}
-                      fill={rampColor((cv[gi][ri] - lo) / (hi - lo), p.rampKey)}
-                      stroke="var(--line-2)" strokeWidth={0.5}>
-                      <title>
-                        {g} in {r.full} — {(pct * 100).toFixed(0)}% of cells,
-                        mean {avg[ri][gi].toFixed(2)}
-                      </title>
-                    </circle>
-                  )
-                })}
+                <line x1={PL - 3.5} x2={PL} y1={Y(ri)} y2={Y(ri)} stroke={AXIS_INK} strokeWidth={0.8} />
+                <text x={PL - 8} y={Y(ri) + 4} textAnchor="end"
+                  style={{ fontSize: 11.5, fill: AXIS_INK, fontWeight: 600 }}>{r.full}</text>
               </g>
-            )
-          })}
-          {genes.map((g, gi) => {
-            const x = PL + cw * (gi + 0.5)
-            const yb = PT + rows.length * rh + 10
-            return (
-              <text key={g} className="axis" transform={`rotate(-45 ${x} ${yb})`} x={x} y={yb}
-                textAnchor="end" style={{ fontStyle: 'italic', fontSize: 11, fill: 'var(--ink)' }}>{g}</text>
-            )
-          })}
+            ))}
+
+            {rows.map((r, ri) => genes.map((g, gi) => {
+              const pct = p.src.pct(g, r.ti, p.groupBy === 'type' ? null : r.cond)
+              if (pct < 0.01) return null
+              return (
+                // shape 21 in SCpubr's terms: a filled mark with a black edge.
+                // Without it a z-scored plot is mostly pale dots with no border,
+                // and the reader cannot tell a small faint dot from the page.
+                <circle key={`${r.full}-${g}`} cx={X(gi)} cy={Y(ri)} r={radius(pct)}
+                  fill={rampColor((cv[gi][ri] - lo) / (hi - lo), p.rampKey)}
+                  stroke={MARK_EDGE} strokeWidth={0.7}>
+                  <title>
+                    {g} in {r.full} — {(pct * 100).toFixed(0)}% of cells,
+                    mean {avg[ri][gi].toFixed(2)}
+                  </title>
+                </circle>
+              )
+            }))}
+
+            {genes.map((g, gi) => {
+              const yb = plotB + 12
+              return (
+                <g key={g}>
+                  <line x1={X(gi)} x2={X(gi)} y1={plotB} y2={plotB + 3.5}
+                    stroke={AXIS_INK} strokeWidth={0.8} />
+                  <text transform={`rotate(-45 ${X(gi)} ${yb})`} x={X(gi)} y={yb}
+                    textAnchor="end"
+                    style={{ fontStyle: 'italic', fontSize: 11, fill: AXIS_INK }}>{g}</text>
+                </g>
+              )
+            })}
+
+            <SizeKey x={PL} y={H - legendH + 20} title="Cells expressing (%)" radius={radius} />
+            <ColorBar
+              x={PL + BAR_X} y={H - legendH + 20} w={BAR_W} h={9}
+              ramp={p.rampKey} lo={lo} hi={p.dotScale ? hi : +hi.toFixed(1)}
+              title={p.dotScale ? 'Mean expression (z)' : 'Mean expression'}
+              id="dotplot-bar"
+            />
           </svg>
         </div>
       </Figure>
-
-      <div className="mt-3.5 flex flex-wrap items-end gap-8">
-        <div>
-          <div className="text-[10px] font-semibold" style={{ color: 'var(--ink)' }}>Percent expressed</div>
-          <svg viewBox="0 0 190 44" width={190} height={44} role="img" aria-label="Dot size legend">
-            {[0.25, 0.5, 0.75, 1].map((v, i) => (
-              <g key={v}>
-                <circle cx={18 + i * 44} cy={18} r={+(1.4 + v * 9).toFixed(2)} fill="none"
-                  stroke="var(--ink-3)" strokeWidth={1.2} />
-                <text className="axis" x={18 + i * 44} y={40} textAnchor="middle">{v * 100}%</text>
-              </g>
-            ))}
-          </svg>
-        </div>
-        <div>
-          <div className="text-[10px] font-semibold" style={{ color: 'var(--ink)' }}>
-            Average expression{p.dotScale ? ' (scaled)' : ''}
-          </div>
-          <div className="mt-1.5 h-2.5 w-[150px] rounded-[3px]" style={{ background: rampCss(p.rampKey) }} />
-          <div className="legend mt-1 justify-between" style={{ width: 150 }}>
-            <span>{p.dotScale ? '−2.5' : '0'}</span>
-            <span>{p.dotScale ? '+2.5' : hi.toFixed(1)}</span>
-          </div>
-        </div>
-      </div>
 
       <p className="sub mt-2.5">
         {p.dotScale
@@ -706,23 +740,19 @@ function FeatureRow({ p, gene, panels, size }: {
 
   return (
     <figure>
-      <figcaption className="mb-1.5 text-[12.5px] font-semibold italic" style={{ color: 'var(--ink)' }}>
-        {gene}
-        <span className="mono ml-1.5 font-normal not-italic" style={{ color: 'var(--ink-3)' }}>
-          0 – {top.toFixed(1)}
-        </span>
-        {/* The stable identifier under the label the figure is titled with. */}
-        {accession && (
-          <span className="mono ml-1.5 font-normal not-italic" style={{ color: 'var(--ink-3)' }}>
-            · {accession}
-          </span>
-        )}
-      </figcaption>
+      {/* The gene, the group and the scale are drawn INSIDE the canvas now, so
+          they travel with the exported file. What stays here is the one thing
+          that is reference rather than figure: the accession, which belongs
+          beside the plot on screen and in a methods line, not on the plot. */}
+      {accession && (
+        <figcaption className="mono mb-1 text-[10.5px]" style={{ color: 'var(--ink-3)' }}>
+          {accession}
+        </figcaption>
+      )}
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${panels.length}, minmax(0, 1fr))` }}>
         {panels.map(pan => (
           <div key={pan ?? 'all'}>
-            {pan && <div className="axis mb-1 text-[10.5px]">{pan}</div>}
-            <FeatureCanvas p={p} vals={vals} top={top} cond={pan} size={size}
+            <FeatureCanvas p={p} vals={vals} top={top} cond={pan} size={size} gene={gene}
               name={`${gene}${pan ? `_${pan}` : ''}_feature`} />
           </div>
         ))}
@@ -731,9 +761,9 @@ function FeatureRow({ p, gene, panels, size }: {
   )
 }
 
-function FeatureCanvas({ p, vals, top, cond, size, name }: {
+function FeatureCanvas({ p, vals, top, cond, size, name, gene }: {
   p: GeneProps; vals: Float32Array; top: number; cond: string | null; size: number
-  name: string
+  name: string; gene: string
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
@@ -762,8 +792,10 @@ function FeatureCanvas({ p, vals, top, cond, size, name }: {
       silhouette: true,
       background: getComputedStyle(document.documentElement)
         .getPropertyValue('--surface').trim() || '#ffffff',
+      title: gene,
+      subtitle: cond,
     }
-  }, [p.emb, p.src, p.types, p.hidden, p.rampKey, p.borders, vals, top, cond, size])
+  }, [p.emb, p.src, p.types, p.hidden, p.rampKey, p.borders, vals, top, cond, size, gene])
 
   const dark = useMemo(
     () => document.documentElement.classList.contains('dark')
@@ -786,7 +818,7 @@ function FeatureCanvas({ p, vals, top, cond, size, name }: {
       }}
     >
       <canvas
-        ref={ref} width={Math.round(size * 2)} height={Math.round(size * 2)}
+        ref={ref} width={Math.round(size * 2)} height={panelHeight(Math.round(size * 2))}
         style={{ width: '100%', maxWidth: Math.round(size), height: 'auto', borderRadius: 9 }}
       />
     </Figure>

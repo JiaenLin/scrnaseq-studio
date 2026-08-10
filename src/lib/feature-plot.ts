@@ -43,11 +43,34 @@ export interface FeatureDraw {
   silhouette: boolean
   /** Page background, so the plate matches the surrounding card. */
   background: string
+  /**
+   * The gene, and the group for a split panel.
+   *
+   * Drawn onto the canvas rather than left to the HTML around it. They used to
+   * live in a <figcaption> and a legend row beside the figure, which meant the
+   * exported PNG — the file that goes into the manuscript — carried neither the
+   * gene name nor the colour scale. A feature plot without a scale is a picture
+   * of some dots.
+   */
+  title: string
+  subtitle: string | null
 }
 
 /** Grey for cells that are present but not part of this panel. */
 const GHOST = '#E2E5EA'
 const GHOST_DARK = '#2A2F3A'
+
+/** Title and colour-bar strips, in the same 640-wide units as everything else. */
+const TOP_U = 22, BOT_U = 34
+
+/**
+ * How tall a panel `w` wide has to be for its embedding to stay square.
+ *
+ * The strips are part of the figure, so the canvas has to grow by them rather
+ * than take them out of the plot — otherwise every UMAP is quietly squashed
+ * vertically, which is a distortion of the data and not a layout detail.
+ */
+export const panelHeight = (w: number): number => Math.round(w + ((TOP_U + BOT_U) * w) / 640)
 
 export function drawFeature(
   ctx: CanvasRenderingContext2D, W: number, H: number, o: FeatureDraw, dark = false,
@@ -55,11 +78,18 @@ export function drawFeature(
   ctx.fillStyle = o.background
   ctx.fillRect(0, 0, W, H)
 
+  const unit0 = W / 640
+  // Strips for the title and the colour bar, as a fraction of the panel so an
+  // export at four times the size keeps the same proportions.
+  const TOP = TOP_U * unit0
+  const BOT = BOT_U * unit0
+  const PH = Math.max(1, H - TOP - BOT)
+
   const { x0, x1, y0, y1 } = o.extent
   const sx = x1 > x0 ? W / (x1 - x0) : 1
-  const sy = y1 > y0 ? H / (y1 - y0) : 1
+  const sy = y1 > y0 ? PH / (y1 - y0) : 1
   const X = (i: number) => (o.xy[2 * i] - x0) * sx
-  const Y = (i: number) => H - (o.xy[2 * i + 1] - y0) * sy
+  const Y = (i: number) => TOP + PH - (o.xy[2 * i + 1] - y0) * sy
 
   const cells = o.cells
   const inPanel = new Uint8Array(cells.length)
@@ -115,10 +145,48 @@ export function drawFeature(
     ctx.strokeStyle = dark ? 'rgba(0,0,0,.85)' : 'rgba(255,255,255,.9)'
     for (const l of o.labels) {
       const px = (l.x - x0) * sx
-      const py = H - (l.y - y0) * sy
+      const py = TOP + PH - (l.y - y0) * sy
       ctx.strokeText(l.name, px, py)
       ctx.fillStyle = dark ? '#E6EAF2' : '#334155'
       ctx.fillText(l.name, px, py)
     }
   }
+
+  const ink = dark ? '#E6EAF2' : '#000000'
+
+  // Title: the gene, in italic the way a gene symbol is set in print, with the
+  // group beside it when the panel is one of a split.
+  ctx.textAlign = 'left'
+  ctx.font = `italic 600 ${Math.round(13 * unit)}px system-ui, sans-serif`
+  ctx.fillStyle = ink
+  ctx.fillText(o.title, 2 * unit, 14 * unit)
+  if (o.subtitle) {
+    const w = ctx.measureText(o.title).width
+    ctx.font = `${Math.round(12 * unit)}px system-ui, sans-serif`
+    ctx.fillStyle = dark ? '#9AA4B5' : '#4A5568'
+    ctx.fillText(o.subtitle, 2 * unit + w + 7 * unit, 14 * unit)
+  }
+
+  // The scale, framed and labelled. SCpubr frames its colour bars for the same
+  // reason: a gradient that ends in the page's own colour has no boundary, and
+  // the end that disappears is the one meaning "not detected".
+  const bw = Math.min(W * 0.42, 150 * unit)
+  const bh = 8 * unit
+  const bx = 2 * unit
+  const by = H - BOT + 9 * unit
+  for (let i = 0; i < bw; i++) {
+    ctx.fillStyle = rampColor(i / (bw - 1), o.ramp)
+    ctx.fillRect(bx + i, by, 1.5, bh)
+  }
+  ctx.strokeStyle = ink
+  ctx.lineWidth = 0.8 * unit
+  ctx.strokeRect(bx, by, bw, bh)
+  ctx.font = `${Math.round(10 * unit)}px system-ui, sans-serif`
+  ctx.fillStyle = ink
+  ctx.textAlign = 'left'
+  ctx.fillText(o.floor.toFixed(0), bx, by + bh + 11 * unit)
+  ctx.textAlign = 'right'
+  ctx.fillText(o.top.toFixed(1), bx + bw, by + bh + 11 * unit)
+  ctx.textAlign = 'left'
+  ctx.fillText('normalized expression', bx + bw + 8 * unit, by + bh - 0.5 * unit)
 }
