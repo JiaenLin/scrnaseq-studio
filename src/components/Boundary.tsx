@@ -104,7 +104,7 @@ export default class ViewBoundary extends Component<Props, State> {
         {/* Verbatim, not paraphrased. The people using this read stack traces,
             and a studio that hides the message is a studio they have to
             reproduce the bug in a devtools console to report. */}
-        <pre className="mono mt-3 whitespace-pre-wrap text-left text-[11.5px]"
+        <pre className="mono mt-3 whitespace-pre-wrap text-left tx-micro"
           style={{ color: 'var(--warn)', overflowWrap: 'anywhere' }}>{error.message}</pre>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {/* Worth offering rather than a dead end: the failure that prompted all

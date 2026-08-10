@@ -69,10 +69,10 @@ export default function CondPicker({ label, all, value, other, onChange }: {
       {open && (
         <div
           role="listbox"
-          className="menu-in absolute left-0 top-full z-40 mt-1 min-w-[210px] rounded-xl p-1.5"
+          className="menu-in absolute left-0 top-full z-40 mt-1 min-w-[210px] rounded-[--r-md] p-1.5"
           style={{
             background: 'var(--surface)', border: '1px solid var(--line-2)',
-            boxShadow: '0 10px 30px rgba(15,23,42,.16)',
+            boxShadow: 'var(--shadow-menu)',
           }}
         >
           {all.map(c => {
@@ -81,16 +81,20 @@ export default function CondPicker({ label, all, value, other, onChange }: {
             return (
               <button
                 key={c} role="option" aria-selected={on} disabled={taken}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12.5px] hover:bg-[var(--sunk)]"
+                className="flex w-full items-center gap-2 rounded-[--r-md] px-2 py-1.5 text-left tx-small hover:bg-[var(--sunk)]"
                 style={{ opacity: taken ? 0.4 : 1 }}
                 title={taken ? 'already on the other side of this comparison' : undefined}
                 onClick={() => toggle(c)}
               >
+                {/* --sel and --surface, like every other selected thing in the
+                    studio. White on the dark theme's lighter accent was about
+                    2.3:1 — a state indicator you have to look twice at. */}
                 <span
-                  className="grid h-[14px] w-[14px] flex-none place-items-center rounded-[4px] text-[10px] text-white"
+                  className="grid h-[14px] w-[14px] flex-none place-items-center rounded-[--r-sm] tx-micro"
                   style={{
-                    background: on ? 'var(--accent)' : 'transparent',
-                    border: `1.5px solid ${on ? 'var(--accent)' : 'var(--line-2)'}`,
+                    background: on ? 'var(--sel)' : 'transparent',
+                    color: 'var(--surface)',
+                    border: `1.5px solid ${on ? 'var(--sel)' : 'var(--line-2)'}`,
                   }}
                 >{on ? '✓' : ''}</span>
                 <span className="truncate">{c}</span>
@@ -98,7 +102,7 @@ export default function CondPicker({ label, all, value, other, onChange }: {
             )
           })}
           {value.length > 1 && (
-            <p className="px-2 pb-1 pt-1.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+            <p className="px-2 pb-1 pt-1.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
               {value.length} groups pooled — every cell in any of them is treated as
               one group by the test.
             </p>

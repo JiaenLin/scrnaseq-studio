@@ -2,8 +2,8 @@ import type { CellType, Dataset } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import { axisRange, cellsBySample, fmt, quantiles, density, minOf, maxOf , hasSignal } from '../lib/chart.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
-import { pal, PALETTES, RAMPS, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
-import { Card, Mono, Stat } from './Ui.tsx'
+import { pal, type PaletteKey } from '../lib/palette.ts'
+import { Card, Stat } from './Ui.tsx'
 
 type Kind = 'file' | 'here' | 'none'
 
@@ -32,13 +32,10 @@ function geneNaming(src: Source): string {
     + (extra.length ? `. ${extra.join('; ')}` : '')
 }
 
-export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }: {
+export default function Overview({ src, types, palKey }: {
   src: Source
   types: CellType[]
   palKey: PaletteKey
-  rampKey: RampKey
-  onPal: (k: PaletteKey) => void
-  onRamp: (k: RampKey) => void
 }) {
   const d = src.d
   const nRep = minReplicates(src)
@@ -76,7 +73,7 @@ export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }:
     <>
       <Card eyebrow="Dataset" title="What is in this object">
         <div
-          className="mt-3 grid gap-px overflow-hidden rounded-xl"
+          className="mt-3 grid gap-px overflow-hidden rounded-[--r-md]"
           style={{ background: 'var(--line)', border: '1px solid var(--line)',
                    gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))' }}
         >
@@ -87,28 +84,27 @@ export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }:
           <Stat value={types.length} label="clusters" />
           <Stat value={nRep} label="min replicates" />
         </div>
-      </Card>
 
-      <div className={`note mb-4 ${nRep >= MIN_REPS_PB ? 'note-info' : ''}`}>
-        {nRep >= MIN_REPS_PB ? (
-          <><b>Both tests are available for this object.</b> The default is a Wilcoxon rank-sum
-          test across cells, as in Seurat&rsquo;s <Mono>FindMarkers</Mono>. With {nRep} samples per
-          group you can also run pseudobulk DESeq2, which tests between animals instead of between
-          cells — far fewer genes, but each survives the between-animal variance.</>
-        ) : d.multi ? (
-          <><b>{nRep} sample per group, so Wilcoxon is the only test available — and nothing is
-          blocked.</b> That is the normal situation in single-cell work. Bear in mind the p-values
-          describe variation between <em>cells</em>, not between animals, so they are not evidence
-          that the effect would repeat in a new mouse.</>
-        ) : (
-          <><b>One condition, so there is no differential expression to run.</b> Cluster markers and
-          gene search work normally; the contrast tabs stay empty rather than inventing a comparison.</>
-        )}
-      </div>
+        {/* Inside the card that states the design, not floating between two of
+            them. A note is content, and content lives on a surface — three of
+            these were the only things in the app rendered on the page ground. */}
+        <div className={`note mt-4 ${nRep >= MIN_REPS_PB ? 'note-info' : ''}`}>
+          {nRep >= MIN_REPS_PB ? (
+            <><b>Both tests are available.</b> Wilcoxon across cells by default; with {nRep} samples
+            a group, pseudobulk DESeq2 tests between animals instead.</>
+          ) : d.multi ? (
+            <><b>{nRep} sample per group, so Wilcoxon is the only test</b> — the normal case in
+            single-cell. Its p-values describe variation between cells, not between animals.</>
+          ) : (
+            <><b>One condition, so there is no comparison to run.</b> Markers and gene search
+            work normally.</>
+          )}
+        </div>
+      </Card>
 
       <Card
         eyebrow="Provenance" title="Where every number comes from"
-        sub="Read from the object, not assumed. Anything this studio computes is labelled as such."
+        sub="Read from the object. Anything computed here is labelled as such."
       >
         <div className="scrollx mt-3">
           <table className="t">
@@ -131,60 +127,22 @@ export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }:
 
       {src.meta.notes.length > 0 && (
         <Card eyebrow="From the conversion" title="What the exporter had to decide"
-          sub="Recorded when the bundle was made, so the person reading the figures sees what the person who converted the object saw.">
-          <ul className="mt-3 list-disc pl-5 text-[12.5px] leading-relaxed"
+          sub="Recorded when the bundle was made.">
+          <ul className="mt-3 list-disc pl-5 tx-small leading-relaxed"
             style={{ color: 'var(--ink-2)' }}>
             {src.meta.notes.map((nte, i) => <li key={i} className="mb-1">{nte}</li>)}
           </ul>
         </Card>
       )}
 
-      <Card
-        eyebrow="Figure style" title="Match the journal you are submitting to"
-        sub="Applies to every figure in the studio at once, so an exported panel already matches the rest of the manuscript instead of being recoloured by hand afterwards."
-      >
-        <div className="mt-3.5 flex flex-wrap items-center gap-[18px]">
-          <label className="flex items-center gap-1.5">
-            <span className="glabel">Clusters</span>
-            <select
-              className="sel" value={palKey} aria-label="Cluster palette"
-              onChange={e => onPal(e.target.value as PaletteKey)}
-            >
-              {Object.entries(PALETTES).map(([k, p]) =>
-                <option key={k} value={k}>{p.label}</option>)}
-            </select>
-            <span className="ml-1 inline-flex gap-0.5">
-              {PALETTES[palKey].cols.map(c => (
-                <i key={c} className="sw" style={{ background: c, width: 13, height: 13, borderRadius: 3 }} />
-              ))}
-            </span>
-          </label>
-          <label className="flex items-center gap-1.5">
-            <span className="glabel">Expression</span>
-            <select
-              className="sel" value={rampKey} aria-label="Expression ramp"
-              onChange={e => onRamp(e.target.value as RampKey)}
-            >
-              {Object.entries(RAMPS).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}
-            </select>
-            <span
-              className="ml-1 inline-block h-[13px] w-[104px] rounded-[3px]"
-              style={{ background: rampCss(rampKey) }}
-            />
-          </label>
-        </div>
-        <p className="mt-[11px] text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-          <b>viridis</b> and <b>magma</b> are perceptually uniform and safe for colour-vision
-          deficiency, which is why they have largely replaced rainbow scales in the journals.
-          The categorical sets are the ones the journals&rsquo; own figures use.
-        </p>
-      </Card>
+      {/* The "Figure style" card was here. Palette and expression ramp are
+          global — they repaint every figure in the studio — so they now live in
+          the control bar, under "Figure style", where they can be changed
+          beside the figure they change rather than one tab away from it. */}
 
       <Card
         eyebrow="Quality control" title="Three covariates, read together, per sample"
-        sub={<>Thresholds vary substantially between samples, so QC is shown per sample rather than
-          pooled. These distributions are what remains <em>after</em> the filtering your pipeline
-          applied.</>}
+        sub="Per sample, and after the filtering your pipeline applied."
       >
         <div className="mt-3.5 flex flex-wrap gap-3.5">
           <QcPanel d={d} palKey={palKey} title="Total counts" get={c => c.counts}
@@ -199,7 +157,7 @@ export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }:
               tick={v => v.toFixed(1)} />
           )}
         </div>
-        <p className="mono mt-2.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+        <p className="mono mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
           box = median and IQR · violin = density · n = {fmt(d.nCells)} cells
         </p>
       </Card>
@@ -224,7 +182,7 @@ function QcPanel({ d, title, get, tick, palKey }: {
 
   return (
     <figure className="min-w-[280px] flex-1 basis-[300px]">
-      <div className="mb-0.5 text-xs font-semibold">{title}</div>
+      <div className="mb-0.5 tx-small font-semibold">{title}</div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label={`${title} per sample`}>
         {[0, 0.25, 0.5, 0.75, 1].map(f => {
           const t = y0 + (y1 - y0) * f

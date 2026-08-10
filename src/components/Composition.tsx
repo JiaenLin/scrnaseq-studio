@@ -188,10 +188,9 @@ export default function Composition({ d, types, palKey }: {
       <Card
         eyebrow="Composition"
         title={`${partsLabel} proportions, one row per ${axis.label.toLowerCase()}`}
-        sub={<>Horizontal, because the quantity being read is a percentage and percentages are read
-          along a shared axis. {d.samples.length > 1
-            ? 'Never pooled across samples — cells from one animal are not independent observations, so a bar that would merge several animals is refused rather than drawn.'
-            : 'This object contains one sample, so this is a description of it and not a comparison.'}</>}
+        sub={d.samples.length > 1
+          ? 'Percentages on a shared axis. Never pooled across samples.'
+          : 'One sample, so this describes it rather than comparing anything.'}
       >
         <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
           <label className="flex items-center gap-1.5">
@@ -248,7 +247,7 @@ export default function Composition({ d, types, palKey }: {
               , so the spread between animals is not visible here.
             </span>
             {fixAxis && (
-              <button className="chip" onClick={() => set({ rows: fixAxis.key, only: -1 })}>
+              <button className="btn btn-quiet" onClick={() => set({ rows: fixAxis.key, only: -1 })}>
                 Show each sample
               </button>
             )}
@@ -258,34 +257,29 @@ export default function Composition({ d, types, palKey }: {
           <>
             {table.degenerate && (
               <div className="note mt-4">
-                <b>Every row falls in a single {partsLabel.toLowerCase()}.</b> A sample belongs to
-                exactly one group, so with these two fields each bar is one solid block. Pick a
-                different field for the bars.
+                <b>Every row falls in a single {partsLabel.toLowerCase()},</b> so each bar is one
+                solid block. Pick a different field for the bars.
               </div>
             )}
             {hidden > 0 && (
               <div className="note mt-4">
-                <b>Showing {drawn.length} of {chosen.length} rows.</b> Narrow it with the{' '}
-                {outer ? `“limit to” menu` : 'menus'} above — the CSV export still contains every
-                non-empty combination.
+                <b>Showing {drawn.length} of {chosen.length} rows.</b> The CSV has every one.
               </div>
             )}
             {(sparse || thin > 0) && (
               <div className="note mt-4">
                 {sparse && <>
-                  <b>{axis.label} makes {table.possible.toLocaleString('en-US')} combinations,
-                  and {table.rows.length.toLocaleString('en-US')} of them hold any
-                  cells.</b>{' '}These two were not crossed in the experiment — the rest are
-                  combinations that were never collected, not rows that went missing.{' '}
+                  <b>{table.rows.length.toLocaleString('en-US')} of{' '}
+                  {table.possible.toLocaleString('en-US')} combinations hold cells</b> — the rest
+                  were never collected.{' '}
                 </>}
                 {thin > 0 && <>
-                  {thin.toLocaleString('en-US')} of the {table.rows.length.toLocaleString('en-US')}
-                  {' '}rows hold fewer than {MIN_CELLS_GROUP} cells. A bar drawn from two cells is
-                  0% or 100% and nothing else; the DE tab refuses a contrast at the same floor.
+                  {thin.toLocaleString('en-US')} row{thin === 1 ? '' : 's'} hold fewer than{' '}
+                  {MIN_CELLS_GROUP} cells, where a proportion is 0% or 100% and nothing else.
                 </>}
               </div>
             )}
-            <Figure name={name} className="mt-4 pt-6">
+            <Figure name={name} className="mt-4">
               <StackedRows
                 rows={drawn} table={table} partNames={partNames} palKey={palKey}
                 hasGroup={!!outer && only < 0}
@@ -303,10 +297,9 @@ export default function Composition({ d, types, palKey }: {
       {d.multi && (
         <Card
           eyebrow="Per cell type" title="Proportion by group"
-          sub={<>One panel per cell type, each with its own y axis — a shared axis would flatten
-            every population except the largest. {d.samples.length > d.conds.length
-              ? 'Dots are the individual animals; if they overlap between groups, the difference in the bars is not evidence.'
-              : 'One sample per group, so each bar is a single measurement with no spread to show.'}</>}
+          sub={d.samples.length > d.conds.length
+            ? 'Its own y axis per panel. Dots are animals — overlap means the difference is not evidence.'
+            : 'Its own y axis per panel. One sample per group, so there is no spread to show.'}
         >
           <div className="mt-3.5 flex justify-end">
             <CsvButton

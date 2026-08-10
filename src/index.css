@@ -5,10 +5,68 @@
 :root {
   color-scheme: light dark;
 
+  /* ---------------------------------------------------------------------
+     One vocabulary.
+
+     These four scales exist because the interface had none: fifteen font
+     sizes, ten radii, ten different top margins, every one of them typed at
+     the point of use. The figures had tokens and one rule per decision; the
+     chrome around them did not, and it showed.
+
+     The rule for adding to them is that you do not. If a value here is wrong,
+     change it here and let every use of it move together.
+     --------------------------------------------------------------------- */
+
+  /* Type. Five steps, from fifteen. Figure and axis type is a separate
+     system (--fig-*, .axis) and is not on this scale — a figure leaves for a
+     white page and is sized in the reader's terms, not the interface's. */
+  --t-micro: 11px;   /* eyebrow, glabel, badge, table head, legend, figcaption */
+  --t-small: 12.5px; /* .sub, .seg, .chip, .note, table body, menu items */
+  --t-body: 14px;    /* .btn, .sel, .inp, .empty, tabs — matches the body */
+  --t-title: 16px;   /* card titles, empty titles, the product name */
+  --t-stat: 22px;    /* a Stat value, and nothing else */
+
+  /* Tracking, bound to size rather than hand-typed. Letters read too far
+     apart as they grow and too close as they shrink, so large text tightens
+     and uppercase micro-labels open up. */
+  --tr-stat: -0.02em;
+  --tr-title: -0.015em;
+  --tr-label: 0.09em;
+
+  /* Leading, inversely with size. */
+  --lh-tight: 1.25;
+  --lh-body: 1.5;
+  --lh-prose: 1.7;
+
+  /* Space. A 4px base. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  /* Radius. A three-step nesting ladder, from ten ad-hoc values: a card holds
+     a panel holds a control, and each is rounder than the thing inside it.
+     Pills stay fully round — they are a different shape, not a bigger radius. */
+  --r-lg: 14px; /* cards, dialogs, the dropzone */
+  --r-md: 10px; /* panels, notes, empty, menus, buttons, selects, canvases */
+  --r-sm: 6px;  /* badges, swatches, checkboxes, menu items */
+
   /* Motion. The built-in CSS easings are too weak to feel intentional; these are
      the strong variants. Never ease-in on UI — it delays the exact moment the
      user is watching. Every duration stays inside the 300ms UI budget. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* For something already on screen moving from A to B, which wants to
+     accelerate and decelerate rather than arrive braking. */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --d-press: 140ms;
+  --d-menu: 170ms;
+  --d-panel: 220ms;
+
+  /* Elevation. One value, because there is one kind of floating surface here.
+     Redefined in dark: a near-black shadow on a near-black card is nothing. */
+  --shadow-menu: 0 10px 30px rgba(15, 23, 42, 0.16);
 
   --bg: #f8fafc;
   --surface: #ffffff;
@@ -21,6 +79,19 @@
   --accent: #6366f1;
   --accent-soft: #eef2ff;
   --accent-ink: #4338ca;
+  /**
+   * The colour of a SELECTED thing — an active tab, a pressed chip, a chosen
+   * segment, a progress bar.
+   *
+   * Ink, not accent. --accent was doing eight jobs at once: the logo, the
+   * active tab, the active chip, the active segment, the focus ring, links,
+   * citation numbers and the progress bar. A colour used for everything marks
+   * nothing, and on a page whose whole purpose is figures the chrome should be
+   * the quietest thing on it. Accent now survives on exactly four things — the
+   * primary button, the focus ring, links, and the "from your file" badge — so
+   * indigo on this page means "press this".
+   */
+  --sel: var(--ink);
   --warn: #b45309;
   --warn-soft: #fffbeb;
   --warn-line: #fde68a;
@@ -60,6 +131,10 @@
     --bad: #f87171;
     --lo: #60a5fa;
 
+    /* Deeper and darker than a light-mode shadow, because on a dark ground a
+       shadow separates by being darker than something already dark. */
+    --shadow-menu: 0 12px 32px rgba(0, 0, 0, 0.5);
+
     /* Legible on a dark screen. Export overrides these back to the light
        values, because the exported plate is white whatever theme it was
        saved from — see forceLightFigures in lib/download.ts. */
@@ -89,8 +164,8 @@ body {
   color: var(--ink);
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
 }
 
 h1,
@@ -137,34 +212,88 @@ svg {
     font-variant-numeric: tabular-nums;
   }
 
+  /* The type scale as classes, so a component asks for a STEP rather than a
+     number. There were fifteen numbers; asking for one of five is the whole
+     point, and `rg "text-\[" src` should now find only figure code. */
+  .tx-micro {
+    font-size: var(--t-micro);
+  }
+  .tx-small {
+    font-size: var(--t-small);
+  }
+  .tx-body {
+    font-size: var(--t-body);
+  }
+  .tx-title {
+    font-size: var(--t-title);
+    font-weight: 600;
+    letter-spacing: var(--tr-title);
+    line-height: var(--lh-tight);
+  }
+  /* An uppercase micro-label: the eyebrow's size and tracking without its
+     colour, for the places that need the shape but set their own ink. */
+  .tx-label {
+    font-size: var(--t-micro);
+    font-weight: 700;
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+  }
+
   .card {
     background: var(--surface);
     border: 1px solid var(--line);
-    @apply mb-4 rounded-2xl px-[18px] py-4;
+    border-radius: var(--r-lg);
+    margin-bottom: var(--s4);
+    padding: var(--s4);
   }
+  /* A caption for the title under it, so it is the quietest thing on the card
+     and never the only label for a section. */
   .eyebrow {
     color: var(--ink-3);
-    @apply text-[10.5px] font-bold uppercase tracking-[0.1em];
+    font-size: var(--t-micro);
+    font-weight: 700;
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+  }
+  /* A card's title. 16 against a 14 body: the old 14.5 was half a pixel of
+     hierarchy, which is why every card read as one undifferentiated block. */
+  .card-title {
+    font-size: var(--t-title);
+    font-weight: 600;
+    letter-spacing: var(--tr-title);
+    line-height: var(--lh-tight);
+    margin-top: var(--s1);
   }
   .sub {
     color: var(--ink-2);
-    @apply mt-[3px] text-[12.5px];
+    font-size: var(--t-small);
+    margin-top: var(--s1);
   }
 
   .btn {
     border: 1px solid var(--line-2);
     background: var(--surface);
-    @apply rounded-[10px] px-[15px] py-2 text-[13.5px] font-semibold;
-    transition: transform 160ms var(--ease-out), border-color 160ms ease,
-      background-color 160ms ease;
+    border-radius: var(--r-md);
+    font-size: var(--t-body);
+    font-weight: 600;
+    padding: 7px var(--s3);
+    transition: transform var(--d-press) var(--ease-out),
+      border-color var(--d-press) ease, background-color var(--d-press) ease;
   }
-  .btn:hover {
-    border-color: var(--accent);
+  /* Gated: a touch device fires a sticky hover on tap, so the border would
+     stay lit on whatever was pressed last. */
+  @media (hover: hover) and (pointer: fine) {
+    .btn:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
   }
   /* Press feedback — the interface must visibly hear the click, and it has to
      land on press rather than release or it feels dead. */
-  .btn:active {
+  .btn:active:not(:disabled) {
     transform: scale(0.97);
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-40;
   }
   .btn-primary {
     background: var(--accent);
@@ -174,32 +303,58 @@ svg {
   /* For a button that lives in the control bar, so it matches the height of the
      selects it sits beside rather than setting the bar's height on its own. */
   .btn-sm {
-    @apply rounded-lg px-3 py-1 text-[12.5px];
+    font-size: var(--t-small);
+    padding: var(--s1) var(--s3);
+  }
+  /**
+   * An ACTION that is not the main one on its card — Save, CSV, Reset, Clear.
+   *
+   * These were chips, which is what made a chip unreadable: the same pill was a
+   * mode toggle, a multi-select toggle and a one-shot action, so a click could
+   * change the figure, change the selection, or write a file and there was no
+   * way to tell which from looking. A chip is now a toggle and carries
+   * aria-pressed; anything that DOES something is a button and looks like one.
+   */
+  .btn-quiet {
+    color: var(--ink-2);
+    font-weight: 500;
+    font-size: var(--t-small);
+    padding: var(--s1) var(--s2);
   }
   .btn-ghost {
     @apply border-0 bg-transparent underline underline-offset-4;
     color: var(--ink-3);
   }
 
+  /* A TOGGLE. Always carries aria-pressed; never performs an action. */
   .chip {
     border: 1px solid var(--line-2);
     background: var(--surface);
     color: var(--ink-2);
-    @apply rounded-full px-[11px] py-[3.5px] text-xs font-medium;
-    transition: transform 160ms var(--ease-out), border-color 160ms ease, color 160ms ease,
-      background-color 160ms ease;
+    border-radius: 9999px;
+    font-size: var(--t-small);
+    font-weight: 500;
+    padding: 3px var(--s3);
+    transition: transform var(--d-press) var(--ease-out),
+      border-color var(--d-press) ease, color var(--d-press) ease,
+      background-color var(--d-press) ease;
   }
-  .chip:hover:not(:disabled) {
-    border-color: var(--accent);
-    color: var(--accent-ink);
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover:not(:disabled) {
+      border-color: var(--line-2);
+      color: var(--ink);
+      background: var(--sunk);
+    }
   }
   .chip:active:not(:disabled) {
     transform: scale(0.97);
   }
+  /* Selection is INK, not accent. Accent now means "press this" and nothing
+     else, so a page can be read for what is actionable at a glance. */
   .chip[aria-pressed='true'] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--sel);
+    border-color: var(--sel);
+    color: var(--surface);
   }
   .chip:disabled {
     @apply cursor-not-allowed opacity-40;
@@ -210,20 +365,28 @@ svg {
   .seg {
     border: 1px solid var(--line-2);
     background: var(--surface);
-    @apply inline-flex overflow-hidden rounded-[10px];
+    border-radius: var(--r-md);
+    @apply inline-flex overflow-hidden;
   }
   .seg button {
     border-right: 1px solid var(--line-2);
     color: var(--ink-2);
-    @apply border-0 px-[13px] py-1.5 text-[12.5px] font-semibold;
-    transition: background-color 160ms ease, color 160ms ease;
+    border-width: 0;
+    font-size: var(--t-small);
+    font-weight: 600;
+    padding: 5px var(--s3);
+    transition: transform var(--d-press) var(--ease-out),
+      background-color var(--d-press) ease, color var(--d-press) ease;
   }
   .seg button:last-child {
     border-right: 0;
   }
   .seg button[aria-pressed='true'] {
-    background: var(--accent);
-    color: #fff;
+    background: var(--sel);
+    color: var(--surface);
+  }
+  .seg button:active:not(:disabled) {
+    transform: scale(0.97);
   }
   .seg button:disabled {
     @apply cursor-not-allowed opacity-40;
@@ -234,7 +397,10 @@ svg {
     border: 1px solid var(--line-2);
     background: var(--surface);
     color: var(--ink);
-    @apply rounded-lg px-[9px] py-[5px] text-[13px] outline-none;
+    border-radius: var(--r-md);
+    font-size: var(--t-body);
+    padding: 5px var(--s2);
+    @apply outline-none;
   }
   .sel:focus-visible,
   .inp:focus-visible {
@@ -244,16 +410,25 @@ svg {
 
   .glabel {
     color: var(--ink-3);
-    @apply text-[10.5px] font-semibold uppercase tracking-[0.09em];
+    font-size: var(--t-micro);
+    font-weight: 600;
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
   }
+  /* One separator, one height. Callers used to override it to 20, 24 and 26px,
+     which is three heights for one hairline. */
   .gsep {
     background: var(--line-2);
-    @apply w-px self-stretch;
-    min-height: 20px;
+    @apply w-px flex-none self-center;
+    height: 22px;
   }
 
   .badge {
-    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md px-[7px] py-[1.5px] text-[10.5px] font-semibold;
+    border-radius: var(--r-sm);
+    font-size: var(--t-micro);
+    font-weight: 600;
+    padding: 1px 6px;
+    @apply inline-flex items-center gap-1 whitespace-nowrap;
   }
   .badge-file {
     background: var(--accent-soft);
@@ -272,7 +447,10 @@ svg {
     background: var(--warn-soft);
     border: 1px solid var(--warn-line);
     color: var(--ink);
-    @apply rounded-xl px-[14px] py-[11px] text-[12.5px] leading-[1.55];
+    border-radius: var(--r-md);
+    font-size: var(--t-small);
+    line-height: var(--lh-body);
+    padding: var(--s2) var(--s3);
   }
   .note b {
     color: var(--warn);
@@ -284,30 +462,75 @@ svg {
   .note-info b {
     color: var(--accent-ink);
   }
+  /* The advisory variant: something about the data limits what the figure can
+     claim. `.note` is already this colour, so this exists to be a NAME the
+     callers can ask for — it was being used before it was written, and that
+     block was silently rendering as whatever `.note` happened to be. */
+  .note-warn {
+    background: var(--warn-soft);
+    border-color: var(--warn-line);
+  }
 
   .empty {
     border: 1px dashed var(--line-2);
     background: var(--sunk);
     color: var(--ink-2);
-    @apply rounded-xl px-[22px] py-[30px] text-center text-[13px];
+    border-radius: var(--r-md);
+    font-size: var(--t-body);
+    padding: var(--s6) var(--s5);
+    @apply text-center;
+  }
+  /* A panel of secondary controls inside a card. One treatment, from three:
+     the threshold strip, the cell-type pickers and the term detail each had
+     their own padding for the same job. */
+  .panel {
+    background: var(--sunk);
+    border-radius: var(--r-md);
+    padding: var(--s3);
+  }
+  /**
+   * One cell type, in or out of a figure.
+   *
+   * These grids were the only pressable things in the studio with no press
+   * state and no transition: the opacity flipped 1 ↔ 0.45 between frames, so a
+   * click on a 190px row read as the page redrawing rather than as the control
+   * responding. Opacity is set inline by the caller — this adds the feedback.
+   */
+  .type-toggle {
+    transition: opacity var(--d-press) ease, background-color var(--d-press) ease,
+      transform var(--d-press) var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .type-toggle:hover {
+      background: var(--surface);
+    }
+  }
+  .type-toggle:active {
+    transform: scale(0.97);
   }
 
   .scrollx {
     border: 1px solid var(--line);
-    @apply overflow-x-auto rounded-xl;
+    border-radius: var(--r-md);
+    @apply overflow-x-auto;
   }
   .t {
-    @apply w-full border-collapse text-[12.5px];
+    font-size: var(--t-small);
+    @apply w-full border-collapse;
   }
   .t th {
     color: var(--ink-3);
     background: var(--sunk);
     border-bottom: 1px solid var(--line);
-    @apply sticky top-0 whitespace-nowrap px-[10px] py-[7px] text-left text-[10.5px] font-bold uppercase tracking-[0.09em];
+    font-size: var(--t-micro);
+    font-weight: 700;
+    letter-spacing: var(--tr-label);
+    padding: 6px var(--s2);
+    @apply sticky top-0 whitespace-nowrap text-left uppercase;
   }
   .t td {
     border-bottom: 1px solid var(--line);
-    @apply px-[10px] py-1.5;
+    padding: var(--s1) var(--s2);
   }
   .t tr:hover td {
     background: var(--sunk);
@@ -315,13 +538,15 @@ svg {
 
   .legend {
     color: var(--ink-2);
-    @apply flex flex-wrap items-center gap-x-[14px] gap-y-1 text-[11.5px];
+    font-size: var(--t-micro);
+    @apply flex flex-wrap items-center gap-x-[14px] gap-y-1;
   }
   .legend > span {
     @apply inline-flex items-center gap-[5px];
   }
   .sw {
-    @apply inline-block flex-none rounded-[2.5px];
+    border-radius: 2px;
+    @apply inline-block flex-none;
     width: 9px;
     height: 9px;
   }
@@ -345,23 +570,30 @@ svg {
     stroke-width: 0.6;
   }
 
-  /* Menus that open from a control.
-     Anchored at the trigger rather than the centre, because a menu that grows
-     from its own middle reads as arriving from somewhere else. Never from
-     scale(0) — nothing appears out of nothing — and 150 ms, which is where a
-     dropdown stops feeling like a delay and starts feeling like a response. */
+  /**
+   * Menus that open from a control.
+   *
+   * Anchored at the trigger rather than the centre, because a menu that grows
+   * from its own middle reads as arriving from somewhere else. Never from
+   * scale(0) — nothing appears out of nothing.
+   *
+   * A TRANSITION with @starting-style, not a keyframe. A keyframe restarts from
+   * zero every time it is applied, so a menu toggled twice in quick succession —
+   * which is exactly what the Save button gets — replayed its entrance from the
+   * beginning instead of retargeting from where it had got to.
+   */
   .menu-in {
     transform-origin: top left;
-    animation: menu-in 150ms var(--ease-out);
+    opacity: 1;
+    transform: none;
+    transition: opacity var(--d-menu) var(--ease-out),
+      transform var(--d-menu) var(--ease-out);
   }
-  @keyframes menu-in {
-    from {
+  @starting-style {
+    .menu-in {
       opacity: 0;
       transform: scale(0.97) translateY(-3px);
     }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .menu-in { animation: none; }
   }
 
   /* An indeterminate progress bar, for work whose remaining size is not known.
@@ -371,26 +603,71 @@ svg {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(300%); }
   }
-  @media (prefers-reduced-motion: reduce) {
-    [style*='animation: slide'] {
-      animation: none !important;
-      width: 100% !important;
-      opacity: 0.5;
-    }
+
+  /**
+   * A determinate bar, driven by --fill (0..1).
+   *
+   * scaleX, not width. Width is a layout property: the browser re-runs layout
+   * and paint for every frame of it, on a bar that is on screen for four
+   * minutes. A transform is composited and costs nothing.
+   */
+  .bar-fill {
+    transform: scaleX(var(--fill, 0));
+    transform-origin: left center;
+    transition: transform var(--d-panel) linear;
+    width: 100%;
+    height: 100%;
   }
 
   .prose-methods {
-    @apply text-[13.5px] leading-[1.75];
+    font-size: var(--t-body);
+    line-height: var(--lh-prose);
     max-width: 66ch;
   }
+  /* A citation marker, not a link. It was accent, which put the app's "press
+     this" colour on eighty pieces of text nobody can press. */
   .prose-methods sup {
-    color: var(--accent-ink);
-    @apply px-[0.5px] text-[9.5px] font-bold;
+    color: var(--ink-3);
+    font-size: var(--t-micro);
+    @apply px-[0.5px] font-bold;
   }
 }
 
+/**
+ * Reduced motion means gentler, not none.
+ *
+ * This was `* { transition: none !important }`, which also removed every press
+ * state, every focus ring transition and every colour change — the feedback
+ * that tells a reader the interface heard them. What the preference asks to
+ * remove is MOVEMENT, so movement is what goes: transforms hold still and the
+ * sliding bar stops sliding, while opacity and colour keep working.
+ */
 @media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn:active,
+  .chip:active,
+  .seg button:active {
+    transform: none;
+  }
+  .menu-in {
+    transition-property: opacity;
+  }
+  @starting-style {
+    .menu-in { transform: none; }
+  }
+  .bar-fill {
+    transition: none;
+  }
+  [style*='animation: slide'] {
+    animation: none !important;
+    width: 100% !important;
+    opacity: 0.5;
   }
 }

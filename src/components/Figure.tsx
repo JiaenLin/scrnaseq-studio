@@ -84,25 +84,33 @@ export default function Figure({ name, children, className, right, redraw }: {
   const vector = !!svgIn()
 
   return (
-    <div ref={box} className={`relative ${className ?? ''}`}>
-      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5">
+    // A header row, not an overlay. The controls used to be positioned
+    // `absolute right-0 top-0` over the figure, which meant every caller had to
+    // guess how much top padding would keep the Save button off the plot — and
+    // they guessed five different numbers (pt-5, pt-6, pt-7, mt-1, mt-6). A row
+    // takes its own space, so nobody has to compensate for it.
+    <div ref={box} className={className}>
+      <div className="mb-1.5 flex items-center justify-end gap-1.5">
         {right}
         <div className="relative">
           <button
-            className="chip"
+            className="btn btn-quiet"
             aria-haspopup="menu"
             aria-expanded={open}
             title={`Download ${name}`}
             disabled={busy}
+            // A fixed width, so the label swapping to "…" while the PNG renders
+            // does not shrink the trigger out from under the cursor.
+            style={{ minWidth: 74, textAlign: 'center' }}
             onClick={() => setOpen(v => !v)}
           >{busy ? '…' : '⭳ Save'}</button>
           {open && (
             <div
               role="menu"
-              className="menu-in absolute right-0 top-[26px] z-20 w-[212px] rounded-xl p-1.5 text-left"
+              className="menu-in absolute right-0 top-[26px] z-20 w-[212px] rounded-[--r-md] p-1.5 text-left"
               style={{
                 background: 'var(--surface)', border: '1px solid var(--line)',
-                boxShadow: '0 10px 30px rgba(15,23,42,.16)',
+                boxShadow: 'var(--shadow-menu)',
                 // This one hangs off the right edge of its trigger, so it grows
                 // from that corner. The shared class assumes top-left, which is
                 // where every other menu in the app is anchored.
@@ -129,14 +137,14 @@ export default function Figure({ name, children, className, right, redraw }: {
 function MenuItem({ onClick, title, note }: { onClick: () => void; title: string; note: string }) {
   return (
     <button role="menuitem" onClick={onClick}
-      className="block w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-[var(--sunk)]">
-      <span className="block text-[12.5px] font-semibold">{title}</span>
-      <span className="block text-[11px]" style={{ color: 'var(--ink-3)' }}>{note}</span>
+      className="block w-full rounded-[--r-md] px-2.5 py-1.5 text-left hover:bg-[var(--sunk)]">
+      <span className="block tx-small font-semibold">{title}</span>
+      <span className="block tx-micro" style={{ color: 'var(--ink-3)' }}>{note}</span>
     </button>
   )
 }
 
 /** A download button for a table, kept visually identical to the figure one. */
 export function CsvButton({ onClick, label = '⭳ CSV' }: { onClick: () => void; label?: string }) {
-  return <button className="chip" onClick={onClick}>{label}</button>
+  return <button className="btn btn-quiet" onClick={onClick}>{label}</button>
 }

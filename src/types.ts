@@ -107,5 +107,16 @@ export type Method = 'wilcox' | 'pseudobulk'
 export type ColorBy = 'type' | 'cond' | 'sample' | 'mito'
 
 export type TabId =
-  | 'overview' | 'cells' | 'composition' | 'markers'
-  | 'degs' | 'volcano' | 'enrich' | 'expr' | 'sets' | 'methods'
+  | 'overview' | 'cells' | 'composition'
+  | 'markers' | 'de' | 'expr' | 'sets'
+  | 'methods'
+
+/**
+ * The three renderings of one differential-expression pass.
+ *
+ * Not tabs. They were, and it made them look like three questions: the table,
+ * the volcano and the enrichment all read the rows of the same `useDE` call, so
+ * a reader who changed the test on one found it changed on the other two and
+ * could not tell whether that was the interface or the statistics.
+ */
+export type DEView = 'table' | 'volcano' | 'enrich'

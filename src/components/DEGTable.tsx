@@ -110,11 +110,14 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
           className="inp w-56" placeholder="Filter genes…" value={q} aria-label="Filter genes"
           onChange={e => setQ(e.target.value)}
         />
-        <label className="flex items-center gap-1.5 text-[12.5px]" style={{ color: 'var(--ink-2)' }}>
-          <input type="checkbox" checked={sigOnly} onChange={e => setSigOnly(e.target.checked)} />
-          significant only (padj &lt; {padjMax}, |log₂FC| ≥ {lfcMin})
-        </label>
-        <span className="text-[12.5px]" style={{ color: 'var(--ink-3)' }}>
+        {/* A chip like every other boolean in the studio. This was the app's
+            only raw checkbox, which made one toggle look unlike the forty
+            others that do the same thing. */}
+        <button className="chip" aria-pressed={sigOnly} onClick={() => setSigOnly(!sigOnly)}
+          title={`padj < ${padjMax}, |log₂FC| ≥ ${lfcMin}`}>
+          Significant only
+        </button>
+        <span className="tx-small" style={{ color: 'var(--ink-3)' }}>
           {view.length.toLocaleString()} gene{view.length === 1 ? '' : 's'}
         </span>
         <div className="ml-auto"><CsvButton onClick={save} /></div>
@@ -152,10 +155,10 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
                 <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--bad)' : 'var(--lo)' }}>
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
-                <td className="num mono text-[11.5px]">{combinedScore(r.lfc, r.nlp)?.toFixed(1) ?? '—'}</td>
-                <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{pTxt(r.p)}</td>
-                <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{pTxt(r.padj)}</td>
-                <td className="num mono text-[11.5px] font-semibold">{nlpTxt(r.nlp)}</td>
+                <td className="num mono tx-micro">{combinedScore(r.lfc, r.nlp)?.toFixed(1) ?? '—'}</td>
+                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{pTxt(r.p)}</td>
+                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{pTxt(r.padj)}</td>
+                <td className="num mono tx-micro font-semibold">{nlpTxt(r.nlp)}</td>
                 <td className="whitespace-nowrap">{r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`}</td>
               </tr>
             ))}
@@ -163,23 +166,15 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
         </table>
       </div>
 
-      {view.length > MAX_ROWS && (
-        <p className="mt-2 text-center text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-          Showing the first {MAX_ROWS} of {fmt(view.length)} — narrow the filter, or download the
-          full list, which is never truncated.
-        </p>
-      )}
-      <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-        <b>−log₁₀ padj</b> is the significance column, and the one the table is sorted on: a
-        per-cell test over {fmt(rows.length)} genes reaches p-values far below the smallest
-        double, so <b>p</b> and <b>p adjusted</b> read <span className="mono">&lt; 10⁻³⁰⁸</span>{' '}
-        once they have underflowed — a bound, because the digits under it are the arithmetic&rsquo;s
-        floor and not a result. −log₁₀ padj is formed in log space and does not underflow, so
-        rows that share that bound are still separated here. Both columns are in the CSV, written
-        the same way.{' '}
-        <b>Combined</b> = −log₁₀(adjusted p) × log₂FC, a signed ranking metric: large positive is strongly up
-        and significant, large negative strongly down. Click a header to sort, again to reverse.
-        Click any row to open that gene in <b>Gene expression</b>.
+      {/* The underflow and Combined arguments are in Methods, under "How to
+          read these numbers". They were 106 words under a table the reader had
+          already sorted and read. What is left is the one thing the table
+          itself does not show: that a row is clickable, and that the CSV is
+          not truncated. */}
+      <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        {view.length > MAX_ROWS
+          && <>First {MAX_ROWS} of {fmt(view.length)}; the CSV has every row. </>}
+        Click a row to open that gene, a header to sort.
       </p>
     </>
   )

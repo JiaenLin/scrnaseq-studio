@@ -68,10 +68,8 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
     <Card
       eyebrow="Over-representation"
       title={`${results.length} enriched set${results.length === 1 ? '' : 's'}`}
-      sub={<>Hypergeometric test on the {query.length} genes {dirLabel}, against the{' '}
-        {GENES.length} genes this object measured — never the whole genome, because testing
-        against genes the assay could not detect inflates every enrichment.
-        Benjamini–Hochberg across the {results.length} sets tested.</>}
+      sub={`Hypergeometric on ${query.length} genes ${dirLabel}, against the `
+        + `${GENES.length} this object measured. BH across ${results.length} sets.`}
     >
       <div className="mt-3.5 flex flex-wrap items-center gap-2">
         <span className="glabel">Direction</span>
@@ -134,7 +132,7 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
               separate row behind it put the PNG button on top of the CSV one and
               silently swallowed the click. */}
           <Figure
-            name={`enrichment_${label}`} className="mt-4 pt-7"
+            name={`enrichment_${label}`} className="mt-4"
             right={<CsvButton onClick={saveCsv} />}
           >
             <Bars results={shown} palKey={palKey} onPick={setTermId} selected={termId} />
@@ -152,13 +150,13 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
                   <tr key={r.id} className="cursor-pointer"
                     style={r.id === termId ? { background: 'var(--accent-soft)' } : undefined}
                     onClick={() => setTermId(r.id === termId ? '' : r.id)}>
-                    <td>{r.name}<div className="mono text-[10.5px]" style={{ color: 'var(--ink-3)' }}>{r.id}</div></td>
+                    <td>{r.name}<div className="mono tx-micro" style={{ color: 'var(--ink-3)' }}>{r.id}</div></td>
                     <td className="whitespace-nowrap" style={{ color: 'var(--ink-2)' }}>{r.source}</td>
                     <td className="num whitespace-nowrap">{r.count} / {r.setSize}</td>
                     <td className="num">{r.foldEnrichment.toFixed(1)}×</td>
-                    <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{sci(r.pvalue)}</td>
-                    <td className="num mono text-[11.5px]">{sci(r.padj)}</td>
-                    <td className="mono text-[11.5px] italic" style={{ color: 'var(--ink-2)' }}>
+                    <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{sci(r.pvalue)}</td>
+                    <td className="num mono tx-micro">{sci(r.padj)}</td>
+                    <td className="mono tx-micro italic" style={{ color: 'var(--ink-2)' }}>
                       {r.overlap.join(', ')}
                     </td>
                   </tr>
@@ -166,7 +164,7 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
               </tbody>
             </table>
           </div>
-          <p className="mono mt-2.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+          <p className="mono mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
             Showing {shown.length} of {results.length} · fold = (k/n) ÷ (K/N) ·
             click a bar or a row for its member genes
           </p>
@@ -198,18 +196,18 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
     .filter((x): x is RankedGene => !!x)
     .sort((a, b) => Math.abs(b.comb) - Math.abs(a.comb))
   return (
-    <div className="mt-4 rounded-xl p-3.5" style={{ background: 'var(--sunk)' }}>
+    <div className="mt-4 rounded-[--r-md] p-3.5" style={{ background: 'var(--sunk)' }}>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[13px] font-semibold">
+        <h3 className="tx-body font-semibold">
           {selected.name}
-          <span className="mono ml-2 text-[11px] font-normal" style={{ color: 'var(--ink-3)' }}>
+          <span className="mono ml-2 tx-micro font-normal" style={{ color: 'var(--ink-3)' }}>
             {selected.id} &middot; {selected.source}
           </span>
         </h3>
-        <span className="text-[12.5px]" style={{ color: 'var(--ink-2)' }}>
+        <span className="tx-small" style={{ color: 'var(--ink-2)' }}>
           {selected.count}/{selected.setSize} genes &middot; fold {selected.foldEnrichment.toFixed(1)}&times;
           {' '}&middot; padj {sci(selected.padj)}
-          <button className="chip ml-2.5" onClick={onClose}>close</button>
+          <button className="btn btn-quiet ml-2.5" onClick={onClose}>Close</button>
         </span>
       </div>
       <div className="scrollx" style={{ maxHeight: 320 }}>
@@ -226,9 +224,9 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
                 <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--bad)' : 'var(--lo)' }}>
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
-                <td className="num mono text-[11.5px]">{comb.toFixed(1)}</td>
+                <td className="num mono tx-micro">{comb.toFixed(1)}</td>
                 <td className="num" style={{ color: 'var(--ink-2)' }}>{rank}</td>
-                <td className="num mono text-[11.5px]">{sci(r.padj)}</td>
+                <td className="num mono tx-micro">{sci(r.padj)}</td>
                 <td className="whitespace-nowrap">
                   {r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`}
                 </td>
@@ -237,10 +235,8 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-        <b>Combined</b> = &minus;log&#8321;&#8320;(p) &times; log&#8322;FC; <b>rank</b> is the
-        position among all {ranked.size} genes tested for this contrast &mdash; a set can be
-        enriched while every member of it sits low in that list.
+      <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        <b>Rank</b> is the position among all {ranked.size} genes tested for this contrast.
       </p>
     </div>
   )

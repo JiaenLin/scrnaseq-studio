@@ -1,6 +1,7 @@
 // The one thing a streaming view shows that an in-memory one never has to:
 // how far through the object it is.
 
+import type { CSSProperties } from 'react'
 import type { Pass } from '../lib/compute.ts'
 
 /**
@@ -26,28 +27,22 @@ export default function Progress({ pass, title }: { pass: Pass; title: string })
   const left = remaining(pass)
   return (
     <div className="empty" role="status" aria-live="polite">
-      <div className="mb-[5px] text-[14.5px] font-semibold" style={{ color: 'var(--ink)' }}>
-        {title}
-      </div>
+      <div className="tx-title" style={{ color: 'var(--ink)' }}>{title}</div>
+      {/* scaleX, not width: on the atlas this bar is on screen for four
+          minutes, and width re-runs layout and paint for every frame of it. */}
       <div className="mx-auto mt-3 h-1.5 w-[280px] overflow-hidden rounded-full"
         style={{ background: 'var(--line-2)' }}>
-        <div className="h-full rounded-full"
-          style={{ width: `${pct}%`, background: 'var(--accent)', transition: 'width 200ms linear' }} />
+        <div className="bar-fill rounded-full"
+          style={{ '--fill': pct / 100, background: 'var(--sel)' } as CSSProperties} />
       </div>
-      <div className="mono mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+      {/* The bar, the count, the estimate. The three-sentence paragraph that
+          used to sit under this was shown on EVERY compute — worth reading
+          once, noise on the fiftieth run, and nothing the reader can act on. */}
+      <div className="mono mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
         {pass.total
           ? `${pass.phase ? pass.phase + ' · ' : ''}${pass.done.toLocaleString()} of ${pass.total.toLocaleString()} genes${left ? ` · ${left}` : ''}`
           : pass.queued ? 'waiting for the pass already running' : 'starting'}
       </div>
-      <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-        {pass.queued && !pass.total
-          ? `The object is read one pass at a time, and an earlier question is
-             still using it. This one starts as soon as that finishes — neither is
-             abandoned, and neither will be recomputed.`
-          : `Every gene is tested. Nothing is sampled and nothing is skipped, so this
-             reads the whole object once. It runs off the page, so everything else
-             here keeps working while it does.`}
-      </p>
     </div>
   )
 }

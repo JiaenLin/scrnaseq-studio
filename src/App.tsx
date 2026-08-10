@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
-import type { CellType, ColorBy, GroupBy, Method, PlotKind, TabId } from './types.ts'
+import type { CellType, ColorBy, DEView, GroupBy, Method, PlotKind, TabId } from './types.ts'
 import { parseBundle } from './lib/bundle.ts'
 import { readCollectionIndex } from './lib/collection.ts'
 import { openCollection } from './lib/collection-source.ts'
 import { bundleSource, condKey, demoSource, type Source } from './lib/source.ts'
-import { designFor, thresholdFor } from './lib/stats.ts'
+import { condLabel, designFor, sameOrOverlapping, thresholdFor } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
 import CondPicker from './components/CondPicker.tsx'
@@ -13,20 +13,42 @@ import Overview from './components/Overview.tsx'
 import Cells from './components/Cells.tsx'
 import Composition from './components/Composition.tsx'
 import Markers from './components/Markers.tsx'
-import { ContrastFrame, DEGTable, Volcano, type StatsProps } from './components/Stats.tsx'
+import { Differential, type StatsProps } from './components/Stats.tsx'
 import Enrichment from './components/Enrichment.tsx'
 import GeneExpression from './components/GeneExpression.tsx'
 import GeneSets from './components/GeneSets.tsx'
 import Methods from './components/Methods.tsx'
 import ViewBoundary from './components/Boundary.tsx'
+import ViewMenu from './components/ViewMenu.tsx'
 import { Empty } from './components/Ui.tsx'
 
-const TABS: [TabId | 'div', string][] = [
-  ['overview', 'Overview'], ['cells', 'Cells'], ['composition', 'Composition'], ['markers', 'Markers'],
-  ['div', '|'],
-  ['degs', 'DEG table'], ['volcano', 'Volcano'], ['enrich', 'Enrichment'],
-  ['expr', 'Gene expression'], ['sets', 'Gene sets'], ['methods', 'Methods'],
+/**
+ * The tabs, in two named groups.
+ *
+ * This was ten flat items separated by a `'div'` pseudo-tab that rendered as an
+ * unlabelled hairline — one pixel carrying the whole information architecture,
+ * and `aria-hidden`, so a screen reader got ten peers with no structure at all.
+ *
+ * The groups are the real distinction: the first three DESCRIBE the object as it
+ * arrived, the rest COMPUTE on it. Methods sits outside both because it is the
+ * document, not a view.
+ */
+const GROUPS: { name: string; tabs: [TabId, string][] }[] = [
+  {
+    name: 'Object',
+    tabs: [['overview', 'Overview'], ['cells', 'Cells'], ['composition', 'Composition']],
+  },
+  {
+    name: 'Analysis',
+    tabs: [
+      ['markers', 'Markers'], ['de', 'Differential expression'],
+      ['expr', 'Gene expression'], ['sets', 'Gene sets'],
+    ],
+  },
+  { name: '', tabs: [['methods', 'Methods']] },
 ]
+
+const TABS: [TabId, string][] = GROUPS.flatMap(g => g.tabs)
 
 /** A tab's own word for itself, so the boundary names what broke as the user does. */
 const LABEL = new Map(TABS.map(([id, label]) => [id, label]))
@@ -59,7 +81,7 @@ function CrashOnRender({ tab }: { tab: TabId }): never {
 }
 
 /** Tabs that describe a comparison, and so cannot exist without two groups. */
-const NEEDS_CONTRAST = new Set<TabId>(['degs', 'volcano', 'enrich'])
+const NEEDS_CONTRAST = new Set<TabId>(['de'])
 
 /** Tests that do not go through the gated Wilcoxon pass, so have nothing to run. */
 const NEEDS_RUN_HIDDEN = new Set<Method>(['pseudobulk'])
@@ -70,10 +92,18 @@ interface Needs {
   ct: boolean
   /** Control / Compare — and therefore the design badge — change what it answers. */
   contrast: boolean
+  /**
+   * This tab spends a pass, so the Run button belongs above it.
+   *
+   * Separate from `contrast` because Methods reads both sides — the paragraph
+   * names them — and runs nothing. It was offering a Run button whose only
+   * effect was on three tabs the reader could not see.
+   */
+  runs: boolean
 }
 
-const NOTHING: Needs = { ct: false, contrast: false }
-const BOTH: Needs = { ct: true, contrast: true }
+const NOTHING: Needs = { ct: false, contrast: false, runs: false }
+const BOTH: Needs = { ct: true, contrast: true, runs: true }
 
 /**
  * Which shared controls belong above a given tab.
@@ -90,8 +120,8 @@ const BOTH: Needs = { ct: true, contrast: true }
  * - Overview, Cells, Composition, Markers take neither. They describe the whole
  *   object — Markers in particular tests *every* cluster one-vs-rest, so a
  *   single cell type is not a parameter of it.
- * - DEG table, Volcano, Enrichment take both: `useDE` is keyed on
- *   `ti|ctrl|cs` and nothing else.
+ * - Differential expression takes both: `useDE` is keyed on `ti|ctrl|cs` and
+ *   nothing else, and all three of its views read that one result.
  * - Methods takes both: the paragraph names the cell type and both sides.
  * - Gene expression takes both, but only once Group by leaves "Across cell
  *   types" — that is when `identities()` starts filtering to `ct` and the
@@ -104,12 +134,15 @@ const BOTH: Needs = { ct: true, contrast: true }
  */
 function needsOf(tab: TabId): Needs {
   switch (tab) {
-    case 'degs': case 'volcano': case 'enrich': case 'methods': return BOTH
+    case 'de': return BOTH
+    // Both sides, because the paragraph names them — but no Run: this tab
+    // reads what the others computed and never starts a pass of its own.
+    case 'methods': return { ct: true, contrast: true, runs: false }
     // Nothing. Gene expression picks its own cell type beside the figures that
     // use it, and it is not a comparison — a Control / Compare pair over it read
     // as a claim that the panels below were showing that contrast.
     case 'expr': return NOTHING
-    case 'sets': return { ct: true, contrast: false }
+    case 'sets': return { ct: true, contrast: false, runs: false }
     default: return NOTHING
   }
 }
@@ -124,6 +157,10 @@ export default function App() {
   // edit: the Source stays exactly what the file said.
   const [types, setTypes] = useState<CellType[]>([])
   const [tab, setTab] = useState<TabId>('overview')
+  // Which rendering of the contrast is on screen. In App so it survives a trip
+  // to Markers, like every other view choice — and so the boundary key can name
+  // it, which is what keeps a crash in the volcano from blanking the table.
+  const [deView, setDeView] = useState<DEView>('table')
   const [ct, setCt] = useState('')
   // Each side of a comparison is a SET of conditions. One level on each is the
   // ordinary case and behaves exactly as it did; several pools them, which is
@@ -152,6 +189,12 @@ export default function App() {
   // state rather than beside the props it feeds, because everything below the
   // "no object open" return is conditional and a hook cannot be.
   const [deRan, setDeRan] = useState<string | null>(null)
+  // Markers' gate and its scope, for the same reason `deRan` is here: leaving
+  // the tab and coming back used to reset them, so a reader who had already
+  // spent four minutes was shown the gate again over an answer sitting in the
+  // cache. The pass is keyed on the object, not the view.
+  const [markersGo, setMarkersGo] = useState(false)
+  const [markersWant, setMarkersWant] = useState<Set<number>>(new Set())
 
   // Bumped by the error boundary's Try again, and part of its key, so that one
   // click both rebuilds the view from current state and gives it a boundary that
@@ -177,6 +220,10 @@ export default function App() {
   const [featureClip, setFeatureClip] = useState(0.99)
   const [cellBorders, setCellBorders] = useState(false)
   const [geneBusy, setGeneBusy] = useState(false)
+  // A gene read that fails on an OPEN object needs its own surface. It used to
+  // write `openError`, which only Landing renders — so the request simply
+  // stopped, the bar cleared, and the reader was told nothing at all.
+  const [geneError, setGeneError] = useState<string | null>(null)
   // Only the newest gene request may land: clicking through a marker table
   // faster than the file can answer must not leave an older panel on screen.
   const geneToken = useRef(0)
@@ -202,6 +249,18 @@ export default function App() {
     setGenes(defaultGenes.filter(g => next.genes.includes(g)).slice(0, 4))
     setTab('overview')
     setOpenError(null)
+    setGeneError(null)
+    // `deKey` is a cell-type INDEX and a set of level names — it carries no
+    // object identity. Two collections that share those (the same panel
+    // exported twice, a re-run of one experiment) would otherwise arrive
+    // already armed, and the contrast tabs would start a two-minute pass
+    // nobody pressed Run for.
+    setDeRan(null)
+    // An object held in memory answers in milliseconds, so asking permission
+    // for it would be a dialog in front of an instant result. A collection is
+    // minutes, and opening a tab is not consent to spend them.
+    setMarkersGo(!next.lazy)
+    setMarkersWant(new Set())
   }
 
   const openDemo = (key: string) => {
@@ -267,6 +326,7 @@ export default function App() {
     if (!src.lazy) { setGenes(next); return }
     const token = ++geneToken.current
     setGeneBusy(true)
+    setGeneError(null)
     src.ensure(next).then(() => {
       if (geneToken.current !== token) return
       setGenes(next)
@@ -274,7 +334,7 @@ export default function App() {
     }, (e: unknown) => {
       if (geneToken.current !== token) return
       setGeneBusy(false)
-      setOpenError(e instanceof Error ? e.message : String(e))
+      setGeneError(e instanceof Error ? e.message : String(e))
     })
   }
 
@@ -310,12 +370,22 @@ export default function App() {
     onPickGene: pickGene,
   }
 
-  const chip = !d.multi
-    ? { cls: 'mute', text: `Single condition · ${d.samples.length} sample${d.samples.length > 1 ? 's' : ''}` }
-    : ctrl === cs ? { cls: 'bad', text: 'Pick two different groups' }
-    : method === 'wilcox' ? { cls: 'ok', text: 'Wilcoxon · per cell · no replicates required' }
-    : design.pbOK ? { cls: 'ok', text: `Pseudobulk matrix · ${design.n0} vs ${design.n1}` }
-    : { cls: 'bad', text: `Pseudobulk needs > 3 per group — have ${design.n0} vs ${design.n1}` }
+  // Short enough to sit on one line beside everything else in the bar. The
+  // sentence each one used to be is in the tooltip, and the argument behind it
+  // is in Methods.
+  const chip: { cls: string; text: string; title: string } = !d.multi
+    ? { cls: 'mute', text: `1 condition · ${d.samples.length} sample${d.samples.length > 1 ? 's' : ''}`,
+      title: 'This object has one condition, so there is no contrast to run' }
+    // Two arrays are never `===`, so this branch used to be unreachable and the
+    // overlapping-groups case reached the tab body before anything said why.
+    : sameOrOverlapping(ctrl, cs)
+      ? { cls: 'bad', text: 'Groups overlap', title: 'A level on both sides puts the same cells in both groups' }
+    : method === 'wilcox'
+      ? { cls: 'ok', text: 'Wilcoxon · per cell', title: 'Rank-sum across cells, as in Seurat FindMarkers — no replicates required' }
+    : design.pbOK
+      ? { cls: 'ok', text: `Pseudobulk · ${design.n0} v ${design.n1}`, title: `${design.n0} and ${design.n1} samples clear the cell floor` }
+    : { cls: 'bad', text: `Pseudobulk · ${design.n0} v ${design.n1}`,
+      title: `Pseudobulk needs more than 3 samples per group — this has ${design.n0} and ${design.n1}` }
 
   // A blocked tab shows an explanation, not a view, so nothing above it is a
   // parameter of anything.
@@ -332,9 +402,6 @@ export default function App() {
   const showEmb = drawsCells && src.embeddings.length > 1
   const emb = src.embeddings.find(e => e.key === embKey) ?? src.embeddings[0]
 
-  // The gene readout is progress on a request already in flight, so it outlives
-  // the controls: keep the bar for it even where no selector belongs.
-  const showBar = needs.ct || needs.contrast || geneBusy || showEmb
 
   // Where a broken view offers to send you. Overview describes the object and
   // reads no part of the selection, so it cannot be broken by whatever broke the
@@ -354,60 +421,96 @@ export default function App() {
         <div className="wrap">
           <div className="flex items-center gap-3.5 pb-2.5 pt-3">
             <button
-              className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[9px] border-0 text-xs font-bold text-white"
-              style={{ background: 'linear-gradient(150deg, var(--accent), #a855f7)' }}
+              // Ink ground, surface text — the pair inverts together, so the
+              // mark stays legible in either theme. `text-white` on --ink was
+              // white on near-white once the page went dark.
+              className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[--r-md] border-0 tx-small font-bold"
+              style={{ background: 'var(--ink)', color: 'var(--surface)' }}
               title="Close this object and open another"
               onClick={() => setSrc(null)}
             >sc</button>
             <div>
-              <div className="text-[15px] font-semibold tracking-[-0.01em]">scRNA-seq Studio</div>
+              <div className="tx-title font-semibold tracking-[-0.01em]">scRNA-seq Studio</div>
               {/* Not "read-only explorer" any more: markers, differential
                   expression, enrichment and module scores are all computed
                   here. What it still does not do is re-run the pipeline —
                   no clustering, no integration, no normalisation. */}
-              <div className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-                computes on a prepared object · your pipeline is not re-run
+              <div className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+                your pipeline is not re-run
               </div>
             </div>
             {/* min-w-0 is what lets a long project name wrap instead of overflowing. */}
             <div className="min-w-0 flex-1 text-right">
-              <div className="text-[13px] font-semibold" style={{ overflowWrap: 'anywhere' }}>
+              <div className="tx-body font-semibold" style={{ overflowWrap: 'anywhere' }}>
                 {src.meta.label}
                 {src.meta.isDemo && <span className="badge badge-none ml-2">demo</span>}
               </div>
-              <div className="mono text-[11px]" style={{ color: 'var(--ink-3)', overflowWrap: 'anywhere' }}>
+              <div className="mono tx-micro" style={{ color: 'var(--ink-3)', overflowWrap: 'anywhere' }}>
                 {src.meta.source}
               </div>
             </div>
           </div>
-          <div className="flex gap-0.5 overflow-x-auto" role="tablist">
-            {TABS.map(([id, label]) =>
-              id === 'div' ? (
-                <div key="div" aria-hidden className="mx-1.5 my-2 w-px flex-none" style={{ background: 'var(--line-2)' }} />
-              ) : (
-                <button
-                  key={id} role="tab" aria-selected={tab === id}
-                  className="whitespace-nowrap rounded-t-lg border-0 bg-transparent px-[11px] py-2 text-[13px] font-medium"
-                  style={{
-                    color: tab === id ? 'var(--accent-ink)' : 'var(--ink-3)',
-                    borderBottom: `2px solid ${tab === id ? 'var(--accent)' : 'transparent'}`,
-                    opacity: !d.multi && NEEDS_CONTRAST.has(id) ? 0.45 : 1,
-                    transition: 'color 160ms ease',
-                  }}
-                  onClick={() => setTab(id)}
-                >{label}</button>
-              ))}
+          <div className="flex items-end gap-5 overflow-x-auto" role="tablist"
+            aria-label="Views of this object">
+            {GROUPS.map(g => (
+              <div key={g.name || 'doc'} className="flex flex-none flex-col">
+                {/* The group name is the label the hairline was standing in for.
+                    A blank one still reserves the row, so every group's tabs
+                    sit on the same baseline. */}
+                <span className="glabel px-[11px] pb-px" aria-hidden>{g.name || ' '}</span>
+                <div className="flex gap-0.5">
+                  {g.tabs.map(([id, label]) => {
+                    const off = !d.multi && NEEDS_CONTRAST.has(id)
+                    return (
+                      <button
+                        key={id} role="tab" aria-selected={tab === id}
+                        aria-controls={`panel-${id}`} id={`tab-${id}`}
+                        // Dimmed-and-clickable was an invitation to a dead end:
+                        // the object cannot answer this, so the control says no
+                        // rather than taking you somewhere that explains it did.
+                        disabled={off}
+                        title={off
+                          ? 'This object has one condition, so there is nothing to contrast'
+                          : undefined}
+                        className="whitespace-nowrap border-0 bg-transparent px-[11px] py-1.5 tx-body font-medium disabled:cursor-not-allowed disabled:opacity-40"
+                        style={{
+                          color: tab === id ? 'var(--ink)' : 'var(--ink-3)',
+                          borderBottom: `2px solid ${tab === id ? 'var(--sel)' : 'transparent'}`,
+                          transition: 'color var(--d-press) ease',
+                        }}
+                        onClick={() => setTab(id)}
+                      >{label}</button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </header>
-
-      {showBar && (
-        <div className="sticky z-20" style={{ top: 96, background: 'var(--sunk)', borderBottom: '1px solid var(--line)' }}>
-          <div className="wrap flex flex-wrap items-center gap-2.5 py-2.5">
+        {/**
+          * The control bar, INSIDE the sticky header rather than a second
+          * sticky layer under it.
+          *
+          * It used to be its own `sticky` element pinned at a hard-coded
+          * `top: 96` that had to match the header's measured height, and it
+          * appeared and disappeared with the tab — so the page jumped 54px
+          * vertically on most navigations and the two layers could overlap
+          * whenever a long project name wrapped. One sticky block cannot
+          * misalign with itself, and one that is always there cannot jump.
+          *
+          * A fixed height, and one order that never changes: what is being
+          * looked at, then what it is being compared with, then the action
+          * that completes them. Controls a tab does not use are left out —
+          * a Control/Compare pair over an unfiltered view is not clutter, it
+          * is a claim that the figure below is showing that contrast.
+          */}
+        <div style={{ background: 'var(--sunk)', borderTop: '1px solid var(--line)' }}>
+          <div className="wrap flex items-center gap-2.5 overflow-x-auto py-2"
+            style={{ height: 46 }}>
             {needs.ct && (
-              <label className="flex items-center gap-1.5">
+              <label className="flex flex-none items-center gap-1.5">
                 <span className="glabel">Cell type</span>
-                <select className="sel max-w-[240px]" value={ct} onChange={e => setCt(e.target.value)}>
+                <select className="sel max-w-[220px]" value={ct} onChange={e => setCt(e.target.value)}>
                   {types.map(x => <option key={x.key}>{x.name}</option>)}
                 </select>
               </label>
@@ -415,9 +518,9 @@ export default function App() {
             {showEmb && (
               <>
                 {needs.ct && <div className="gsep" />}
-                <label className="flex items-center gap-1.5">
+                <label className="flex flex-none items-center gap-1.5">
                   <span className="glabel">Embedding</span>
-                  <select className="sel max-w-[200px]" value={emb.key}
+                  <select className="sel max-w-[170px]" value={emb.key}
                     onChange={e => setEmbKey(e.target.value)}>
                     {src.embeddings.map(x => <option key={x.key}>{x.key}</option>)}
                   </select>
@@ -427,47 +530,49 @@ export default function App() {
             {needs.contrast && d.multi && (
               <>
                 {(needs.ct || showEmb) && <div className="gsep" />}
-                {/* Their own line once several levels are pooled. Side by side
-                    with the cell type and the design badge, two 26-character
-                    labels leave nothing for either of them. */}
                 <CondPicker label="Control" all={d.conds} value={ctrl} other={cs}
                   onChange={setCtrl} />
                 <CondPicker label="Compare" all={d.conds} value={cs} other={ctrl}
                   onChange={setCs} />
                 {/* The action belongs at the end of the decision it completes:
-                    cell type, control, compare, run. It was centred in the card
-                    below — the reader set the comparison here, then had to look
-                    somewhere else to start it, and the two places never appear
-                    on screen together on a laptop. */}
-                {!armed && !NEEDS_RUN_HIDDEN.has(method) && (
-                  <button className="btn btn-primary btn-sm" onClick={() => setDeRan(deKey)}>
-                    Run
-                  </button>
+                    cell type, control, compare, run. */}
+                {needs.runs && !armed && !NEEDS_RUN_HIDDEN.has(method) && (
+                  <button className="btn btn-primary btn-sm flex-none"
+                    onClick={() => setDeRan(deKey)}>Run</button>
                 )}
-                {(ctrl.length > 1 || cs.length > 1) && <div className="basis-full" />}
               </>
             )}
-            {geneBusy && (
-              <span className="ml-auto text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-                reading gene…
-              </span>
-            )}
-            {/* The badge reads the contrast, so it travels with it — over Cells
-                or Composition it would describe a test nothing on screen ran. */}
-            {needs.contrast && (
-              <span
-                className={`${geneBusy ? '' : 'ml-auto '}inline-flex items-center gap-[7px] rounded-full px-[11px] py-1 text-[11.5px] font-semibold`}
-                style={{ ...chipStyle, borderWidth: 1, borderStyle: 'solid' }}
-              >
-                <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
-                {chip.text}
-              </span>
-            )}
+
+            <span className="ml-auto flex flex-none items-center gap-2.5">
+              {geneBusy && (
+                <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>reading gene…</span>
+              )}
+              {!geneBusy && geneError && (
+                <span role="alert" className="truncate tx-micro font-semibold"
+                  style={{ color: 'var(--warn)', maxWidth: 340 }} title={geneError}>
+                  Could not read that gene — {geneError}
+                </span>
+              )}
+              {/* The badge reads the contrast, so it travels with it — over
+                  Cells or Composition it would describe a test nothing ran. */}
+              {needs.contrast && (
+                <span
+                  className="inline-flex items-center gap-[7px] whitespace-nowrap rounded-full px-[11px] py-1 tx-micro font-semibold"
+                  style={{ ...chipStyle, borderWidth: 1, borderStyle: 'solid' }}
+                  title={chip.title}
+                >
+                  <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
+                  {chip.text}
+                </span>
+              )}
+              <ViewMenu palKey={palKey} rampKey={rampKey} onPal={setPalKey} onRamp={setRampKey} />
+            </span>
           </div>
         </div>
-      )}
+      </header>
 
-      <main className="pb-16 pt-5">
+      <main className="pb-16 pt-5" id={`panel-${tab}`} role="tabpanel"
+        aria-labelledby={`tab-${tab}`} tabIndex={-1}>
         <div className="wrap">
           {/*
             One tab's work, and the only thing a bad render is allowed to take
@@ -486,30 +591,27 @@ export default function App() {
             does not flicker back and forth while you are reaching for the tab bar.
           */}
           <ViewBoundary
-            key={`${tab}#${attempt}`}
+            // The inner view is part of the key, so a fault in the volcano
+            // costs the volcano and not the table beside it.
+            key={`${tab}:${tab === 'de' ? deView : ''}#${attempt}`}
             what={`${LABEL.get(tab) ?? tab} view`}
             escape={{ label: `Go to ${LABEL.get(escapeTo)}`, go: () => setTab(escapeTo) }}
             onRetry={() => setAttempt(a => a + 1)}
             note={<>
-              Nothing else has moved. <b>{src.meta.label}</b> is still open, everything
-              already computed is still in hand, and a pass still running is still
-              running — leaving a view has never ended one. Every other tab above
-              works; this one has a bug.
+              Nothing else moved. <b>{src.meta.label}</b> is still open, and a pass still
+              running is still running.
             </>}
           >
             {crashTab() === tab ? <CrashOnRender tab={tab} /> : blocked ? (
-              <Empty title="This object has one condition, so there is nothing to contrast">
-                Differential expression between groups needs at least two. What is still available:{' '}
-                <b>Markers</b> tests every cluster against the rest, and <b>Gene expression</b>{' '}
-                searches any gene across every cell type.
+              <Empty title="One condition, so there is nothing to contrast">
+                Markers and gene search work on any object.
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <button className="btn" onClick={() => setTab('markers')}>Go to Markers</button>
                   <button className="btn btn-primary" onClick={() => setTab('expr')}>Search a gene</button>
                 </div>
               </Empty>
             ) : tab === 'overview' ? (
-              <Overview src={src} types={types} palKey={palKey} rampKey={rampKey}
-                onPal={setPalKey} onRamp={setRampKey} />
+              <Overview src={src} types={types} palKey={palKey} />
             ) : tab === 'cells' ? (
               <Cells src={src} types={types} emb={emb}
                 colorBy={colorBy}
@@ -519,6 +621,8 @@ export default function App() {
               <Composition d={d} types={types} palKey={palKey} />
             ) : tab === 'markers' ? (
               <Markers src={src} types={types} palKey={palKey} onPickGene={pickGene}
+                go={markersGo} want={markersWant}
+                onGo={setMarkersGo} onWant={setMarkersWant}
                 onRename={(i, name) => {
                   setTypes(prev => {
                     const next = [...prev]
@@ -528,22 +632,20 @@ export default function App() {
                     return next
                   })
                 }} />
-            ) : tab === 'degs' ? (
-              <DEGTable {...statsProps} />
-            ) : tab === 'volcano' ? (
-              <Volcano {...statsProps} />
-            ) : tab === 'enrich' ? (
-              <ContrastFrame {...statsProps}>
-                {rows => (
+            ) : tab === 'de' ? (
+              <Differential {...statsProps} view={deView} onView={setDeView}
+                enrichment={rows => (
                   <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
                     genes={src.genes} ctrl={ctrl} cs={cs}
-                    label={`${cs} vs ${ctrl} · ${ct}`}
+                    // condLabel, not the raw arrays — those join on a comma, so
+                    // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
+                    // 0h" on every other figure in the same session.
+                    label={`${condLabel(cs)} vs ${condLabel(ctrl)} · ${ct}`}
                     palKey={palKey} onPickGene={pickGene} />
-                )}
-              </ContrastFrame>
+                )} />
             ) : tab === 'expr' ? (
               <GeneExpression
-                src={src} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes} emb={emb}
+                src={src} types={types} ctrl={ctrl} cs={cs} genes={genes} emb={emb}
                 plot={plot} groupBy={groupBy} cols={cols} relative={relative} dotScale={dotScale}
                 palKey={palKey} rampKey={rampKey}
                 hidden={hiddenTypes} clip={featureClip} borders={cellBorders}

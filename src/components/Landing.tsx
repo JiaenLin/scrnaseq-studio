@@ -9,7 +9,7 @@ function Code({ children }: { children: string }) {
   // cannot copy, and these lines are mostly long URLs.
   return (
     <pre
-      className="mono mt-1.5 whitespace-pre-wrap rounded-lg px-3 py-2 text-[11.5px] leading-relaxed"
+      className="mono mt-1.5 whitespace-pre-wrap rounded-[--r-md] px-3 py-2 tx-micro leading-relaxed"
       style={{ background: 'var(--sunk)', border: '1px solid var(--line)', overflowWrap: 'anywhere' }}
     >{children}</pre>
   )
@@ -29,7 +29,7 @@ const DEMOS: [string, string, string, string][] = [
  * whole section it reads as a caption for nothing.
  */
 const SectionTitle = ({ children }: { children: string }) => (
-  <h2 className="text-[11.5px] font-bold uppercase tracking-[0.09em]"
+  <h2 className="tx-micro font-bold uppercase tracking-[0.09em]"
     style={{ color: 'var(--ink)' }}>{children}</h2>
 )
 
@@ -65,24 +65,23 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
       <div className="w-full max-w-[540px]">
         <header className="text-center">
           <div
-            className="mx-auto mb-3 grid h-[30px] w-[30px] place-items-center rounded-[9px] text-xs font-bold text-white"
-            style={{ background: 'linear-gradient(150deg, var(--accent), #a855f7)' }}
+            className="mx-auto mb-3 grid h-[30px] w-[30px] place-items-center rounded-[--r-md] tx-small font-bold"
+            style={{ background: 'var(--ink)', color: 'var(--surface)' }}
           >sc</div>
-          <h1 className="text-[20px] tracking-[-0.02em]">scRNA-seq Studio</h1>
-          <p className="mx-auto mt-1.5 max-w-[470px] text-[13px]" style={{ color: 'var(--ink-2)' }}>
-            Open a processed single-cell object and compute on it — markers, differential
-            expression, enrichment and module scores, in your browser.
+          <h1 className="tx-title tracking-[-0.02em]">scRNA-seq Studio</h1>
+          <p className="mx-auto mt-1.5 max-w-[470px] tx-body" style={{ color: 'var(--ink-2)' }}>
+            Markers, differential expression, enrichment and module scores — on a processed
+            object, in your browser.
           </p>
           {/* The limit, stated with the claim rather than buried below it: this
               is a studio, not a pipeline, and it should not be mistaken for one. */}
-          <p className="mx-auto mt-1.5 max-w-[470px] text-[12px]" style={{ color: 'var(--ink-3)' }}>
-            It does not cluster, integrate or normalise — the object arrives with those already
-            done, and nothing is uploaded.
+          <p className="mx-auto mt-1.5 max-w-[470px] tx-small" style={{ color: 'var(--ink-3)' }}>
+            It does not cluster, integrate or normalise. Nothing is uploaded.
           </p>
         </header>
 
         <div
-          className="mt-6 rounded-2xl px-6 py-9 text-center"
+          className="mt-6 rounded-[--r-lg] px-6 py-9 text-center"
           style={{
             border: `1.5px dashed ${over ? 'var(--accent)' : 'var(--line-2)'}`,
             background: over ? 'var(--accent-soft)' : 'var(--surface)',
@@ -106,7 +105,7 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
           <button className="btn btn-primary" disabled={busy} onClick={() => input.current?.click()}>
             {busy ? 'Opening…' : 'Open a bundle'}
           </button>
-          <p className="mt-2.5 text-[12px]" style={{ color: 'var(--ink-3)' }}>
+          <p className="mt-2.5 tx-small" style={{ color: 'var(--ink-3)' }}>
             {note ?? <>or drop it here — a <code className="mono">.zip</code> or{' '}
               <code className="mono">.scstudio</code> from scRNA-seq Lab</>}
           </p>
@@ -119,16 +118,16 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
         {/* One quiet notice, one link. This used to be a filled button competing
             with "Open a bundle" for the same visual weight, which left the page
             with two primary actions and no answer to which one you wanted. */}
-        <div className="mt-4 rounded-xl px-4 py-3" style={{ background: 'var(--sunk)' }}>
-          <div className="text-[12.5px] font-semibold">Don&rsquo;t have a bundle yet?</div>
-          <p className="mt-1 text-[12px]" style={{ color: 'var(--ink-2)' }}>
+        <div className="mt-4 rounded-[--r-md] px-4 py-3" style={{ background: 'var(--sunk)' }}>
+          <div className="tx-small font-semibold">Don&rsquo;t have a bundle yet?</div>
+          <p className="mt-1 tx-small" style={{ color: 'var(--ink-2)' }}>
             A bundle is made once from your <code className="mono">.h5ad</code> or{' '}
             <code className="mono">.rds</code> —{' '}
             <a className="underline" style={{ color: 'var(--accent-ink)', fontWeight: 600 }}
               href={LAB} target="_blank" rel="noreferrer">convert it in scRNA-seq&nbsp;Lab →</a>
           </p>
           <button
-            className="mt-1.5 text-[11.5px] underline"
+            className="mt-1.5 tx-micro underline"
             style={{ color: 'var(--ink-3)' }}
             onClick={() => dlg.current?.showModal()}
           >
@@ -138,35 +137,27 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
 
         <div className="mt-7">
           <SectionTitle>Input format</SectionTitle>
-          <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-2)' }}>
-            One <code className="mono">.zip</code> from scRNA-seq Lab, or from{' '}
-            <code className="mono">tools/export_*</code>. Not the{' '}
-            <code className="mono">.h5ad</code> or <code className="mono">.rds</code> itself.
-            A large object arrives as <code className="mono">.scstudio</code> instead — the same
-            file under a name the browser will let it be written under.
-          </p>
-          <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-2)' }}>
-            Size is not a limit. An object too large to hold at once arrives as one file the
-            lab stored in several pieces, and opens here as the whole thing — every cell, every
-            tab. Expression is read a gene at a time as you ask for it, and whole-transcriptome
-            tests run off the page, so nothing freezes while it works.
+          <p className="mt-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
+            A <code className="mono">.zip</code> or <code className="mono">.scstudio</code> from
+            scRNA-seq Lab — not the <code className="mono">.h5ad</code> or{' '}
+            <code className="mono">.rds</code> itself. Size is not a limit.
           </p>
           <div className="mt-2.5 grid gap-1.5">
             {NEEDS.map(([name, required, what]) => (
               <div key={name} className="flex items-baseline gap-2">
-                <span className="w-[86px] flex-none text-[12px] font-semibold">{name}</span>
+                <span className="w-[86px] flex-none tx-small font-semibold">{name}</span>
                 <span className={`badge flex-none ${required ? 'badge-here' : 'badge-none'}`}>
                   {required ? 'required' : 'optional'}
                 </span>
-                <span className="text-[11.5px]" style={{ color: 'var(--ink-2)' }}>{what}</span>
+                <span className="tx-micro" style={{ color: 'var(--ink-2)' }}>{what}</span>
               </div>
             ))}
           </div>
-          <p className="mono mt-2.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+          <p className="mono mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
             meta.json · genes.txt · expr.indptr/indices/data · cluster.u16 · sample.u16 ·
             embed.f32 · qc.f32 · pseudobulk.tsv
           </p>
-          <p className="mt-1.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+          <p className="mt-1.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
             Field-by-field in{' '}
             <a className="underline" href={`${REPO}/blob/main/tools/BUNDLE.md`}
               target="_blank" rel="noreferrer">tools/BUNDLE.md</a>.
@@ -178,7 +169,7 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
           {DEMOS.map(([key, tag, title, desc]) => (
             <button
               key={key} disabled={busy}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left"
+              className="flex items-center gap-2.5 rounded-[--r-md] px-3 py-2.5 text-left"
               style={{ border: '1px solid var(--line)', background: 'var(--surface)' }}
               onClick={() => onDemo(key)}
             >
@@ -187,29 +178,28 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
               <span className="flex-none" style={{ width: 84 }}>
                 <span className="badge badge-file">{tag}</span>
               </span>
-              <span className="text-[12.5px] font-semibold">{title}</span>
-              <span className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{desc}</span>
+              <span className="tx-small font-semibold">{title}</span>
+              <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>{desc}</span>
             </button>
           ))}
         </div>
-        <p className="mt-2.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-          Generated in the browser and labelled as such throughout — they exist so every view
-          has something to draw.
+        <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
+          Generated in the browser, and labelled as demos throughout.
         </p>
       </div>
 
       <dialog
         ref={dlg}
-        className="w-[calc(100%-40px)] max-w-[560px] rounded-2xl p-0"
+        className="w-[calc(100%-40px)] max-w-[560px] rounded-[--r-lg] p-0"
         style={{ border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)' }}
         onClick={e => { if (e.target === dlg.current) dlg.current?.close() }}
       >
         <div className="px-[22px] py-5">
-          <h2 className="text-base font-semibold">Converting offline</h2>
-          <p className="mb-4 mt-1.5 text-[12.5px]" style={{ color: 'var(--ink-2)' }}>
+          <h2 className="tx-title">Converting offline</h2>
+          <p className="mb-4 mt-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
             For a pipeline, or a machine with no browser.{' '}
             <a className="underline" href={LAB} target="_blank" rel="noreferrer">
-              scRNA-seq Lab</a>{' '}does the same thing in a tab.
+              scRNA-seq Lab</a>{' '}does this in a tab.
           </p>
 
           <div className="eyebrow">1 · Get the converter</div>
@@ -225,20 +215,18 @@ R -e 'install.packages("digest")'  # for .rds`}</Code>
 
           <div className="eyebrow mt-4">3 · Run it with no options first</div>
           <Code>{`python export_h5ad.py yourfile.h5ad bundle.zip`}</Code>
-          <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-2)' }}>
-            It prints your obs columns, guesses the cluster annotation and names every decision.
+          <p className="mt-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
+            It prints your obs columns and names every decision it makes.
           </p>
 
           <div className="eyebrow mt-4">4 · Re-run naming the columns</div>
           <Code>{`python export_h5ad.py yourfile.h5ad bundle.zip \\
     --cluster cell_type --sample orig.ident --condition treatment`}</Code>
-          <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-2)' }}>
-            A wrong name lists the ones that exist. Only <b>--cluster</b> is needed for a first look.
+          <p className="mt-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
+            Only <b>--cluster</b> is needed for a first look.
           </p>
 
-          <p className="mt-4 text-[12px]" style={{ color: 'var(--ink-3)' }}>
-            What has to be in the bundle is listed on the page behind this dialog.
-          </p>
+
           <div className="mt-4 text-right">
             <button className="btn" onClick={() => dlg.current?.close()}>Close</button>
           </div>

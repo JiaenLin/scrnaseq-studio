@@ -58,34 +58,30 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
     : []
 
   return (
-    <Card>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="eyebrow">Embedding · {emb.key} from your file</div>
-          <h2 className="mt-1 text-[14.5px] font-semibold">{fmt(d.nCells)} cells</h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {modes.filter(([k]) => d.multi || k !== 'cond').map(([k, label]) => (
-            <button key={k} className="chip" aria-pressed={shown === k} onClick={() => onColorBy(k)}>
-              {label}
+    <Card
+      eyebrow={`Embedding · ${emb.key} from your file`}
+      title={`${fmt(d.nCells)} cells`}
+      right={<>
+        {modes.filter(([k]) => d.multi || k !== 'cond').map(([k, label]) => (
+          <button key={k} className="chip" aria-pressed={shown === k} onClick={() => onColorBy(k)}>
+            {label}
+          </button>
+        ))}
+        {d.multi && (
+          <>
+            <div className="gsep" />
+            <button className="chip" aria-pressed={split} onClick={() => onSplit(!split)}>
+              Split by group
             </button>
-          ))}
-          {d.multi && (
-            <>
-              <div className="gsep h-[26px]" />
-              <button className="chip" aria-pressed={split} onClick={() => onSplit(!split)}>
-                Split by group
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
+          </>
+        )}
+      </>}
+    >
       <div className="flex gap-3.5 overflow-x-auto">
         {panels.map(p => (
           <figure key={p ?? 'all'} className="min-w-[210px] flex-1" style={{ flexBasis: size * 0.75 }}>
             {p && (
-              <div className="mb-1.5 text-[12.5px] font-semibold">
+              <div className="mb-1.5 tx-small font-semibold">
                 {p}{' '}
                 <span className="mono font-normal" style={{ color: 'var(--ink-3)' }}>
                   n = {fmt(d.nPerCond[p])}
@@ -106,14 +102,14 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
       ) : (
         <div className="legend mt-3">
           <span style={{ color: 'var(--ink-3)' }}>low</span>
-          <span className="inline-block h-[9px] w-[120px] rounded-[3px]" style={{ background: rampCss(rampKey) }} />
+          <span className="inline-block h-[9px] w-[120px] rounded-[--r-sm]" style={{ background: rampCss(rampKey) }} />
           <span style={{ color: 'var(--ink-3)' }}>high</span>
         </div>
       )}
 
-      <figcaption className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+      <figcaption className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
         {panels.length > 1
-          ? `All ${panels.length} panels share one axis range, so the shift between groups is real and not a rescaling.`
+          ? `One shared axis range across all ${panels.length} panels.`
           : `Coloured by ${shown}.`}
       </figcaption>
     </Card>
@@ -185,7 +181,7 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels }:
   return (
     <canvas
       ref={ref} width={Math.round(w * 2)} height={Math.round(h * 2)}
-      style={{ width: '100%', height: 'auto', borderRadius: 10 }}
+      style={{ width: '100%', height: 'auto', borderRadius: 'var(--r-md)' }}
     />
   )
 }

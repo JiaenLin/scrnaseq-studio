@@ -1,16 +1,32 @@
 import type { ReactNode } from 'react'
 
-export function Card({ eyebrow, title, sub, children }: {
+/**
+ * One card, one header shape: eyebrow, title, optional controls on the right.
+ *
+ * `right` exists because two tabs were hand-rolling that row — Cells built its
+ * own eyebrow/h2/chips flex and Gene expression stacked a search field under
+ * the title — so the same header appeared in three shapes across nine tabs.
+ */
+export function Card({ eyebrow, title, sub, right, children }: {
   eyebrow?: string
   title?: string
   sub?: ReactNode
+  right?: ReactNode
   children?: ReactNode
 }) {
+  const head = eyebrow || title || sub
   return (
     <section className="card">
-      {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-      {title && <h2 className="mt-1 text-[14.5px] font-semibold tracking-[-0.01em]">{title}</h2>}
-      {sub && <p className="sub">{sub}</p>}
+      {head && (
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+            {title && <h2 className="card-title">{title}</h2>}
+            {sub && <p className="sub">{sub}</p>}
+          </div>
+          {right && <div className="flex flex-wrap items-center gap-1.5">{right}</div>}
+        </div>
+      )}
       {children}
     </section>
   )
@@ -18,9 +34,10 @@ export function Card({ eyebrow, title, sub, children }: {
 
 export function Stat({ value, label }: { value: string | number; label: string }) {
   return (
-    <div className="px-[13px] py-[11px]" style={{ background: 'var(--surface)' }}>
-      <div className="num text-[20px] font-semibold tracking-[-0.02em]">{value}</div>
-      <div className="mt-px text-[11px]" style={{ color: 'var(--ink-3)' }}>{label}</div>
+    <div style={{ background: 'var(--surface)', padding: 'var(--s3)' }}>
+      <div className="num font-semibold"
+        style={{ fontSize: 'var(--t-stat)', letterSpacing: 'var(--tr-stat)' }}>{value}</div>
+      <div className="mt-px" style={{ color: 'var(--ink-3)', fontSize: 'var(--t-micro)' }}>{label}</div>
     </div>
   )
 }
@@ -79,9 +96,22 @@ export function Legend({ items, note }: { items: [string, string][]; note?: Reac
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="empty">
-      <div className="mb-[5px] text-[14.5px] font-semibold" style={{ color: 'var(--ink)' }}>{title}</div>
+      <div className="card-title mb-1" style={{ color: 'var(--ink)', marginTop: 0 }}>{title}</div>
       {children}
     </div>
+  )
+}
+
+/** An action that is not the card's main one — Save, CSV, Reset, Clear. */
+export function Quiet({ onClick, title, children, disabled }: {
+  onClick: () => void
+  title?: string
+  disabled?: boolean
+  children: ReactNode
+}) {
+  return (
+    <button type="button" className="btn btn-quiet" title={title}
+      disabled={disabled} onClick={onClick}>{children}</button>
   )
 }
 

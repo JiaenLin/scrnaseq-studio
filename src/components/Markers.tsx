@@ -3,13 +3,13 @@ import type { CellType, DERow } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import { deMarkersAll, isSig, markersSpec, thresholdFor } from '../lib/stats.ts'
 import { dotAt, dotGrid, type DotGrid } from '../lib/dots.ts'
-import { downloadCsv, slug } from '../lib/download.ts'
+import { downloadCsv } from '../lib/download.ts'
 import { maxOf } from '../lib/chart.ts'
 import { AXIS_INK, GRID_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
-import { Card, Chips, Empty, Mono } from './Ui.tsx'
+import { Card, Chips, Empty } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
@@ -34,10 +34,18 @@ async function streamDots(src: Source, genes: string[], nT: number): Promise<Dot
   return { mean, pct, nT }
 }
 
-export default function Markers({ src, types, palKey, onRename, onPickGene }: {
+export default function Markers({
+  src, types, palKey, go, want, onGo, onWant, onRename, onPickGene,
+}: {
   src: Source
   types: CellType[]
   palKey: PaletteKey
+  /** Whether the pass has been asked for. Held in App — see below. */
+  go: boolean
+  /** Which cell types it covers. Empty means all of them. */
+  want: Set<number>
+  onGo: (v: boolean) => void
+  onWant: (v: Set<number>) => void
   onRename: (index: number, name: string) => void
   onPickGene: (g: string) => void
 }) {
@@ -45,12 +53,10 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   const [open, setOpen] = useState<number | null>(null)
 
   /**
-   * Whether the pass may start.
+   * Whether the pass may start, and which clusters it covers.
    *
-   * An object held in memory answers in milliseconds, so asking permission for
-   * it would be a dialog in front of an instant result. A collection is minutes,
-   * and opening a tab is not consent to spend them — arriving here used to
-   * commit the reader to a four-minute pass before they had read the heading.
+   * Both live in App — see the comment there. Arriving here is not consent to
+   * spend four minutes, and *leaving* is not a reason to ask again.
    *
    * Narrowing to a few cell types helps as well, though not for the reason it
    * looks like. The sort is 76% of the pass and is shared across clusters — but
@@ -58,16 +64,10 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
    * skips the sort entirely. A gene expressed evenly everywhere has |lfc| near
    * zero for any one cluster, and those are the dense, expensive genes. So the
    * saving comes from discarding genes unsorted, not from doing less per gene.
-   */
-  const [go, setGo] = useState(!src.lazy)
-  /**
-   * Which cell types to find markers for. Empty means all of them.
    *
-   * Held by index, and part of the job key below, so changing it asks a new
-   * question rather than filtering the old answer — which is the point: a gene
-   * that says nothing about the chosen clusters is never sorted.
+   * `want` is held by index and is part of the job key below, so changing it
+   * asks a new question rather than filtering the old answer.
    */
-  const [want, setWant] = useState<Set<number>>(new Set())
   const chosen = want.size ? [...want].sort((a, b) => a - b) : types.map((_t, i) => i)
   const wantKey = want.size ? chosen.join(',') : 'all'
 
@@ -135,7 +135,7 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
 
   if (pass) {
     return (
-      <Card eyebrow="Markers · one vs rest" title="Testing every gene in every cluster">
+      <Card eyebrow="Markers · one vs rest">
         <Progress pass={pass} title="One Wilcoxon per cluster, against every other cell" />
       </Card>
     )
@@ -144,18 +144,15 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   // offered before the reader commits rather than after they have waited.
   if (!go) {
     return (
-      <Card eyebrow="Markers · one vs rest" title="Markers are not computed yet">
-        <p className="sub mt-1">
-          Each cell type is tested against every other cell, over{' '}
-          {src.genes.length.toLocaleString('en-US')} genes, in one pass over the file. On an
-          object this size that is a couple of minutes for all {types.length} of them, so it
-          is not started until you ask — and asking about fewer is faster, because a gene that
-          says nothing about the types you chose is discarded before it is sorted.
-        </p>
-        <div className="mt-3.5">
-          <TypePicker types={types} want={want} onWant={setWant} palKey={palKey} />
+      <Card
+        eyebrow="Markers · one vs rest"
+        title="Not computed yet"
+        sub={`One pass over ${src.genes.length.toLocaleString('en-US')} genes. Fewer cell types is faster.`}
+      >
+        <div>
+          <TypePicker types={types} want={want} onWant={onWant} palKey={palKey} />
         </div>
-        <button className="btn btn-primary mt-3.5" onClick={() => setGo(true)}>
+        <button className="btn btn-primary mt-3.5" onClick={() => onGo(true)}>
           {want.size ? `Find markers for ${want.size} cell type${want.size > 1 ? 's' : ''}`
             : `Find markers for all ${types.length}`}
         </button>
@@ -195,23 +192,19 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
 
   return (
     <>
-      <div className="note note-info mb-4">
-        <b>A real test, and still a circular one.</b> Each cluster is compared against every
-        other cell with the same Wilcoxon rank-sum that Seurat&rsquo;s <Mono>FindAllMarkers</Mono>{' '}
-        runs. But the clusters were defined using the expression these p-values then score, so
-        they cannot be read as evidence that the clusters exist — they rank genes within a
-        grouping already assumed. The effect size and the detection rates are the honest columns.
-      </div>
-
+      {/* The circularity argument is in Methods, where a reviewer looks for it.
+          It is true on every visit and needed on the first, so a banner above
+          the figure was the wrong place for it — what stays is the claim, in
+          one clause, on the label that makes the claim. */}
       <Card
-        eyebrow="Markers · one vs rest"
+        eyebrow="Markers · one vs rest · a ranking, not a test"
         title={`${genes.length} genes across ${chosen.length} of ${types.length} cell types`}
-        sub="Top genes per cluster by −log₁₀ adjusted p — the adjusted p itself underflows the double on an object this size, so the ranking is read in log space. Shown as mean expression × fraction detected. Rename any cluster here — the name propagates to every tab and into Methods."
-      >
-        <div className="mt-3.5 flex flex-wrap items-center gap-2">
+        sub="Mean expression × fraction detected. Rename a cluster to rename it everywhere."
+        right={<>
           <Chips label="Top per cluster" value={topN} options={[3, 5, 8, 12]} onChange={setTopN} />
-          <div className="ml-auto"><CsvButton onClick={saveCsv} /></div>
-        </div>
+          <CsvButton onClick={saveCsv} />
+        </>}
+      >
 
         {/* Reading the values is a second pass, after the statistics. On the
             atlas it streams 505 genes a window at a time and takes about 52 s,
@@ -241,7 +234,7 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
             </div>
           </div>
         )}
-        <Figure name="cluster_markers" className="mt-4 pt-6">
+        <Figure name="cluster_markers" className="mt-4">
           <div className="overflow-x-auto">
             <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
               aria-label="Marker gene dot plot">
@@ -323,12 +316,12 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
               shown to them. */}
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
             {chosen.map(ti => { const t = types[ti]; return (
-              <div key={t.key} className="rounded-xl px-3 py-2.5"
+              <div key={t.key} className="rounded-[--r-md] px-3 py-2.5"
                 style={{ background: 'var(--sunk)' }}>
                 <div className="flex items-center gap-1.5">
                   <i className="sw" style={{ background: pal(ti, palKey) }} />
                   <input
-                    className="inp flex-1 text-[12.5px]" defaultValue={t.name}
+                    className="inp flex-1 tx-small" defaultValue={t.name}
                     aria-label={`Rename cluster ${t.key}`}
                     onBlur={e => onRename(ti, e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
@@ -337,7 +330,7 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                     {perCluster[ti].filter(r => isSig(r, th) && r.lfc > 0).length}
                   </button>
                 </div>
-                <div className="mono mt-1.5 text-[11.5px] italic" style={{ color: 'var(--ink-2)' }}>
+                <div className="mono mt-1.5 tx-micro italic" style={{ color: 'var(--ink-2)' }}>
                   {tops[ti].map(r => r.gene).join(', ') || 'no gene passes the cutoffs'}
                 </div>
                 {/* Four columns: a fifth does not fit even the widened card, and
@@ -364,7 +357,7 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                               <td className="mono font-semibold italic">{r.gene}</td>
                               <td className="num" style={{ color: 'var(--bad)' }}>+{r.lfc.toFixed(2)}</td>
                               <td className="num" style={{ color: 'var(--ink-2)' }}>{r.pct1?.toFixed(2)}</td>
-                              <td className="num mono text-[11.5px] font-semibold"
+                              <td className="num mono tx-micro font-semibold"
                                 title={`adjusted p ${pTxt(r.padj)}`}>{nlpTxt(r.nlp)}</td>
                             </tr>
                           ))}
@@ -375,18 +368,10 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
               </div>
             ) })}
           </div>
-          <p className="mt-2.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-            The count on each chip is every gene passing padj &lt; {th.padj} — that is
-            −log₁₀ padj &gt; {(-Math.log10(th.padj)).toFixed(2)} — and log₂FC ≥ {th.lfc};
-            click it for the list. There the rows are ordered by <b>−log₁₀ padj</b>, which is
-            −log₁₀ of the adjusted p formed in log space. The adjusted p itself underflows the
-            double past z ≈ 38.6, where it stops being a measurement and becomes one shared
-            constant for every row alike, so it is not printed here — hover a value for it, and
-            the CSV carries it beside this column, written{' '}
-            <Mono>&lt;1e-308</Mono> from that floor down. Renaming keeps results attached to the
-            original cluster, so a rename never detaches work already done. File names use the
-            slug{' '}
-            <Mono>{slug('cluster_markers')}</Mono>.
+          {/* The underflow argument is in Methods. What is left is what the
+              numbers on screen do not say for themselves. */}
+          <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
+            Counts are genes at padj &lt; {th.padj} and log₂FC ≥ {th.lfc}; click one for the list.
           </p>
         </div>
       </Card>
@@ -416,14 +401,14 @@ function TypePicker({ types, want, onWant, palKey }: {
     onWant(next)
   }
   return (
-    <div className="rounded-xl p-2" style={{ background: 'var(--sunk)' }}>
+    <div className="panel">
       <div className="mb-1.5 flex flex-wrap items-center gap-2 px-1">
         <span className="glabel">Cell types</span>
-        <span className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+        <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
           {want.size ? `${want.size} of ${types.length}` : `all ${types.length}`}
         </span>
         {want.size > 0 && (
-          <button className="chip" onClick={() => onWant(new Set())}>All of them</button>
+          <button className="btn btn-quiet" onClick={() => onWant(new Set())}>All of them</button>
         )}
       </div>
       <div className="grid gap-1"
@@ -432,10 +417,10 @@ function TypePicker({ types, want, onWant, palKey }: {
           const on = want.size === 0 || want.has(i)
           return (
             <button key={t.key} onClick={() => toggle(i)} aria-pressed={want.has(i)}
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-left"
+              className="type-toggle flex items-center gap-1.5 rounded-[--r-md] px-2 py-1 text-left"
               style={{ opacity: on ? 1 : 0.45 }}>
               <i className="sw flex-none" style={{ background: pal(i, palKey) }} />
-              <span className="min-w-0 flex-1 truncate text-[11.5px]">{t.name}</span>
+              <span className="min-w-0 flex-1 truncate tx-micro">{t.name}</span>
             </button>
           )
         })}

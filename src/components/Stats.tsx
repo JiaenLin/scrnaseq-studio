@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { CellType, DERow, Method } from '../types.ts'
+import type { CellType, DERow, DEView, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
   condLabel, deWilcox, designFor, inConds, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP,
@@ -102,16 +102,14 @@ function MethodBar(p: StatsProps) {
             ]}
           />
         </div>
-        <span className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+        <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
           {p.method === 'wilcox'
             ? `logfc.threshold ${LFC_GATE} · min.pct ${PCT_GATE} · Bonferroni`
             : `≥ ${MIN_CELLS} cells per sample · apeglm · Benjamini–Hochberg`}
         </span>
       </div>
       {why && (
-        <p className="mb-3 mt-[-2px] text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-          {why} Wilcoxon needs no replicates and is what Seurat and Scanpy run by default.
-        </p>
+        <p className="mb-3 mt-[-2px] tx-micro" style={{ color: 'var(--ink-3)' }}>{why}</p>
       )}
     </>
   )
@@ -128,30 +126,29 @@ function MethodBar(p: StatsProps) {
 export function ThresholdBar(p: StatsProps) {
   const negLog = -Math.log10(Math.max(p.padjMax, 1e-300))
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl px-3 py-2"
-      style={{ background: 'var(--sunk)' }}>
-      <label className="flex items-center gap-2 text-[12.5px]" style={{ color: 'var(--ink-2)' }}>
+    <div className="panel mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+      <label className="flex items-center gap-2 tx-small" style={{ color: 'var(--ink-2)' }}>
         <span className="glabel">padj ≤</span>
         <input
           type="range" min={0} max={10} step={0.1} value={Math.min(negLog, 10)}
           aria-label="Adjusted p-value threshold"
           onChange={e => p.onPadj(Math.pow(10, -(+e.target.value)))}
         />
-        <span className="mono w-[70px] text-[11.5px]">
+        <span className="mono w-[70px] tx-micro">
           {p.padjMax < 1e-3 ? p.padjMax.toExponential(1) : p.padjMax.toFixed(3)}
         </span>
       </label>
-      <label className="flex items-center gap-2 text-[12.5px]" style={{ color: 'var(--ink-2)' }}>
+      <label className="flex items-center gap-2 tx-small" style={{ color: 'var(--ink-2)' }}>
         <span className="glabel">|log₂FC| ≥</span>
         <input
           type="range" min={0} max={3} step={0.05} value={Math.min(p.lfcMin, 3)}
           aria-label="Fold change threshold"
           onChange={e => p.onLfc(+e.target.value)}
         />
-        <span className="mono w-8 text-[11.5px]">{p.lfcMin.toFixed(2)}</span>
+        <span className="mono w-8 tx-micro">{p.lfcMin.toFixed(2)}</span>
       </label>
       <button
-        className="chip ml-auto"
+        className="btn btn-quiet ml-auto"
         title="Back to the default for the selected test"
         onClick={() => {
           p.onPadj(0.05)
@@ -166,8 +163,7 @@ export function ThresholdBar(p: StatsProps) {
 function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   if (sameOrOverlapping(p.ctrl, p.cs))
     return <Empty title="Pick two groups with no level in common">
-      Control is <b>{condLabel(p.ctrl)}</b> and compare is <b>{condLabel(p.cs)}</b>. A level on
-      both sides would put the same cells in both groups, which is not a comparison.
+      A level on both sides puts the same cells in both groups.
     </Empty>
 
   // Not asked for yet. The action itself lives in the control bar, at the end of
@@ -177,9 +173,8 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   // shouldn't have to.
   if (!p.computed)
     return <div className="note mt-3.5">
-      <b>Not computed yet.</b> Every gene tested in {p.t.name}: {condLabel(p.cs)} against{' '}
-      {condLabel(p.ctrl)} — one pass over the object. Set the groups above, then press{' '}
-      <b>Run</b>.
+      <b>Not computed yet.</b> One pass over the object, testing every gene in {p.t.name}.
+      Set the groups above, then press <b>Run</b>.
     </div>
 
   const d = designFor(p.src, p.ti, p.ctrl, p.cs)
@@ -197,11 +192,9 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
     // rather than a difference between groups, and nothing on the page would say so.
     if (n0 < MIN_CELLS_GROUP || n1 < MIN_CELLS_GROUP)
       return <Empty title={`Too few ${p.t.name} cells to test one of these groups`}>
-        {n0} cell{n0 === 1 ? '' : 's'} in {condLabel(p.ctrl)}, {n1} in {condLabel(p.cs)}. A rank-sum test needs
-        at least {MIN_CELLS_GROUP} per group — Seurat&rsquo;s <Mono>min.cells.group</Mono> —
-        and below that the table it returns is a description of the {Math.min(n0, n1)} cell
-        {Math.min(n0, n1) === 1 ? '' : 's'} on the smaller side, at whatever p the
-        separation happens to give.
+        {n0} cell{n0 === 1 ? '' : 's'} in {condLabel(p.ctrl)}, {n1} in {condLabel(p.cs)}.
+        A rank-sum test needs at least {MIN_CELLS_GROUP} per group — Seurat&rsquo;s{' '}
+        <Mono>min.cells.group</Mono>.
       </Empty>
     return null
   }
@@ -256,9 +249,7 @@ function PseudobulkPanel(p: StatsProps) {
   if (!pb) {
     return (
       <Empty title="This object carries no raw counts">
-        Pseudobulk sums raw counts per sample, and the bundle was built without
-        them — the exporter says so on the Overview tab. Wilcoxon does not need
-        them and is running.
+        Pseudobulk needs them; Wilcoxon does not.
         <div className="mt-3.5">
           <button className="btn btn-primary" onClick={() => p.onMethod('wilcox')}>
             Use Wilcoxon instead
@@ -280,11 +271,9 @@ function PseudobulkPanel(p: StatsProps) {
   return (
     <>
       <div className="note mt-1">
-        <b>The matrix is here; the model is not.</b> Raw counts have been summed
-        per sample within {p.t.name}, which is the whole of the pseudobulk step.
-        Fitting DESeq2 is not yet wired into the browser, so rather than show a
-        number from some other test under a DESeq2 label, the counts are offered
-        as they are — feed them straight to <code className="mono">DESeqDataSetFromMatrix</code>.
+        <b>The matrix is here; the model is not.</b> Counts are summed per sample within{' '}
+        {p.t.name} — the whole of the pseudobulk step. DESeq2 itself is not in the browser, so
+        take these to <code className="mono">DESeqDataSetFromMatrix</code>.
       </div>
       <div className="scrollx mt-3.5">
         <table className="t">
@@ -317,7 +306,7 @@ function PseudobulkPanel(p: StatsProps) {
           ⭳ Pseudobulk counts ({cols.length} columns)
         </button>
         <button className="btn" onClick={() => p.onMethod('wilcox')}>Back to Wilcoxon</button>
-        <span className="text-[12.5px]" style={{ color: 'var(--ink-3)' }}>
+        <span className="tx-small" style={{ color: 'var(--ink-3)' }}>
           {n0} {condLabel(p.ctrl)} · {n1} {condLabel(p.cs)}
           {(n0 < MIN_REPS_PB || n1 < MIN_REPS_PB)
             && ` — fewer than ${MIN_REPS_PB} per group, so a between-animal test is not defensible here either`}
@@ -328,74 +317,82 @@ function PseudobulkPanel(p: StatsProps) {
 }
 
 
-/** The gate and the rows, for a contrast tab that renders its own body. */
-export function ContrastFrame(
-  p: StatsProps & { children: (rows: DERow[]) => React.ReactNode },
-) {
+const VIEWS: { k: DEView; label: string }[] = [
+  { k: 'table', label: 'Table' },
+  { k: 'volcano', label: 'Volcano' },
+  { k: 'enrich', label: 'Enrichment' },
+]
+
+/**
+ * One contrast, three ways of looking at it.
+ *
+ * These were three sibling tabs, which said they were three questions. They are
+ * not: all three call `useDE` with the same key and read the same rows, so the
+ * table, the volcano and the enrichment are renderings of ONE pass. Presenting
+ * them as peers of Overview cost the reader three identical Test strips, three
+ * identical threshold strips, three chances to press Run for the same work, and
+ * an Enrichment tab whose card was nested inside this one's.
+ *
+ * Everything above the view picker is decided once and applies to all three.
+ */
+export function Differential(p: StatsProps & {
+  view: DEView
+  onView: (v: DEView) => void
+  /** Enrichment is wired in App — it needs the gene universe and the palette. */
+  enrichment: (rows: DERow[]) => React.ReactNode
+}) {
   const { value: de, pass } = useDE(p)
   const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p, de)
   return (
     <Card>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Seg<DEView> value={p.view} onChange={p.onView} options={VIEWS} />
+        <span className="eyebrow">{contrastLabel(p)}</span>
+      </div>
       <MethodBar {...p} />
       {blocked ?? (pass ? <Progress pass={pass} title={testing(p)} /> : de && (
         <>
           <ThresholdBar {...p} />
-          <div className="eyebrow">{contrastLabel(p)}</div>
-          {p.children(de.rows)}
+          {p.view === 'table' ? <DEGTable {...p} de={de} />
+            : p.view === 'volcano' ? <Volcano {...p} de={de} />
+            : p.enrichment(de.rows)}
         </>
       ))}
     </Card>
   )
 }
 
-export function DEGTable(p: StatsProps) {
-  const { value: de, pass } = useDE(p)
-  if (p.method === 'pseudobulk') {
-    return <Card><MethodBar {...p} /><PseudobulkPanel {...p} /></Card>
-  }
-  const blocked = gate(p, de)
-  if (blocked) return <Card><MethodBar {...p} />{blocked}</Card>
-  if (pass) return <Card><MethodBar {...p} /><Progress pass={pass} title={testing(p)} /></Card>
-  if (!de) return <Card><MethodBar {...p} /></Card>
-
-  const { rows, n0, n1 } = de
+function DEGTable(p: StatsProps & { de: DEResult }) {
+  const { rows, n0, n1 } = p.de
   const wil = p.method === 'wilcox'
   const th = { padj: p.padjMax, lfc: p.lfcMin }
   const up = rows.filter(r => isSig(r, th) && r.lfc > 0).length
   const dn = rows.filter(r => isSig(r, th) && r.lfc < 0).length
 
   return (
-    <Card>
-      <MethodBar {...p} />
-      <ThresholdBar {...p} />
-      <div className="eyebrow">{contrastLabel(p)}</div>
-      <h2 className="mt-1 text-[14.5px] font-semibold">{up + dn} differentially expressed genes</h2>
+    <>
+      <h2 className="tx-title">{up + dn} differentially expressed genes</h2>
       <p className="sub">
-        {up} higher and {dn} lower in <b>{condLabel(p.cs)}</b>, at adjusted p &lt; {p.padjMax} and
-        |log₂ fold change| ≥ {p.lfcMin}.{' '}
+        {up} higher and {dn} lower in <b>{condLabel(p.cs)}</b>, at padj &lt; {p.padjMax} and
+        |log₂FC| ≥ {p.lfcMin}.{' '}
         {wil
-          ? <>Wilcoxon rank-sum over {fmt(n0)} and {fmt(n1)} cells. The default cutoff is
-             Seurat&rsquo;s <Mono>logfc.threshold</Mono>, not the bulk |log₂FC| &gt; 1 —
-             log-normalized single-cell values are compressed and a cutoff of 1 discards most real
-             differences.</>
-          : <>DESeq2 over {n0} + {n1} pseudobulk profiles, which are summed raw counts and so take
-             the bulk cutoff.</>}
+          ? <>Wilcoxon over {fmt(n0)} and {fmt(n1)} cells.</>
+          : <>DESeq2 over {n0} + {n1} pseudobulk profiles.</>}
       </p>
-
 
       <DEGTableBody
         rows={rows} wilcox={wil} ctrl={condLabel(p.ctrl)} cs={condLabel(p.cs)} label={contrastLabel(p)}
         padjMax={p.padjMax} lfcMin={p.lfcMin} onPickGene={p.onPickGene}
       />
-    </Card>
+    </>
   )
 }
 
-export function Volcano(p: StatsProps) {
+function Volcano(p: StatsProps & { de: DEResult }) {
   const [hover, setHover] = useState<DERow | null>(null)
   const [nLabels, setNLabels] = useState(12)
-  const { value: de, pass } = useDE(p)
-  const rows = useMemo(() => de?.rows ?? [], [de])
+  const de = p.de
+  const rows = useMemo(() => de.rows, [de])
 
   // PB carries the x-axis title and, below it, the key. That key used to sit in
   // an HTML row underneath the figure, so an exported volcano arrived with three
@@ -427,11 +424,6 @@ export function Volcano(p: StatsProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, p.padjMax, p.lfcMin, maxX, maxY])
 
-  const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p, de)
-  if (blocked) return <Card><MethodBar {...p} />{blocked}</Card>
-  if (pass) return <Card><MethodBar {...p} /><Progress pass={pass} title={testing(p)} /></Card>
-  if (!de) return <Card><MethodBar {...p} /></Card>
-
   const step = Math.max(1, Math.ceil(maxY / 5))
   const ticks: number[] = []
   for (let t = 0; t <= maxY; t += step) ticks.push(t)
@@ -453,11 +445,8 @@ export function Volcano(p: StatsProps) {
   }
 
   return (
-    <Card>
-      <MethodBar {...p} />
-      <ThresholdBar {...p} />
+    <>
       <div className="mb-2 flex flex-wrap items-center gap-2.5">
-        <div className="eyebrow">{contrastLabel(p)}</div>
         <span className="badge" style={{ background: 'rgba(239,68,68,.14)', color: '#b91c1c' }}>
           ▲ {up} up in {condLabel(p.cs)}
         </span>
@@ -552,15 +541,12 @@ export function Volcano(p: StatsProps) {
         </span>
       </div>
 
-      <figcaption className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-        Dashed lines are the cutoffs above, which the Methods text also reports. The y axis is
-        the table&rsquo;s <b>−log₁₀ padj</b> column, formed in log space rather than as −log₁₀ of
-        the adjusted p: past z ≈ 38.6 the adjusted p underflows the double, and taking its
-        logarithm flattened the whole top of this cloud onto one line.{' '}
-        {p.method === 'wilcox'
-          ? 'Note the y scale: per-cell tests reach exponents no bulk experiment ever produces, because n is the number of cells.'
-          : 'Between-animal variance is in the model, so the y scale stays interpretable.'}
+      {/* The underflow argument that used to sit here is in Methods, where a
+          reviewer looks for it. On the figure it was six lines of arithmetic
+          under a plot whose dashed lines are the only thing needing a caption. */}
+      <figcaption className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        Dashed lines are the cutoffs above.
       </figcaption>
-    </Card>
+    </>
   )
 }

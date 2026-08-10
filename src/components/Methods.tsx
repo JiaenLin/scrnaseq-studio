@@ -145,31 +145,77 @@ export default function Methods({ src, types, ti, ctrl, cs, method, padjMax, lfc
     <>
       <Card
         eyebrow="Methods" title="Single-cell RNA sequencing analysis"
-        sub="Continuous prose under one heading, every step read from the object. The text follows the test currently selected, and stops where the file stops."
+        sub="Read from the object, and following the test now selected."
       >
-        <div className="prose-methods mt-3.5">
+        <div className="prose-methods">
           {processing}
           <p>{de}{closing}</p>
         </div>
 
-        <div className="mt-[18px]">
+        <div className="mt-5">
           <div className="eyebrow mb-2">References</div>
-          <ol className="m-0 pl-5 text-xs leading-relaxed" style={{ color: 'var(--ink-2)' }}>
+          <ol className="m-0 pl-5 tx-small" style={{ color: 'var(--ink-2)' }}>
             {used.map(k => <li key={k} className="mb-1.5">{REFS[k]}</li>)}
           </ol>
         </div>
-      </Card>
 
-      <div className="note">
-        <b>Sentences this generator refuses to write.</b> It will not name a normalization, a
-        variable-gene count, a number of components or a clustering resolution, because a bundle
-        carries none of them; it will not claim doublet removal or ambient RNA correction, because
-        neither is recorded in this object; it will not describe a batch correction it did not
-        find; it will not call a t-SNE a UMAP; and it will not call a one-sample-per-group design
-        replicated. Anything absent from the file is absent from the text — including the
-        references, which are printed only where the prose cites them. The cutoffs above are read
-        from <Mono>lib/stats.ts</Mono>, so the prose and the figures can never disagree.
-      </div>
+        {/**
+          * Where the studio's arguments live.
+          *
+          * Every card used to carry its own methodological defence in prose,
+          * which is right once and wrong on every visit after that — a reader
+          * who already knows why a violin has a detection bar still had to read
+          * past the reason to reach the figure. The figures now state the fact;
+          * the argument is here, once, under a heading a reviewer will look
+          * for, in the same tab as the citations that support it.
+          */}
+        <div className="mt-5 border-t pt-4" style={{ borderColor: 'var(--line)' }}>
+          <div className="eyebrow mb-2">How to read these numbers</div>
+          <div className="prose-methods" style={{ color: 'var(--ink-2)' }}>
+            <p className="m-0">
+              <b>Significance is read as −log₁₀ padj.</b> A per-cell test over tens of thousands
+              of genes reaches p-values below the smallest double, so <b>p</b> and{' '}
+              <b>p adjusted</b> print as <Mono>&lt; 10⁻³⁰⁸</Mono> once they underflow — a bound,
+              not a reading. −log₁₀ padj is formed in log space, does not underflow, and still
+              separates rows that share that bound. The volcano&rsquo;s y axis is this column.
+              <b> Combined</b> is −log₁₀(padj) × log₂FC, a signed ranking metric.
+            </p>
+            <p className="mb-0 mt-3">
+              <b>Cluster markers rank; they do not test.</b> Each cluster is compared against
+              every other cell with the same Wilcoxon that Seurat&rsquo;s{' '}
+              <Mono>FindAllMarkers</Mono> runs — but the clusters were defined using the
+              expression these p-values then score, so they are not evidence the clusters exist.
+              The effect size and the detection rates are the honest columns.
+            </p>
+            <p className="mb-0 mt-3">
+              <b>Composition is never pooled across samples.</b> Cells from one animal are not
+              independent observations, so a bar merging several animals is refused rather than
+              drawn. Each cell type gets its own y axis; a shared one flattens every population
+              except the largest.
+            </p>
+            <p className="mb-0 mt-3">
+              <b>Scaling a dot plot changes its claim.</b> Seurat&rsquo;s{' '}
+              <Mono>scale = TRUE</Mono> z-scores each gene down its own column, so colour shows
+              <em> where</em> a gene is highest, not how abundant it is — a gene expressed evenly
+              everywhere comes out uniformly pale. Turn scaling off to compare absolute levels.
+            </p>
+            <p className="mb-0 mt-3">
+              <b>Enrichment tests against the genes this object measured</b>, never the whole
+              genome: testing against genes the assay could not detect inflates every result.
+              A module score subtracts a control set matched on expression level, which is what
+              makes zero meaningful.
+            </p>
+            <p className="mb-0 mt-3">
+              <b>What this text will not say.</b> It names no normalization, variable-gene count,
+              component count or clustering resolution, because a bundle carries none of them; it
+              claims no doublet removal, ambient-RNA correction or batch correction it did not
+              find; it does not call a t-SNE a UMAP, or a one-sample-per-group design replicated.
+              Cutoffs are read from <Mono>lib/stats.ts</Mono>, so the prose and the figures cannot
+              disagree.
+            </p>
+          </div>
+        </div>
+      </Card>
     </>
   )
 }

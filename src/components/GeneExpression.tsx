@@ -21,7 +21,14 @@ import { Card, Chips, Seg } from './Ui.tsx'
 export interface GeneProps {
   src: Source
   types: CellType[]
-  ct: string
+  /**
+   * No shared cell type here.
+   *
+   * This tab keeps its own, beside the figures that use it — see the state
+   * below. It used to take App's as well, and `describe()` read THAT one, so
+   * the caption named the cluster selected on the DEG tab while the violins
+   * drew the one selected here.
+   */
   ctrl: string[]
   cs: string[]
   genes: string[]
@@ -138,7 +145,7 @@ export default function GeneExpression(p: GeneProps) {
           come back. */}
       <div>
         <div className="eyebrow">Gene expression</div>
-        <h2 className="mt-1 text-[14.5px] font-semibold">Search any gene</h2>
+        <h2 className="mt-1 tx-title font-semibold">Search any gene</h2>
         <div className="relative mt-2">
           <input
             className="inp mono w-full max-w-[320px]" value={q} autoComplete="off"
@@ -153,14 +160,14 @@ export default function GeneExpression(p: GeneProps) {
           />
           {hits.length > 0 && (
             <div
-              className="menu-in absolute left-0 top-full z-40 mt-1 w-[320px] max-w-full overflow-hidden rounded-[10px]"
+              className="menu-in absolute left-0 top-full z-40 mt-1 w-[320px] max-w-full overflow-hidden rounded-[--r-md]"
               style={{ background: 'var(--surface)', border: '1px solid var(--line-2)',
-                       boxShadow: '0 8px 24px rgba(15,23,42,.14)' }}
+                       boxShadow: 'var(--shadow-menu)' }}
             >
               {hits.map(g => (
                 <button
                   key={g} type="button"
-                  className={`mono block w-full px-[11px] py-1.5 text-left text-[12.5px] ${
+                  className={`mono block w-full px-[11px] py-1.5 text-left tx-small ${
                     g.toLowerCase() === q.trim().toLowerCase() ? 'font-bold' : ''}`}
                   style={g.toLowerCase() === q.trim().toLowerCase() ? { color: 'var(--accent-ink)' } : undefined}
                   onClick={() => { p.onGenes(mergeGenes(p.genes, [g])); setMissing([]); setQ('') }}
@@ -171,7 +178,7 @@ export default function GeneExpression(p: GeneProps) {
                       when the name already carries it, which is exactly the
                       case of a symbol two rows share. */}
                   {idOf(g) && !g.includes(idOf(g)!) && (
-                    <span className="block text-[10.5px] font-normal"
+                    <span className="block tx-micro font-normal"
                       style={{ color: 'var(--ink-3)' }}>{idOf(g)}</span>
                   )}
                 </button>
@@ -181,30 +188,27 @@ export default function GeneExpression(p: GeneProps) {
         </div>
       </div>
 
-      <p className="mt-1.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-        Paste a list separated by commas, spaces or newlines — case does not matter.
-        Up to {MAX_GENES} genes.
+      <p className="mt-1.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        One gene, or paste up to {MAX_GENES}. Case and separator do not matter.
+        {/* The naming story is a fact about THIS object, so it stays — but as
+            one clause with the detail in the tooltip, not four sentences. */}
+        {names.renamed && (
+          <span title={`Symbols come from ${names.aliasColumn ?? 'the object'} in the same file`
+            + `${names.duplicated > 0 ? `; ${names.duplicated} rows share a symbol and carry their accession` : ''}`
+            + `${names.missing > 0 ? `; ${names.missing} rows have no symbol` : ''}`}>
+            {' '}Indexed by <b>{names.idKind ?? 'accession'}s</b> — search either.
+          </span>
+        )}
       </p>
-      {names.renamed && (
-        <p className="mt-1.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-          This object&rsquo;s matrix is indexed by <b>{names.idKind ?? 'accession'}s</b>; the symbols
-          shown come from <span className="mono">{names.aliasColumn ?? 'the object'}</span> and
-          travel with the file — nothing is looked up. Search either.
-          {names.duplicated > 0 && <> {names.duplicated} rows share a symbol with another row;
-            those carry their accession in the name, because summing them would put two
-            genes under one label.</>}
-          {names.missing > 0 && <> {names.missing} rows have no symbol and keep their accession.</>}
-        </p>
-      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {p.genes.length === 0 && (
-          <span className="text-xs" style={{ color: 'var(--ink-3)' }}>No genes selected yet.</span>
+          <span className="tx-small" style={{ color: 'var(--ink-3)' }}>No genes selected yet.</span>
         )}
         {p.genes.map(g => (
           <span
             key={g}
-            className="inline-flex items-center gap-0.5 rounded-full py-[3px] pl-2.5 pr-[5px] text-xs font-semibold italic"
+            className="inline-flex items-center gap-0.5 rounded-full py-[3px] pl-2.5 pr-[5px] tx-small font-semibold italic"
             style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
             title={idOf(g) ? `${g} — ${idOf(g)}` : g}
           >
@@ -217,12 +221,12 @@ export default function GeneExpression(p: GeneProps) {
           </span>
         ))}
         {p.genes.length > 1 && (
-          <button className="chip" onClick={() => { p.onGenes([]); setMissing([]) }}>Clear all</button>
+          <button className="btn btn-quiet" onClick={() => { p.onGenes([]); setMissing([]) }}>Clear all</button>
         )}
       </div>
 
       {missing.length > 0 && (
-        <p className="mt-2 text-xs" style={{ color: 'var(--warn)' }}>
+        <p className="mt-2 tx-small" style={{ color: 'var(--warn)' }}>
           <b>Not in this object:</b> <span className="mono">{missing.join(', ')}</span> — check the
           species and capitalisation (mouse <span className="mono">Ascl1</span> vs human{' '}
           <span className="mono">ASCL1</span>).
@@ -338,7 +342,7 @@ export default function GeneExpression(p: GeneProps) {
 
       <CellFilter p={p} />
 
-      <p className="sub mt-2.5">{describe(p)}</p>
+      <p className="sub mt-2.5">{describe(p, ctName)}</p>
 
       <div className="mt-3.5">
         {p.genes.length === 0
@@ -384,7 +388,7 @@ function CellFilter({ p }: { p: GeneProps }) {
         <button className="chip" aria-expanded={open} onClick={() => setOpen(v => !v)}>
           {open ? '▾' : '▸'} Cell types in these plots
         </button>
-        <span className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+        <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
           {p.hidden.size === 0
             ? `all ${total}`
             : `${shown} of ${total} — hiding ${[...p.hidden].slice(0, 3)
@@ -392,32 +396,30 @@ function CellFilter({ p }: { p: GeneProps }) {
               p.hidden.size > 3 ? ` and ${p.hidden.size - 3} more` : ''}`}
         </span>
         {p.hidden.size > 0 && (
-          <button className="chip" onClick={() => p.onHidden(new Set())}>Show all</button>
+          <button className="btn btn-quiet" onClick={() => p.onHidden(new Set())}>Show all</button>
         )}
       </div>
       {open && (
-        <div className="mt-2 rounded-xl p-2" style={{ background: 'var(--sunk)' }}>
+        <div className="panel mt-2">
           <div className="grid gap-1"
             style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))' }}>
             {p.types.map((t, ti) => {
               const on = !p.hidden.has(ti)
               return (
                 <button key={t.key} onClick={() => toggle(ti)} aria-pressed={on}
-                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-left"
+                  className="type-toggle flex items-center gap-1.5 rounded-[--r-md] px-2 py-1 text-left"
                   style={{ opacity: on ? 1 : 0.45 }}>
                   <i className="sw flex-none" style={{ background: pal(ti, p.palKey) }} />
-                  <span className="min-w-0 flex-1 truncate text-[11.5px]">{t.name}</span>
-                  <span className="mono flex-none text-[10.5px]" style={{ color: 'var(--ink-3)' }}>
+                  <span className="min-w-0 flex-1 truncate tx-micro">{t.name}</span>
+                  <span className="mono flex-none tx-micro" style={{ color: 'var(--ink-3)' }}>
                     {counts[ti]?.toLocaleString() ?? 0}
                   </span>
                 </button>
               )
             })}
           </div>
-          <p className="mt-1.5 px-1 text-[11px]" style={{ color: 'var(--ink-3)' }}>
-            Only what these figures draw. No statistic is recomputed, and the markers,
-            differential expression and composition tabs are untouched — on the feature plot
-            a hidden population stays as the grey outline so the embedding keeps its shape.
+          <p className="mt-1.5 px-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+            These figures only. No statistic is recomputed and no other tab moves.
           </p>
         </div>
       )}
@@ -425,18 +427,22 @@ function CellFilter({ p }: { p: GeneProps }) {
   )
 }
 
-function describe(p: GeneProps) {
-  if (p.plot === 'dot')
-    return 'Every gene against every identity at once — the standard way to read a panel of markers. Dot size is the fraction of cells expressing the gene; colour is the average expression.'
+/**
+ * One clause naming what the figure below is.
+ *
+ * These were five paragraphs of 24 to 44 words explaining why each plot is
+ * drawn the way it is — the ordering rule, the shared scale, the independent y
+ * axes. All of it is true, and all of it is now in Methods; here it sat between
+ * the controls and the figure on every single visit.
+ */
+function describe(p: GeneProps, ctName: string) {
+  if (p.plot === 'dot') return 'Dot size is the fraction detected; colour is the mean.'
   if (p.plot === 'feature')
-    return `Expression on the embedding, one panel per gene${
-      p.groupBy !== 'type' && p.src.d.multi ? ", split by group and sharing that gene's scale" : ''
-    }. Cells with no detected transcript sit at the bottom of the colour scale, and positive cells are drawn last so they cannot be hidden underneath the negative majority.`
-  if (p.groupBy === 'type')
-    return 'One violin per cell type, every type on screen at once — this is the view that works on an object with no comparison at all. Each gene keeps its own y axis.'
-  if (p.groupBy === 'cond')
-    return `Groups in the object's own order, within ${p.ct} — for a time course that means 0 h first and 72 h last, never alphabetical.`
-  return 'Every cell type split by group. Dense on purpose: it is the fastest way to see whether a change is confined to one population.'
+    return `On the embedding, one panel per gene${
+      p.groupBy !== 'type' && p.src.d.multi ? ", split by group on that gene's scale" : ''}.`
+  if (p.groupBy === 'type') return 'One violin per cell type, each gene on its own y axis.'
+  if (p.groupBy === 'cond') return `Groups in the object's own order, within ${ctName}.`
+  return 'Every cell type split by group.'
 }
 
 /* ---------------- violin panel ---------------- */
@@ -495,7 +501,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   const maxPct = maxOf(pcts)
 
   return (
-    <Figure name={`${p.gene}_violin`} className="pt-5">
+    <Figure name={`${p.gene}_violin`}>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${p.gene} expression`}>
         <text x={PL} y={11} style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)', fontStyle: 'italic' }}>
           {p.gene}
@@ -661,7 +667,7 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
 
   return (
     <>
-      <Figure name="dotplot" className="pt-5">
+      <Figure name="dotplot" className="mt-2">
         <div className="overflow-x-auto">
           <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
             aria-label={`Dot plot of ${genes.join(', ')}`}>
@@ -740,15 +746,13 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
         </div>
       </Figure>
 
+      {/* Which of the two things the colour means. It is the most misread
+          property of this figure, so it is stated on the figure — but as the
+          claim, not the argument, which is in Methods. */}
       <p className="sub mt-2.5">
         {p.dotScale
-          ? <>Colour is <b>z-scored down each gene&rsquo;s column</b>, as in Seurat&rsquo;s{' '}
-             <code className="mono">scale = TRUE</code> default — it shows <em>where</em> a gene is
-             highest, not how abundant it is. A gene expressed evenly everywhere comes out
-             uniformly pale. Turn scaling off to compare absolute levels.</>
-          : <>Colour is the raw mean normalized expression, on one scale for every gene. Genes of
-             very different abundance are now comparable, but a gene&rsquo;s own pattern across
-             identities is harder to see than with scaling on.</>}
+          ? <>Colour is <b>z-scored per gene</b> — where a gene is highest, not how much of it.</>
+          : <>Colour is the raw mean, on one scale for every gene.</>}
       </p>
     </>
   )
@@ -779,7 +783,7 @@ function FeaturePlot(p: GeneProps) {
       </div>
       <div className="legend mt-3.5">
         <span style={{ color: 'var(--ink-3)' }}>0 · not detected</span>
-        <span className="inline-block h-2.5 w-[140px] rounded-[3px]" style={{ background: rampCss(p.rampKey) }} />
+        <span className="inline-block h-2.5 w-[140px] rounded-[--r-sm]" style={{ background: rampCss(p.rampKey) }} />
         <span style={{ color: 'var(--ink-3)' }}>{p.clip === 1 ? 'max' : `${(p.clip * 100).toFixed(0)}th pct`}</span>
         <span style={{ color: 'var(--ink-3)' }}>
           · each gene on its own scale · positive cells drawn last
@@ -831,13 +835,13 @@ function FeatureRow({ p, gene, panels, size, scrolls }: {
           that is reference rather than figure: the accession, which belongs
           beside the plot on screen and in a methods line, not on the plot. */}
       {accession && (
-        <figcaption className="mono mb-1 text-[10.5px]" style={{ color: 'var(--ink-3)' }}>
+        <figcaption className="mono mb-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
           {accession}
         </figcaption>
       )}
       {panels.length > 1 && drawn < panels.length && (
         <div role="status" className="mb-1.5">
-          <div className="flex items-baseline justify-between text-[11px]"
+          <div className="flex items-baseline justify-between tx-micro"
             style={{ color: 'var(--ink-3)' }}>
             <span>drawing {panels.length} panels…</span>
             <span className="mono">{drawn} of {panels.length}</span>
@@ -940,7 +944,7 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
     >
       <canvas
         ref={ref} width={Math.round(size * 2)} height={panelHeight(Math.round(size * 2))}
-        style={{ width: '100%', maxWidth: Math.round(size), height: 'auto', borderRadius: 9 }}
+        style={{ width: '100%', maxWidth: Math.round(size), height: 'auto', borderRadius: 'var(--r-md)' }}
       />
     </Figure>
   )

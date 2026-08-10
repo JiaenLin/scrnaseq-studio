@@ -116,10 +116,8 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
     <>
       <Card
         eyebrow="Gene sets" title="Module score, per cell"
-        sub={<>Seurat&rsquo;s <Mono>AddModuleScore</Mono> / Scanpy&rsquo;s <Mono>score_genes</Mono>:
-          the mean of the set minus the mean of a control set matched on expression level. The
-          subtraction is what makes zero meaningful — a raw mean would just rank signatures by how
-          abundant their genes happen to be.</>}
+        sub={<>Seurat&rsquo;s <Mono>AddModuleScore</Mono>: the set&rsquo;s mean, minus a control
+          set matched on expression level.</>}
       >
         <div className="mt-3.5 flex flex-wrap items-center gap-2">
           <Seg<'lib' | 'own'>
@@ -141,14 +139,14 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
                 aria-label="Custom gene set"
                 onChange={e => setCustom(e.target.value)}
               />
-              <button className="chip"
+              <button className="btn btn-quiet"
                 onClick={() => setCustom(GENE_SETS[1].genes.join(', '))}>Load example</button>
-              <button className="chip" onClick={() => setCustom('')}>Clear</button>
+              <button className="btn btn-quiet" onClick={() => setCustom('')}>Clear</button>
             </>
           )}
         </div>
 
-        <p className="mt-2.5 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+        <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
           {`${used.length} of ${requested.length} genes found in this object`}
           {missing.length > 0 && (
             <> · <span style={{ color: 'var(--warn)' }}>not measured:{' '}
@@ -173,7 +171,7 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
           <>
             <div className="mt-4 flex flex-wrap items-start gap-5">
               <figure>
-                <figcaption className="mb-1.5 text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>
+                <figcaption className="mb-1.5 tx-small font-semibold" style={{ color: 'var(--ink)' }}>
                   {name} on the embedding
                 </figcaption>
                 <Figure name={`module_score_${slug(name)}`}>
@@ -231,9 +229,8 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
                     onClick={() => onPickGene(g)}>{g}</button>
                 ))}
               </div>
-              <p className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
-                Click any gene to open it in <b>Gene expression</b> and see whether the score is
-                carried by the whole set or by one or two members.
+              <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
+                Click a gene to see whether it carries the score on its own.
               </p>
             </div>
 
@@ -245,9 +242,7 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
               <ScoreViolins scores={scoreOf} ids={ids} perId={perId} groupBy={groupBy} />
             </Figure>
             <p className="sub mt-2.5">
-              A score near zero means the set is no higher than genes of comparable abundance in
-              that cell — which is why the dashed line at zero, not the lowest value, is the
-              reference.
+              Zero is the reference: no higher than genes of comparable abundance.
             </p>
           </>
         )}
@@ -360,7 +355,7 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
 
   return (
     <canvas ref={ref} width={size * 2} height={size * 2 + Math.round(BAR_U * (size * 2) / 640)}
-      style={{ width: '100%', maxWidth: size, height: 'auto', borderRadius: 10 }} />
+      style={{ width: '100%', maxWidth: size, height: 'auto', borderRadius: 'var(--r-md)' }} />
   )
 }
 
