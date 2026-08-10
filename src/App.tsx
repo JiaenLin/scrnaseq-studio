@@ -149,6 +149,12 @@ export default function App() {
   // and a dot plot asks them to judge dozens at a glance. mako, SCpubr's own
   // default, is one menu click away for anyone who wants a perceptual map.
   const [rampKey, setRampKey] = useState<RampKey>('blue')
+  // The diverging choice is remembered separately from the sequential one.
+  // They describe different quantities — a z-score has a meaningful zero and
+  // raw expression does not — so a reader who picks blue-white-red for the
+  // scaled dot plot should not find raw expression drawn on it, or lose their
+  // diverging choice every time they toggle scaling off and back.
+  const [rampDiv, setRampDiv] = useState<RampKey>('rdbu')
   // Figure options for the gene tab. Here rather than inside it so a trip to
   // Markers and back does not quietly restore a population the reader took out
   // and then keep drawing it.
@@ -509,6 +515,7 @@ export default function App() {
                 plot={plot} groupBy={groupBy} cols={cols} relative={relative} dotScale={dotScale}
                 palKey={palKey} rampKey={rampKey}
                 hidden={hiddenTypes} clip={featureClip} borders={cellBorders}
+                rampDiv={rampDiv} onRampDiv={setRampDiv}
                 onGenes={applyGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
                 onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey}
                 onHidden={setHiddenTypes} onClip={setFeatureClip} onBorders={setCellBorders} />

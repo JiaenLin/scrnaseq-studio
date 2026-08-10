@@ -7,6 +7,7 @@ import {
   type CompField, type CompTable,
 } from '../lib/composition.ts'
 import { downloadCsv } from '../lib/download.ts'
+import { MARK_EDGE } from '../lib/figure-ink.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Empty, Legend } from './Ui.tsx'
@@ -443,7 +444,7 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
       </defs>
       {[0, 0.25, 0.5, 0.75, 1].map(f => (
         <g key={f}>
-          <line className="axline" x1={X(f)} x2={X(f)} y1={PT} y2={H - AX + 2} opacity=".55" />
+          <line className="axgrid" x1={X(f)} x2={X(f)} y1={PT} y2={H - AX + 2} />
           <text className="axis" x={X(f)} y={H - 8} textAnchor="middle">{f * 100}%</text>
         </g>
       ))}
@@ -491,7 +492,8 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
                 acc += p
                 return (
                   <g key={pi}>
-                    <rect x={xa} y={y} width={Math.max(0, xb - xa)} height={rowH} fill={pal(pi, palKey)}>
+                    <rect x={xa} y={y} width={Math.max(0, xb - xa)} height={rowH}
+                      fill={pal(pi, palKey)} stroke={MARK_EDGE} strokeWidth={0.4}>
                       <title>{pn} — {(p * 100).toFixed(1)}% ({c.toLocaleString('en-US')} cells)</title>
                     </rect>
                     {/* A number only where it fits; a clipped "1%" is worse than none. */}
@@ -531,7 +533,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
         </text>
         {[0, 1, 2].map(k => (
           <g key={k}>
-            <line className="axline" x1={PL} x2={W - PR} y1={Y(step * k)} y2={Y(step * k)} opacity=".4" />
+            <line className="axgrid" x1={PL} x2={W - PR} y1={Y(step * k)} y2={Y(step * k)} />
             <text className="axis" x={PL - 5} y={Y(step * k) + 3.5} textAnchor="end">{pctTxt(step * k)}</text>
           </g>
         ))}

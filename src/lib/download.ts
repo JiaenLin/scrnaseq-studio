@@ -56,10 +56,35 @@ export const FIGURE_INCHES = 3.5
 export const scaleForDpi = (px: number, dpi: number): number =>
   Math.max(1, (FIGURE_INCHES * dpi) / Math.max(1, px))
 
+/**
+ * Read the figure as if the app were in light mode, whatever it is in.
+ *
+ * Everything below inlines COMPUTED colours and then puts the figure on a white
+ * plate. Exported from dark mode that produced pale text and pale axes on
+ * white — a blank-looking figure that had been silently broken for as long as
+ * the app has had a dark theme, because nobody exports from the theme they are
+ * not using.
+ *
+ * The class is stamped on the root and removed in a `finally`, and the caller
+ * clones while it is on: getComputedStyle is synchronous, so no frame is
+ * painted in between and the user never sees a flash.
+ */
+function forceLightFigures<T>(read: () => T): T {
+  const root = document.documentElement
+  const had = root.getAttribute('data-theme')
+  root.setAttribute('data-theme', 'light')
+  try {
+    return read()
+  } finally {
+    if (had === null) root.removeAttribute('data-theme')
+    else root.setAttribute('data-theme', had)
+  }
+}
+
 /** Clone with every computed style inlined, on a white plate, ready to write. */
 function portableSvg(svg: SVGSVGElement): { xml: string; w: number; h: number } {
   const clone = svg.cloneNode(true) as SVGSVGElement
-  inlineStyles(svg, clone)
+  forceLightFigures(() => inlineStyles(svg, clone))
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   const box = svg.viewBox.baseVal
   const w = box?.width || svg.clientWidth || 800
@@ -92,31 +117,16 @@ export function svgToFile(svg: SVGSVGElement, name: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-/** Rasterize an inline <svg> and save it. `scale` 2 gives a figure-quality PNG. */
+/**
+ * Rasterize an inline <svg> and save it. `scale` 2 gives a figure-quality PNG.
+ *
+ * Through the same portableSvg the vector export uses. It had its own copy of
+ * the clone-inline-plate sequence, which is how the two exports of one figure
+ * came to differ: the fix that forces light-mode ink landed in one of them.
+ */
 export async function svgToPng(svg: SVGSVGElement, name: string, scale = 2): Promise<void> {
-  const clone = svg.cloneNode(true) as SVGSVGElement
-  inlineStyles(svg, clone)
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-
-  const box = svg.viewBox.baseVal
-  const w = box?.width || svg.clientWidth || 800
-  const h = box?.height || svg.clientHeight || 400
-  clone.setAttribute('width', String(w))
-  clone.setAttribute('height', String(h))
-
-  // A white plate, so the PNG is usable in a manuscript regardless of the theme
-  // the figure was exported from.
-  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-  bg.setAttribute('x', String(box?.x ?? 0))
-  bg.setAttribute('y', String(box?.y ?? 0))
-  bg.setAttribute('width', String(w))
-  bg.setAttribute('height', String(h))
-  bg.setAttribute('fill', '#ffffff')
-  clone.insertBefore(bg, clone.firstChild)
-
-  const blob = new Blob([new XMLSerializer().serializeToString(clone)], {
-    type: 'image/svg+xml;charset=utf-8',
-  })
+  const { xml, w, h } = portableSvg(svg)
+  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   try {
     const img = new Image()

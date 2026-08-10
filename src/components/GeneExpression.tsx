@@ -9,7 +9,10 @@ import {
 import { drawFeature, panelHeight } from '../lib/feature-plot.ts'
 import { AXIS_INK, GRID_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
-import { mix, pal, rampColor, rampCss, RAMPS, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import {
+  DIVERGING, mix, pal, rampColor, rampCss, RAMPS, SEQUENTIAL, symmetricRange,
+  type PaletteKey, type RampKey,
+} from '../lib/palette.ts'
 import Figure from './Figure.tsx'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { Card, Chips, Seg } from './Ui.tsx'
@@ -45,6 +48,16 @@ export interface GeneProps {
   clip: number
   /** A ring around each cell on the feature plot. */
   borders: boolean
+  /**
+   * The scale used when the dot plot z-scores each gene.
+   *
+   * Separate from `rampKey` because it describes a different quantity. A
+   * z-score has a meaningful zero and raw expression does not, so the two want
+   * different kinds of scale and the reader's choice of each should survive
+   * toggling between them.
+   */
+  rampDiv: RampKey
+  onRampDiv: (k: RampKey) => void
   onHidden: (h: Set<number>) => void
   onClip: (v: number) => void
   onBorders: (v: boolean) => void
@@ -228,12 +241,16 @@ export default function GeneExpression(p: GeneProps) {
                 it was only ever shown on the feature plot, so the one figure
                 most likely to go into a paper had no way to change its colours. */}
             <div className="gsep h-6" />
+            {/* Diverging scales while the values are z-scores, sequential ones
+                while they are expression. Offering all of them in both modes
+                lets a reader put raw expression — which starts at zero and has
+                no negative side — on a scale whose whole point is the sign. */}
             <label className="flex items-center gap-1.5">
               <span className="glabel">Colour</span>
-              <select className="sel" value={p.rampKey}
-                onChange={e => p.onRamp(e.target.value as RampKey)}>
-                {Object.entries(RAMPS).map(([k, r]) => (
-                  <option key={k} value={k}>{r.label}</option>
+              <select className="sel" value={p.dotScale ? p.rampDiv : p.rampKey}
+                onChange={e => (p.dotScale ? p.onRampDiv : p.onRamp)(e.target.value as RampKey)}>
+                {(p.dotScale ? DIVERGING : SEQUENTIAL).map(k => (
+                  <option key={k} value={k}>{RAMPS[k].label}</option>
                 ))}
               </select>
             </label>
@@ -464,7 +481,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
           const t = lo + (hi - lo) * f
           return (
             <g key={f}>
-              <line className="axline" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} opacity=".4" />
+              <line className="axgrid" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} />
               <text className="axis" x={PL - 5} y={Y(t) + 3.5} textAnchor="end">{t.toFixed(1)}</text>
             </g>
           )
@@ -501,7 +518,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
           const label = t.name.length > maxCh ? `${t.name.slice(0, maxCh - 1)}…` : t.name
           return (
             <g key={t.key}>
-              {ti > 0 && <line className="axline" x1={x0} x2={x0} y1={PT} y2={H - PB + DET + 2} opacity=".5" />}
+              {ti > 0 && <line className="axgrid" x1={x0} x2={x0} y1={PT} y2={H - PB + DET + 2} />}
               <text className="axis" x={x0 + block / 2} y={H - 5} textAnchor="middle"
                 style={{ fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>
                 {label}<title>{t.name}</title>
@@ -538,15 +555,24 @@ function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet }: {
   const bwid = Math.max(1, bw * 0.62 * pct)
   return (
     <>
-      <polygon points={pts} fill={col} opacity=".26" />
-      <line x1={cx} x2={cx} y1={Y(q.q1)} y2={Y(q.q3)} stroke={col}
-        strokeWidth={Math.max(2, Math.min(6, bw * 0.34))} opacity=".65" />
+      {/* Outlined, as SCpubr outlines every mark. A 26%-opacity fill with no
+          edge has no boundary against the page, so two adjacent violins of
+          similar shape merge into one silhouette — which is exactly the
+          comparison the figure exists to support. The fill stays translucent
+          so the box still reads through it. */}
+      <polygon points={pts} fill={col} fillOpacity={0.32}
+        stroke={MARK_EDGE} strokeWidth={0.6} />
+      {/* The box drawn dark rather than in the category colour: it summarises
+          the distribution rather than being another instance of it, and in the
+          same hue at 65% it read as a denser part of the violin. */}
+      <line x1={cx} x2={cx} y1={Y(q.q1)} y2={Y(q.q3)} stroke="#1F2430"
+        strokeWidth={Math.max(2, Math.min(6, bw * 0.34))} />
       <line x1={cx - Math.min(8, bw * 0.4)} x2={cx + Math.min(8, bw * 0.4)}
-        y1={Y(q.med)} y2={Y(q.med)} stroke={col} strokeWidth={2} />
+        y1={Y(q.med)} y2={Y(q.med)} stroke="#ffffff" strokeWidth={1.8} />
       {/* Detection bar. Without it a gene with heavy dropout is just a spike
           at zero, with no way to tell "absent here" from "absent everywhere". */}
       <rect x={cx - bwid / 2} y={yDet} width={bwid} height={3.5} rx={1.75}
-        fill={col} opacity=".8">
+        fill={col} stroke={MARK_EDGE} strokeWidth={0.4}>
         <title>{(pct * 100).toFixed(0)}% of cells detect {gene}</title>
       </rect>
     </>
@@ -590,8 +616,11 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
     const sd = Math.sqrt(col.reduce((a, b) => a + (b - m) ** 2, 0) / col.length) || 1
     return col.map(x => Math.max(-2.5, Math.min(2.5, (x - m) / sd)))
   })
-  const lo = p.dotScale ? -2.5 : 0
-  const hi = p.dotScale ? 2.5 : Math.max(maxOfAll(avg), 0.01)
+  // Symmetric limits when scaled — SCpubr's enforce_symmetry. A diverging
+  // scale means nothing unless its neutral sits on the neutral value, and
+  // ±2.5 is where Seurat clips a z-scored dot plot anyway.
+  const [lo, hi] = p.dotScale ? symmetricRange(-2.5, 2.5) : [0, Math.max(maxOfAll(avg), 0.01)]
+  const ramp = p.dotScale ? p.rampDiv : p.rampKey
   const radius = (f: number) => +(1.4 + f * 9).toFixed(2)
   const X = (gi: number) => PL + cw * (gi + 0.5)
   const Y = (ri: number) => PT + rh * (ri + 0.5)
@@ -638,7 +667,7 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
                 // Without it a z-scored plot is mostly pale dots with no border,
                 // and the reader cannot tell a small faint dot from the page.
                 <circle key={`${r.full}-${g}`} cx={X(gi)} cy={Y(ri)} r={radius(pct)}
-                  fill={rampColor((cv[gi][ri] - lo) / (hi - lo), p.rampKey)}
+                  fill={rampColor((cv[gi][ri] - lo) / (hi - lo), ramp)}
                   stroke={MARK_EDGE} strokeWidth={0.7}>
                   <title>
                     {g} in {r.full} — {(pct * 100).toFixed(0)}% of cells,
@@ -666,7 +695,7 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
                 consults per mark; the size key is read once. */}
             <ColorBar
               cx={PL + (W - PL) * 0.32} y={H - legendH + 22} w={BAR_W} h={11}
-              ramp={p.rampKey} lo={lo} hi={hi}
+              ramp={ramp} lo={lo} hi={hi}
               breaks={p.dotScale ? [-2.5, -1.25, 0, 1.25, 2.5] : undefined}
               title={p.dotScale ? 'Avg. Exp. (z-scored)' : 'Avg. Exp.'}
               id="dotplot-bar"

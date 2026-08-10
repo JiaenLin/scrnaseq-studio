@@ -471,7 +471,7 @@ export function Volcano(p: StatsProps) {
           })}
           {ticks.map(t => (
             <g key={t}>
-              <line className="axline" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} opacity=".4" />
+              <line className="axgrid" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} />
               <text x={PL - 7} y={Y(t) + 3.5} textAnchor="end"
                 style={{ fontSize: 10.5, fill: AXIS_INK }}>{t}</text>
             </g>

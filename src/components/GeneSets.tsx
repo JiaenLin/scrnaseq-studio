@@ -397,7 +397,7 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
           const t = y0 + (y1 - y0) * f
           return (
             <g key={f}>
-              <line className="axline" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} opacity=".4" />
+              <line className="axgrid" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} />
               <text className="axis" x={PL - 5} y={Y(t) + 3.5} textAnchor="end">{t.toFixed(2)}</text>
             </g>
           )

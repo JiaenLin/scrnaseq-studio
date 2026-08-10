@@ -62,6 +62,16 @@ export const RAMPS = {
   viridis: { label: 'viridis', cols: ['#FDE725', '#7AD151', '#22A884', '#2A788E', '#414487', '#440154'] },
   magma:   { label: 'magma', cols: ['#FCFDBF', '#FE9F6D', '#DE4968', '#8C2981', '#3B0F70', '#000004'] },
   seurat:  { label: 'Seurat · grey → blue', cols: ['#D9DCE3', '#7D8FD6', '#1E40C8'] },
+  // Diverging, through a neutral. For a quantity with a meaningful zero — a
+  // z-score, a log fold change — where the reader's first question is which
+  // side of nothing a value is on. A sequential ramp answers that with a shade
+  // and forces a trip to the legend; a diverging one answers it with a hue.
+  rdbu:    { label: 'Diverging · blue–white–red',
+             cols: ['#2166AC', '#67A9CF', '#D1E5F0', '#F7F7F7', '#FDDBC7', '#EF8A62', '#B2182B'] },
+  prgn:    { label: 'Diverging · purple–white–green',
+             cols: ['#762A83', '#AF8DC3', '#E7D4E8', '#F7F7F7', '#D9F0D3', '#7FBF7B', '#1B7837'] },
+  brbg:    { label: 'Diverging · brown–white–teal',
+             cols: ['#8C510A', '#D8B365', '#F6E8C3', '#F5F5F5', '#C7EAE5', '#5AB4AC', '#01665E'] },
 } satisfies Record<string, Palette>
 
 export type PaletteKey = keyof typeof PALETTES
@@ -69,6 +79,26 @@ export type RampKey = keyof typeof RAMPS
 
 /** The two-colour family, so a menu can group them apart from the maps. */
 export const TWO_COLOUR: RampKey[] = ['blue', 'red', 'teal', 'purple']
+
+/** Scales built around a neutral middle, for a quantity with a real zero. */
+export const DIVERGING: RampKey[] = ['rdbu', 'prgn', 'brbg']
+
+/** Everything that is not diverging — a scale for a quantity that starts at 0. */
+export const SEQUENTIAL: RampKey[] = (Object.keys(RAMPS) as RampKey[])
+  .filter(k => !DIVERGING.includes(k))
+
+/**
+ * Limits that put zero in the middle — SCpubr's `enforce_symmetry`.
+ *
+ * A diverging scale only means anything if its neutral sits on the neutral
+ * value. Given −0.4 … 3.1 it returns ±3.1, so white is 0 and a red dot is
+ * genuinely above zero rather than merely above the middle of whatever range
+ * the data happened to span.
+ */
+export function symmetricRange(lo: number, hi: number): [number, number] {
+  const m = Math.max(Math.abs(lo), Math.abs(hi)) || 1
+  return [-m, m]
+}
 
 const hex = (s: string) => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16))
 

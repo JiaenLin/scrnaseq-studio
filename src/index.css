@@ -28,6 +28,15 @@
   --good-soft: #ecfdf5;
   --bad: #b91c1c;
   --lo: #2563eb;
+
+  /* Figure ink, separate from interface ink.
+     A figure leaves this app for a white page, and SCpubr sets axis.text and
+     axis.ticks to black for that reason: the greys the interface uses to stay
+     quiet read as faint or missing once printed. These stay legible on screen
+     in either theme and are forced to the light values on export. */
+  --fig-ink: #000000;
+  --fig-line: #000000;
+  --fig-grid: #dcdfe4;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -50,6 +59,23 @@
     --good-soft: rgba(16, 185, 129, 0.12);
     --bad: #f87171;
     --lo: #60a5fa;
+
+    /* Legible on a dark screen. Export overrides these back to the light
+       values, because the exported plate is white whatever theme it was
+       saved from — see forceLightFigures in lib/download.ts. */
+    --fig-ink: #e6eaf2;
+    --fig-line: #c7cedb;
+    --fig-grid: #2a3040;
+  }
+
+  /* Export stamps this on the root while it reads the computed colours, so a
+     figure saved from dark mode carries the ink it will be printed with rather
+     than pale text on the white plate. Only the figure variables: the interface
+     is not what is being exported. */
+  :root[data-theme='light'] {
+    --fig-ink: #000000;
+    --fig-line: #000000;
+    --fig-grid: #dcdfe4;
   }
 }
 
@@ -295,13 +321,23 @@ svg {
     height: 9px;
   }
 
+  /* Every figure axis in the studio is one of these three. Changing them here
+     changes all of them, which is the point: an app whose figures are styled
+     one component at a time ends up with six dialects of the same axis. */
   .axis {
-    fill: var(--ink-3);
-    font-size: 10px;
+    fill: var(--fig-ink);
+    font-size: 10.5px;
   }
   .axline {
-    stroke: var(--line-2);
-    stroke-width: 1;
+    stroke: var(--fig-line);
+    stroke-width: 0.9;
+  }
+  /* Behind the data, never competing with it. Separate from .axline because
+     the two were the same class dimmed with an opacity attribute, which meant
+     a real axis and a gridline could only ever differ by how faint they were. */
+  .axgrid {
+    stroke: var(--fig-grid);
+    stroke-width: 0.6;
   }
 
   .prose-methods {

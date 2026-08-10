@@ -5,6 +5,7 @@ import { runORA, type ORAResult } from '../lib/ora.ts'
 import { maxOf, sci } from '../lib/chart.ts'
 import { combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
+import { MARK_EDGE } from '../lib/figure-ink.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { Card, Chips, Empty, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
@@ -273,7 +274,7 @@ function Bars({ results, palKey, onPick, selected }: {
         aria-label="Enriched gene sets">
         {ticks.map(t => (
           <g key={t}>
-            <line className="axline" x1={X(t)} x2={X(t)} y1={PT} y2={H - AX + 2} opacity=".5" />
+            <line className="axgrid" x1={X(t)} x2={X(t)} y1={PT} y2={H - AX + 2} />
             <text className="axis" x={X(t)} y={H - AX + 16} textAnchor="middle">{t.toFixed(1)}</text>
           </g>
         ))}
@@ -289,6 +290,7 @@ function Bars({ results, palKey, onPick, selected }: {
                 style={{ fontSize: 11.5, fill: 'var(--ink)',
                          fontWeight: r.id === selected ? 700 : 400 }}>{r.name}</text>
               <rect x={PL} y={y + 3} width={Math.max(1, X(v) - PL)} height={rowH - 6} rx={3}
+                stroke={MARK_EDGE} strokeWidth={0.4}
                 fill={pal(i, palKey)} opacity={r.id === selected ? 1 : 0.85}>
                 <title>{r.name} — {r.count}/{r.setSize} genes, adjusted p {r.padj.toExponential(1)}</title>
               </rect>
