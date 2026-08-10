@@ -54,7 +54,11 @@ export default function CondPicker({ label, all, value, other, onChange }: {
       <span className="glabel">{label}</span>
       <button
         className="sel text-left"
-        style={{ minWidth: 74, maxWidth: 230 }}
+        // Four pooled levels is "e7.0 + e8.0 + e13.0 + e13.5" — 26 characters,
+        // and at 230 px that truncated to an ellipsis on the one control whose
+        // whole job is to say which groups are being compared. It grows with
+        // what it holds instead of being clipped to a fixed width.
+        style={{ minWidth: 78, maxWidth: 420 }}
         aria-haspopup="listbox"
         aria-expanded={open}
         title={value.length > 1 ? `${value.length} groups pooled: ${text}` : text}
@@ -65,7 +69,7 @@ export default function CondPicker({ label, all, value, other, onChange }: {
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 top-full z-40 mt-1 min-w-[190px] rounded-xl p-1.5"
+          className="absolute left-0 top-full z-40 mt-1 min-w-[210px] rounded-xl p-1.5"
           style={{
             background: 'var(--surface)', border: '1px solid var(--line-2)',
             boxShadow: '0 10px 30px rgba(15,23,42,.16)',

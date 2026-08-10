@@ -326,6 +326,21 @@ export interface MarkersSpec {
   owner: Int32Array
   /** Cells per cluster, after that filter. */
   size: Int32Array
+  /**
+   * Which clusters to test. 1 for wanted, 0 to skip.
+   *
+   * It restricts what is REPORTED, never what a cluster is compared against:
+   * every cluster's "rest" is still every other cell in the object, including
+   * the cells of clusters nobody asked about. Narrowing the question must not
+   * quietly change the answer to it.
+   *
+   * It is also where the saving is. The gates are evaluated before the sort and
+   * a gene with no cluster passing skips the sort entirely — so asking about
+   * two clusters instead of twenty-four discards, unsorted, every gene that
+   * says nothing about those two. A gene expressed evenly everywhere has |lfc|
+   * near zero for any single cluster, and those are the dense, expensive genes.
+   */
+  want: Uint8Array
   nUsed: number
   nGenes: number
 }
@@ -372,7 +387,9 @@ export function wilcoxSpec(src: Source, ti: number, ctrl: Conds, cs: Conds): Wil
 }
 
 /** Which cells take part in FindAllMarkers, and which cluster each belongs to. */
-export function markersSpec(src: Source, cond?: string | null): MarkersSpec {
+export function markersSpec(
+  src: Source, cond?: string | null, want?: Iterable<number> | null,
+): MarkersSpec {
   const nT = src.types.length
   const n = src.d.cells.length
   const owner = new Int32Array(n)
@@ -385,7 +402,11 @@ export function markersSpec(src: Source, cond?: string | null): MarkersSpec {
     size[c.t]++
     nUsed++
   }
-  return { owner, size, nUsed, nGenes: src.genes.length }
+  // Absent means all of them, so an existing caller keeps its behaviour.
+  const mask = new Uint8Array(nT)
+  if (want == null) mask.fill(1)
+  else for (const c of want) if (c >= 0 && c < nT) mask[c] = 1
+  return { owner, size, want: mask, nUsed, nGenes: src.genes.length }
 }
 
 /**
@@ -446,6 +467,9 @@ export async function deWilcoxAsync(
  */
 export function markersPlan(spec: MarkersSpec) {
   const { owner, size, nUsed } = spec
+  // Older callers and cached specs predate the mask; all clusters is what they
+  // meant, and defaulting to none here would return an empty table in silence.
+  const want = spec.want ?? new Uint8Array(size.length).fill(1)
   const nT = size.length
   const rows: RawRow[][] = Array.from({ length: nT }, () => [])
 
@@ -513,6 +537,7 @@ export function markersPlan(spec: MarkersSpec) {
     // 43 % of the atlas's genes are in that state.
     let nPass = 0
     for (let c = 0; c < nT; c++) {
+      if (!want[c]) continue
       const n1 = size[c]
       const n2 = nUsed - n1
       if (n1 < MIN_CELLS_GROUP || n2 < MIN_CELLS_GROUP) continue

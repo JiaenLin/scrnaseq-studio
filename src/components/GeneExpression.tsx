@@ -799,6 +799,18 @@ function FeaturePlot(p: GeneProps) {
 function FeatureRow({ p, gene, panels, size, scrolls }: {
   p: GeneProps; gene: string; panels: (string | null)[]; size: number; scrolls: boolean
 }) {
+  /**
+   * How many panels have painted.
+   *
+   * Twenty panels over 292 495 cells is close to six million arcs, and every one
+   * of them is on the main thread — the row appears blank, then fills, with
+   * nothing to say which of those two states the reader is looking at. This is a
+   * count of finished panels rather than an indeterminate bar because here the
+   * remaining work IS known: the panels are the same size and there are twenty
+   * of them, so "8 of 20" is a fact rather than a guess.
+   */
+  const [drawn, setDrawn] = useState(0)
+  useEffect(() => { setDrawn(0) }, [gene, panels.length, size])
   // The whole-dataset values are needed for the shared clip, so compute once here.
   const { vals, top } = useMemo(() => {
     const v = p.src.vector(gene)
@@ -823,6 +835,21 @@ function FeatureRow({ p, gene, panels, size, scrolls }: {
           {accession}
         </figcaption>
       )}
+      {panels.length > 1 && drawn < panels.length && (
+        <div role="status" className="mb-1.5">
+          <div className="flex items-baseline justify-between text-[11px]"
+            style={{ color: 'var(--ink-3)' }}>
+            <span>drawing {panels.length} panels…</span>
+            <span className="mono">{drawn} of {panels.length}</span>
+          </div>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full"
+            style={{ background: 'var(--line)' }}>
+            <div className="h-full rounded-full"
+              style={{ background: 'var(--accent)', width: `${(drawn / panels.length) * 100}%`,
+                       transition: 'width 120ms linear' }} />
+          </div>
+        </div>
+      )}
       <div className={scrolls ? 'overflow-x-auto pb-1' : ''}>
       <div className="grid gap-2" style={{
         gridTemplateColumns: `repeat(${panels.length}, ${scrolls ? `${size}px` : 'minmax(0, 1fr)'})`,
@@ -830,7 +857,8 @@ function FeatureRow({ p, gene, panels, size, scrolls }: {
         {panels.map(pan => (
           <div key={pan ?? 'all'}>
             <FeatureCanvas p={p} vals={vals} top={top} cond={pan} size={size} gene={gene}
-              name={`${gene}${pan ? `_${pan}` : ''}_feature`} />
+              name={`${gene}${pan ? `_${pan}` : ''}_feature`}
+              onDrawn={() => setDrawn(n => n + 1)} />
           </div>
         ))}
       </div>
@@ -839,9 +867,10 @@ function FeatureRow({ p, gene, panels, size, scrolls }: {
   )
 }
 
-function FeatureCanvas({ p, vals, top, cond, size, name, gene }: {
+function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
   p: GeneProps; vals: Float32Array; top: number; cond: string | null; size: number
   name: string; gene: string
+  onDrawn?: () => void
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
@@ -882,7 +911,21 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene }: {
   useEffect(() => {
     const cv = ref.current
     const ctx = cv?.getContext('2d')
-    if (cv && ctx) drawFeature(ctx, cv.width, cv.height, spec, dark)
+    if (!cv || !ctx) return
+    // One frame before drawing, so the panel before this one is on screen
+    // first. Twenty panels drawn back to back in a single task paint all at
+    // once at the end — the row stays blank for the whole time and the progress
+    // bar, having no frame to render in, never moves. Yielding costs a frame
+    // per panel and buys a row that fills in front of the reader.
+    let live = true
+    const id = requestAnimationFrame(() => {
+      if (!live) return
+      drawFeature(ctx, cv.width, cv.height, spec, dark)
+      onDrawn?.()
+    })
+    return () => { live = false; cancelAnimationFrame(id) }
+    // onDrawn is a fresh closure every render and is not a reason to redraw.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spec, dark])
 
   return (

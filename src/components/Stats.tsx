@@ -3,12 +3,13 @@ import type { CellType, DERow, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
   condLabel, deWilcox, designFor, inConds, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP,
-  MIN_REPS_PB, PCT_GATE, pseudobulkColumns, wilcoxSpec, type DEResult,
+  MIN_REPS_PB, PCT_GATE, pseudobulkColumns, sameOrOverlapping, wilcoxSpec, type DEResult,
 } from '../lib/stats.ts'
 import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt, maxOf } from '../lib/chart.ts'
+import { condKey } from '../lib/source.ts'
 import { AXIS_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { KeyRow } from './svg-parts.tsx'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
@@ -65,8 +66,12 @@ const contrastLabel = (p: StatsProps) =>
  */
 function useDE(p: StatsProps) {
   return useJob<'wilcox'>(
-    p.src, 'de', `de|${p.ti}|${condLabel(p.ctrl)}|${condLabel(p.cs)}`,
-    p.method === 'wilcox' && p.ctrl !== p.cs,
+    p.src, 'de', `de|${p.ti}|${condKey(p.ctrl)}|${condKey(p.cs)}`,
+    // `computed` is the reader's go-ahead for THIS contrast. Without it every
+    // click in the group pickers started a whole-transcriptome pass — and with
+    // sets, choosing four levels a side is seven clicks and seven passes, six
+    // of them cancelled a moment after they began.
+    p.method === 'wilcox' && !sameOrOverlapping(p.ctrl, p.cs) && p.computed,
     () => deWilcox(p.src, p.ti, p.ctrl, p.cs),
     // A fresh spec every time: the engine transfers these arrays rather than
     // copying them, so a reused one would arrive detached.
@@ -159,9 +164,23 @@ export function ThresholdBar(p: StatsProps) {
 
 /** Results, or the reason there are none — never a substitute number. */
 function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
-  if (p.ctrl === p.cs)
-    return <Empty title="Pick two different groups">
-      Control and comparison are both set to <b>{condLabel(p.ctrl)}</b>.
+  if (sameOrOverlapping(p.ctrl, p.cs))
+    return <Empty title="Pick two groups with no level in common">
+      Control is <b>{condLabel(p.ctrl)}</b> and compare is <b>{condLabel(p.cs)}</b>. A level on
+      both sides would put the same cells in both groups, which is not a comparison.
+    </Empty>
+
+  // Not asked for yet. Every gene against every cell of two groups reads the
+  // whole object, and picking a group is not a request to spend that.
+  if (!p.computed)
+    return <Empty title="Not computed yet">
+      <div className="mx-auto max-w-[520px]">
+        Every gene is tested in <b>{p.t.name}</b>: <b>{condLabel(p.cs)}</b> against{' '}
+        <b>{condLabel(p.ctrl)}</b>. That reads the whole object once, so it waits until you
+        ask — change the groups above as often as you like first, nothing runs until you
+        press this.
+      </div>
+      <button className="btn btn-primary mt-3.5" onClick={p.onRun}>Run this comparison</button>
     </Empty>
 
   const d = designFor(p.src, p.ti, p.ctrl, p.cs)

@@ -3,7 +3,7 @@ import type { CellType, ColorBy, GroupBy, Method, PlotKind, TabId } from './type
 import { parseBundle } from './lib/bundle.ts'
 import { readCollectionIndex } from './lib/collection.ts'
 import { openCollection } from './lib/collection-source.ts'
-import { bundleSource, demoSource, type Source } from './lib/source.ts'
+import { bundleSource, condKey, demoSource, type Source } from './lib/source.ts'
 import { designFor, thresholdFor } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
@@ -145,6 +145,10 @@ export default function App() {
   const [relative, setRelative] = useState(false)
   const [dotScale, setDotScale] = useState(true)
   const [genes, setGenes] = useState<string[]>([])
+  // Which contrast the reader has actually asked for. Up here with the other
+  // state rather than beside the props it feeds, because everything below the
+  // "no object open" return is conditional and a hook cannot be.
+  const [deRan, setDeRan] = useState<string | null>(null)
 
   // Bumped by the error boundary's Try again, and part of its key, so that one
   // click both rebuilds the view from current state and gives it a boundary that
@@ -282,11 +286,22 @@ export default function App() {
     setLfcMin(thresholdFor(m).lfc)
   }
 
+  // Which contrast the reader has actually asked for. Held here rather than in
+  // a tab because the DEG table, the volcano and enrichment are three views of
+  // ONE pass — pressing run on any of them has to satisfy the other two, and
+  // changing a group has to un-ask all three at once.
+  //
+  // An object in memory answers instantly, so it is always armed: a Run button
+  // in front of a result that is already there is a button that does nothing
+  // visible, and readers learn to press it without reading it.
+  const deKey = `${ti}|${condKey(ctrl)}|${condKey(cs)}`
+  const armed = !src.lazy || deRan === deKey
+
   const statsProps: StatsProps = {
     src, t, ti, ctrl, cs, method, padjMax, lfcMin,
-    running: false, computed: true,
+    running: false, computed: armed,
     onMethod: changeMethod,
-    onRun: () => {},
+    onRun: () => setDeRan(deKey),
     onPadj: setPadjMax,
     onLfc: setLfcMin,
     onPickGene: pickGene,
@@ -409,10 +424,14 @@ export default function App() {
             {needs.contrast && d.multi && (
               <>
                 {(needs.ct || showEmb) && <div className="gsep" />}
+                {/* Their own line once several levels are pooled. Side by side
+                    with the cell type and the design badge, two 26-character
+                    labels leave nothing for either of them. */}
                 <CondPicker label="Control" all={d.conds} value={ctrl} other={cs}
                   onChange={setCtrl} />
                 <CondPicker label="Compare" all={d.conds} value={cs} other={ctrl}
                   onChange={setCs} />
+                {(ctrl.length > 1 || cs.length > 1) && <div className="basis-full" />}
               </>
             )}
             {geneBusy && (
