@@ -574,12 +574,11 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
   // HTML beside it, so every exported dot plot arrived in a manuscript with no
   // size key and no colour bar — the two things that make the marks mean
   // anything.
-  const legendH = 62
-  // Wide enough for the legend, not just for the data. The colour bar's title
-  // is the longest string in the figure and was being cut off at the edge —
-  // "Average expression (scale".
-  const BAR_X = 200, BAR_W = 130
-  const W = Math.max(PL + genes.length * cw + PR, PL + BAR_X + BAR_W + 26)
+  // Wide enough for the legends, not just for the data — the two keys sit side
+  // by side under the panel and the figure has to make room for them.
+  const legendH = 74
+  const BAR_W = 150
+  const W = Math.max(PL + genes.length * cw + PR, PL + 430)
   const plotB = PT + rows.length * rh
   const H = plotB + labelH + legendH
 
@@ -662,13 +661,18 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
               )
             })}
 
-            <SizeKey x={PL} y={H - legendH + 20} title="Cells expressing (%)" radius={radius} />
+            {/* Both keys centred under the panel, SCpubr's legend.position =
+                "bottom". The colour bar leads because it is the one a reader
+                consults per mark; the size key is read once. */}
             <ColorBar
-              x={PL + BAR_X} y={H - legendH + 20} w={BAR_W} h={9}
-              ramp={p.rampKey} lo={lo} hi={p.dotScale ? hi : +hi.toFixed(1)}
-              title={p.dotScale ? 'Mean expression (z)' : 'Mean expression'}
+              cx={PL + (W - PL) * 0.32} y={H - legendH + 22} w={BAR_W} h={11}
+              ramp={p.rampKey} lo={lo} hi={hi}
+              breaks={p.dotScale ? [-2.5, -1.25, 0, 1.25, 2.5] : undefined}
+              title={p.dotScale ? 'Avg. Exp. (z-scored)' : 'Avg. Exp.'}
               id="dotplot-bar"
             />
+            <SizeKey cx={PL + (W - PL) * 0.78} y={H - legendH + 22}
+              title="Percent Expressed" radius={radius} />
           </svg>
         </div>
       </Figure>

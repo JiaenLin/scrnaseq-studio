@@ -11,6 +11,8 @@
 // width, not in pixels.
 
 import type { Cell } from '../types.ts'
+import { breaksOf, fmtBreak } from './breaks.ts'
+import { FRAME_INK, TICK_INK } from './figure-ink.ts'
 import { rampColor, type RampKey } from './palette.ts'
 
 export interface FeatureDraw {
@@ -61,7 +63,7 @@ const GHOST = '#E2E5EA'
 const GHOST_DARK = '#2A2F3A'
 
 /** Title and colour-bar strips, in the same 640-wide units as everything else. */
-const TOP_U = 22, BOT_U = 34
+const TOP_U = 22, BOT_U = 46
 
 /**
  * How tall a panel `w` wide has to be for its embedding to stay square.
@@ -167,10 +169,11 @@ export function drawFeature(
     ctx.fillText(o.subtitle, 2 * unit + w + 7 * unit, 14 * unit)
   }
 
+  const barW = Math.min(W * 0.55, 170 * unit)
   drawColorBar(ctx, {
-    x: 2 * unit, y: H - BOT + 9 * unit,
-    w: Math.min(W * 0.42, 150 * unit), h: 8 * unit,
-    ramp: o.ramp, lo: o.floor, hi: o.top, label: 'normalized expression', ink, unit,
+    x: (W - barW) / 2, y: H - BOT + 14 * unit,
+    w: barW, h: 9 * unit,
+    ramp: o.ramp, lo: o.floor, hi: o.top, label: 'Expression', ink, unit,
   })
 }
 
@@ -192,18 +195,31 @@ export function drawColorBar(ctx: CanvasRenderingContext2D, o: {
     ctx.fillStyle = rampColor(i / (w - 1), o.ramp)
     ctx.fillRect(x + i, y, 1.5, h)
   }
-  ctx.strokeStyle = ink
-  ctx.lineWidth = 0.8 * unit
+
+  const ticks = breaksOf(o.lo, o.hi, 4).filter(v => v >= o.lo && v <= o.hi)
+  const pos = (v: number) => x + (o.hi > o.lo ? (v - o.lo) / (o.hi - o.lo) : 0) * w
+  // Breaks cut into the gradient, in white, exactly as the SVG legends do it —
+  // one figure must not describe the same scale two different ways depending on
+  // whether it happens to be drawn on a canvas.
+  ctx.strokeStyle = TICK_INK
+  ctx.lineWidth = 1.1 * unit
+  for (const v of ticks) {
+    if (v <= o.lo || v >= o.hi) continue
+    ctx.beginPath()
+    ctx.moveTo(pos(v), y)
+    ctx.lineTo(pos(v), y + h)
+    ctx.stroke()
+  }
+  ctx.strokeStyle = FRAME_INK
+  ctx.lineWidth = 0.9 * unit
   ctx.strokeRect(x, y, w, h)
+
   ctx.font = `${Math.round(10 * unit)}px system-ui, sans-serif`
   ctx.fillStyle = ink
+  ctx.textAlign = 'center'
+  for (const v of ticks) ctx.fillText(fmtBreak(v), pos(v), y + h + 11 * unit)
+  ctx.textAlign = 'center'
+  ctx.font = `700 ${Math.round(11 * unit)}px system-ui, sans-serif`
+  ctx.fillText(o.label, x + w / 2, y - 5 * unit)
   ctx.textAlign = 'left'
-  ctx.fillText(fmtEnd(o.lo), x, y + h + 11 * unit)
-  ctx.textAlign = 'right'
-  ctx.fillText(fmtEnd(o.hi), x + w, y + h + 11 * unit)
-  ctx.textAlign = 'left'
-  ctx.fillText(o.label, x + w + 8 * unit, y + h - 0.5 * unit)
 }
-
-const fmtEnd = (v: number): string =>
-  (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(1) : v.toFixed(2))

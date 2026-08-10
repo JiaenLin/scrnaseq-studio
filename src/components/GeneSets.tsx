@@ -349,11 +349,12 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
     // worse than a feature plot, because a module score has no natural units
     // and the numbers at the ends are the only thing that anchors it.
     const unit = cv.width / 640
+    const barW = Math.min(cv.width * 0.55, 170 * unit)
     drawColorBar(g, {
-      x: 4 * unit, y: cv.height - BAR_U * unit + 9 * unit,
-      w: Math.min(cv.width * 0.42, 150 * unit), h: 8 * unit,
+      x: (cv.width - barW) / 2, y: cv.height - BAR_U * unit + 16 * unit,
+      w: barW, h: 9 * unit,
       ramp: rampKey, lo, hi, ink: '#000000',
-      label: 'module score · 1st–99th percentile', unit,
+      label: 'Module score', unit,
     })
   }, [d, types, xy, scores, rampKey])
 
@@ -364,7 +365,7 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
 }
 
 /** Height of the colour-bar strip, in the same 640-wide units as the drawing. */
-const BAR_U = 34
+const BAR_U = 46
 
 function ScoreViolins({ scores, ids, perId, groupBy }: {
   scores: Float32Array

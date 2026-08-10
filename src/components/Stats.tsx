@@ -10,6 +10,7 @@ import Progress from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt, maxOf } from '../lib/chart.ts'
 import { AXIS_INK, MARK_EDGE } from '../lib/figure-ink.ts'
+import { KeyRow } from './svg-parts.tsx'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
 import { Card, Empty, Mono, Seg } from './Ui.tsx'
 import Figure from './Figure.tsx'
@@ -507,17 +508,13 @@ export function Volcano(p: StatsProps) {
             y={(PT + H - PB) / 2} textAnchor="middle"
             style={{ fontSize: 11.5, fill: AXIS_INK }}>−log₁₀ adjusted p</text>
 
-          {/* The key, in the figure. Swatches carry the same black edge the
-              points do, so the legend and the data are drawn in one language. */}
-          {[['#ef4444', `up in ${p.cs}`], ['#3b82f6', `up in ${p.ctrl}`],
-            ['#9AA3AF', 'not significant']].map(([col, label], i) => (
-            <g key={label}>
-              <circle cx={PL + 6 + i * 190} cy={H - 16} r={4}
-                fill={col} stroke={MARK_EDGE} strokeWidth={0.7} />
-              <text x={PL + 16 + i * 190} y={H - 12.5}
-                style={{ fontSize: 11, fill: AXIS_INK }}>{label}</text>
-            </g>
-          ))}
+          {/* The key, in the figure and centred under the panel, in the same
+              language as the marks it describes. */}
+          <KeyRow cx={(PL + W - PR) / 2} y={H - 14} items={[
+            { color: '#ef4444', label: `up in ${p.cs}` },
+            { color: '#3b82f6', label: `up in ${p.ctrl}` },
+            { color: '#9AA3AF', label: 'not significant' },
+          ]} />
         </svg>
       </Figure>
 

@@ -144,7 +144,11 @@ export default function App() {
   const [attempt, setAttempt] = useState(0)
 
   const [palKey, setPalKey] = useState<PaletteKey>('npg')
-  const [rampKey, setRampKey] = useState<RampKey>('seurat')
+  // Two-colour by default. A scale a reader can name in one clause — pale to
+  // blue — is one they can read without going back to the bar for every mark,
+  // and a dot plot asks them to judge dozens at a glance. mako, SCpubr's own
+  // default, is one menu click away for anyone who wants a perceptual map.
+  const [rampKey, setRampKey] = useState<RampKey>('blue')
   // Figure options for the gene tab. Here rather than inside it so a trip to
   // Markers and back does not quietly restore a population the reader took out
   // and then keep drawing it.

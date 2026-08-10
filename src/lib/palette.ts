@@ -34,19 +34,41 @@ export const PALETTES = {
   },
 } satisfies Record<string, Palette>
 
-// Continuous ramps, interpolated in RGB through the anchors below. viridis and
-// magma are perceptually uniform and safe for colour-vision deficiency, which is
-// why they have largely displaced rainbow scales; the Seurat default and the
-// grey-to-red used across Cell papers are kept because readers know them.
+/**
+ * Continuous scales, in two families, interpolated in RGB through the anchors.
+ *
+ * TWO-COLOUR first, and the default. A scale a reader can describe in one
+ * clause — pale to blue — is one they can read without going back to the bar
+ * for every mark, and on a dot plot the reader is judging dozens at a glance.
+ * The low end is a light neutral rather than white, because white is the page:
+ * a white-low scale cannot distinguish "the lowest value here" from "nothing
+ * drawn", and on these figures those are entirely different statements.
+ *
+ * VIRIDIS after, under SCpubr's own letters — its default is "G", mako, which
+ * is the scale its framed bars are showing. All of them run light-to-dark here,
+ * because on an expression figure it is the low end that should recede. They
+ * are perceptually uniform and safe for colour-vision deficiency, and they are
+ * the better choice when a reader has to judge magnitude rather than rank.
+ */
 export const RAMPS = {
-  seurat:  { label: 'Seurat (grey → blue)', cols: ['#D9DCE3', '#7D8FD6', '#1E40C8'] },
-  viridis: { label: 'viridis', cols: ['#440154', '#414487', '#2A788E', '#22A884', '#7AD151', '#FDE725'] },
-  magma:   { label: 'magma', cols: ['#000004', '#3B0F70', '#8C2981', '#DE4968', '#FE9F6D', '#FCFDBF'] },
-  reds:    { label: 'grey → red', cols: ['#E8E8E8', '#FDD49E', '#FC8D59', '#D7301F', '#7F0000'] },
+  blue:    { label: 'Two-colour · blue', cols: ['#E8EBF0', '#1B3FA0'] },
+  red:     { label: 'Two-colour · red', cols: ['#F0EAEA', '#8B1A1A'] },
+  teal:    { label: 'Two-colour · teal', cols: ['#E6EFEE', '#0B4F4A'] },
+  purple:  { label: 'Two-colour · purple', cols: ['#EDEAF2', '#4A1D77'] },
+  mako:    { label: 'mako · SCpubr default',
+             cols: ['#DEF5E5', '#78D6AE', '#38AAAC', '#357BA2', '#40498E', '#2C3142', '#0B0405'] },
+  rocket:  { label: 'rocket',
+             cols: ['#FAEBDD', '#F7B799', '#F1815C', '#DC4B41', '#AB1E4A', '#6D1D45', '#03051A'] },
+  viridis: { label: 'viridis', cols: ['#FDE725', '#7AD151', '#22A884', '#2A788E', '#414487', '#440154'] },
+  magma:   { label: 'magma', cols: ['#FCFDBF', '#FE9F6D', '#DE4968', '#8C2981', '#3B0F70', '#000004'] },
+  seurat:  { label: 'Seurat · grey → blue', cols: ['#D9DCE3', '#7D8FD6', '#1E40C8'] },
 } satisfies Record<string, Palette>
 
 export type PaletteKey = keyof typeof PALETTES
 export type RampKey = keyof typeof RAMPS
+
+/** The two-colour family, so a menu can group them apart from the maps. */
+export const TWO_COLOUR: RampKey[] = ['blue', 'red', 'teal', 'purple']
 
 const hex = (s: string) => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16))
 

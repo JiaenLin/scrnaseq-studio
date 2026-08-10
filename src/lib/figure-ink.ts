@@ -22,3 +22,20 @@ export const GRID_INK = '#DCDFE4'
  * on white has no boundary without it, and a z-scored dot plot is mostly pale.
  */
 export const MARK_EDGE = '#000000'
+
+/**
+ * The frame around a colour bar — SCpubr's `legend.framecolor`, grey50.
+ *
+ * Grey and not black, deliberately: the frame's job is to give the pale end of
+ * the scale a boundary against the page, and a black rule around a pale
+ * gradient becomes the loudest thing in the legend.
+ */
+export const FRAME_INK = '#7F7F7F'
+
+/**
+ * Breaks cut into a colour bar — SCpubr's `legend.tickcolor`, white.
+ *
+ * Inside the gradient rather than hung underneath it, so a break sits where the
+ * colour actually changes.
+ */
+export const TICK_INK = '#FFFFFF'

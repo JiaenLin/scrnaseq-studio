@@ -1,33 +1,39 @@
 // The pieces a figure has to carry with it.
 //
-// These are SVG fragments rather than HTML because of one thing that made every
-// exported dot plot useless: the legend was laid out in HTML beside the figure,
-// so the exported file — the thing that goes into the manuscript — had no size
-// key and no colour bar. A figure whose legend lives outside it is not a figure.
+// SVG fragments rather than HTML, because of the defect that made every export
+// useless: a legend laid out beside a figure is absent from the file that goes
+// into the manuscript. A figure whose legend lives outside it is not a figure.
 //
-// The styling follows SCpubr, which is a set of deliberate choices rather than a
-// theme: black-outlined marks (`geom_point(color = "black", shape = 21)`), black
-// axis text and ticks, a light grid behind the data, and a colour bar with a
-// visible frame and tick marks (`legend.framecolor`, `legend.tickcolor`) instead
-// of a bare gradient strip. The outline is the one that matters most — a pale
-// dot on white has no edge without it, and pale is exactly what a z-scored dot
-// plot is full of.
+// The design is SCpubr's, taken from its defaults rather than from a photograph
+// of one of its plots:
+//
+//   legend.position  = "bottom"    the keys sit under the panel, centred
+//   legend.framecolor = "grey50"   the bar is framed, not floated on the page
+//   legend.tickcolor  = "white"    breaks are cut INTO the bar, not hung below
+//   legend.title      above, centred, bold
+//
+// The white ticks are the part most often missed and the part that does the
+// most work. A framed gradient with numbers underneath makes the reader measure
+// along the bar by eye; ticks cut into the gradient itself put the break where
+// the colour actually changes, so "this dot is about a 2" is a comparison
+// against a mark rather than an estimate.
 
-import { AXIS_INK, MARK_EDGE } from '../lib/figure-ink.ts'
+import { AXIS_INK, FRAME_INK, MARK_EDGE } from '../lib/figure-ink.ts'
+import { breaksOf, fmtBreak } from '../lib/breaks.ts'
 import { mix as mixHex, rampColor, type RampKey } from '../lib/palette.ts'
 
 /** How many stops the gradient is written with. Smooth enough at any size. */
-const STOPS = 12
+const STOPS = 24
 
 /**
- * A framed, ticked colour bar.
+ * A framed colour bar with its breaks cut into it, titled above and centred.
  *
- * The frame is not decoration. A gradient strip that runs to white at one end
- * has no boundary against the page, so the reader cannot see where the scale
- * starts — which is the end that usually means "not detected".
+ * `x` is the CENTRE of the legend, not its left edge: these sit under a panel
+ * and are centred on it, and every caller getting the same arithmetic slightly
+ * wrong is how a row of legends ends up not quite lined up.
  */
-export function ColorBar({ x, y, w, h, ramp, colors, lo, hi, title, id }: {
-  x: number; y: number; w: number; h: number
+export function ColorBar({ cx, y, w, h, ramp, colors, lo, hi, title, id, breaks }: {
+  cx: number; y: number; w: number; h: number
   lo: number; hi: number; title: string; id: string
   /** A named ramp… */
   ramp?: RampKey
@@ -35,17 +41,23 @@ export function ColorBar({ x, y, w, h, ramp, colors, lo, hi, title, id }: {
    * …or two explicit ends, when the figure does not colour from a ramp.
    *
    * The markers plot shades each dot within its own cluster's colour, so no
-   * single hue describes it. A viridis bar under that figure would be a legend
-   * for a scale it does not use — which is worse than no legend, because it
-   * looks authoritative.
+   * single hue describes it. A mako bar under that figure would be a legend for
+   * a scale it does not use, which is worse than no legend because it looks
+   * authoritative.
    */
   colors?: [string, string]
+  /** Override the automatic breaks — for a fixed scale like a z-score. */
+  breaks?: number[]
 }) {
-  const mid = (lo + hi) / 2
-  const fmt = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1))
-  const at = (f: number) => (colors ? mixHex(colors[0], colors[1], f) : rampColor(f, ramp ?? 'seurat'))
+  const x = cx - w / 2
+  const at = (f: number) => (colors ? mixHex(colors[0], colors[1], f) : rampColor(f, ramp ?? 'blue'))
+  const ticks = (breaks ?? breaksOf(lo, hi)).filter(v => v >= lo && v <= hi)
+  const pos = (v: number) => x + (hi > lo ? (v - lo) / (hi - lo) : 0) * w
+
   return (
     <g>
+      <text x={cx} y={y - 7} textAnchor="middle"
+        style={{ fontSize: 11.5, fontWeight: 700, fill: AXIS_INK }}>{title}</text>
       <defs>
         <linearGradient id={id} x1="0" x2="1" y1="0" y2="0">
           {Array.from({ length: STOPS + 1 }, (_v, i) => (
@@ -53,42 +65,82 @@ export function ColorBar({ x, y, w, h, ramp, colors, lo, hi, title, id }: {
           ))}
         </linearGradient>
       </defs>
-      <text x={x} y={y - 5} style={{ fontSize: 10, fontWeight: 600, fill: AXIS_INK }}>{title}</text>
-      <rect x={x} y={y} width={w} height={h} fill={`url(#${id})`}
-        stroke={AXIS_INK} strokeWidth={0.7} />
-      {[0, 0.5, 1].map(f => (
-        <line key={f} x1={x + f * w} x2={x + f * w} y1={y + h} y2={y + h + 3}
-          stroke={AXIS_INK} strokeWidth={0.7} />
+      <rect x={x} y={y} width={w} height={h} fill={`url(#${id})`} />
+      {/* Breaks cut into the bar, in white — SCpubr's legend.tickcolor. Not
+          drawn at the two ends, where a tick would read as part of the frame. */}
+      {ticks.filter(v => v > lo && v < hi).map(v => (
+        <line key={`t${v}`} x1={pos(v)} x2={pos(v)} y1={y} y2={y + h}
+          stroke="#ffffff" strokeWidth={1.1} />
       ))}
-      {[[0, lo], [0.5, mid], [1, hi]].map(([f, v]) => (
-        <text key={f} x={x + f * w} y={y + h + 12} textAnchor="middle"
-          style={{ fontSize: 9.5, fill: AXIS_INK }}>{fmt(v)}</text>
+      <rect x={x} y={y} width={w} height={h} fill="none"
+        stroke={FRAME_INK} strokeWidth={0.9} />
+      {ticks.map(v => (
+        <text key={`l${v}`} x={pos(v)} y={y + h + 12} textAnchor="middle"
+          style={{ fontSize: 10.5, fill: AXIS_INK }}>{fmtBreak(v)}</text>
       ))}
     </g>
   )
 }
 
 /**
- * The dot-size key, drawn with the same outline the data marks carry.
+ * The dot-size key: filled marks with the number beside each, titled above.
  *
- * The unit is in the title rather than trailing the last number: a lone "%"
- * after the row of circles reads as another tick with no circle above it.
+ * Filled, not hollow. The marks on the figure are filled, and a hollow key
+ * beside a filled figure asks the reader to match an outline against a disc —
+ * which is exactly the judgement the key exists to spare them.
  */
-export function SizeKey({ x, y, title, radius, steps = [0.25, 0.5, 0.75, 1] }: {
-  x: number; y: number; title: string
+export function SizeKey({ cx, y, title, radius, steps = [0.25, 0.5, 0.75, 1], fill = '#2B2F36' }: {
+  cx: number; y: number; title: string
   radius: (f: number) => number
   steps?: number[]
+  fill?: string
 }) {
-  const gap = 34
+  // Laid out on measured widths rather than a fixed pitch, so the big marks do
+  // not collide with their own labels at one end while the small ones swim at
+  // the other.
+  const gap = 10, textW = 22
+  const spans = steps.map(v => radius(v) * 2 + 4 + textW)
+  const total = spans.reduce((a, b) => a + b, 0) + gap * (steps.length - 1)
+  let cursor = cx - total / 2
+  const placed = steps.map((v, i) => {
+    const r = radius(v)
+    const dot = cursor + r
+    const label = cursor + r * 2 + 4
+    cursor += spans[i] + gap
+    return { v, r, dot, label }
+  })
+  const maxR = radius(steps[steps.length - 1])
+
   return (
     <g>
-      <text x={x} y={y - 5} style={{ fontSize: 10, fontWeight: 600, fill: AXIS_INK }}>{title}</text>
-      {steps.map((v, i) => (
-        <g key={v}>
-          <circle cx={x + 9 + i * gap} cy={y + 9} r={radius(v)}
-            fill="#ffffff" stroke={MARK_EDGE} strokeWidth={0.7} />
-          <text x={x + 9 + i * gap} y={y + 26} textAnchor="middle"
-            style={{ fontSize: 9.5, fill: AXIS_INK }}>{Math.round(v * 100)}</text>
+      <text x={cx} y={y - 7} textAnchor="middle"
+        style={{ fontSize: 11.5, fontWeight: 700, fill: AXIS_INK }}>{title}</text>
+      {placed.map(p => (
+        <g key={p.v}>
+          <circle cx={p.dot} cy={y + maxR} r={p.r}
+            fill={fill} stroke={MARK_EDGE} strokeWidth={0.6} />
+          <text x={p.label} y={y + maxR + 4} textAnchor="start"
+            style={{ fontSize: 10.5, fill: AXIS_INK }}>{Math.round(p.v * 100)}</text>
+        </g>
+      ))}
+    </g>
+  )
+}
+
+/** A row of categorical swatches, centred — for a volcano's directions. */
+export function KeyRow({ cx, y, items }: {
+  cx: number; y: number; items: { color: string; label: string }[]
+}) {
+  const pitch = 168
+  const start = cx - (items.length - 1) * pitch / 2
+  return (
+    <g>
+      {items.map((it, i) => (
+        <g key={it.label}>
+          <circle cx={start + i * pitch - 8} cy={y} r={4.5}
+            fill={it.color} stroke={MARK_EDGE} strokeWidth={0.6} />
+          <text x={start + i * pitch + 2} y={y + 3.5}
+            style={{ fontSize: 11, fill: AXIS_INK }}>{it.label}</text>
         </g>
       ))}
     </g>

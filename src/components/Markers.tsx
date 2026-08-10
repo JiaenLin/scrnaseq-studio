@@ -118,13 +118,13 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   // The key travels with the figure. It used to sit in a legend row underneath,
   // which meant an exported marker plot — the figure most likely to reach a
   // reviewer — arrived with nothing saying what a dot's size or colour meant.
-  const legendH = 62
+  const legendH = 74
   // The gene labels lean up and to the RIGHT from the last column, so the right
   // margin has to clear the longest of them and not just the last dot. At 24 px
   // the final label was cut off — on a marker plot, where that column is the one
   // a reader is most likely to be looking for.
   const lean = Math.ceil(Math.cos(52 * Math.PI / 180) * maxOf(genes.map(g => g.length)) * 5.4)
-  const W = Math.max(PL + genes.length * cw + 24 + lean, PL + 360)
+  const W = Math.max(PL + genes.length * cw + 24 + lean, PL + 430)
   const plotB = PT + types.length * rh
   const H = plotB + 16 + legendH
   const dotR = (f: number) => +(2 + f * 7.5).toFixed(2)
@@ -228,13 +228,14 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                   </g>
                 )
               })}
-              <SizeKey x={PL} y={H - legendH + 20} title="Cells expressing (%)" radius={dotR} />
               <ColorBar
-                x={PL + 200} y={H - legendH + 20} w={130} h={9}
+                cx={PL + (W - PL) * 0.32} y={H - legendH + 22} w={150} h={11}
                 colors={['#e2e8f0', '#334155']} lo={0} hi={2.5}
-                title="Mean expression (depth of cluster colour)"
+                title="Avg. Exp. · depth of cluster colour"
                 id="markers-bar"
               />
+              <SizeKey cx={PL + (W - PL) * 0.78} y={H - legendH + 22}
+                title="Percent Expressed" radius={dotR} />
             </svg>
           </div>
         </Figure>
