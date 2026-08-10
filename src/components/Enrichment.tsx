@@ -221,7 +221,7 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
               <tr key={gene} className="cursor-pointer" title={`Open ${gene} in Gene expression`}
                 onClick={() => onPickGene(gene)}>
                 <td className="mono font-semibold italic">{gene}</td>
-                <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--bad)' : 'var(--lo)' }}>
+                <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--up)' : 'var(--down)' }}>
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
                 <td className="num mono tx-micro">{comb.toFixed(1)}</td>

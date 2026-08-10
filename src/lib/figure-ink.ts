@@ -39,3 +39,22 @@ export const FRAME_INK = '#7F7F7F'
  * colour actually changes.
  */
 export const TICK_INK = '#FFFFFF'
+
+/**
+ * Direction of change, as a MARK.
+ *
+ * These two were four hex literals typed into three components: the volcano's
+ * points, the volcano's key, and the violin panel's Δlog₂ label. Two of them
+ * then disagreed with the interface's own red and blue in the DEG table, so one
+ * study had four colours for two ideas and no file said which was canonical.
+ *
+ * Deliberately more saturated than the interface's `--up` / `--down`: a 4px dot
+ * among thousands on a white plate needs more colour than a column of numbers a
+ * reader is already looking straight at. Same idea, two media, one place to
+ * change either.
+ */
+export const UP_MARK = '#EF4444'
+export const DOWN_MARK = '#3B82F6'
+
+/** A mark that carries no signal — the non-significant cloud. */
+export const NULL_MARK = '#9AA3AF'

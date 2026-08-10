@@ -195,7 +195,7 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
                             </td>
                             <td className="num" style={{ color: 'var(--ink-2)' }}>{s.n}</td>
                             <td className="num font-semibold"
-                              style={{ color: s.med > 0 ? 'var(--bad)' : 'var(--lo)' }}>
+                              style={{ color: s.med > 0 ? 'var(--up)' : 'var(--down)' }}>
                               {s.med >= 0 ? '+' : ''}{s.med.toFixed(2)}
                             </td>
                             <td className="num" style={{ color: 'var(--ink-2)' }}>

@@ -152,7 +152,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
                 ) : (
                   <td className="num" style={{ color: 'var(--ink-2)' }}>{r.mean?.toFixed(0)}</td>
                 )}
-                <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--bad)' : 'var(--lo)' }}>
+                <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--up)' : 'var(--down)' }}>
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
                 <td className="num mono tx-micro">{combinedScore(r.lfc, r.nlp)?.toFixed(1) ?? '—'}</td>

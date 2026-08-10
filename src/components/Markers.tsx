@@ -355,7 +355,7 @@ export default function Markers({
                               title={`Open ${r.gene} in Gene expression`}
                               onClick={() => onPickGene(r.gene)}>
                               <td className="mono font-semibold italic">{r.gene}</td>
-                              <td className="num" style={{ color: 'var(--bad)' }}>+{r.lfc.toFixed(2)}</td>
+                              <td className="num" style={{ color: 'var(--up)' }}>+{r.lfc.toFixed(2)}</td>
                               <td className="num" style={{ color: 'var(--ink-2)' }}>{r.pct1?.toFixed(2)}</td>
                               <td className="num mono tx-micro font-semibold"
                                 title={`adjusted p ${pTxt(r.padj)}`}>{nlpTxt(r.nlp)}</td>

@@ -10,7 +10,7 @@ import Progress from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt, maxOf } from '../lib/chart.ts'
 import { condKey } from '../lib/source.ts'
-import { AXIS_INK, MARK_EDGE } from '../lib/figure-ink.ts'
+import { AXIS_INK, DOWN_MARK, MARK_EDGE, NULL_MARK, UP_MARK } from '../lib/figure-ink.ts'
 import { KeyRow } from './svg-parts.tsx'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
 import { Card, Empty, Mono, Seg } from './Ui.tsx'
@@ -447,10 +447,10 @@ function Volcano(p: StatsProps & { de: DEResult }) {
   return (
     <>
       <div className="mb-2 flex flex-wrap items-center gap-2.5">
-        <span className="badge" style={{ background: 'rgba(239,68,68,.14)', color: '#b91c1c' }}>
+        <span className="badge" style={{ background: 'color-mix(in srgb, var(--up) 14%, transparent)', color: 'var(--up)' }}>
           ▲ {up} up in {condLabel(p.cs)}
         </span>
-        <span className="badge" style={{ background: 'rgba(59,130,246,.14)', color: '#1d4ed8' }}>
+        <span className="badge" style={{ background: 'color-mix(in srgb, var(--down) 14%, transparent)', color: 'var(--down)' }}>
           ▼ {dn} up in {condLabel(p.ctrl)}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
@@ -498,7 +498,7 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           {pts.map(q => (
             <circle key={q.r.gene} cx={+q.x.toFixed(1)} cy={+q.y.toFixed(1)}
               r={hover?.gene === q.r.gene ? 6 : q.sig ? 4 : 2.6}
-              fill={q.sig ? (q.r.lfc > 0 ? '#ef4444' : '#3b82f6') : '#9AA3AF'}
+              fill={q.sig ? (q.r.lfc > 0 ? UP_MARK : DOWN_MARK) : NULL_MARK}
               stroke={q.sig ? MARK_EDGE : 'none'} strokeWidth={q.sig ? 0.6 : 0}
               opacity={q.sig ? 0.92 : 0.45} />
           ))}
@@ -519,9 +519,9 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           {/* The key, in the figure and centred under the panel, in the same
               language as the marks it describes. */}
           <KeyRow cx={(PL + W - PR) / 2} y={H - 14} items={[
-            { color: '#ef4444', label: `up in ${condLabel(p.cs)}` },
-            { color: '#3b82f6', label: `up in ${condLabel(p.ctrl)}` },
-            { color: '#9AA3AF', label: 'not significant' },
+            { color: UP_MARK, label: `up in ${condLabel(p.cs)}` },
+            { color: DOWN_MARK, label: `up in ${condLabel(p.ctrl)}` },
+            { color: NULL_MARK, label: 'not significant' },
           ]} />
         </svg>
       </Figure>

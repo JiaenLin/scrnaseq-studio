@@ -8,7 +8,7 @@ import {
   quantiles,
 } from '../lib/chart.ts'
 import { drawFeature, panelHeight } from '../lib/feature-plot.ts'
-import { AXIS_INK, GRID_INK, MARK_EDGE } from '../lib/figure-ink.ts'
+import { AXIS_INK, DOWN_MARK, GRID_INK, MARK_EDGE, UP_MARK } from '../lib/figure-ink.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import {
   DIVERGING, mix, pal, rampColor, rampCss, RAMPS, SEQUENTIAL, symmetricRange,
@@ -169,7 +169,7 @@ export default function GeneExpression(p: GeneProps) {
                   key={g} type="button"
                   className={`mono block w-full px-[11px] py-1.5 text-left tx-small ${
                     g.toLowerCase() === q.trim().toLowerCase() ? 'font-bold' : ''}`}
-                  style={g.toLowerCase() === q.trim().toLowerCase() ? { color: 'var(--accent-ink)' } : undefined}
+                  style={g.toLowerCase() === q.trim().toLowerCase() ? { color: 'var(--ink)' } : undefined}
                   onClick={() => { p.onGenes(mergeGenes(p.genes, [g])); setMissing([]); setQ('') }}
                 >
                   {g}
@@ -209,7 +209,7 @@ export default function GeneExpression(p: GeneProps) {
           <span
             key={g}
             className="inline-flex items-center gap-0.5 rounded-full py-[3px] pl-2.5 pr-[5px] tx-small font-semibold italic"
-            style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
+            style={{ background: 'var(--sunk)', color: 'var(--ink)', border: '1px solid var(--line-2)' }}
             title={idOf(g) ? `${g} — ${idOf(g)}` : g}
           >
             {g}
@@ -513,7 +513,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
         )}
         {p.groupBy !== 'type' && Math.abs(dl) >= 0.15 && (
           <text className="axis" x={W - PR} y={11} textAnchor="end"
-            style={{ fill: dl > 0 ? '#ef4444' : '#3b82f6', fontWeight: 600 }}>
+            style={{ fill: dl > 0 ? UP_MARK : DOWN_MARK, fontWeight: 600 }}>
             {dl > 0 ? '+' : ''}{dl.toFixed(1)}
           </text>
         )}

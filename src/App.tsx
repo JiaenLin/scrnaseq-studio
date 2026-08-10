@@ -419,36 +419,40 @@ export default function App() {
     <>
       <header className="sticky top-0 z-30" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--line)' }}>
         <div className="wrap">
-          <div className="flex items-center gap-3.5 pb-2.5 pt-3">
+          {/**
+            * One identity line.
+            *
+            * This was two stacked columns — product name over a strapline on
+            * the left, object name over a mono source line on the right — and
+            * on a real object it fell apart. `developing_mouse_nervous_system`
+            * is thirty-one unbroken characters and its source line repeats the
+            * name twice more in ~100 characters of monospace, so at the width
+            * people actually work at the right column outgrew the left and the
+            * two competed for the same job: saying what you are looking at.
+            *
+            * So: the mark that closes the object, the product name once and
+            * quietly, then the object — which is the fact on this screen and
+            * gets the weight. The source detail is provenance and Overview has
+            * a whole table of it, so here it is the tooltip.
+            */}
+          <div className="flex items-center gap-2.5 py-2">
             <button
               // Ink ground, surface text — the pair inverts together, so the
               // mark stays legible in either theme. `text-white` on --ink was
               // white on near-white once the page went dark.
-              className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[--r-md] border-0 tx-small font-bold"
+              className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[--r-sm] border-0 tx-micro font-bold"
               style={{ background: 'var(--ink)', color: 'var(--surface)' }}
               title="Close this object and open another"
               onClick={() => setSrc(null)}
             >sc</button>
-            <div>
-              <div className="tx-title font-semibold tracking-[-0.01em]">scRNA-seq Studio</div>
-              {/* Not "read-only explorer" any more: markers, differential
-                  expression, enrichment and module scores are all computed
-                  here. What it still does not do is re-run the pipeline —
-                  no clustering, no integration, no normalisation. */}
-              <div className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-                your pipeline is not re-run
-              </div>
-            </div>
-            {/* min-w-0 is what lets a long project name wrap instead of overflowing. */}
-            <div className="min-w-0 flex-1 text-right">
-              <div className="tx-body font-semibold" style={{ overflowWrap: 'anywhere' }}>
-                {src.meta.label}
-                {src.meta.isDemo && <span className="badge badge-none ml-2">demo</span>}
-              </div>
-              <div className="mono tx-micro" style={{ color: 'var(--ink-3)', overflowWrap: 'anywhere' }}>
-                {src.meta.source}
-              </div>
-            </div>
+            <span className="flex-none tx-small" style={{ color: 'var(--ink-3)' }}>
+              scRNA-seq Studio
+            </span>
+            <span aria-hidden className="flex-none" style={{ color: 'var(--ink-3)' }}>/</span>
+            <span className="min-w-0 truncate tx-body font-semibold" title={src.meta.source}>
+              {src.meta.label}
+            </span>
+            {src.meta.isDemo && <span className="badge badge-none flex-none">demo</span>}
           </div>
           <div className="flex items-end gap-5 overflow-x-auto" role="tablist"
             aria-label="Views of this object">
@@ -505,8 +509,17 @@ export default function App() {
           * is a claim that the figure below is showing that contrast.
           */}
         <div style={{ background: 'var(--sunk)', borderTop: '1px solid var(--line)' }}>
-          <div className="wrap flex items-center gap-2.5 overflow-x-auto py-2"
-            style={{ height: 46 }}>
+          <div className="wrap flex items-center gap-2.5" style={{ height: 42 }}>
+            {/**
+              * The scroller is this inner group ONLY.
+              *
+              * `overflow-x-auto` sat on the whole bar, and an overflow on one
+              * axis makes the other a clipping context too — so the Figure
+              * style popover, anchored inside it, lost 187px of itself to a
+              * 46px-tall strip. The controls still scroll when they have to;
+              * the things that open menus are outside the box that clips.
+              */}
+            <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto py-2">
             {needs.ct && (
               <label className="flex flex-none items-center gap-1.5">
                 <span className="glabel">Cell type</span>
@@ -543,7 +556,9 @@ export default function App() {
               </>
             )}
 
-            <span className="ml-auto flex flex-none items-center gap-2.5">
+            </div>
+
+            <span className="flex flex-none items-center gap-2.5">
               {geneBusy && (
                 <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>reading gene…</span>
               )}

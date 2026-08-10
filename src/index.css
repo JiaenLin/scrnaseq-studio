@@ -98,6 +98,20 @@
   --good: #047857;
   --good-soft: #ecfdf5;
   --bad: #b91c1c;
+  /**
+   * Direction of change, as TEXT.
+   *
+   * `--bad` used to carry this as well as "something failed", so one token
+   * meant two things and the studio ended up with four reds: this one for a
+   * table cell and a saturated figure red for a volcano point, neither aware of
+   * the other. `--bad` is now failure only; direction has its own pair, and the
+   * figure's marks are UP_MARK / DOWN_MARK in lib/figure-ink.ts — deliberately
+   * a different, more saturated pair, because a printed dot and a column of
+   * numbers are read at different sizes and want different weights of colour.
+   */
+  --up: #b91c1c;
+  --down: #2563eb;
+  /** Kept: the old name for --down, still used by figure-adjacent callers. */
   --lo: #2563eb;
 
   /* Figure ink, separate from interface ink.
@@ -129,6 +143,8 @@
     --good: #34d399;
     --good-soft: rgba(16, 185, 129, 0.12);
     --bad: #f87171;
+    --up: #f87171;
+    --down: #60a5fa;
     --lo: #60a5fa;
 
     /* Deeper and darker than a light-mode shadow, because on a dark ground a
@@ -234,7 +250,7 @@ svg {
      colour, for the places that need the shape but set their own ink. */
   .tx-label {
     font-size: var(--t-micro);
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: var(--tr-label);
     text-transform: uppercase;
   }
@@ -246,12 +262,19 @@ svg {
     margin-bottom: var(--s4);
     padding: var(--s4);
   }
-  /* A caption for the title under it, so it is the quietest thing on the card
-     and never the only label for a section. */
-  .eyebrow {
+  /**
+   * A small uppercase label: a caption over a title, or the name of a control.
+   *
+   * `.eyebrow` and `.glabel` were the same eleven-pixel uppercase grey at two
+   * different weights, doing the same job in different places — a reader
+   * cannot learn a distinction that only exists as 700 versus 600. One style,
+   * two names, because the two words read differently in the markup.
+   */
+  .eyebrow,
+  .glabel {
     color: var(--ink-3);
     font-size: var(--t-micro);
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: var(--tr-label);
     text-transform: uppercase;
   }
@@ -373,7 +396,10 @@ svg {
     color: var(--ink-2);
     border-width: 0;
     font-size: var(--t-small);
-    font-weight: 600;
+    /* 500, like .chip: two toggle families at two weights was a distinction
+       with nothing behind it. Never switch weight on select — the glyphs
+       re-measure and the whole row shifts. */
+    font-weight: 500;
     padding: 5px var(--s3);
     transition: transform var(--d-press) var(--ease-out),
       background-color var(--d-press) ease, color var(--d-press) ease;
@@ -408,13 +434,6 @@ svg {
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
-  .glabel {
-    color: var(--ink-3);
-    font-size: var(--t-micro);
-    font-weight: 600;
-    letter-spacing: var(--tr-label);
-    text-transform: uppercase;
-  }
   /* One separator, one height. Callers used to override it to 20, 24 and 26px,
      which is three heights for one hairline. */
   .gsep {
@@ -460,7 +479,7 @@ svg {
     border-color: color-mix(in srgb, var(--accent) 30%, transparent);
   }
   .note-info b {
-    color: var(--accent-ink);
+    color: var(--ink);
   }
   /* The advisory variant: something about the data limits what the figure can
      claim. `.note` is already this colour, so this exists to be a NAME the
@@ -523,7 +542,7 @@ svg {
     background: var(--sunk);
     border-bottom: 1px solid var(--line);
     font-size: var(--t-micro);
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: var(--tr-label);
     padding: 6px var(--s2);
     @apply sticky top-0 whitespace-nowrap text-left uppercase;
