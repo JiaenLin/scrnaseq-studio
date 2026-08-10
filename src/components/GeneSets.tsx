@@ -8,7 +8,8 @@ import { parseGeneList } from '../lib/genes.ts'
 import {
   averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
 } from '../lib/score.ts'
-import { rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import { drawColorBar } from '../lib/feature-plot.ts'
+import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { Card, Mono, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
@@ -178,12 +179,6 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
                 <Figure name={`module_score_${slug(name)}`}>
                   <ScoreMap d={d} types={types} xy={emb.xy} scores={scoreOf} rampKey={rampKey} />
                 </Figure>
-                <div className="legend mt-2">
-                  <span style={{ color: 'var(--ink-3)' }}>low</span>
-                  <span className="inline-block h-2.5 w-[130px] rounded-[3px]" style={{ background: rampCss(rampKey) }} />
-                  <span style={{ color: 'var(--ink-3)' }}>high</span>
-                  <span style={{ color: 'var(--ink-3)' }}>· clipped at the 1st and 99th percentiles</span>
-                </div>
               </figure>
 
               <div className="min-w-[260px] flex-1">
@@ -312,6 +307,10 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
     g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()
     g.fillRect(0, 0, cv.width, cv.height)
     const { x0, x1, y0, y1 } = embedExtent(xy)
+    // The embedding keeps the square; the bar strip is added below it, never
+    // taken out of it. Scaling the cells to the full canvas would stretch every
+    // map vertically by the height of its own legend.
+    const plotH = cv.width
 
     // Typed throughout. `Array.from(scores)` boxed 292 495 doubles into a JS
     // array before sorting them, and the copy cost more than the sort.
@@ -329,7 +328,7 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
       g.fillStyle = rampColor((scores[i] - lo) / span, rampKey)
       g.beginPath()
       g.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
-        (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * cv.height, 1.9, 0, 6.284)
+        (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * plotH, 1.9, 0, 6.284)
       g.fill()
     }
     g.font = '600 17px system-ui'
@@ -339,18 +338,33 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
     const at = clusterCentroids(xy, d, types.length)
     types.forEach((t, ti) => {
       const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
-      const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height
+      const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * plotH
       g.strokeText(t.name, X, Y)
       g.fillStyle = '#334155'
       g.fillText(t.name, X, Y)
     })
+
+    // The scale, on the figure. It was an HTML strip beside the canvas, so an
+    // exported score map had colours and no way to read them — and this one is
+    // worse than a feature plot, because a module score has no natural units
+    // and the numbers at the ends are the only thing that anchors it.
+    const unit = cv.width / 640
+    drawColorBar(g, {
+      x: 4 * unit, y: cv.height - BAR_U * unit + 9 * unit,
+      w: Math.min(cv.width * 0.42, 150 * unit), h: 8 * unit,
+      ramp: rampKey, lo, hi, ink: '#000000',
+      label: 'module score · 1st–99th percentile', unit,
+    })
   }, [d, types, xy, scores, rampKey])
 
   return (
-    <canvas ref={ref} width={size * 2} height={size * 2}
+    <canvas ref={ref} width={size * 2} height={size * 2 + Math.round(BAR_U * (size * 2) / 640)}
       style={{ width: '100%', maxWidth: size, height: 'auto', borderRadius: 10 }} />
   )
 }
+
+/** Height of the colour-bar strip, in the same 640-wide units as the drawing. */
+const BAR_U = 34
 
 function ScoreViolins({ scores, ids, perId, groupBy }: {
   scores: Float32Array

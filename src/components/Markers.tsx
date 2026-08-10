@@ -4,7 +4,10 @@ import type { Source } from '../lib/source.ts'
 import { deMarkersAll, isSig, markersSpec, thresholdFor } from '../lib/stats.ts'
 import { dotAt, dotGrid, type DotGrid } from '../lib/dots.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
+import { maxOf } from '../lib/chart.ts'
+import { AXIS_INK, GRID_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
+import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { Card, Chips, Empty, Mono } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
@@ -112,8 +115,19 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
   }
 
   const cw = 21, rh = 34, PL = 150, PT = 84
-  const W = PL + genes.length * cw + 24
-  const H = PT + types.length * rh + 16
+  // The key travels with the figure. It used to sit in a legend row underneath,
+  // which meant an exported marker plot — the figure most likely to reach a
+  // reviewer — arrived with nothing saying what a dot's size or colour meant.
+  const legendH = 62
+  // The gene labels lean up and to the RIGHT from the last column, so the right
+  // margin has to clear the longest of them and not just the last dot. At 24 px
+  // the final label was cut off — on a marker plot, where that column is the one
+  // a reader is most likely to be looking for.
+  const lean = Math.ceil(Math.cos(52 * Math.PI / 180) * maxOf(genes.map(g => g.length)) * 5.4)
+  const W = Math.max(PL + genes.length * cw + 24 + lean, PL + 360)
+  const plotB = PT + types.length * rh
+  const H = plotB + 16 + legendH
+  const dotR = (f: number) => +(2 + f * 7.5).toFixed(2)
 
   // Same columns and same two rules as the table above it: the adjusted p as a
   // bound once it has underflowed, and the log-space significance beside it so
@@ -168,12 +182,22 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
           <div className="overflow-x-auto">
             <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
               aria-label="Marker gene dot plot">
+              {/* Grid behind, axes in black. Same reasoning as the gene tab's
+                  dot plot: on paper the interface's greys read as faint. */}
+              {types.map((t, ti) => (
+                <line key={`h${t.key}`} x1={PL} x2={PL + genes.length * cw}
+                  y1={PT + rh * (ti + 0.5)} y2={PT + rh * (ti + 0.5)}
+                  stroke={GRID_INK} strokeWidth={0.6} />
+              ))}
+              <line x1={PL} x2={PL} y1={PT} y2={plotB} stroke={AXIS_INK} strokeWidth={0.8} />
+              <line x1={PL} x2={PL + genes.length * cw} y1={plotB} y2={plotB}
+                stroke={AXIS_INK} strokeWidth={0.8} />
               {genes.map((g, gi) => {
                 const x = PL + cw * (gi + 0.5)
                 return (
-                  <text key={g} className="axis" transform={`rotate(-52 ${x} ${PT - 8})`}
+                  <text key={g} transform={`rotate(-52 ${x} ${PT - 8})`}
                     x={x} y={PT - 8} textAnchor="start"
-                    style={{ fontStyle: 'italic', fontSize: 10.5 }}>{g}</text>
+                    style={{ fontStyle: 'italic', fontSize: 10.5, fill: AXIS_INK }}>{g}</text>
                 )
               })}
               {types.map((t, ti) => {
@@ -181,18 +205,22 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                 const own = new Set(tops[ti].map(r => r.gene))
                 return (
                   <g key={t.key}>
-                    <text className="axis" x={PL - 12} y={y + 4} textAnchor="end"
-                      style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: 550 }}>{t.name}</text>
+                    <line x1={PL - 3.5} x2={PL} y1={y} y2={y} stroke={AXIS_INK} strokeWidth={0.8} />
+                    <text x={PL - 8} y={y + 4} textAnchor="end"
+                      style={{ fontSize: 11.5, fill: AXIS_INK, fontWeight: 600 }}>{t.name}</text>
                     {grid && genes.map((g, gi) => {
                       const m = grid.mean[dotAt(grid, gi, ti)]
                       const pct = grid.pct[dotAt(grid, gi, ti)]
                       if (pct < 0.02) return null
+                      // Every mark gets the black edge; a cluster's own top genes
+                      // keep their heavier ring on top of it, which is what that
+                      // ring is for and why it must stay distinguishable.
                       return (
                         <circle key={g} cx={PL + cw * (gi + 0.5)} cy={y}
-                          r={+(2 + pct * 7.5).toFixed(1)}
+                          r={dotR(pct)}
                           fill={mix('#e2e8f0', pal(ti, palKey), Math.min(1, m / 2.5))}
-                          stroke={own.has(g) ? pal(ti, palKey) : 'none'}
-                          strokeWidth={own.has(g) ? 0.8 : 0} opacity=".95">
+                          stroke={own.has(g) ? pal(ti, palKey) : MARK_EDGE}
+                          strokeWidth={own.has(g) ? 1.4 : 0.6}>
                           <title>{g} in {t.name} — {(pct * 100).toFixed(0)}% of cells, mean {m.toFixed(2)}</title>
                         </circle>
                       )
@@ -200,15 +228,24 @@ export default function Markers({ src, types, palKey, onRename, onPickGene }: {
                   </g>
                 )
               })}
+              <SizeKey x={PL} y={H - legendH + 20} title="Cells expressing (%)" radius={dotR} />
+              <ColorBar
+                x={PL + 200} y={H - legendH + 20} w={130} h={9}
+                colors={['#e2e8f0', '#334155']} lo={0} hi={2.5}
+                title="Mean expression (depth of cluster colour)"
+                id="markers-bar"
+              />
             </svg>
           </div>
         </Figure>
+        {/* The size and colour keys are inside the figure now. What is left here
+            is state, not key: whether the values are still being read, and what
+            the heavier ring means — which needs a coloured swatch to show and
+            costs nothing to lose from an exported file. */}
         <div className="legend mt-2.5">
           {!grid && !dotError && <span style={{ color: 'var(--ink-3)' }}>reading these genes…</span>}
           {dotError && <span style={{ color: 'var(--bad)' }}>{dotError}</span>}
-          <span>dot size = % of cells detecting the gene</span>
-          <span>colour = mean expression within the cluster</span>
-          <span>ring = one of this cluster&rsquo;s own top genes</span>
+          <span>a heavier ring marks one of that cluster&rsquo;s own top genes</span>
         </div>
 
         <div className="mt-5">

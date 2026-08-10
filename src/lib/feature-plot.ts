@@ -167,26 +167,43 @@ export function drawFeature(
     ctx.fillText(o.subtitle, 2 * unit + w + 7 * unit, 14 * unit)
   }
 
-  // The scale, framed and labelled. SCpubr frames its colour bars for the same
-  // reason: a gradient that ends in the page's own colour has no boundary, and
-  // the end that disappears is the one meaning "not detected".
-  const bw = Math.min(W * 0.42, 150 * unit)
-  const bh = 8 * unit
-  const bx = 2 * unit
-  const by = H - BOT + 9 * unit
-  for (let i = 0; i < bw; i++) {
-    ctx.fillStyle = rampColor(i / (bw - 1), o.ramp)
-    ctx.fillRect(bx + i, by, 1.5, bh)
+  drawColorBar(ctx, {
+    x: 2 * unit, y: H - BOT + 9 * unit,
+    w: Math.min(W * 0.42, 150 * unit), h: 8 * unit,
+    ramp: o.ramp, lo: o.floor, hi: o.top, label: 'normalized expression', ink, unit,
+  })
+}
+
+/**
+ * A framed colour bar on a canvas.
+ *
+ * Framed for the same reason SCpubr frames its legends: a gradient that ends in
+ * the page's own colour has no boundary against it, and on these scales the end
+ * that disappears is the one meaning "not detected". Shared so the feature plot
+ * and the module-score map cannot drift into describing their scales two
+ * different ways.
+ */
+export function drawColorBar(ctx: CanvasRenderingContext2D, o: {
+  x: number; y: number; w: number; h: number
+  ramp: RampKey; lo: number; hi: number; label: string; ink: string; unit: number
+}): void {
+  const { x, y, w, h, unit, ink } = o
+  for (let i = 0; i < w; i++) {
+    ctx.fillStyle = rampColor(i / (w - 1), o.ramp)
+    ctx.fillRect(x + i, y, 1.5, h)
   }
   ctx.strokeStyle = ink
   ctx.lineWidth = 0.8 * unit
-  ctx.strokeRect(bx, by, bw, bh)
+  ctx.strokeRect(x, y, w, h)
   ctx.font = `${Math.round(10 * unit)}px system-ui, sans-serif`
   ctx.fillStyle = ink
   ctx.textAlign = 'left'
-  ctx.fillText(o.floor.toFixed(0), bx, by + bh + 11 * unit)
+  ctx.fillText(fmtEnd(o.lo), x, y + h + 11 * unit)
   ctx.textAlign = 'right'
-  ctx.fillText(o.top.toFixed(1), bx + bw, by + bh + 11 * unit)
+  ctx.fillText(fmtEnd(o.hi), x + w, y + h + 11 * unit)
   ctx.textAlign = 'left'
-  ctx.fillText('normalized expression', bx + bw + 8 * unit, by + bh - 0.5 * unit)
+  ctx.fillText(o.label, x + w + 8 * unit, y + h - 0.5 * unit)
 }
+
+const fmtEnd = (v: number): string =>
+  (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(1) : v.toFixed(2))

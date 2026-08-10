@@ -14,7 +14,7 @@
 // plot is full of.
 
 import { AXIS_INK, MARK_EDGE } from '../lib/figure-ink.ts'
-import { rampColor, type RampKey } from '../lib/palette.ts'
+import { mix as mixHex, rampColor, type RampKey } from '../lib/palette.ts'
 
 /** How many stops the gradient is written with. Smooth enough at any size. */
 const STOPS = 12
@@ -26,18 +26,30 @@ const STOPS = 12
  * has no boundary against the page, so the reader cannot see where the scale
  * starts — which is the end that usually means "not detected".
  */
-export function ColorBar({ x, y, w, h, ramp, lo, hi, title, id }: {
+export function ColorBar({ x, y, w, h, ramp, colors, lo, hi, title, id }: {
   x: number; y: number; w: number; h: number
-  ramp: RampKey; lo: number; hi: number; title: string; id: string
+  lo: number; hi: number; title: string; id: string
+  /** A named ramp… */
+  ramp?: RampKey
+  /**
+   * …or two explicit ends, when the figure does not colour from a ramp.
+   *
+   * The markers plot shades each dot within its own cluster's colour, so no
+   * single hue describes it. A viridis bar under that figure would be a legend
+   * for a scale it does not use — which is worse than no legend, because it
+   * looks authoritative.
+   */
+  colors?: [string, string]
 }) {
   const mid = (lo + hi) / 2
   const fmt = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1))
+  const at = (f: number) => (colors ? mixHex(colors[0], colors[1], f) : rampColor(f, ramp ?? 'seurat'))
   return (
     <g>
       <defs>
         <linearGradient id={id} x1="0" x2="1" y1="0" y2="0">
           {Array.from({ length: STOPS + 1 }, (_v, i) => (
-            <stop key={i} offset={`${(i / STOPS) * 100}%`} stopColor={rampColor(i / STOPS, ramp)} />
+            <stop key={i} offset={`${(i / STOPS) * 100}%`} stopColor={at(i / STOPS)} />
           ))}
         </linearGradient>
       </defs>

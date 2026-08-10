@@ -9,6 +9,7 @@ import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt, maxOf } from '../lib/chart.ts'
+import { AXIS_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
 import { Card, Empty, Mono, Seg } from './Ui.tsx'
 import Figure from './Figure.tsx'
@@ -376,7 +377,10 @@ export function Volcano(p: StatsProps) {
   const { value: de, pass } = useDE(p)
   const rows = useMemo(() => de?.rows ?? [], [de])
 
-  const W = 760, H = 440, PL = 58, PB = 46, PT = 16, PR = 16
+  // PB carries the x-axis title and, below it, the key. That key used to sit in
+  // an HTML row underneath the figure, so an exported volcano arrived with three
+  // colours of point and nothing to say which direction was which.
+  const W = 760, H = 466, PL = 58, PB = 72, PT = 16, PR = 16
   // maxOf, not `Math.max(...)`: the spread passes one argument per DE gene and
   // V8 refuses past ~124 900 of them — measured on this machine. This atlas
   // reports 31 053, so the old form did not crash here and would have on any
@@ -461,12 +465,14 @@ export function Volcano(p: StatsProps) {
         >
           {[-2, -1, 0, 1, 2].map(f => {
             const v = (maxX * f) / 2
-            return <text key={f} className="axis" x={X(v)} y={H - PB + 15} textAnchor="middle">{v.toFixed(1)}</text>
+            return <text key={f} x={X(v)} y={H - PB + 15} textAnchor="middle"
+              style={{ fontSize: 10.5, fill: AXIS_INK }}>{v.toFixed(1)}</text>
           })}
           {ticks.map(t => (
             <g key={t}>
               <line className="axline" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} opacity=".4" />
-              <text className="axis" x={PL - 7} y={Y(t) + 3.5} textAnchor="end">{t}</text>
+              <text x={PL - 7} y={Y(t) + 3.5} textAnchor="end"
+                style={{ fontSize: 10.5, fill: AXIS_INK }}>{t}</text>
             </g>
           ))}
           <line x1={PL} x2={W - PR} y1={Y(-Math.log10(p.padjMax))} y2={Y(-Math.log10(p.padjMax))}
@@ -475,11 +481,17 @@ export function Volcano(p: StatsProps) {
             <line key={v} x1={X(v)} x2={X(v)} y1={PT} y2={H - PB}
               stroke="var(--ink-3)" strokeDasharray="4 3" opacity=".7" />
           ))}
+          {/* Significant points carry the black edge the key shows; the
+              non-significant cloud does not, because outlining several thousand
+              grey points turns the background into a solid mass and buries the
+              genes the figure is about. The edge is for the marks a reader is
+              meant to pick out one by one. */}
           {pts.map(q => (
             <circle key={q.r.gene} cx={+q.x.toFixed(1)} cy={+q.y.toFixed(1)}
               r={hover?.gene === q.r.gene ? 6 : q.sig ? 4 : 2.6}
-              fill={q.sig ? (q.r.lfc > 0 ? '#ef4444' : '#3b82f6') : 'var(--ink-3)'}
-              opacity={q.sig ? 0.9 : 0.45} />
+              fill={q.sig ? (q.r.lfc > 0 ? '#ef4444' : '#3b82f6') : '#9AA3AF'}
+              stroke={q.sig ? MARK_EDGE : 'none'} strokeWidth={q.sig ? 0.6 : 0}
+              opacity={q.sig ? 0.92 : 0.45} />
           ))}
           {pts.filter(q => q.sig).slice(0, nLabels).map(q => (
             <text key={q.r.gene} className="axis" x={q.x + (q.r.lfc > 0 ? 7 : -7)} y={q.y + 3.5}
@@ -487,18 +499,31 @@ export function Volcano(p: StatsProps) {
               style={{ fontStyle: 'italic', fontSize: 10.5, fill: 'var(--ink)' }}>{q.r.gene}</text>
           ))}
           <line className="axline" x1={PL} x2={W - PR} y1={H - PB} y2={H - PB} />
-          <text className="axis" x={(PL + W - PR) / 2} y={H - 6} textAnchor="middle">
+          <text x={(PL + W - PR) / 2} y={H - PB + 32} textAnchor="middle"
+            style={{ fontSize: 11.5, fill: AXIS_INK }}>
             log₂ fold change · {p.cs} vs {p.ctrl}
           </text>
-          <text className="axis" transform={`rotate(-90 15 ${(PT + H - PB) / 2})`} x={15}
-            y={(PT + H - PB) / 2} textAnchor="middle">−log₁₀ adjusted p</text>
+          <text transform={`rotate(-90 15 ${(PT + H - PB) / 2})`} x={15}
+            y={(PT + H - PB) / 2} textAnchor="middle"
+            style={{ fontSize: 11.5, fill: AXIS_INK }}>−log₁₀ adjusted p</text>
+
+          {/* The key, in the figure. Swatches carry the same black edge the
+              points do, so the legend and the data are drawn in one language. */}
+          {[['#ef4444', `up in ${p.cs}`], ['#3b82f6', `up in ${p.ctrl}`],
+            ['#9AA3AF', 'not significant']].map(([col, label], i) => (
+            <g key={label}>
+              <circle cx={PL + 6 + i * 190} cy={H - 16} r={4}
+                fill={col} stroke={MARK_EDGE} strokeWidth={0.7} />
+              <text x={PL + 16 + i * 190} y={H - 12.5}
+                style={{ fontSize: 11, fill: AXIS_INK }}>{label}</text>
+            </g>
+          ))}
         </svg>
       </Figure>
 
+      {/* Only the readout stays out here: it changes as the pointer moves and
+          has no meaning in a saved file. The three colours are in the figure. */}
       <div className="legend mt-2">
-        <span><i className="sw" style={{ background: '#ef4444' }} />up in {p.cs}</span>
-        <span><i className="sw" style={{ background: '#3b82f6' }} />up in {p.ctrl}</span>
-        <span><i className="sw" style={{ background: 'var(--ink-3)' }} />not significant</span>
         <span style={{ color: 'var(--ink-3)' }}>
           {/* The same two columns the table shows, written the same way — a point
               near the top of this axis has an adjusted p the double cannot hold,
