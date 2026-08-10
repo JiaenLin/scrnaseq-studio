@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { CellType, ColorBy, Dataset } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
-import { clusterCentroids, embedExtent, fmt } from '../lib/chart.ts'
+import { clusterCentroids, embedExtent, fmt, hasSignal } from '../lib/chart.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Legend } from './Ui.tsx'
 
@@ -37,14 +37,24 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
    * picked on another tab. A map of an unnamed gene is not a worse feature
    * expression plot, it is a figure nobody can read.
    */
+  // Offered only when the object measured it. A bundle always carries a QC
+  // block, so an object with no mitochondrial genes annotated arrives with a
+  // column of zeros — and colouring by that draws a uniform plane under a
+  // low-to-high scale, which claims a gradient the reader cannot see because it
+  // is not there.
+  const mito = useMemo(() => hasSignal(d.cells, c => c.mito), [d.cells])
   const modes: [ColorBy, string][] = [
-    ['type', 'Cell type'], ['cond', 'Group'], ['sample', 'Sample'], ['mito', '% mito'],
+    ['type', 'Cell type'], ['cond', 'Group'], ['sample', 'Sample'],
+    ...(mito ? [['mito', '% mito'] as [ColorBy, string]] : []),
   ]
+  // An object without the covariate must not stay stuck on it — the selection
+  // survives switching objects, and the control that would change it is gone.
+  const shown: ColorBy = colorBy === 'mito' && !mito ? 'type' : colorBy
 
   const legend: [string, string][] =
-    colorBy === 'type' ? types.map((t, i) => [pal(i, palKey), t.name])
-    : colorBy === 'cond' ? d.conds.map((c, i) => [pal(i, palKey), c])
-    : colorBy === 'sample' ? d.samples.map((s, i) => [pal(i, palKey), s.id])
+    shown === 'type' ? types.map((t, i) => [pal(i, palKey), t.name])
+    : shown === 'cond' ? d.conds.map((c, i) => [pal(i, palKey), c])
+    : shown === 'sample' ? d.samples.map((s, i) => [pal(i, palKey), s.id])
     : []
 
   return (
@@ -56,7 +66,7 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {modes.filter(([k]) => d.multi || k !== 'cond').map(([k, label]) => (
-            <button key={k} className="chip" aria-pressed={colorBy === k} onClick={() => onColorBy(k)}>
+            <button key={k} className="chip" aria-pressed={shown === k} onClick={() => onColorBy(k)}>
               {label}
             </button>
           ))}
@@ -83,7 +93,7 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
               </div>
             )}
             <Scatter
-              d={d} types={types} xy={emb.xy} cond={p} colorBy={colorBy}
+              d={d} types={types} xy={emb.xy} cond={p} colorBy={shown}
               palKey={palKey} rampKey={rampKey}
               w={size} h={height} labels={panels.length <= 2}
             />
@@ -104,7 +114,7 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
       <figcaption className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
         {panels.length > 1
           ? `All ${panels.length} panels share one axis range, so the shift between groups is real and not a rescaling.`
-          : `Coloured by ${colorBy}.`}
+          : `Coloured by ${shown}.`}
       </figcaption>
     </Card>
   )

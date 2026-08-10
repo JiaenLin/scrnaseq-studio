@@ -1,6 +1,6 @@
 // Small numeric helpers shared by every figure.
 
-import type { CellType, Dataset, Identity } from '../types.ts'
+import type { Cell, CellType, Dataset, Identity } from '../types.ts'
 import { pal, type PaletteKey } from './palette.ts'
 import { hash, meanExpr, rng } from './demo.ts'
 
@@ -270,4 +270,27 @@ function computeCentroids(
     return s[s.length >> 1]
   }
   return xs.map((v, i) => ({ x: mid(v), y: mid(ys[i]) }))
+}
+
+/**
+ * Does this covariate actually carry a measurement?
+ *
+ * A bundle always has a QC block — the exporter writes three floats per cell
+ * whether or not the object had anything to put in them — so "the field exists"
+ * is not the same question as "there is something here to look at". An object
+ * with no mitochondrial genes annotated arrives with a column of zeros, and a
+ * map coloured by it is a uniform grey plane with a low-to-high scale under it,
+ * which says there is a gradient the reader simply cannot see.
+ *
+ * Stops at the first cell that differs, so on an object where the covariate is
+ * real this costs a handful of comparisons rather than a pass over the cells.
+ */
+export function hasSignal(cells: readonly Cell[], get: (c: Cell) => number): boolean {
+  if (!cells.length) return false
+  const first = get(cells[0])
+  for (let i = 1; i < cells.length; i++) {
+    const v = get(cells[i])
+    if (v !== first && Number.isFinite(v)) return true
+  }
+  return false
 }

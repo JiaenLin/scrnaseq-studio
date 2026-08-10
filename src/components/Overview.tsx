@@ -1,6 +1,6 @@
 import type { CellType, Dataset } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { axisRange, cellsBySample, fmt, quantiles, density, minOf, maxOf } from '../lib/chart.ts'
+import { axisRange, cellsBySample, fmt, quantiles, density, minOf, maxOf , hasSignal } from '../lib/chart.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
 import { pal, PALETTES, RAMPS, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Mono, Stat } from './Ui.tsx'
@@ -191,8 +191,13 @@ export default function Overview({ src, types, palKey, rampKey, onPal, onRamp }:
             tick={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(0)} />
           <QcPanel d={d} palKey={palKey} title="Genes detected" get={c => c.genes}
             tick={v => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)} />
-          <QcPanel d={d} palKey={palKey} title="Mitochondrial %" get={c => c.mito}
-            tick={v => v.toFixed(1)} />
+          {/* Same rule as the Cells tab: the QC block is always written, so an
+              object with no mitochondrial genes annotated would draw a flat
+              violin at zero under a real-looking title. */}
+          {hasSignal(d.cells, c => c.mito) && (
+            <QcPanel d={d} palKey={palKey} title="Mitochondrial %" get={c => c.mito}
+              tick={v => v.toFixed(1)} />
+          )}
         </div>
         <p className="mono mt-2.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
           box = median and IQR · violin = density · n = {fmt(d.nCells)} cells
