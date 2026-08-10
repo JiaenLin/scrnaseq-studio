@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CellType, GroupBy, Identity, PlotKind } from '../types.ts'
+import type { Cell, CellType, GroupBy, Identity, PlotKind } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import {
   clusterCentroids, density, embedExtent, identities, maxOf, maxOfAll, nonZeroPercentile,
   quantiles,
 } from '../lib/chart.ts'
+import { drawFeature } from '../lib/feature-plot.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
-import { mix, rampColor, rampCss, RAMPS, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import { mix, pal, rampColor, rampCss, RAMPS, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import Figure from './Figure.tsx'
 import { Card, Chips, Seg } from './Ui.tsx'
 
 export interface GeneProps {
@@ -26,6 +28,24 @@ export interface GeneProps {
   dotScale: boolean
   palKey: PaletteKey
   rampKey: RampKey
+  /**
+   * Cell types the reader has taken out of these figures, by index.
+   *
+   * Not a subset of the object: nothing is recomputed and no statistic changes.
+   * It exists because a real annotation carries populations nobody wants in a
+   * figure — an "Undefined" cluster of 15 931 cells on the test atlas, doublets,
+   * a debris cluster — and they dominate a violin panel and a dot plot while
+   * saying nothing. On the feature plot they stay as the grey outline rather
+   * than vanishing, so the embedding keeps the shape the reader knows.
+   */
+  hidden: Set<number>
+  /** Percentile of expressing cells mapped to the top of the colour ramp. */
+  clip: number
+  /** A ring around each cell on the feature plot. */
+  borders: boolean
+  onHidden: (h: Set<number>) => void
+  onClip: (v: number) => void
+  onBorders: (v: boolean) => void
   onGenes: (g: string[]) => void
   onPlot: (p: PlotKind) => void
   onGroupBy: (g: GroupBy) => void
@@ -71,7 +91,11 @@ export default function GeneExpression(p: GeneProps) {
     else setMissing([t])
   }
 
+  // Hidden types leave the violin panel and the dot plot entirely — an identity
+  // with no cells is a blank column, and a panel of blank columns is worse than
+  // the population the reader was trying to get rid of.
   const ids = identities(p.src.d, p.types, p.groupBy, p.ct, p.palKey)
+    .filter(i => !p.hidden.has(i.ti))
   const modes: { k: GroupBy; label: string }[] = [
     { k: 'type', label: 'Across cell types' },
     ...(p.src.d.multi
@@ -215,6 +239,29 @@ export default function GeneExpression(p: GeneProps) {
                     ))}
                   </select>
                 </label>
+                <div className="gsep h-6" />
+                {/* The ceiling of the colour scale. One cell at ten times the
+                    next-highest value flattens every other cell onto the floor
+                    colour and the gene reads as unexpressed; SCpubr exposes the
+                    same control as max.cutoff. Values above the ceiling are
+                    drawn at the ceiling, never dropped. */}
+                <label className="flex items-center gap-1.5">
+                  <span className="glabel" title="Expression mapped to the top of the colour scale">
+                    Scale to
+                  </span>
+                  <select className="sel" value={p.clip}
+                    onChange={e => p.onClip(Number(e.target.value))}>
+                    <option value={0.9}>90th percentile</option>
+                    <option value={0.95}>95th percentile</option>
+                    <option value={0.99}>99th percentile</option>
+                    <option value={1}>the maximum</option>
+                  </select>
+                </label>
+                <button
+                  className="chip" aria-pressed={p.borders}
+                  title="A ring around each cell — clearer at print size, slower on a large object"
+                  onClick={() => p.onBorders(!p.borders)}
+                >Cell borders</button>
               </>
             )}
             {p.plot === 'violin' && p.src.d.multi && p.groupBy === 'cond' && (
@@ -229,6 +276,8 @@ export default function GeneExpression(p: GeneProps) {
         )}
       </div>
 
+      <CellFilter p={p} />
+
       <p className="sub mt-2.5">{describe(p)}</p>
 
       <div className="mt-3.5">
@@ -239,6 +288,80 @@ export default function GeneExpression(p: GeneProps) {
           : <ViolinPanel {...p} ids={ids} />}
       </div>
     </Card>
+  )
+}
+
+/**
+ * Which populations these figures draw.
+ *
+ * Collapsed to one line until it is used, because on an object with 133 cell
+ * types a permanently-open list of 133 checkboxes is the tallest thing on the
+ * page and almost nobody touches it. Open, it is the whole roster with counts,
+ * because "which one is the junk cluster" is usually answered by its size.
+ */
+function CellFilter({ p }: { p: GeneProps }) {
+  const [open, setOpen] = useState(false)
+  const counts = useMemo(() => {
+    const n = new Int32Array(p.types.length)
+    for (const c of p.src.d.cells) if (c.t >= 0 && c.t < n.length) n[c.t]++
+    return n
+  }, [p.src, p.types.length])
+
+  const total = p.types.length
+  const shown = total - p.hidden.size
+  const toggle = (ti: number) => {
+    const next = new Set(p.hidden)
+    if (!next.delete(ti)) next.add(ti)
+    // Every population hidden would leave a figure with nothing in it and no
+    // way back except this control, so the last one stays.
+    if (next.size >= total) return
+    p.onHidden(next)
+  }
+
+  return (
+    <div className="mt-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="chip" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+          {open ? '▾' : '▸'} Cell types in these plots
+        </button>
+        <span className="text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
+          {p.hidden.size === 0
+            ? `all ${total}`
+            : `${shown} of ${total} — hiding ${[...p.hidden].slice(0, 3)
+              .map(ti => p.types[ti]?.name).filter(Boolean).join(', ')}${
+              p.hidden.size > 3 ? ` and ${p.hidden.size - 3} more` : ''}`}
+        </span>
+        {p.hidden.size > 0 && (
+          <button className="chip" onClick={() => p.onHidden(new Set())}>Show all</button>
+        )}
+      </div>
+      {open && (
+        <div className="mt-2 rounded-xl p-2" style={{ background: 'var(--sunk)' }}>
+          <div className="grid gap-1"
+            style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))' }}>
+            {p.types.map((t, ti) => {
+              const on = !p.hidden.has(ti)
+              return (
+                <button key={t.key} onClick={() => toggle(ti)} aria-pressed={on}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-left"
+                  style={{ opacity: on ? 1 : 0.45 }}>
+                  <i className="sw flex-none" style={{ background: pal(ti, p.palKey) }} />
+                  <span className="min-w-0 flex-1 truncate text-[11.5px]">{t.name}</span>
+                  <span className="mono flex-none text-[10.5px]" style={{ color: 'var(--ink-3)' }}>
+                    {counts[ti]?.toLocaleString() ?? 0}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="mt-1.5 px-1 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+            Only what these figures draw. No statistic is recomputed, and the markers,
+            differential expression and composition tabs are untouched — on the feature plot
+            a hidden population stays as the grey outline so the embedding keeps its shape.
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -306,7 +429,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   const maxPct = maxOf(pcts)
 
   return (
-    <figure>
+    <Figure name={`${p.gene}_violin`} className="pt-5">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${p.gene} expression`}>
         <text x={PL} y={11} style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)', fontStyle: 'italic' }}>
           {p.gene}
@@ -373,7 +496,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
         })}
         <line className="axline" x1={PL} x2={W - PR} y1={H - PB} y2={H - PB} />
       </svg>
-    </figure>
+    </Figure>
   )
 }
 
@@ -448,9 +571,10 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
-          aria-label={`Dot plot of ${genes.join(', ')}`}>
+      <Figure name="dotplot" className="pt-5">
+        <div className="overflow-x-auto">
+          <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
+            aria-label={`Dot plot of ${genes.join(', ')}`}>
           {rows.map((r, ri) => {
             const y = PT + rh * (ri + 0.5)
             return (
@@ -486,8 +610,9 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
                 textAnchor="end" style={{ fontStyle: 'italic', fontSize: 11, fill: 'var(--ink)' }}>{g}</text>
             )
           })}
-        </svg>
-      </div>
+          </svg>
+        </div>
+      </Figure>
 
       <div className="mt-3.5 flex flex-wrap items-end gap-8">
         <div>
@@ -535,6 +660,7 @@ function FeaturePlot(p: GeneProps) {
   const panels: (string | null)[] = split ? p.src.d.conds : [null]
   const cols = split ? 1 : Math.max(1, Math.min(p.cols, 4))
   const size = split ? Math.max(150, 760 / panels.length) : Math.min(320, Math.max(170, 700 / cols))
+  const anyHidden = p.hidden.size > 0
 
   return (
     <>
@@ -546,10 +672,17 @@ function FeaturePlot(p: GeneProps) {
       <div className="legend mt-3.5">
         <span style={{ color: 'var(--ink-3)' }}>0 · not detected</span>
         <span className="inline-block h-2.5 w-[140px] rounded-[3px]" style={{ background: rampCss(p.rampKey) }} />
-        <span style={{ color: 'var(--ink-3)' }}>max</span>
+        <span style={{ color: 'var(--ink-3)' }}>{p.clip === 1 ? 'max' : `${(p.clip * 100).toFixed(0)}th pct`}</span>
         <span style={{ color: 'var(--ink-3)' }}>
-          · each gene on its own scale, clipped at its 99th percentile · positive cells drawn last
+          · each gene on its own scale · positive cells drawn last
         </span>
+        {(split || anyHidden) && (
+          <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--ink-3)' }}>
+            <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: '#E2E5EA' }} />
+            {anyHidden && split ? 'hidden cells and other groups'
+              : anyHidden ? 'hidden cells' : 'the other groups'} — kept as the outline
+          </span>
+        )}
       </div>
     </>
   )
@@ -561,10 +694,12 @@ function FeatureRow({ p, gene, panels, size }: {
   // The whole-dataset values are needed for the shared clip, so compute once here.
   const { vals, top } = useMemo(() => {
     const v = p.src.vector(gene)
-    // Clipped at the gene's own 99th percentile, so one runaway cell cannot
-    // flatten every other panel to the floor colour.
-    return { vals: v, top: nonZeroPercentile(v, 0.99) }
-  }, [gene, p.src])
+    // Clipped at a percentile of the expressing cells, so one runaway cell
+    // cannot flatten every other panel to the floor colour. SCpubr exposes this
+    // as max.cutoff for the same reason, and like it, values above the ceiling
+    // are drawn at the ceiling rather than dropped.
+    return { vals: v, top: p.clip >= 1 ? maxOf(v) : nonZeroPercentile(v, p.clip) }
+  }, [gene, p.src, p.clip])
 
   const names = p.src.names
   const accession = names.other?.[geneIndex(names.display).get(gene) ?? -1] ?? null
@@ -587,7 +722,8 @@ function FeatureRow({ p, gene, panels, size }: {
         {panels.map(pan => (
           <div key={pan ?? 'all'}>
             {pan && <div className="axis mb-1 text-[10.5px]">{pan}</div>}
-            <FeatureCanvas p={p} vals={vals} top={top} cond={pan} size={size} />
+            <FeatureCanvas p={p} vals={vals} top={top} cond={pan} size={size}
+              name={`${gene}${pan ? `_${pan}` : ''}_feature`} />
           </div>
         ))}
       </div>
@@ -595,67 +731,64 @@ function FeatureRow({ p, gene, panels, size }: {
   )
 }
 
-function FeatureCanvas({ p, vals, top, cond, size }: {
+function FeatureCanvas({ p, vals, top, cond, size, name }: {
   p: GeneProps; vals: Float32Array; top: number; cond: string | null; size: number
+  name: string
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
+  // Everything the drawing needs, assembled once. `redraw` below hands the same
+  // object to an offscreen canvas at export size, which is what keeps the saved
+  // figure identical to the one on screen.
+  const spec = useMemo(() => {
+    const xy = p.emb.xy
+    const hidden = p.hidden
+    const at = size >= 200 ? clusterCentroids(xy, p.src.d, p.types.length) : null
+    return {
+      xy,
+      extent: embedExtent(xy),
+      vals,
+      cells: p.src.d.cells,
+      cond,
+      visible: (c: Cell) => !hidden.has(c.t),
+      top,
+      floor: 0,
+      ramp: p.rampKey,
+      labels: at
+        ? p.types.map((t, ti) => ({ name: t.name, x: at[ti].x, y: at[ti].y }))
+          .filter((_l, ti) => !hidden.has(ti))
+        : null,
+      borders: p.borders,
+      silhouette: true,
+      background: getComputedStyle(document.documentElement)
+        .getPropertyValue('--surface').trim() || '#ffffff',
+    }
+  }, [p.emb, p.src, p.types, p.hidden, p.rampKey, p.borders, vals, top, cond, size])
+
+  const dark = useMemo(
+    () => document.documentElement.classList.contains('dark')
+      || matchMedia('(prefers-color-scheme: dark)').matches, [])
+
   useEffect(() => {
     const cv = ref.current
-    if (!cv) return
-    const ctx = cv.getContext('2d')
-    if (!ctx) return
-    const surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()
-    ctx.fillStyle = surface
-    ctx.fillRect(0, 0, cv.width, cv.height)
-    const xy = p.emb.xy
-    const { x0, x1, y0, y1 } = embedExtent(xy)
-
-    // Typed, and counted before it is filled: a JS array of 292 495 boxed
-    // indices per panel was a measurable part of every redraw of a split view.
-    const cells = p.src.d.cells
-    let n = 0
-    for (let i = 0; i < cells.length; i++) if (!cond || cells[i].cond === cond) n++
-    const idx = new Int32Array(n)
-    let k = 0
-    for (let i = 0; i < cells.length; i++) if (!cond || cells[i].cond === cond) idx[k++] = i
-    // Seurat's `order = TRUE`: positive cells land on top instead of being buried
-    // under the negative majority, which can otherwise erase a real signal.
-    idx.sort((a, b) => vals[a] - vals[b])
-    const r = idx.length > 12000 ? 1.5 : 2.1
-
-    for (const i of idx) {
-      // Zero takes the ramp's own low colour rather than a neutral grey. With a
-      // dark-low ramp like viridis a grey would be *lighter* than the lowest real
-      // value, so the scale would run backwards at its own floor.
-      ctx.fillStyle = rampColor(Math.min(1, vals[i] / top), p.rampKey)
-      ctx.beginPath()
-      ctx.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
-        (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)
-      ctx.fill()
-    }
-
-    // Cluster labels, so a feature plot can be read without a DimPlot beside it.
-    if (size >= 200) {
-      ctx.font = '600 17px system-ui'
-      ctx.textAlign = 'center'
-      ctx.lineWidth = 3.5
-      ctx.strokeStyle = 'rgba(255,255,255,.9)'
-      const at = clusterCentroids(xy, p.src.d, p.types.length)
-      p.types.forEach((t, ti) => {
-        const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
-        const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height
-        ctx.strokeText(t.name, X, Y)
-        ctx.fillStyle = '#334155'
-        ctx.fillText(t.name, X, Y)
-      })
-    }
-  }, [p, vals, top, cond, size])
+    const ctx = cv?.getContext('2d')
+    if (cv && ctx) drawFeature(ctx, cv.width, cv.height, spec, dark)
+  }, [spec, dark])
 
   return (
-    <canvas
-      ref={ref} width={Math.round(size * 2)} height={Math.round(size * 2)}
-      style={{ width: '100%', maxWidth: Math.round(size), height: 'auto', borderRadius: 9 }}
-    />
+    <Figure
+      name={name}
+      redraw={(out, w, h) => {
+        const ctx = out.getContext('2d')
+        // A figure going into a manuscript is printed on white, whatever theme
+        // it was exported from, and the cluster labels have to be legible on it.
+        if (ctx) drawFeature(ctx, w, h, { ...spec, background: '#ffffff' }, false)
+      }}
+    >
+      <canvas
+        ref={ref} width={Math.round(size * 2)} height={Math.round(size * 2)}
+        style={{ width: '100%', maxWidth: Math.round(size), height: 'auto', borderRadius: 9 }}
+      />
+    </Figure>
   )
 }

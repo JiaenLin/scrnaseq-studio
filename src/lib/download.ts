@@ -16,7 +16,16 @@ function inlineStyles(src: Element, dst: Element) {
   const decl: string[] = []
   for (const p of STYLE_PROPS) {
     const v = cs.getPropertyValue(p)
-    if (v && v !== 'none' && v !== 'normal') decl.push(`${p}:${v}`)
+    if (!v || v === 'none' || v === 'normal') continue
+    decl.push(`${p}:${v}`)
+    // The resolved value goes onto the presentation attribute as well as into
+    // the style. Some of these elements carry fill="var(--sunk)" directly;
+    // Chromium resolves that, and the inlined style would win in a browser
+    // anyway — but the exported file is opened by Illustrator, Inkscape and a
+    // journal's production tooling, none of which have a document defining
+    // --sunk. Leaving the reference in place ships a figure whose colours
+    // depend on where it is opened.
+    if (dst.hasAttribute(p)) dst.setAttribute(p, v)
   }
   if (decl.length) dst.setAttribute('style', decl.join(';'))
   const s = src.children, t = dst.children
@@ -30,6 +39,57 @@ function triggerDownload(href: string, filename: string) {
   document.body.appendChild(a)
   a.click()
   a.remove()
+}
+
+/**
+ * A figure's width in inches at print size, for the dpi arithmetic.
+ *
+ * A single-column journal figure is about 3.5 inches — 89 mm at Nature, 85 at
+ * Cell. These panels are drawn a few hundred CSS pixels wide, so a 1:1 export
+ * lands near 90 dpi, under a third of what any journal accepts. Stating the
+ * target in dpi rather than as a bare multiplier is the difference between a
+ * reader knowing the file is submittable and guessing.
+ */
+export const FIGURE_INCHES = 3.5
+
+/** The multiplier that renders a figure `px` wide at `dpi`. */
+export const scaleForDpi = (px: number, dpi: number): number =>
+  Math.max(1, (FIGURE_INCHES * dpi) / Math.max(1, px))
+
+/** Clone with every computed style inlined, on a white plate, ready to write. */
+function portableSvg(svg: SVGSVGElement): { xml: string; w: number; h: number } {
+  const clone = svg.cloneNode(true) as SVGSVGElement
+  inlineStyles(svg, clone)
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  const box = svg.viewBox.baseVal
+  const w = box?.width || svg.clientWidth || 800
+  const h = box?.height || svg.clientHeight || 400
+  clone.setAttribute('width', String(w))
+  clone.setAttribute('height', String(h))
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+  bg.setAttribute('x', String(box?.x ?? 0))
+  bg.setAttribute('y', String(box?.y ?? 0))
+  bg.setAttribute('width', String(w))
+  bg.setAttribute('height', String(h))
+  bg.setAttribute('fill', '#ffffff')
+  clone.insertBefore(bg, clone.firstChild)
+  return { xml: new XMLSerializer().serializeToString(clone), w, h }
+}
+
+/**
+ * The figure as vector.
+ *
+ * The only export that survives a journal's production step without being
+ * resampled, and the only one where a co-author can fix a label without coming
+ * back for the data. Everything on screen is already SVG or points on a canvas,
+ * so for most of these figures this is the honest format and the PNG is the
+ * convenience.
+ */
+export function svgToFile(svg: SVGSVGElement, name: string): void {
+  const blob = new Blob([portableSvg(svg).xml], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  triggerDownload(url, `${name}.svg`)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** Rasterize an inline <svg> and save it. `scale` 2 gives a figure-quality PNG. */

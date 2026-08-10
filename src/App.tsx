@@ -145,6 +145,12 @@ export default function App() {
 
   const [palKey, setPalKey] = useState<PaletteKey>('npg')
   const [rampKey, setRampKey] = useState<RampKey>('seurat')
+  // Figure options for the gene tab. Here rather than inside it so a trip to
+  // Markers and back does not quietly restore a population the reader took out
+  // and then keep drawing it.
+  const [hiddenTypes, setHiddenTypes] = useState<Set<number>>(new Set())
+  const [featureClip, setFeatureClip] = useState(0.99)
+  const [cellBorders, setCellBorders] = useState(false)
   const [geneBusy, setGeneBusy] = useState(false)
   // Only the newest gene request may land: clicking through a marker table
   // faster than the file can answer must not leave an older panel on screen.
@@ -161,6 +167,11 @@ export default function App() {
     setLfcMin(thresholdFor('wilcox').lfc)
     setGroupBy('type')
     setPlot('violin')
+    // Cell types are held by index, so carrying them across objects would hide
+    // whichever populations happen to sit at those positions in the next one —
+    // silently, since the figure would simply be missing cells nobody asked to
+    // remove.
+    setHiddenTypes(new Set())
     // The object's own default — what the lab chose when it was converted.
     setEmbKey(next.embeddings[0]?.key ?? '')
     setGenes(defaultGenes.filter(g => next.genes.includes(g)).slice(0, 4))
@@ -493,8 +504,10 @@ export default function App() {
                 src={src} types={types} ct={ct} ctrl={ctrl} cs={cs} genes={genes} emb={emb}
                 plot={plot} groupBy={groupBy} cols={cols} relative={relative} dotScale={dotScale}
                 palKey={palKey} rampKey={rampKey}
+                hidden={hiddenTypes} clip={featureClip} borders={cellBorders}
                 onGenes={applyGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
-                onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey} />
+                onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey}
+                onHidden={setHiddenTypes} onClip={setFeatureClip} onBorders={setCellBorders} />
             ) : tab === 'sets' ? (
               <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
                 onPickGene={pickGene} />
