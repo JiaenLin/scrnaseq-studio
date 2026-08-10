@@ -41,6 +41,27 @@ export type NonZeroWalk = (cb: (cell: number, value: number) => void) => void
  */
 export type GeneVisit = (gene: number, each: NonZeroWalk) => void
 
+/**
+ * Which groups a figure or a test is asking about.
+ *
+ * A single level, several unioned, or null for every cell of the cell type. The
+ * several-unioned case is what lets a time course be read as early versus late
+ * without re-exporting the object under a coarser grouping — the levels the lab
+ * wrote stay as they are, and the reader decides which of them go together.
+ */
+export type Conds = string | readonly string[] | null | undefined
+
+/**
+ * Cache key for a condition selection, order-independent for a set.
+ *
+ * JSON rather than a joined string: a separator is a bet that no condition name
+ * contains it, and ["a","b|c"] and ["a|b","c"] joining to one key would hand a
+ * group's cells to another group. A single condition keys to itself — the key
+ * this cache has always used — so nothing that existed before gets a new entry.
+ */
+export const condKey = (cond: Conds): string =>
+  (cond == null ? '*' : typeof cond === 'string' ? cond : JSON.stringify([...cond].sort()))
+
 export interface Source {
   meta: SourceMeta
   d: Dataset
@@ -111,12 +132,12 @@ export interface Source {
    */
   forEachNonZero(gene: string, cb: (cell: number, value: number) => void): void
   /** Indices of the cells in a cluster, optionally within one group. */
-  group(ti: number, cond?: string | null): Int32Array
-  mean(gene: string, ti: number, cond?: string | null): number
+  group(ti: number, cond?: Conds): Int32Array
+  mean(gene: string, ti: number, cond?: Conds): number
   /** Fraction of cells with a non-zero value. */
-  pct(gene: string, ti: number, cond?: string | null): number
+  pct(gene: string, ti: number, cond?: Conds): number
   /** Values for a violin, subsampled evenly when the group is large. */
-  values(gene: string, ti: number, cond?: string | null, max?: number): number[]
+  values(gene: string, ti: number, cond?: Conds, max?: number): number[]
   pseudobulk: Bundle['pseudobulk']
   /**
    * Make these genes answerable by the synchronous accessors above.
@@ -263,11 +284,19 @@ export function baseSource(
       }
     },
 
-    group: (ti, cond) => grpCache(`${ti}|${cond ?? '*'}`, () => {
+    // One condition, or several unioned. The union is taken inside this scan
+    // rather than by concatenating two results, deliberately: cells come out in
+    // ascending index order either way, which is what everything downstream
+    // assumes and what keeps a float sum reproducible. A single condition takes
+    // the identical branch under the identical cache key it always did, so
+    // every comparison that existed before this is bit-for-bit what it was.
+    group: (ti, cond) => grpCache(`${ti}|${condKey(cond)}`, () => {
+      const set = cond != null && typeof cond !== 'string' ? new Set(cond) : null
       const out: number[] = []
       for (let i = 0; i < d.cells.length; i++) {
         const c = d.cells[i]
-        if (c.t === ti && (!cond || c.cond === cond)) out.push(i)
+        const here = set ? set.has(c.cond) : !cond || c.cond === cond
+        if (c.t === ti && here) out.push(i)
       }
       return Int32Array.from(out)
     }),

@@ -7,6 +7,7 @@ import { bundleSource, demoSource, type Source } from './lib/source.ts'
 import { designFor, thresholdFor } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
+import CondPicker from './components/CondPicker.tsx'
 import Landing from './components/Landing.tsx'
 import Overview from './components/Overview.tsx'
 import Cells from './components/Cells.tsx'
@@ -118,8 +119,12 @@ export default function App() {
   const [types, setTypes] = useState<CellType[]>([])
   const [tab, setTab] = useState<TabId>('overview')
   const [ct, setCt] = useState('')
-  const [ctrl, setCtrl] = useState('')
-  const [cs, setCs] = useState('')
+  // Each side of a comparison is a SET of conditions. One level on each is the
+  // ordinary case and behaves exactly as it did; several pools them, which is
+  // how a time course gets read as early versus late without the object being
+  // re-exported under a coarser grouping.
+  const [ctrl, setCtrl] = useState<string[]>([])
+  const [cs, setCs] = useState<string[]>([])
   const [method, setMethod] = useState<Method>('wilcox')
   const [padjMax, setPadjMax] = useState(0.05)
   const [lfcMin, setLfcMin] = useState(thresholdFor('wilcox').lfc)
@@ -170,8 +175,8 @@ export default function App() {
     setSrc(next)
     setTypes(next.types.map(t => ({ ...t })))
     setCt(next.types[0]?.name ?? '')
-    setCtrl(next.d.conds[0])
-    setCs(next.d.conds[next.d.conds.length - 1])
+    setCtrl([next.d.conds[0]])
+    setCs([next.d.conds[next.d.conds.length - 1]])
     setMethod('wilcox')
     setPadjMax(0.05)
     setLfcMin(thresholdFor('wilcox').lfc)
@@ -401,18 +406,10 @@ export default function App() {
             {needs.contrast && d.multi && (
               <>
                 {(needs.ct || showEmb) && <div className="gsep" />}
-                <label className="flex items-center gap-1.5">
-                  <span className="glabel">Control</span>
-                  <select className="sel" value={ctrl} onChange={e => setCtrl(e.target.value)}>
-                    {d.conds.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <span className="glabel">Compare</span>
-                  <select className="sel" value={cs} onChange={e => setCs(e.target.value)}>
-                    {d.conds.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </label>
+                <CondPicker label="Control" all={d.conds} value={ctrl} other={cs}
+                  onChange={setCtrl} />
+                <CondPicker label="Compare" all={d.conds} value={cs} other={ctrl}
+                  onChange={setCs} />
               </>
             )}
             {geneBusy && (

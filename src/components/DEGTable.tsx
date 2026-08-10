@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
-import { combinedScore } from '../lib/stats.ts'
+import {
+  condLabel, combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt } from '../lib/chart.ts'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
@@ -87,7 +88,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
       pCsv(r.p),
       pCsv(r.padj),
       nlpCsv(r.nlp),
-      r.lfc > 0 ? `higher in ${cs}` : `higher in ${ctrl}`,
+      r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`,
     ]))
 
   const cols: [SortKey, string, boolean][] = [
@@ -155,7 +156,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
                 <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{pTxt(r.p)}</td>
                 <td className="num mono text-[11.5px]" style={{ color: 'var(--ink-3)' }}>{pTxt(r.padj)}</td>
                 <td className="num mono text-[11.5px] font-semibold">{nlpTxt(r.nlp)}</td>
-                <td className="whitespace-nowrap">{r.lfc > 0 ? `higher in ${cs}` : `higher in ${ctrl}`}</td>
+                <td className="whitespace-nowrap">{r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`}</td>
               </tr>
             ))}
           </tbody>

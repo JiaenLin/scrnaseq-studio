@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import type { CellType, DERow, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  deWilcox, designFor, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP, MIN_REPS_PB, PCT_GATE,
-  pseudobulkColumns, wilcoxSpec, type DEResult,
+  condLabel, deWilcox, designFor, inConds, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP,
+  MIN_REPS_PB, PCT_GATE, pseudobulkColumns, wilcoxSpec, type DEResult,
 } from '../lib/stats.ts'
 import { useJob } from '../lib/compute.ts'
 import Progress from './Progress.tsx'
@@ -20,8 +20,8 @@ export interface StatsProps {
   src: Source
   t: CellType
   ti: number
-  ctrl: string
-  cs: string
+  ctrl: string[]
+  cs: string[]
   method: Method
   computed: boolean
   running: boolean
@@ -35,7 +35,8 @@ export interface StatsProps {
   onPickGene: (g: string) => void
 }
 
-const contrastLabel = (p: StatsProps) => `${p.cs} vs ${p.ctrl} · ${p.t.name}`
+const contrastLabel = (p: StatsProps) =>
+  `${condLabel(p.cs)} vs ${condLabel(p.ctrl)} · ${p.t.name}`
 
 /**
  * The contrast, computed.
@@ -64,7 +65,7 @@ const contrastLabel = (p: StatsProps) => `${p.cs} vs ${p.ctrl} · ${p.t.name}`
  */
 function useDE(p: StatsProps) {
   return useJob<'wilcox'>(
-    p.src, 'de', `de|${p.ti}|${p.ctrl}|${p.cs}`,
+    p.src, 'de', `de|${p.ti}|${condLabel(p.ctrl)}|${condLabel(p.cs)}`,
     p.method === 'wilcox' && p.ctrl !== p.cs,
     () => deWilcox(p.src, p.ti, p.ctrl, p.cs),
     // A fresh spec every time: the engine transfers these arrays rather than
@@ -74,7 +75,7 @@ function useDE(p: StatsProps) {
 }
 
 const testing = (p: StatsProps) =>
-  `Testing every gene in ${p.t.name}: ${p.cs} against ${p.ctrl}`
+  `Testing every gene in ${p.t.name}: ${condLabel(p.cs)} against ${condLabel(p.ctrl)}`
 
 /** The test picker, above every contrast tab. */
 function MethodBar(p: StatsProps) {
@@ -160,7 +161,7 @@ export function ThresholdBar(p: StatsProps) {
 function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   if (p.ctrl === p.cs)
     return <Empty title="Pick two different groups">
-      Control and comparison are both set to <b>{p.ctrl}</b>.
+      Control and comparison are both set to <b>{condLabel(p.ctrl)}</b>.
     </Empty>
 
   const d = designFor(p.src, p.ti, p.ctrl, p.cs)
@@ -171,14 +172,14 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
     const { n0, n1 } = de
     if (!n0 || !n1)
       return <Empty title={`No ${p.t.name} cells in one of these groups`}>
-        {n0} cells in {p.ctrl}, {n1} in {p.cs}.
+        {n0} cells in {condLabel(p.ctrl)}, {n1} in {condLabel(p.cs)}.
       </Empty>
     // Seurat's min.cells.group. A side of one or two cells does produce a table —
     // a long one, with small p-values — but every row of it describes those cells
     // rather than a difference between groups, and nothing on the page would say so.
     if (n0 < MIN_CELLS_GROUP || n1 < MIN_CELLS_GROUP)
       return <Empty title={`Too few ${p.t.name} cells to test one of these groups`}>
-        {n0} cell{n0 === 1 ? '' : 's'} in {p.ctrl}, {n1} in {p.cs}. A rank-sum test needs
+        {n0} cell{n0 === 1 ? '' : 's'} in {condLabel(p.ctrl)}, {n1} in {condLabel(p.cs)}. A rank-sum test needs
         at least {MIN_CELLS_GROUP} per group — Seurat&rsquo;s <Mono>min.cells.group</Mono> —
         and below that the table it returns is a description of the {Math.min(n0, n1)} cell
         {Math.min(n0, n1) === 1 ? '' : 's'} on the smaller side, at whatever p the
@@ -190,7 +191,7 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   if (!d.pbOK)
     return (
       <Empty title={`Not enough samples in ${p.t.name} for pseudobulk`}>
-        {d.n0} {p.ctrl} and {d.n1} {p.cs} samples clear the {MIN_CELLS}-cell floor.
+        {d.n0} {condLabel(p.ctrl)} and {d.n1} {condLabel(p.cs)} samples clear the {MIN_CELLS}-cell floor.
         Pseudobulk needs more than {MIN_REPS_PB - 1} per group.
         <div className="mt-3.5">
           <button className="btn btn-primary" onClick={() => p.onMethod('wilcox')}>
@@ -231,8 +232,8 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
 function PseudobulkPanel(p: StatsProps) {
   const cols = pseudobulkColumns(p.src, p.ti, p.ctrl, p.cs)
   const pb = p.src.pseudobulk
-  const n0 = cols.filter(c => c.cond === p.ctrl).length
-  const n1 = cols.filter(c => c.cond === p.cs).length
+  const n0 = cols.filter(c => inConds(c.cond, p.ctrl)).length
+  const n1 = cols.filter(c => inConds(c.cond, p.cs)).length
 
   if (!pb) {
     return (
@@ -253,7 +254,7 @@ function PseudobulkPanel(p: StatsProps) {
     const keep = cols.map(c => pb.columns.findIndex(
       x => x.sample === c.sample && x.cluster === c.cluster))
     downloadCsv(
-      `pseudobulk_${slug(`${p.cs}_vs_${p.ctrl}_${p.t.name}`)}`,
+      `pseudobulk_${slug(`${condLabel(p.cs)}_vs_${condLabel(p.ctrl)}_${p.t.name}`)}`,
       ['gene', ...cols.map(c => `${c.sample}__${c.cond}`)],
       pb.genes.map((g, gi) => [g, ...keep.map(k => pb.counts[gi * pb.columns.length + k])]))
   }
@@ -274,7 +275,7 @@ function PseudobulkPanel(p: StatsProps) {
           </thead>
           <tbody>
             {p.src.d.samples
-              .filter(s => s.cond === p.ctrl || s.cond === p.cs)
+              .filter(s => inConds(s.cond, p.ctrl) || inConds(s.cond, p.cs))
               .map(s => {
                 const hit = cols.find(c => c.sample === s.id)
                 return (
@@ -299,7 +300,7 @@ function PseudobulkPanel(p: StatsProps) {
         </button>
         <button className="btn" onClick={() => p.onMethod('wilcox')}>Back to Wilcoxon</button>
         <span className="text-[12.5px]" style={{ color: 'var(--ink-3)' }}>
-          {n0} {p.ctrl} · {n1} {p.cs}
+          {n0} {condLabel(p.ctrl)} · {n1} {condLabel(p.cs)}
           {(n0 < MIN_REPS_PB || n1 < MIN_REPS_PB)
             && ` — fewer than ${MIN_REPS_PB} per group, so a between-animal test is not defensible here either`}
         </span>
@@ -352,7 +353,7 @@ export function DEGTable(p: StatsProps) {
       <div className="eyebrow">{contrastLabel(p)}</div>
       <h2 className="mt-1 text-[14.5px] font-semibold">{up + dn} differentially expressed genes</h2>
       <p className="sub">
-        {up} higher and {dn} lower in <b>{p.cs}</b>, at adjusted p &lt; {p.padjMax} and
+        {up} higher and {dn} lower in <b>{condLabel(p.cs)}</b>, at adjusted p &lt; {p.padjMax} and
         |log₂ fold change| ≥ {p.lfcMin}.{' '}
         {wil
           ? <>Wilcoxon rank-sum over {fmt(n0)} and {fmt(n1)} cells. The default cutoff is
@@ -365,7 +366,7 @@ export function DEGTable(p: StatsProps) {
 
 
       <DEGTableBody
-        rows={rows} wilcox={wil} ctrl={p.ctrl} cs={p.cs} label={contrastLabel(p)}
+        rows={rows} wilcox={wil} ctrl={condLabel(p.ctrl)} cs={condLabel(p.cs)} label={contrastLabel(p)}
         padjMax={p.padjMax} lfcMin={p.lfcMin} onPickGene={p.onPickGene}
       />
     </Card>
@@ -440,10 +441,10 @@ export function Volcano(p: StatsProps) {
       <div className="mb-2 flex flex-wrap items-center gap-2.5">
         <div className="eyebrow">{contrastLabel(p)}</div>
         <span className="badge" style={{ background: 'rgba(239,68,68,.14)', color: '#b91c1c' }}>
-          ▲ {up} up in {p.cs}
+          ▲ {up} up in {condLabel(p.cs)}
         </span>
         <span className="badge" style={{ background: 'rgba(59,130,246,.14)', color: '#1d4ed8' }}>
-          ▼ {dn} up in {p.ctrl}
+          ▼ {dn} up in {condLabel(p.ctrl)}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
           <span className="glabel">Labels</span>
@@ -502,7 +503,7 @@ export function Volcano(p: StatsProps) {
           <line className="axline" x1={PL} x2={W - PR} y1={H - PB} y2={H - PB} />
           <text x={(PL + W - PR) / 2} y={H - PB + 32} textAnchor="middle"
             style={{ fontSize: 11.5, fill: AXIS_INK }}>
-            log₂ fold change · {p.cs} vs {p.ctrl}
+            log₂ fold change · {condLabel(p.cs)} vs {condLabel(p.ctrl)}
           </text>
           <text transform={`rotate(-90 15 ${(PT + H - PB) / 2})`} x={15}
             y={(PT + H - PB) / 2} textAnchor="middle"
@@ -511,8 +512,8 @@ export function Volcano(p: StatsProps) {
           {/* The key, in the figure and centred under the panel, in the same
               language as the marks it describes. */}
           <KeyRow cx={(PL + W - PR) / 2} y={H - 14} items={[
-            { color: '#ef4444', label: `up in ${p.cs}` },
-            { color: '#3b82f6', label: `up in ${p.ctrl}` },
+            { color: '#ef4444', label: `up in ${condLabel(p.cs)}` },
+            { color: '#3b82f6', label: `up in ${condLabel(p.ctrl)}` },
             { color: '#9AA3AF', label: 'not significant' },
           ]} />
         </svg>

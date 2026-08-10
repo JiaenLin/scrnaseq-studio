@@ -373,5 +373,53 @@ console.log('\nRENAMING NEVER ORPHANS A RESULT')
     pbKey(t, 'Quiescent', 'Reactivated'))
 }
 
+
+console.log('\nA SIDE MAY BE SEVERAL GROUPS')
+// The point of this feature is that it changes only WHICH cells are on each
+// side. So the first thing to pin is that it changes nothing else: a single
+// level passed as a set must be the identical answer, digit for digit, to the
+// same level passed as a string. If that drifts, every comparison anyone ran
+// before sets existed has quietly moved.
+{
+  const t = ti(course, 'Neuroblast')
+  // Named against the object rather than typed from memory. The first draft of
+  // this test asked for "48 h", which this object does not have — so its union
+  // assertions were comparing a group against itself, and passing.
+  const [c0, c1, c2, c3] = course.d.conds
+  check('the levels this test names all exist',
+    [c0, c1, c2, c3].every(c => typeof c === 'string' && c.length > 0), true)
+
+  const one = deWilcox(course, t, c0, c3)
+  const set = deWilcox(course, t, [c0], [c3])
+  check('a one-level set is the string, exactly', JSON.stringify(set), JSON.stringify(one))
+
+  const n = (conds) => course.group(t, conds).length
+  check('the levels being pooled are not empty', n(c1) > 0 && n(c2) > 0, true)
+  const pooled = deWilcox(course, t, [c0, c1], [c2, c3])
+  check('the control side is the union', pooled.n0, n(c0) + n(c1))
+  check('the compare side is the union', pooled.n1, n(c2) + n(c3))
+  check('and it is a different test from one level against one',
+    pooled.n0 !== one.n0 && pooled.n1 !== one.n1, true)
+
+  const flipped = deWilcox(course, t, [c1, c0], [c3, c2])
+  check('the order levels were picked in does not matter',
+    JSON.stringify(flipped), JSON.stringify(pooled))
+
+  const idx = course.group(t, [c0, c1])
+  let sorted = true
+  for (let i = 1; i < idx.length; i++) if (idx[i] <= idx[i - 1]) sorted = false
+  check('a unioned group is still in cell order', sorted, true)
+}
+
+console.log('\nOVERLAPPING SIDES ARE NOT A COMPARISON')
+{
+  const t = ti(course, 'Neuroblast')
+  const [c0, c1, , c3] = course.d.conds
+  check('a level on both sides blocks pseudobulk',
+    designFor(course, t, [c0, c1], [c1, c3]).pbOK, false)
+  check('disjoint sides do not', designFor(course, t, [c0], [c3]).pbOK,
+    designFor(course, t, c0, c3).pbOK)
+}
+
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll statistics tests passed\n')
 process.exit(failed ? 1 : 0)

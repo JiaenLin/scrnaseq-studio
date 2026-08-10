@@ -3,7 +3,8 @@ import type { DERow } from '../types.ts'
 import { GENE_SETS, SET_SOURCES } from '../lib/genesets.ts'
 import { runORA, type ORAResult } from '../lib/ora.ts'
 import { maxOf, sci } from '../lib/chart.ts'
-import { combinedScore } from '../lib/stats.ts'
+import {
+  condLabel, combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { MARK_EDGE } from '../lib/figure-ink.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
@@ -16,8 +17,8 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
   rows: DERow[]
   genes: string[]
   threshold: { padj: number; lfc: number }
-  ctrl: string
-  cs: string
+  ctrl: string[]
+  cs: string[]
   label: string
   palKey: PaletteKey
   onPickGene: (g: string) => void
@@ -61,7 +62,7 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
     results.map(r => [r.name, r.id, r.source, r.count, r.setSize,
       r.foldEnrichment.toFixed(3), r.pvalue.toExponential(4), r.padj.toExponential(4),
       r.overlap.join(' ')]))
-  const dirLabel = dir === 'up' ? `higher in ${cs}` : dir === 'down' ? `higher in ${ctrl}` : 'changed in either direction'
+  const dirLabel = dir === 'up' ? `higher in ${condLabel(cs)}` : dir === 'down' ? `higher in ${condLabel(ctrl)}` : 'changed in either direction'
 
   return (
     <Card
@@ -78,8 +79,8 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
           value={dir} onChange={setDir}
           options={[
             { k: 'both', label: 'Both' },
-            { k: 'up', label: `Up in ${cs}` },
-            { k: 'down', label: `Up in ${ctrl}` },
+            { k: 'up', label: `Up in ${condLabel(cs)}` },
+            { k: 'down', label: `Up in ${condLabel(ctrl)}` },
           ]}
         />
         <div className="gsep h-6" />
@@ -171,7 +172,7 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
           </p>
           {selected && (
             <TermDetail
-              selected={selected} ranked={ranked} ctrl={ctrl} cs={cs}
+              selected={selected} ranked={ranked} ctrl={condLabel(ctrl)} cs={condLabel(cs)}
               onClose={() => setTermId('')} onPickGene={onPickGene}
             />
           )}
@@ -186,6 +187,7 @@ interface RankedGene { gene: string; comb: number; rank: number; r: DERow }
 function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
   selected: ORAResult
   ranked: Map<string, RankedGene>
+  /** Already-joined labels: this card only names the sides. */
   ctrl: string
   cs: string
   onClose: () => void
@@ -228,7 +230,7 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
                 <td className="num" style={{ color: 'var(--ink-2)' }}>{rank}</td>
                 <td className="num mono text-[11.5px]">{sci(r.padj)}</td>
                 <td className="whitespace-nowrap">
-                  {r.lfc > 0 ? `higher in ${cs}` : `higher in ${ctrl}`}
+                  {r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`}
                 </td>
               </tr>
             ))}

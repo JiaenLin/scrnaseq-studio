@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Cell, CellType, GroupBy, Identity, PlotKind } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
+import { condLabel, inConds } from '../lib/stats.ts'
 import {
   clusterCentroids, density, embedExtent, identities, maxOf, maxOfAll, nonZeroPercentile,
   quantiles,
@@ -21,8 +22,8 @@ export interface GeneProps {
   src: Source
   types: CellType[]
   ct: string
-  ctrl: string
-  cs: string
+  ctrl: string[]
+  cs: string[]
   genes: string[]
   /** Which of the object's embeddings the feature plot draws on. */
   emb: Embedding
@@ -302,7 +303,7 @@ export default function GeneExpression(p: GeneProps) {
               <>
                 <div className="gsep h-6" />
                 <button className="chip" aria-pressed={p.relative} onClick={() => p.onRelative(!p.relative)}>
-                  Relative to {p.ctrl}
+                  Relative to {condLabel(p.ctrl)}
                 </button>
               </>
             )}
@@ -443,7 +444,9 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   const series = cats.map(c => p.src.values(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond))
   let base = 1
   if (p.relative && p.groupBy === 'cond') {
-    const ref = Math.max(0, cats.findIndex(c => c.cond === p.ctrl))
+    // The first facet on the control side. With several levels pooled the
+    // baseline is the first of them that this panel actually draws.
+    const ref = Math.max(0, cats.findIndex(c => c.cond != null && inConds(c.cond, p.ctrl)))
     const v = series[ref]
     base = v.reduce((a, b) => a + b, 0) / v.length || 1
   }

@@ -12,7 +12,7 @@
 // the one that matters.
 
 import type { CellType, DERow, Design, Method } from '../types.ts'
-import type { NonZeroWalk, Source } from './source.ts'
+import { condKey, type Conds, type NonZeroWalk, type Source } from './source.ts'
 
 /** Cells a sample must contribute before it becomes a pseudobulk column. */
 export const MIN_CELLS = 10
@@ -330,8 +330,36 @@ export interface MarkersSpec {
   nGenes: number
 }
 
-/** The comparison a DEG table asks for, as numbers. */
-export function wilcoxSpec(src: Source, ti: number, ctrl: string, cs: string): WilcoxSpec {
+
+/**
+ * Is this condition on that side of the comparison?
+ *
+ * `null` means every condition, which is what the whole-object views pass.
+ */
+export const inConds = (cond: string, side: Conds): boolean =>
+  (side == null ? true : typeof side === 'string' ? cond === side : side.includes(cond))
+
+/** Two sides that share a condition are not two sides. */
+export const sameOrOverlapping = (a: Conds, b: Conds): boolean => {
+  const A = a == null ? [] : typeof a === 'string' ? [a] : a
+  const B = b == null ? [] : typeof b === 'string' ? [b] : b
+  if (!A.length || !B.length) return true
+  return A.some(x => B.includes(x))
+}
+
+/** How a side reads in a caption: "6 h", or "6 h + 12 h". */
+export const condLabel = (side: Conds): string =>
+  (side == null ? 'all' : typeof side === 'string' ? side : side.join(' + '))
+
+/**
+ * The comparison a DEG table asks for, as numbers.
+ *
+ * Each side may be one condition or several unioned. Only the membership of the
+ * two groups changes — the rank sums, the gates, the fold change and every
+ * number below this are the same test on a different partition, so a comparison
+ * of two single levels is byte-for-byte what it was before sets existed.
+ */
+export function wilcoxSpec(src: Source, ti: number, ctrl: Conds, cs: Conds): WilcoxSpec {
   // `a` is the "1" side: pct.1, and the numerator of the fold change.
   const a = src.group(ti, cs)
   const b = src.group(ti, ctrl)
@@ -382,7 +410,7 @@ export function wilcoxPlan(spec: WilcoxSpec) {
   }
 }
 
-export function deWilcox(src: Source, ti: number, ctrl: string, cs: string): DEResult {
+export function deWilcox(src: Source, ti: number, ctrl: Conds, cs: Conds): DEResult {
   const plan = wilcoxPlan(wilcoxSpec(src, ti, ctrl, cs))
   if (plan.empty || !src.scanSync((gi, each) => plan.visit(gi, each))) {
     return { rows: [], n0: plan.n0, n1: plan.n1 }
@@ -628,7 +656,7 @@ export interface PseudobulkColumn {
 
 /** The pseudobulk columns for one cluster and pair, after the cell floor. */
 export function pseudobulkColumns(
-  src: Source, ti: number, ctrl: string, cs: string,
+  src: Source, ti: number, ctrl: Conds, cs: Conds,
 ): PseudobulkColumn[] {
   if (!src.pseudobulk) return []
   const cluster = src.clusters[ti]
@@ -636,25 +664,27 @@ export function pseudobulkColumns(
   return src.pseudobulk.columns
     .map(c => ({ ...c, cond: condOf.get(c.sample) ?? '' }))
     .filter(c => c.cluster === cluster
-      && (c.cond === ctrl || c.cond === cs)
+      && (inConds(c.cond, ctrl) || inConds(c.cond, cs))
       && c.nCells >= MIN_CELLS)
 }
 
 /** Which samples of a cluster are usable, and whether pseudobulk is defensible. */
-export function designFor(src: Source, ti: number, ctrl: string, cs: string): Design {
+export function designFor(src: Source, ti: number, ctrl: Conds, cs: Conds): Design {
   const counts = new Map<string, number>()
   for (const c of src.d.cells) {
     if (c.t === ti) counts.set(c.s, (counts.get(c.s) ?? 0) + 1)
   }
   const used = src.d.samples
     .map(s => ({ ...s, n: counts.get(s.id) ?? 0 }))
-    .filter(s => s.cond === ctrl || s.cond === cs)
+    .filter(s => inConds(s.cond, ctrl) || inConds(s.cond, cs))
   const kept = used.filter(s => s.n >= MIN_CELLS)
-  const n0 = kept.filter(s => s.cond === ctrl).length
-  const n1 = kept.filter(s => s.cond === cs).length
+  const n0 = kept.filter(s => inConds(s.cond, ctrl)).length
+  const n1 = kept.filter(s => inConds(s.cond, cs)).length
   return {
     used, kept, n0, n1,
-    pbOK: n0 >= MIN_REPS_PB && n1 >= MIN_REPS_PB && ctrl !== cs,
+    // Overlapping sides would put the same cells on both, which is not a
+    // comparison — the same guard the single-level form had, generalised.
+    pbOK: n0 >= MIN_REPS_PB && n1 >= MIN_REPS_PB && !sameOrOverlapping(ctrl, cs),
   }
 }
 
@@ -663,7 +693,8 @@ export const minReplicates = (src: Source): number =>
   Math.min(...src.d.conds.map(c => src.d.samples.filter(s => s.cond === c).length))
 
 /** Key a computed pseudobulk run, stable across cluster renaming. */
-export const pbKey = (t: CellType, ctrl: string, cs: string) => `${t.key}|${ctrl}|${cs}`
+export const pbKey = (t: CellType, ctrl: Conds, cs: Conds) =>
+  `${t.key}|${condKey(ctrl)}|${condKey(cs)}`
 
 /**
  * Signed ranking metric: −log10(p) × log2FC.

@@ -1,6 +1,7 @@
 import type { CellType, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { designFor, LFC_GATE, MIN_CELLS, PCT_GATE } from '../lib/stats.ts'
+import {
+  condLabel, designFor, LFC_GATE, MIN_CELLS, PCT_GATE } from '../lib/stats.ts'
 import { Card, Mono } from './Ui.tsx'
 
 /**
@@ -50,8 +51,8 @@ export default function Methods({ src, types, ti, ctrl, cs, method, padjMax, lfc
   src: Source
   types: CellType[]
   ti: number
-  ctrl: string
-  cs: string
+  ctrl: string[]
+  cs: string[]
   method: Method
   /** The cutoffs actually in force, so the prose can never drift from the figures. */
   padjMax: number
@@ -114,7 +115,7 @@ export default function Methods({ src, types, ti, ctrl, cs, method, padjMax, lfc
     tests{cite('seurat')}, reported as a ranking of marker genes rather than as hypothesis
     tests.</>
   ) : wil ? (
-    <>Differential expression between {cs} and {ctrl} within {ct} was tested with a Wilcoxon
+    <>Differential expression between {condLabel(cs)} and {condLabel(ctrl)} within {ct} was tested with a Wilcoxon
     rank-sum test across cells{cite('seurat')}, restricted to genes with an absolute log₂ fold
     change of at least {LFC_GATE} detected in at least {(PCT_GATE * 100).toFixed(0)}% of cells in
     either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an
@@ -126,11 +127,11 @@ export default function Methods({ src, types, ti, ctrl, cs, method, padjMax, lfc
       : <>Because cells from the same animal are not independent observations, these p-values
         describe variation between cells rather than between animals{cite('practices')}.</>}</>
   ) : (
-    <>Differential expression between {cs} and {ctrl} within {ct} was tested on pseudobulk
+    <>Differential expression between {condLabel(cs)} and {condLabel(ctrl)} within {ct} was tested on pseudobulk
     profiles{cite('practices')}: raw counts were summed across all cells of a given animal, animals
     contributing fewer than {MIN_CELLS} cells of that type were excluded, and the resulting matrix
-    of {design.n0} {ctrl} and {design.n1} {cs} profiles was tested with DESeq2{cite('deseq2')} using{' '}
-    {ctrl} as the reference level, with Benjamini–Hochberg adjustment. Genes with an adjusted p
+    of {design.n0} {condLabel(ctrl)} and {design.n1} {condLabel(cs)} profiles was tested with DESeq2{cite('deseq2')} using{' '}
+    {condLabel(ctrl)} as the reference level, with Benjamini–Hochberg adjustment. Genes with an adjusted p
     below {padjMax} and an absolute log₂ fold change of at least {lfcMin} were considered
     differentially expressed.</>
   )
