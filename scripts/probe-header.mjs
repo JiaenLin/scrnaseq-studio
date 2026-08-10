@@ -49,11 +49,11 @@ for (const width of [1010, 1440, 1920]) {
     const main = document.querySelector('main').getBoundingClientRect()
     return { height: Math.round(h.height), mainTop: Math.round(main.top) }
   })
-  // 139, measured, not guessed: identity 42 + tab row 53 (an 18px group label
-  // over a 35px tab) + bar 43 + one hairline. Each row is doing a job, so the
-  // budget is what they add up to. A pixel over means a row grew and someone
-  // should say why — it is a regression guard, not a target to design toward.
-  ok(head.height <= 140, `header is ${head.height}px tall`)
+  // 121, measured: identity 42 + tabs 35 + bar 43 + one hairline. The group
+  // labels used to add 18 of their own; they are gone, and the gap between
+  // groups says the same thing. A pixel over means a row grew and someone
+  // should say why — a regression guard, not a target to design toward.
+  ok(head.height <= 122, `header is ${head.height}px tall`)
 
   // Nothing in the header may overflow it horizontally.
   const spill = await page.evaluate(() => {

@@ -454,14 +454,17 @@ export default function App() {
             </span>
             {src.meta.isDemo && <span className="badge badge-none flex-none">demo</span>}
           </div>
-          <div className="flex items-end gap-5 overflow-x-auto" role="tablist"
+          <div className="flex items-end gap-6 overflow-x-auto" role="tablist"
             aria-label="Views of this object">
             {GROUPS.map(g => (
-              <div key={g.name || 'doc'} className="flex flex-none flex-col">
-                {/* The group name is the label the hairline was standing in for.
-                    A blank one still reserves the row, so every group's tabs
-                    sit on the same baseline. */}
-                <span className="glabel px-[11px] pb-px" aria-hidden>{g.name || ' '}</span>
+              // The group name is not drawn. Two uppercase words sitting above
+              // the tabs read as two more tabs — a row of labels competing with
+              // the row it labels — and the gap between groups already says the
+              // same thing without spending a line on it. The name stays as the
+              // group's accessible name, so the structure survives for a reader
+              // who cannot see the spacing.
+              <div key={g.name || 'doc'} role="group" aria-label={g.name || 'Document'}
+                className="flex flex-none">
                 <div className="flex gap-0.5">
                   {g.tabs.map(([id, label]) => {
                     const off = !d.multi && NEEDS_CONTRAST.has(id)

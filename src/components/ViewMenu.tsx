@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { PALETTES, RAMPS, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import Popover from './Popover.tsx'
 
 /**
  * Figure style, for the whole studio, from wherever you are looking.
@@ -18,40 +19,18 @@ export default function ViewMenu({ palKey, rampKey, onPal, onRamp }: {
   onRamp: (k: RampKey) => void
 }) {
   const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const shut = (e: MouseEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', shut)
-    document.addEventListener('keydown', esc)
-    return () => {
-      document.removeEventListener('mousedown', shut)
-      document.removeEventListener('keydown', esc)
-    }
-  }, [open])
+  const trigger = useRef<HTMLButtonElement>(null)
 
   return (
-    <div className="relative" ref={box}>
-      <button className="btn btn-sm" aria-haspopup="dialog" aria-expanded={open}
+    <>
+      <button ref={trigger} className="btn btn-sm" aria-haspopup="dialog" aria-expanded={open}
         title="Palette and expression scale, for every figure"
         onClick={() => setOpen(v => !v)}>
         Figure style
       </button>
-      {open && (
-        <div
-          role="dialog" aria-label="Figure style"
-          // Hangs off the right edge of its trigger, so it grows from that
-          // corner rather than from the left one it does not touch.
-          className="menu-in absolute right-0 top-[30px] z-40 w-[290px] rounded-[--r-md] p-3"
-          style={{
-            background: 'var(--surface)', border: '1px solid var(--line-2)',
-            boxShadow: 'var(--shadow-menu)', transformOrigin: 'top right',
-          }}
-        >
+      <Popover open={open} anchor={trigger} align="right" label="Figure style"
+        width={290} onClose={() => setOpen(false)}>
+        <div className="p-3">
           <label className="block">
             <span className="glabel">Clusters</span>
             <select className="sel mt-1 w-full" value={palKey} aria-label="Cluster palette"
@@ -75,7 +54,7 @@ export default function ViewMenu({ palKey, rampKey, onPal, onRamp }: {
               style={{ background: rampCss(rampKey) }} />
           </label>
         </div>
-      )}
-    </div>
+      </Popover>
+    </>
   )
 }

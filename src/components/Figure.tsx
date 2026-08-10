@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { canvasToPng, scaleForDpi, slug, svgToFile, svgToPng } from '../lib/download.ts'
+import Popover from './Popover.tsx'
 
 /**
  * A figure, with the exports a manuscript actually asks for.
@@ -33,19 +34,9 @@ export default function Figure({ name, children, className, right, redraw }: {
   redraw?: (cv: HTMLCanvasElement, w: number, h: number) => void
 }) {
   const box = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-
-  // A menu that stays open after its owner scrolls away is a menu that acts on
-  // the wrong figure.
-  useEffect(() => {
-    if (!open) return
-    const shut = (e: MouseEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', shut)
-    return () => document.removeEventListener('mousedown', shut)
-  }, [open])
 
   const svgIn = () => box.current?.querySelector('svg') as SVGSVGElement | null
   const canvasIn = () => box.current?.querySelector('canvas') as HTMLCanvasElement | null
@@ -94,6 +85,7 @@ export default function Figure({ name, children, className, right, redraw }: {
         {right}
         <div className="relative">
           <button
+            ref={trigger}
             className="btn btn-quiet"
             aria-haspopup="menu"
             aria-expanded={open}
@@ -104,19 +96,9 @@ export default function Figure({ name, children, className, right, redraw }: {
             style={{ minWidth: 74, textAlign: 'center' }}
             onClick={() => setOpen(v => !v)}
           >{busy ? '…' : '⭳ Save'}</button>
-          {open && (
-            <div
-              role="menu"
-              className="menu-in absolute right-0 top-[26px] z-20 w-[212px] rounded-[--r-md] p-1.5 text-left"
-              style={{
-                background: 'var(--surface)', border: '1px solid var(--line)',
-                boxShadow: 'var(--shadow-menu)',
-                // This one hangs off the right edge of its trigger, so it grows
-                // from that corner. The shared class assumes top-left, which is
-                // where every other menu in the app is anchored.
-                transformOrigin: 'top right',
-              }}
-            >
+          <Popover open={open} anchor={trigger} align="right" role="menu"
+            label={`Download ${name}`} width={212} onClose={() => setOpen(false)}>
+            <div className="p-1.5 text-left">
               {vector && (
                 <MenuItem onClick={() => void save('svg')}
                   title="SVG — vector" note="editable, no resampling" />
@@ -126,7 +108,7 @@ export default function Figure({ name, children, className, right, redraw }: {
               <MenuItem onClick={() => void save(600)}
                 title="PNG — 600 dpi" note="line art and dense panels" />
             </div>
-          )}
+          </Popover>
         </div>
       </div>
       {children}

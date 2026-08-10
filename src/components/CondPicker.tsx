@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import Popover from './Popover.tsx'
 
 /**
  * One side of a comparison: a condition, or several taken together.
@@ -24,16 +25,7 @@ export default function CondPicker({ label, all, value, other, onChange }: {
   onChange: (next: string[]) => void
 }) {
   const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const shut = (e: MouseEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', shut)
-    return () => document.removeEventListener('mousedown', shut)
-  }, [open])
+  const trigger = useRef<HTMLButtonElement>(null)
 
   const toggle = (c: string) => {
     const has = value.includes(c)
@@ -50,9 +42,10 @@ export default function CondPicker({ label, all, value, other, onChange }: {
   const text = value.join(' + ') || '—'
 
   return (
-    <div className="relative flex items-center gap-1.5" ref={box}>
+    <div className="flex flex-none items-center gap-1.5">
       <span className="glabel">{label}</span>
       <button
+        ref={trigger}
         className="sel text-left"
         // Four pooled levels is "e7.0 + e8.0 + e13.0 + e13.5" — 26 characters,
         // and at 230 px that truncated to an ellipsis on the one control whose
@@ -66,15 +59,9 @@ export default function CondPicker({ label, all, value, other, onChange }: {
       >
         <span className="block truncate">{text}</span>
       </button>
-      {open && (
-        <div
-          role="listbox"
-          className="menu-in absolute left-0 top-full z-40 mt-1 min-w-[210px] rounded-[--r-md] p-1.5"
-          style={{
-            background: 'var(--surface)', border: '1px solid var(--line-2)',
-            boxShadow: 'var(--shadow-menu)',
-          }}
-        >
+      <Popover open={open} anchor={trigger} role="listbox" label={`${label} groups`}
+        width={230} onClose={() => setOpen(false)}>
+        <div className="p-1.5">
           {all.map(c => {
             const on = value.includes(c)
             const taken = other.includes(c)
@@ -89,7 +76,12 @@ export default function CondPicker({ label, all, value, other, onChange }: {
                 {/* --sel and --surface, like every other selected thing in the
                     studio. White on the dark theme's lighter accent was about
                     2.3:1 — a state indicator you have to look twice at. */}
+                {/* aria-hidden: `aria-selected` on the option already carries
+                    the state, and without it the tick landed INSIDE the
+                    accessible name — a screen reader read "✓0 h", and so did
+                    anything else matching on the name. */}
                 <span
+                  aria-hidden
                   className="grid h-[14px] w-[14px] flex-none place-items-center rounded-[--r-sm] tx-micro"
                   style={{
                     background: on ? 'var(--sel)' : 'transparent',
@@ -103,12 +95,11 @@ export default function CondPicker({ label, all, value, other, onChange }: {
           })}
           {value.length > 1 && (
             <p className="px-2 pb-1 pt-1.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
-              {value.length} groups pooled — every cell in any of them is treated as
-              one group by the test.
+              {value.length} groups pooled, tested as one.
             </p>
           )}
         </div>
-      )}
+      </Popover>
     </div>
   )
 }
