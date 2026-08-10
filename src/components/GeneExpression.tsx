@@ -120,14 +120,16 @@ export default function GeneExpression(p: GeneProps) {
 
   return (
     <Card>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="eyebrow">Gene expression</div>
-          <h2 className="mt-1 text-[14.5px] font-semibold">Search any gene</h2>
-        </div>
-        <div className="relative">
+      {/* The field sits under the heading that names it, not opposite it. Across
+          the card it was the furthest thing on the page from "Search any gene",
+          and from the chips it fills — the eye had to cross the whole card and
+          come back. */}
+      <div>
+        <div className="eyebrow">Gene expression</div>
+        <h2 className="mt-1 text-[14.5px] font-semibold">Search any gene</h2>
+        <div className="relative mt-2">
           <input
-            className="inp mono w-[210px]" value={q} autoComplete="off"
+            className="inp mono w-full max-w-[320px]" value={q} autoComplete="off"
             placeholder={names.other ? 'symbol or accession…' : 'one gene, or paste a list…'}
             aria-label="Search a gene or paste a gene list"
             onChange={e => setQ(e.target.value)}
@@ -139,7 +141,7 @@ export default function GeneExpression(p: GeneProps) {
           />
           {hits.length > 0 && (
             <div
-              className="absolute left-0 top-full z-40 mt-1 w-[250px] overflow-hidden rounded-[10px]"
+              className="absolute left-0 top-full z-40 mt-1 w-[320px] max-w-full overflow-hidden rounded-[10px]"
               style={{ background: 'var(--surface)', border: '1px solid var(--line-2)',
                        boxShadow: '0 8px 24px rgba(15,23,42,.14)' }}
             >
