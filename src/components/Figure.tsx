@@ -99,10 +99,14 @@ export default function Figure({ name, children, className, right, redraw }: {
           {open && (
             <div
               role="menu"
-              className="absolute right-0 top-[26px] z-20 w-[212px] rounded-xl p-1.5 text-left"
+              className="menu-in absolute right-0 top-[26px] z-20 w-[212px] rounded-xl p-1.5 text-left"
               style={{
                 background: 'var(--surface)', border: '1px solid var(--line)',
                 boxShadow: '0 10px 30px rgba(15,23,42,.16)',
+                // This one hangs off the right edge of its trigger, so it grows
+                // from that corner. The shared class assumes top-left, which is
+                // where every other menu in the app is anchored.
+                transformOrigin: 'top right',
               }}
             >
               {vector && (

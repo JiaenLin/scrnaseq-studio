@@ -69,7 +69,7 @@ export default function CondPicker({ label, all, value, other, onChange }: {
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 top-full z-40 mt-1 min-w-[210px] rounded-xl p-1.5"
+          className="menu-in absolute left-0 top-full z-40 mt-1 min-w-[210px] rounded-xl p-1.5"
           style={{
             background: 'var(--surface)', border: '1px solid var(--line-2)',
             boxShadow: '0 10px 30px rgba(15,23,42,.16)',

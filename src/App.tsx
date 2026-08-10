@@ -61,6 +61,9 @@ function CrashOnRender({ tab }: { tab: TabId }): never {
 /** Tabs that describe a comparison, and so cannot exist without two groups. */
 const NEEDS_CONTRAST = new Set<TabId>(['degs', 'volcano', 'enrich'])
 
+/** Tests that do not go through the gated Wilcoxon pass, so have nothing to run. */
+const NEEDS_RUN_HIDDEN = new Set<Method>(['pseudobulk'])
+
 /** What a tab reads out of the shared selection above it. */
 interface Needs {
   /** The Cell type select changes what this tab answers. */
@@ -431,6 +434,16 @@ export default function App() {
                   onChange={setCtrl} />
                 <CondPicker label="Compare" all={d.conds} value={cs} other={ctrl}
                   onChange={setCs} />
+                {/* The action belongs at the end of the decision it completes:
+                    cell type, control, compare, run. It was centred in the card
+                    below — the reader set the comparison here, then had to look
+                    somewhere else to start it, and the two places never appear
+                    on screen together on a laptop. */}
+                {!armed && !NEEDS_RUN_HIDDEN.has(method) && (
+                  <button className="btn btn-primary btn-sm" onClick={() => setDeRan(deKey)}>
+                    Run
+                  </button>
+                )}
                 {(ctrl.length > 1 || cs.length > 1) && <div className="basis-full" />}
               </>
             )}

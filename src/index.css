@@ -171,6 +171,11 @@ svg {
     border-color: var(--accent);
     color: #fff;
   }
+  /* For a button that lives in the control bar, so it matches the height of the
+     selects it sits beside rather than setting the bar's height on its own. */
+  .btn-sm {
+    @apply rounded-lg px-3 py-1 text-[12.5px];
+  }
   .btn-ghost {
     @apply border-0 bg-transparent underline underline-offset-4;
     color: var(--ink-3);
@@ -338,6 +343,25 @@ svg {
   .axgrid {
     stroke: var(--fig-grid);
     stroke-width: 0.6;
+  }
+
+  /* Menus that open from a control.
+     Anchored at the trigger rather than the centre, because a menu that grows
+     from its own middle reads as arriving from somewhere else. Never from
+     scale(0) — nothing appears out of nothing — and 150 ms, which is where a
+     dropdown stops feeling like a delay and starts feeling like a response. */
+  .menu-in {
+    transform-origin: top left;
+    animation: menu-in 150ms var(--ease-out);
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97) translateY(-3px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .menu-in { animation: none; }
   }
 
   /* An indeterminate progress bar, for work whose remaining size is not known.

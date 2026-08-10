@@ -170,18 +170,17 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
       both sides would put the same cells in both groups, which is not a comparison.
     </Empty>
 
-  // Not asked for yet. Every gene against every cell of two groups reads the
-  // whole object, and picking a group is not a request to spend that.
+  // Not asked for yet. The action itself lives in the control bar, at the end of
+  // the row that decides what it will run — so this says what would happen and
+  // points at it rather than being a second, differently-placed button. Two
+  // primary buttons for one action is a choice the reader has to make and
+  // shouldn't have to.
   if (!p.computed)
-    return <Empty title="Not computed yet">
-      <div className="mx-auto max-w-[520px]">
-        Every gene is tested in <b>{p.t.name}</b>: <b>{condLabel(p.cs)}</b> against{' '}
-        <b>{condLabel(p.ctrl)}</b>. That reads the whole object once, so it waits until you
-        ask — change the groups above as often as you like first, nothing runs until you
-        press this.
-      </div>
-      <button className="btn btn-primary mt-3.5" onClick={p.onRun}>Run this comparison</button>
-    </Empty>
+    return <div className="note mt-3.5">
+      <b>Not computed yet.</b> Every gene tested in {p.t.name}: {condLabel(p.cs)} against{' '}
+      {condLabel(p.ctrl)} — one pass over the object. Set the groups above, then press{' '}
+      <b>Run</b>.
+    </div>
 
   const d = designFor(p.src, p.ti, p.ctrl, p.cs)
 

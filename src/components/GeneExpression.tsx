@@ -153,7 +153,7 @@ export default function GeneExpression(p: GeneProps) {
           />
           {hits.length > 0 && (
             <div
-              className="absolute left-0 top-full z-40 mt-1 w-[320px] max-w-full overflow-hidden rounded-[10px]"
+              className="menu-in absolute left-0 top-full z-40 mt-1 w-[320px] max-w-full overflow-hidden rounded-[10px]"
               style={{ background: 'var(--surface)', border: '1px solid var(--line-2)',
                        boxShadow: '0 8px 24px rgba(15,23,42,.14)' }}
             >
