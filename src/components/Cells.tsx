@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { CellType, ColorBy, Dataset } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
-import { clusterCentroids, embedExtent, fmt, nonZeroPercentile } from '../lib/chart.ts'
+import { clusterCentroids, embedExtent, fmt } from '../lib/chart.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Legend } from './Ui.tsx'
 
-export default function Cells({ src, types, gene, emb, colorBy, split, palKey, rampKey, onColorBy, onSplit }: {
+export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey, onColorBy, onSplit }: {
   src: Source
   types: CellType[]
-  gene: string
   /** Which of the object's embeddings to draw. Chosen once, in App, for every tab. */
   emb: Embedding
   colorBy: ColorBy
@@ -20,23 +19,26 @@ export default function Cells({ src, types, gene, emb, colorBy, split, palKey, r
   onSplit: (v: boolean) => void
 }) {
   const d = src.d
-  const values = colorBy === 'gene' && gene ? src.vector(gene) : null
-  // Held across renders: the ceiling depends only on the gene, but this sits in
-  // the render body, so without a memo every palette or split toggle re-sorted
-  // every expressing cell before anything could paint.
-  const vmax = useMemo(() => (values ? nonZeroPercentile(values, 0.99) : 1), [values])
   const panels = split && d.multi ? d.conds : [null]
   const wide = panels.length === 1
   const size = wide ? 700 : Math.max(240, 840 / panels.length)
   const height = wide ? 500 : 330
 
-  // "Expression", not "Gene: Ascl1". The gene is named on the figure itself and
-  // in the colour bar beside it; putting it in the button too made the widest
-  // control on the row change width every time the reader picked a gene, which
-  // shifted every other button under the pointer.
+  /**
+   * No expression here.
+   *
+   * This tab answers "what is where" — the annotation, the groups, the samples,
+   * and one quality covariate. A single gene's expression is a different
+   * question with a whole tab of its own, where it comes with a scale, a
+   * percentile ceiling, a split, and the gene's name on the figure.
+   *
+   * Colouring by it here gave none of that: the button said "Expression" with no
+   * indication of WHICH gene, and the gene was whatever the reader had last
+   * picked on another tab. A map of an unnamed gene is not a worse feature
+   * expression plot, it is a figure nobody can read.
+   */
   const modes: [ColorBy, string][] = [
-    ['type', 'Cell type'], ['cond', 'Group'], ['sample', 'Sample'],
-    ['mito', '% mito'], ['gene', 'Expression'],
+    ['type', 'Cell type'], ['cond', 'Group'], ['sample', 'Sample'], ['mito', '% mito'],
   ]
 
   const legend: [string, string][] =
@@ -81,7 +83,7 @@ export default function Cells({ src, types, gene, emb, colorBy, split, palKey, r
               </div>
             )}
             <Scatter
-              d={d} types={types} xy={emb.xy} cond={p} values={values} vmax={vmax} colorBy={colorBy}
+              d={d} types={types} xy={emb.xy} cond={p} colorBy={colorBy}
               palKey={palKey} rampKey={rampKey}
               w={size} h={height} labels={panels.length <= 2}
             />
@@ -96,26 +98,23 @@ export default function Cells({ src, types, gene, emb, colorBy, split, palKey, r
           <span style={{ color: 'var(--ink-3)' }}>low</span>
           <span className="inline-block h-[9px] w-[120px] rounded-[3px]" style={{ background: rampCss(rampKey) }} />
           <span style={{ color: 'var(--ink-3)' }}>high</span>
-          {colorBy === 'gene' && <span className="font-semibold italic">{gene}</span>}
         </div>
       )}
 
       <figcaption className="mt-2 text-[11.5px]" style={{ color: 'var(--ink-3)' }}>
         {panels.length > 1
           ? `All ${panels.length} panels share one axis range, so the shift between groups is real and not a rescaling.`
-          : `Coloured by ${colorBy === 'gene' ? gene : colorBy}.`}
+          : `Coloured by ${colorBy}.`}
       </figcaption>
     </Card>
   )
 }
 
-function Scatter({ d, types, xy, cond, values, vmax, colorBy, palKey, rampKey, w, h, labels }: {
+function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels }: {
   d: Dataset
   types: CellType[]
   xy: Float32Array
   cond: string | null
-  values: Float32Array | null
-  vmax: number
   colorBy: ColorBy
   palKey: PaletteKey
   rampKey: RampKey
@@ -143,7 +142,6 @@ function Scatter({ d, types, xy, cond, values, vmax, colorBy, palKey, rampKey, w
     // buried under the negative majority — the same rule as the feature plot.
     const order = new Int32Array(d.cells.length)
     for (let i = 0; i < order.length; i++) order[i] = i
-    if (values) order.sort((a, b) => values[a] - values[b])
     for (const i of order) {
       const c = d.cells[i]
       if (cond && c.cond !== cond) continue
@@ -151,8 +149,7 @@ function Scatter({ d, types, xy, cond, values, vmax, colorBy, palKey, rampKey, w
         colorBy === 'type' ? pal(c.t, palKey)
         : colorBy === 'cond' ? pal(d.conds.indexOf(c.cond), palKey)
         : colorBy === 'sample' ? pal(d.samples.findIndex(s => s.id === c.s), palKey)
-        : colorBy === 'mito' ? rampColor(Math.min(1, c.mito / 9), rampKey)
-        : rampColor(values ? Math.min(1, values[i] / (vmax || 1)) : 0, rampKey)
+        : rampColor(Math.min(1, c.mito / 9), rampKey)
       g.beginPath()
       g.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
         (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)
@@ -173,7 +170,7 @@ function Scatter({ d, types, xy, cond, values, vmax, colorBy, palKey, rampKey, w
         g.fillText(t.name, X, Y)
       })
     }
-  }, [d, types, xy, cond, values, vmax, colorBy, palKey, rampKey, labels])
+  }, [d, types, xy, cond, colorBy, palKey, rampKey, labels])
 
   return (
     <canvas

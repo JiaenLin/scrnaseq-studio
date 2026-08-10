@@ -511,7 +511,7 @@ export default function App() {
               <Overview src={src} types={types} palKey={palKey} rampKey={rampKey}
                 onPal={setPalKey} onRamp={setRampKey} />
             ) : tab === 'cells' ? (
-              <Cells src={src} types={types} gene={genes[genes.length - 1] ?? ''} emb={emb}
+              <Cells src={src} types={types} emb={emb}
                 colorBy={colorBy}
                 split={split} palKey={palKey} rampKey={rampKey}
                 onColorBy={setColorBy} onSplit={setSplit} />

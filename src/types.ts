@@ -101,7 +101,10 @@ export interface Design {
 export type PlotKind = 'violin' | 'dot' | 'feature'
 export type GroupBy = 'type' | 'cond' | 'both'
 export type Method = 'wilcox' | 'pseudobulk'
-export type ColorBy = 'type' | 'cond' | 'sample' | 'mito' | 'gene'
+// No 'gene'. Colouring the embedding by one gene lives on the Gene expression
+// tab, where the gene is named on the figure and the scale is stated. Leaving
+// the variant here would let a future caller reintroduce the unnamed version.
+export type ColorBy = 'type' | 'cond' | 'sample' | 'mito'
 
 export type TabId =
   | 'overview' | 'cells' | 'composition' | 'markers'
