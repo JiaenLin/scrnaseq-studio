@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import { useSetIndex, type LibraryState } from '../lib/genesets.ts'
+import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
 import { oraIndexed, type ORAResult } from '../lib/ora.ts'
 import GeneSetSources from './GeneSetSources.tsx'
@@ -18,7 +19,7 @@ type Direction = 'both' | 'up' | 'down'
 
 export default function Enrichment({
   rows, threshold, ctrl, cs, label, rampKey, onPickGene, background,
-  lib, species, sources, onSources, detected,
+  lib, species, sources, onSources, customSets, onCustomSets, detected,
 }: {
   rows: DERow[]
   /** Every gene the object measures — the population the list was drawn from. */
@@ -34,6 +35,8 @@ export default function Enrichment({
   species: Species
   sources: string[]
   onSources: (next: string[]) => void
+  customSets: readonly Collection[]
+  onCustomSets: (next: Collection[]) => void
   detected: Detection | null
 }) {
   const [dir, setDir] = useState<Direction>('both')
@@ -85,6 +88,24 @@ export default function Enrichment({
       : out
   }, [query, index, minSize, maxSize, rankBy])
 
+  /**
+   * How many sets the size filters actually left to test.
+   *
+   * Without this the empty state could only count GENES, and said "{n} genes
+   * tested and nothing reached significance — a normal outcome, not an error".
+   * If minSize and maxSize excluded every set, or the collection never loaded,
+   * then zero sets were tested and the sentence was reassuring the reader about
+   * a configuration problem. The two numbers are also worth showing when there
+   * ARE results: the default 10–500 window drops 255 of the 844 KEGG sets,
+   * because the MEDICUS modules are small by design.
+   */
+  const inRange = useMemo(() => {
+    if (!index) return { n: 0, of: 0 }
+    let n = 0
+    for (const st of index.sets) if (st.K >= minSize && st.K <= maxSize) n++
+    return { n, of: index.sets.length }
+  }, [index, minSize, maxSize])
+
   const shown = results.slice(0, top)
   const nSig = results.filter(r => r.padj < 0.05).length
   // `|| shown[0]`, like rnaseq-studio: with the table gone the detail card is
@@ -125,7 +146,7 @@ export default function Enrichment({
           + `${nSig.toLocaleString()} reach padj < 0.05 after BH across all of them.`
         : 'Loading the gene sets…'}
     >
-      <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
+      <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources} customSets={customSets} onCustomSets={onCustomSets}
         index={index} background={background} detected={detected} />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -159,6 +180,10 @@ export default function Enrichment({
           <input className="inp w-20" type="number" min={1} value={maxSize}
             aria-label="Maximum set size"
             onChange={e => setMaxSize(Math.max(1, +e.target.value || 1))} />
+          <span className="tx-micro tabular-nums" style={{ color: 'var(--ink-3)' }}
+            title="Sets whose overlap with this object's measured genes falls in the window">
+            {inRange.n.toLocaleString()} of {inRange.of.toLocaleString()} sets
+          </span>
         </label>
       </div>
 
@@ -166,8 +191,15 @@ export default function Enrichment({
         <div className="mt-4">
           <Empty title="No set is enriched in this list">
             {query.length === 0
-              ? `No gene passes padj < ${threshold.padj} and |log2FC| >= ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs above, or press Reset to return to the default for this test.`
-              : `${query.length} genes tested and nothing reached significance. With a list this size that is a normal outcome, not an error.`}
+              ? `No gene passes padj < ${threshold.padj} and |log₂FC| ≥ ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs above, or press Reset to return to the default for this test.`
+              : inRange.of === 0
+                ? 'No collection is loaded, so there was nothing to test against. Switch one on under Gene set collections above.'
+                : inRange.n === 0
+                  ? `${query.length} genes, but none of the ${inRange.of.toLocaleString()} sets `
+                    + `fall between ${minSize} and ${maxSize} genes — so nothing was tested. `
+                    + 'Widen the set size window above.'
+                  : `${query.length} genes against ${inRange.n.toLocaleString()} sets, and nothing `
+                    + 'reached significance. With a list this size that is a normal outcome, not an error.'}
           </Empty>
         </div>
       ) : (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, Dataset, GroupBy } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
@@ -6,6 +6,7 @@ import { axisRange, clusterCentroids, density, embedExtent, identities, quantile
 import { drawLabels } from '../lib/canvas-label.ts'
 import { axisTicks } from '../lib/labels.ts'
 import type { LibraryState } from '../lib/genesets.ts'
+import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
 import GeneSetSources from './GeneSetSources.tsx'
 import { parseGeneList } from '../lib/genes.ts'
@@ -30,7 +31,7 @@ import Progress from './Progress.tsx'
 const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
 export default function GeneSets({
-  src, types, ct, emb, palKey, rampKey, onPickGene, lib, species, sources, onSources,
+  src, types, ct, emb, palKey, rampKey, onPickGene, lib, species, sources, onSources, customSets, onCustomSets,
   detected, scoreRan, onScoreRan,
 }: {
   src: Source
@@ -45,6 +46,8 @@ export default function GeneSets({
   species: Species
   sources: string[]
   onSources: (next: string[]) => void
+  customSets: readonly Collection[]
+  onCustomSets: (next: Collection[]) => void
   detected: Detection | null
   /** The gene list the reader has actually asked to score, joined. */
   scoreRan: string | null
@@ -76,8 +79,25 @@ export default function GeneSets({
       // n is the member COUNT, which the picker shows. Reading .length off the
       // index array costs nothing; building the array of symbols to count it is
       // what this whole memo exists to avoid.
+      //
+      // `hay` is the search key, lower-cased ONCE here rather than rebuilt per
+      // candidate per keystroke — 35 361 concatenations and lower-casings for
+      // every character typed, which is what the search used to cost.
       id: s.id, name: s.name, source: c.source, ci, si, n: s.genes.length,
+      hay: `${s.name} ${s.id}`.toLowerCase(),
     }))), [lib.collections])
+
+  /** id -> set, so the chosen one is not found by walking 35 361 entries. */
+  const byId = useMemo(() => new Map(allSets.map(s => [s.id, s])), [allSets])
+
+  /**
+   * The search text, one beat behind the field.
+   *
+   * Typing "mitotic cell cycle" is eighteen scans of the library; the reader
+   * only wants the last one. The field itself stays uncontrolled-fast — what is
+   * deferred is the work, not the keystroke.
+   */
+  const query = useDeferredValue(find)
 
   /** The members of one set, resolved on demand. */
   const membersOf = useMemo(() => (ci: number, si: number): string[] => {
@@ -87,17 +107,16 @@ export default function GeneSets({
   }, [lib.collections])
 
   const hits = useMemo(() => {
-    const q = find.trim().toLowerCase()
+    const q = query.trim().toLowerCase()
     if (!q) return allSets.slice(0, 40)
     const words = q.split(/\s+/)
     const out = []
     for (const s of allSets) {
-      const hay = `${s.name} ${s.id}`.toLowerCase()
-      if (words.every(w => hay.includes(w))) out.push(s)
+      if (words.every(w => s.hay.includes(w))) out.push(s)
       if (out.length >= 40) break
     }
     return out
-  }, [allSets, find])
+  }, [allSets, query])
 
   /**
    * Nothing is chosen until somebody chooses it.
@@ -107,8 +126,40 @@ export default function GeneSets({
    * every cell in the object. On a streamed atlas that is a minute of work for
    * a term nobody asked about, started by navigation.
    */
-  const chosen = useMemo(
-    () => allSets.find(s => s.id === setId) ?? null, [allSets, setId])
+  const chosen = useMemo(() => byId.get(setId) ?? null, [byId, setId])
+
+  /**
+   * Which row the arrow keys are on.
+   *
+   * The picker was a flat list of buttons: to reach the fourth match you tabbed
+   * past three, and choosing among 35 361 sets is exactly where that fails.
+   * CondPicker in this same app already does listbox-with-arrows properly, so
+   * this is the established pattern rather than a new one — the search field
+   * keeps focus and owns the list through aria-activedescendant, which is what
+   * lets you keep typing while you move.
+   */
+  const [cursor, setCursor] = useState(0)
+  useEffect(() => { setCursor(0) }, [query])
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    listRef.current?.querySelector('[data-at="1"]')
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [cursor])
+
+  const onSearchKey = (e: React.KeyboardEvent) => {
+    if (!hits.length) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setCursor(c => (c + (e.key === 'ArrowDown' ? 1 : hits.length - 1)) % hits.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const h = hits[cursor]
+      if (h) setSetId(h.id)
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault()
+      setCursor(e.key === 'Home' ? 0 : hits.length - 1)
+    }
+  }
 
   const requested = useMemo(() => {
     // Resolved here and only here — the picker above carries names, not members.
@@ -202,7 +253,7 @@ export default function GeneSets({
           set matched on expression level.</>}
       >
         {!useCustom && (
-          <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
+          <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources} customSets={customSets} onCustomSets={onCustomSets}
             background={GENES} detected={detected} />
         )}
 
@@ -219,6 +270,10 @@ export default function GeneSets({
                 : `search ${allSets.length.toLocaleString()} sets — cell cycle, notch…`}
               aria-label="Search gene sets"
               disabled={lib.loading}
+              role="combobox" aria-expanded={hits.length > 0} aria-controls="geneset-hits"
+              aria-activedescendant={hits[cursor] ? `gs-${hits[cursor].id}` : undefined}
+              autoComplete="off"
+              onKeyDown={onSearchKey}
               onChange={e => setFind(e.target.value)}
             />
           ) : (
@@ -241,17 +296,26 @@ export default function GeneSets({
             one at a time. Capped at forty — narrowing the search is the way to
             find something, not scrolling. */}
         {!useCustom && !lib.loading && (
-          <div className="panel mt-2 max-h-[210px] overflow-y-auto">
+          <div ref={listRef} id="geneset-hits" role="listbox" aria-label="Matching gene sets"
+            className="panel mt-2 max-h-[210px] overflow-y-auto">
             {hits.length === 0 ? (
               <p className="tx-small" style={{ color: 'var(--ink-3)' }}>
                 Nothing matches “{find}”.
               </p>
-            ) : hits.map(h => (
+            ) : hits.map((h, i) => (
               <button
-                key={h.id} className="type-toggle flex w-full items-baseline gap-2 rounded-[--r-md] px-2 py-1 text-left"
-                aria-pressed={h.id === chosen?.id}
-                style={{ background: h.id === chosen?.id ? 'var(--surface)' : 'transparent' }}
-                onClick={() => setSetId(h.id)}
+                key={h.id} id={`gs-${h.id}`} role="option" data-at={i === cursor ? 1 : 0}
+                className="type-toggle flex w-full items-baseline gap-2 rounded-[--r-md] px-2 py-1 text-left"
+                aria-selected={h.id === chosen?.id}
+                tabIndex={-1}
+                style={{
+                  background: h.id === chosen?.id ? 'var(--surface)' : 'transparent',
+                  // The arrow cursor is drawn separately from the selection: one
+                  // is where you are looking, the other is what you chose.
+                  outline: i === cursor ? '2px solid var(--accent)' : 'none',
+                  outlineOffset: -2,
+                }}
+                onClick={() => { setSetId(h.id); setCursor(i) }}
               >
                 <span className="glabel flex-none" style={{ width: 92 }}>{h.source}</span>
                 <span className="min-w-0 flex-1 truncate tx-small"

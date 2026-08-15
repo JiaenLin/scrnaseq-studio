@@ -164,6 +164,16 @@ export interface RawRow {
    * thresholds and everything a user reads keep their present meaning.
    */
   nlp: number
+  /**
+   * Benjamini–Hochberg, alongside the Bonferroni in `padj`.
+   *
+   * Seurat reports both — `p_val_adj` is Bonferroni over the genes tested, and
+   * people routinely want the FDR as well, because Bonferroni over thirty
+   * thousand genes is severe enough to hide real biology. Nothing in this app
+   * changes meaning: `padj` is still what the thresholds cut on and what the
+   * CSV has always called padj. This is a second column beside it.
+   */
+  fdr: number
   pct1: number
   pct2: number
 }
@@ -177,7 +187,7 @@ export interface RawResult {
 /** Attach the gene names. The last step of every path, and the only one. */
 export const named = (genes: readonly string[], r: RawResult): DEResult => ({
   rows: r.rows.map(x => ({
-    gene: genes[x.gene], lfc: x.lfc, p: x.p, padj: x.padj, nlp: x.nlp,
+    gene: genes[x.gene], lfc: x.lfc, p: x.p, padj: x.padj, fdr: x.fdr, nlp: x.nlp,
     pct1: x.pct1, pct2: x.pct2,
   })),
   n0: r.n0,
@@ -230,7 +240,7 @@ function testGene(
   if (!Number.isFinite(lfc) || Math.abs(lfc) < LFC_GATE) return null
 
   const { p, nlp } = rankSumSparseFull(xs, gs, n1 - d1, n2 - d2)
-  return { gene, lfc, p, padj: 1, nlp, pct1, pct2 }
+  return { gene, lfc, p, padj: 1, fdr: 1, nlp, pct1, pct2 }
 }
 
 /**
@@ -300,6 +310,25 @@ function finish(rows: RawRow[], nTested: number): RawRow[] {
     r.nlp = Math.max(0, r.nlp - shift)
   }
   rows.sort((x, y) => y.nlp - x.nlp || Math.abs(y.lfc) - Math.abs(x.lfc))
+
+  /**
+   * BH over the same nTested, in one pass down the sorted rows.
+   *
+   * The step-up needs p ascending, and the sort above is by nlp descending —
+   * which is the same order wherever p is representable, and a BETTER one where
+   * it is not, since nlp separates rows whose p has bottomed out at the
+   * double's floor. So the ranks are read straight off this order rather than
+   * sorting a second time by a key that goes flat.
+   *
+   * `rank` counts the rows actually returned; the denominator is nTested,
+   * because genes dropped by the effect-size pre-filter were still tested.
+   */
+  let prev = 1
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const q = (rows[i].p * nTested) / (i + 1)
+    prev = Math.min(prev, q)
+    rows[i].fdr = Math.min(1, prev)
+  }
   return rows
 }
 
@@ -595,7 +624,7 @@ export function markersPlan(spec: MarkersSpec) {
       // The zero block contributes this cluster's z1 cells at its mean rank.
       const { p, nlp } = rankFromSums(
         r1[c] + (n1 - d1[c]) * (nNeg + (1 + zeros) / 2), n1, n2, tieSum)
-      rows[c].push({ gene, lfc, p, padj: 1, nlp, pct1, pct2 })
+      rows[c].push({ gene, lfc, p, padj: 1, fdr: 1, nlp, pct1, pct2 })
     }
   }
 

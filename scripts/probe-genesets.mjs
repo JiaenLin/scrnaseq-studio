@@ -115,8 +115,23 @@ console.log('\nGENE SETS TAB')
     'and no 20 000-item <select> is rendered')
   await search.fill('mitotic cell cycle')
   await page.waitForTimeout(600)
-  const rows = await page.locator('[aria-pressed]').filter({ hasText: /mitotic/i }).count()
+  // role="option" with aria-selected, not aria-pressed: the picker is a
+  // listbox now, and a listbox option carries selection, not pressed state.
+  const opts = page.locator('[role="option"]')
+  const rows = await opts.filter({ hasText: /mitotic/i }).count()
   ok(rows > 0, `searching "mitotic cell cycle" finds ${rows} sets`)
+
+  // And it can be driven without a mouse, which is the point of the listbox.
+  await search.press('ArrowDown')
+  await search.press('ArrowDown')
+  await page.waitForTimeout(200)
+  const at = await page.locator('[role="option"][data-at="1"]').count()
+  ok(at === 1, 'arrow keys move a cursor through the matches')
+  await search.press('Enter')
+  await page.waitForTimeout(500)
+  ok(await opts.filter({ has: page.locator('[aria-selected="true"]') }).count()
+    + await page.locator('[role="option"][aria-selected="true"]').count() > 0,
+    'and Enter chooses the one under the cursor')
   await page.screenshot({ path: `${shots}/genesets-picker.png` })
 }
 

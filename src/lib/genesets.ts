@@ -59,6 +59,14 @@ export function useGeneSets(
   /** null before an object is open — nothing is fetched until then. */
   species: Species | null,
   sources: readonly string[],
+  /**
+   * Collections the reader supplied, from their own GMT files.
+   *
+   * They sit beside the MSigDB ones and are never fetched, so they survive a
+   * species switch — a lab's own signatures are the lab's, not a property of
+   * whichever object happens to be open.
+   */
+  custom: readonly Collection[] = EMPTY,
 ): LibraryState {
   const [manifest, setManifest] = useState<Manifest | null>(null)
   const [collections, setCollections] = useState<Collection[]>([])
@@ -112,9 +120,15 @@ export function useGeneSets(
 
   const ready = wanted.length > 0 && collections.length === wanted.length
 
+  // A custom collection needs no download, so it is available while MSigDB is
+  // still in flight and remains available if MSigDB fails to load at all.
+  const all = useMemo(
+    () => (custom.length ? [...(ready ? collections : []), ...custom] : (ready ? collections : EMPTY)),
+    [ready, collections, custom])
+
   return {
     manifest,
-    collections: ready ? collections : EMPTY,
+    collections: all,
     done,
     total: wanted.length,
     loading: wanted.length > 0 && !ready && !error,

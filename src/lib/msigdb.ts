@@ -280,3 +280,62 @@ export function loadCollection(file: string): Promise<Collection> {
 
 /** Whether a collection is already in hand, so a caller can skip a spinner. */
 export const isLoaded = (file: string) => cache.has(file)
+
+/**
+ * A GMT file the reader supplies, as a Collection.
+ *
+ * The Broad's own interchange format and what every other enrichment tool
+ * imports: one set per line, tab separated — name, a description column nobody
+ * agrees on, then the members. A lab with its own signatures could not test
+ * them here at all before this; they could paste a gene list for a module
+ * score, which is a different question with a different answer.
+ *
+ * Symbols are pooled across the file the way `parse` pools them, so a custom
+ * library of a thousand sets costs one dictionary rather than a thousand
+ * arrays of strings. Casing is kept as written — `indexFor` upper-cases when it
+ * folds a library against an object, so a GMT in either convention resolves.
+ */
+export function parseGmt(text: string, name = 'My sets'): Collection {
+  const at = new Map<string, number>()
+  const symbols: string[] = []
+  const sets: CollectionSet[] = []
+  const seen = new Set<string>()
+  let line = 0
+
+  for (const raw of text.split('\n')) {
+    line++
+    const t = raw.trim()
+    // Blank lines and comments — GMTs in the wild carry both.
+    if (!t || t.startsWith('#')) continue
+    const parts = t.split('\t').map(x => x.trim())
+    if (parts.length < 3) {
+      // Some exports use spaces. Fall back rather than rejecting the file, but
+      // only when there is no tab at all, so a real GMT is never re-split.
+      if (t.includes('\t')) continue
+      const sp = t.split(/\s+/)
+      if (sp.length < 3) continue
+      parts.length = 0
+      parts.push(sp[0], '', ...sp.slice(1))
+    }
+    const id = parts[0]
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    const genes: number[] = []
+    const inSet = new Set<number>()
+    for (let i = 2; i < parts.length; i++) {
+      const g = parts[i]
+      if (!g) continue
+      let k = at.get(g)
+      if (k === undefined) { k = symbols.length; at.set(g, k); symbols.push(g) }
+      if (!inSet.has(k)) { inSet.add(k); genes.push(k) }
+    }
+    if (!genes.length) continue
+    sets.push({ id, name: id.replace(/_/g, ' '), genes: Int32Array.from(genes) })
+  }
+  if (!sets.length) {
+    throw new Error(
+      `no gene sets found in ${line} line${line === 1 ? '' : 's'} — a GMT has one set per line: `
+      + 'name, a description column, then the gene symbols, separated by tabs')
+  }
+  return { species: 'any', source: name, release: 'your file', symbols, sets }
+}

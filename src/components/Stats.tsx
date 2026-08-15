@@ -99,14 +99,19 @@ function MethodBar(p: StatsProps) {
             disabled={k => k === 'pseudobulk' && !d.pbOK}
             options={[
               { k: 'wilcox', label: 'Wilcoxon · per cell' },
-              { k: 'pseudobulk', label: 'Pseudobulk · DESeq2', title: why },
+              // NOT "Pseudobulk · DESeq2". The card behind this explains that the
+              // matrix is here and the model is not — but a control is read
+              // before the card it opens, and this one named a test the studio
+              // cannot fit. What pressing it does is sum counts per sample and
+              // hand you the matrix, so that is what it says.
+              { k: 'pseudobulk', label: 'Pseudobulk · export counts', title: why },
             ]}
           />
         </div>
         <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
           {p.method === 'wilcox'
             ? `logfc.threshold ${LFC_GATE} · min.pct ${PCT_GATE} · Bonferroni`
-            : `≥ ${MIN_CELLS} cells per sample · apeglm · Benjamini–Hochberg`}
+            : `≥ ${MIN_CELLS} cells per sample · summed raw counts · test them in DESeq2`}
         </span>
       </div>
       {why && (
@@ -376,9 +381,10 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
       <p className="sub">
         {up} higher and {dn} lower in <b>{condLabel(p.cs)}</b>, at padj &lt; {p.padjMax} and
         |log₂FC| ≥ {p.lfcMin}.{' '}
-        {wil
-          ? <>Wilcoxon over {fmt(n0)} and {fmt(n1)} cells.</>
-          : <>DESeq2 over {n0} + {n1} pseudobulk profiles.</>}
+        {/* Only one branch is reachable: the pseudobulk path returns the export
+            card instead of a table, so nothing here was ever produced by
+            DESeq2. The sentence claimed it anyway. */}
+        <>Wilcoxon over {fmt(n0)} and {fmt(n1)} cells.</>
       </p>
 
       <DEGTableBody

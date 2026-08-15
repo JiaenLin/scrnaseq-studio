@@ -71,6 +71,15 @@ export interface DERow {
    * meaning for display, export and the significance thresholds.
    */
   nlp: number
+  /**
+   * Benjamini–Hochberg, beside the Bonferroni in `padj`.
+   *
+   * Seurat reports both and so does this now. `padj` keeps every meaning it
+   * had — the thresholds cut on it, the CSV column is still called padj — and
+   * this is an extra column, because Bonferroni over thirty thousand genes is
+   * severe enough that a reader wants to see what the FDR says as well.
+   */
+  fdr?: number
   /** Wilcoxon only — fraction detected in the comparison and control groups. */
   pct1?: number
   pct2?: number

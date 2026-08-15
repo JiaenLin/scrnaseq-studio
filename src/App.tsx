@@ -22,6 +22,7 @@ import ViewBoundary from './components/Boundary.tsx'
 import ViewMenu from './components/ViewMenu.tsx'
 import { detectSpecies, type Detection, type Species } from './lib/species.ts'
 import { defaultSources, useGeneSets } from './lib/genesets.ts'
+import type { Collection } from './lib/msigdb.ts'
 import { Empty } from './components/Ui.tsx'
 
 /**
@@ -260,7 +261,17 @@ export default function App() {
   // Above the "no object open" return, because a hook cannot be conditional.
   // Costs one small manifest fetch on load; the collections themselves are only
   // fetched once a species has some enabled.
-  const lib = useGeneSets(species, srcs)
+  /**
+   * Gene sets the reader loaded from their own GMT files.
+   *
+   * Held here rather than in either tab, for the reason every other library
+   * choice is: Enrichment and Gene sets must be looking at the same library, or
+   * a term scored on one tab cannot be tested on the other. Not persisted —
+   * this studio keeps nothing between sessions, and a set library silently
+   * restored from storage is a claim about provenance it cannot support.
+   */
+  const [customSets, setCustomSets] = useState<Collection[]>([])
+  const lib = useGeneSets(species, srcs, customSets)
 
   // The species' own defaults, once the manifest says what it has. Written only
   // when nothing is chosen, so this cannot fight a reader who has just turned a
@@ -745,6 +756,7 @@ export default function App() {
                   <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
                     ctrl={ctrl} cs={cs} background={src.genes}
                     lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
+                    customSets={customSets} onCustomSets={setCustomSets}
                     // condLabel, not the raw arrays — those join on a comma, so
                     // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
                     // 0h" on every other figure in the same session.
@@ -766,6 +778,7 @@ export default function App() {
               <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
                 onPickGene={pickGene}
                 lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
+                    customSets={customSets} onCustomSets={setCustomSets}
                 detected={detected}
                 scoreRan={scoreRan} onScoreRan={setScoreRan} />
             ) : (

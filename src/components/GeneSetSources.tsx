@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { LibraryState, SetIndex } from '../lib/genesets.ts'
+import { parseGmt, type Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
 
 /**
@@ -17,12 +18,15 @@ import type { Detection, Species } from '../lib/species.ts'
  * as a pause.
  */
 export default function GeneSetSources({
-  lib, species, sources, onSources, index, background, detected,
+  lib, species, sources, onSources, customSets, onCustomSets, index, background, detected,
 }: {
   lib: LibraryState
   species: Species
   sources: readonly string[]
   onSources: (next: string[]) => void
+  /** Collections read from the reader's own GMT files. */
+  customSets: readonly Collection[]
+  onCustomSets: (next: Collection[]) => void
   /**
    * The library folded against a background, when the caller has one.
    *
@@ -38,6 +42,38 @@ export default function GeneSetSources({
   detected: Detection | null
 }) {
   const avail = lib.manifest?.species[species]?.sources ?? []
+  const [gmtError, setGmtError] = useState<string | null>(null)
+
+  /**
+   * A GMT the reader supplies.
+   *
+   * The one thing this studio could not do with gene sets: a lab with its own
+   * signatures had to either find them in MSigDB or go elsewhere. Pasting them
+   * into Gene sets scores a module, which is a different question — it says how
+   * strongly each CELL expresses the signature, not whether a DE list is
+   * enriched for it.
+   *
+   * Read in the page, never uploaded, like every other file this studio opens.
+   */
+  const readGmt = async (files: FileList | null) => {
+    if (!files?.length) return
+    setGmtError(null)
+    const added: Collection[] = []
+    for (const f of Array.from(files)) {
+      try {
+        const name = f.name.replace(/\.(gmt|txt|tsv)$/i, '') || 'My sets'
+        added.push(parseGmt(await f.text(), name))
+      } catch (e) {
+        setGmtError(`${f.name}: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+    // Same name replaces rather than duplicates, so re-reading an edited file
+    // does not leave the old version enabled beside the new one.
+    if (added.length) {
+      const names = new Set(added.map(c => c.source))
+      onCustomSets([...customSets.filter(c => !names.has(c.source)), ...added])
+    }
+  }
 
   /**
    * How much of this object any enabled set covers.
@@ -105,7 +141,35 @@ export default function GeneSetSources({
             <span className="ml-1.5 opacity-60">{s.nSets.toLocaleString()}</span>
           </button>
         ))}
+
+        {/* The reader's own, beside MSigDB's rather than in a section of their
+            own — they are tested the same way and belong in the same row. They
+            carry no download and are always on, so the chip removes instead of
+            toggling. */}
+        {customSets.map(c => (
+          <button
+            key={c.source} className="chip" aria-pressed
+            title={`${c.sets.length.toLocaleString()} sets from your file — click to remove`}
+            onClick={() => onCustomSets(customSets.filter(x => x.source !== c.source))}
+          >
+            {c.source}
+            <span className="ml-1.5 opacity-60">{c.sets.length.toLocaleString()}</span>
+            <span className="ml-1.5 opacity-60" aria-hidden="true">×</span>
+          </button>
+        ))}
+
+        <label className="btn btn-quiet cursor-pointer">
+          Add a GMT…
+          <input
+            type="file" accept=".gmt,.txt,.tsv" multiple className="sr-only"
+            onChange={e => { void readGmt(e.target.files); e.target.value = '' }}
+          />
+        </label>
       </div>
+
+      {gmtError && (
+        <p className="note note-warn mt-2 tx-small">{gmtError}</p>
+      )}
 
       <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
         {lib.error

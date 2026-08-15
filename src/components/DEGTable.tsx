@@ -7,7 +7,7 @@ import { fmt } from '../lib/chart.ts'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { CsvButton } from './Figure.tsx'
 
-type SortKey = 'gene' | 'mean' | 'pct1' | 'pct2' | 'lfc' | 'combined' | 'p' | 'padj' | 'nlp'
+type SortKey = 'gene' | 'mean' | 'pct1' | 'pct2' | 'lfc' | 'combined' | 'p' | 'padj' | 'fdr' | 'nlp'
 
 /** Rows past a first render; anything more and the browser, not the science, is the limit. */
 const MAX_ROWS = 500
@@ -28,6 +28,9 @@ const cellVal = (r: DERow, k: SortKey): number | string | null => {
     // arrive ranked and Array#sort is stable, and that is a fact about two
     // other files.
     case 'p': case 'padj': return -r.nlp
+    // BH is monotone in p, so the same key orders it — and unlike fdr itself it
+    // does not go flat where the double bottoms out.
+    case 'fdr': return -r.nlp
     default: return r[k]
   }
 }
@@ -79,7 +82,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
   const save = () => downloadCsv(
     `deg_${slug(label)}${sigOnly ? '_sig' : ''}`,
     ['gene', ...(wilcox ? ['pct.1', 'pct.2'] : ['baseMean']), 'log2FC', 'combined',
-      'p', 'padj', 'neg_log10_padj', 'direction'],
+      'p', 'padj', 'fdr_BH', 'neg_log10_padj', 'direction'],
     view.map(r => [
       r.gene,
       ...(wilcox ? [r.pct1?.toFixed(4), r.pct2?.toFixed(4)] : [r.mean?.toFixed(2)]),
@@ -87,6 +90,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
       combinedScore(r.lfc, r.nlp)?.toFixed(3),
       pCsv(r.p),
       pCsv(r.padj),
+      r.fdr === undefined ? '' : pCsv(r.fdr),
       nlpCsv(r.nlp),
       r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`,
     ]))
@@ -99,7 +103,12 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
     ['lfc', 'log₂FC', true],
     ['combined', 'Combined', true],
     ['p', 'p', true],
-    ['padj', 'p adjusted', true],
+    // Both adjustments, named by their method rather than both called
+    // "adjusted". Seurat reports Bonferroni as p_val_adj and people reach for
+    // the FDR as well; showing one and calling it "p adjusted" left the reader
+    // to guess which of the two they were reading.
+    ['padj', 'padj · Bonferroni', true],
+    ['fdr', 'FDR · BH', true],
     ['nlp', '−log₁₀ padj', true],
   ]
 
@@ -158,6 +167,9 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
                 <td className="num mono tx-micro">{combinedScore(r.lfc, r.nlp)?.toFixed(1) ?? '—'}</td>
                 <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{pTxt(r.p)}</td>
                 <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{pTxt(r.padj)}</td>
+                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>
+                  {r.fdr === undefined ? '—' : pTxt(r.fdr)}
+                </td>
                 <td className="num mono tx-micro font-semibold">{nlpTxt(r.nlp)}</td>
                 <td className="whitespace-nowrap">{r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`}</td>
               </tr>
