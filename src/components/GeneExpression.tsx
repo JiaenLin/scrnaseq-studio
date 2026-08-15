@@ -8,6 +8,7 @@ import {
   quantiles,
 } from '../lib/chart.ts'
 import { drawFeature, panelHeight } from '../lib/feature-plot.ts'
+import { fitsUpright, rotatedBottom } from '../lib/labels.ts'
 import { AXIS_INK, DOWN_MARK, GRID_INK, MARK_EDGE, UP_MARK } from '../lib/figure-ink.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import {
@@ -469,8 +470,25 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   const W = p.cols <= 2 ? 620 : 400
   const PL = 40, PT = 20, PR = 8
   const DET = 9 // strip for the detection bars
-  const PB = (both ? 56 : per > 5 ? 46 : 30) + DET
-  const H = (p.cols <= 2 ? 210 : 190) + (both ? 30 : 0) + DET
+  const PLOT = (p.cols <= 2 ? 210 : 190) - 39
+
+  /**
+   * The bottom margin is measured from the labels, not stepped on their count.
+   *
+   * It was `both ? 56 : per > 5 ? 46 : 30`, which asks how MANY categories
+   * there are and never how long their names are. A real annotation calls a
+   * cluster "Cardiomyocyte/Working cardiomyocyte": thirty-five characters,
+   * rotated 42 degrees, hanging 108 units below its anchor into a margin that
+   * had reserved 46. `svg { overflow: visible }` means it does not clip, it
+   * paints — over the caption, and over the next panel down.
+   */
+  const LAB_PX = per > 10 ? 9 : 10
+  const bw = (W - PL - PR) / per
+  const labels = cats.map(c => c.label)
+  const rotated = !fitsUpright(labels, bw, LAB_PX)
+  const PB = DET + (both ? 26 : 0)
+    + (rotated ? rotatedBottom(labels, { deg: 42, startAt: 11, px: LAB_PX }) : 26)
+  const H = PT + PLOT + PB
 
   const series = cats.map(c => p.src.values(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond))
   let base = 1
@@ -487,8 +505,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   // unmounts the tab, so the extent is taken by loop. See maxOf in chart.ts.
   const hi = maxOfAll(scaled) * 1.06 || 1
   const lo = 0
-  const Y = (v: number) => PT + (H - PT - PB) * (1 - (v - lo) / (hi - lo))
-  const bw = (W - PL - PR) / per
+  const Y = (v: number) => PT + PLOT * (1 - (v - lo) / (hi - lo))
 
   // Last group against first, in the object's own order — which for a time
   // course is the change over the course. It used to read the contrast bar's
@@ -545,9 +562,14 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
                 <Violin v={v} cx={cx} bw={bw} col={col} lo={lo} hi={hi} Y={Y}
                   pct={pcts[i]} gene={p.gene} yDet={H - PB + 3} />
               )}
-              <text className="axis" transform={`rotate(-42 ${cx} ${H - PB + DET + 11})`}
-                x={cx} y={H - PB + DET + 11} textAnchor="end"
-                style={{ fontSize: per > 10 ? 9 : 10 }}>{c.label}</text>
+              {rotated ? (
+                <text className="axis" transform={`rotate(-42 ${cx} ${H - PB + DET + 11})`}
+                  x={cx} y={H - PB + DET + 11} textAnchor="end"
+                  style={{ fontSize: LAB_PX }}>{c.label}<title>{c.full}</title></text>
+              ) : (
+                <text className="axis" x={cx} y={H - PB + DET + 13} textAnchor="middle"
+                  style={{ fontSize: LAB_PX }}>{c.label}<title>{c.full}</title></text>
+              )}
             </g>
           )
         })}

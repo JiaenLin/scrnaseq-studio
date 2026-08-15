@@ -5,6 +5,7 @@ import { deMarkersAll, isSig, markersSpec, thresholdFor } from '../lib/stats.ts'
 import { dotAt, dotGrid, type DotGrid } from '../lib/dots.ts'
 import { downloadCsv } from '../lib/download.ts'
 import { maxOf } from '../lib/chart.ts'
+import { fit, widestW } from '../lib/labels.ts'
 import { AXIS_INK, GRID_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
@@ -163,7 +164,25 @@ export default function Markers({
     return <Card><Empty title="No markers to show">This object has no clusters to compare.</Empty></Card>
   }
 
-  const cw = 21, rh = 34, PL = 150, PT = 84
+  const cw = 21, rh = 34
+  /**
+   * The label gutter is measured from the cluster names.
+   *
+   * It was a flat 150 units, which fits "qNSC" and not "Cardiomyocyte/Working
+   * cardiomyocyte EXCLUDED" — 43 characters, drawn `textAnchor="end"`, running
+   * 155 units off the LEFT edge of the figure. `svg { overflow: visible }`
+   * means that paints rather than clips, over the card and anything in it.
+   *
+   * Capped, because a gutter wider than the plot is its own problem; past the
+   * cap the name loses its tail, marked, with the whole of it in a tooltip.
+   */
+  const rowLabels = chosen.map(ti => types[ti]?.name ?? '')
+  const PL = Math.min(340, Math.max(150, widestW(rowLabels, 11.5, true) + 14))
+  /**
+   * And the top strip from the gene names, which lean up and to the right at
+   * -52 degrees: a gene of width w reaches w*sin(52) above its anchor.
+   */
+  const PT = Math.max(84, Math.ceil(8 + widestW(genes, 10.5) * Math.sin((52 * Math.PI) / 180)))
   // The key travels with the figure. It used to sit in a legend row underneath,
   // which meant an exported marker plot — the figure most likely to reach a
   // reviewer — arrived with nothing saying what a dot's size or colour meant.
@@ -264,7 +283,9 @@ export default function Markers({
                   <g key={t.key}>
                     <line x1={PL - 3.5} x2={PL} y1={y} y2={y} stroke={AXIS_INK} strokeWidth={0.8} />
                     <text x={PL - 8} y={y + 4} textAnchor="end"
-                      style={{ fontSize: 11.5, fill: AXIS_INK, fontWeight: 600 }}>{t.name}</text>
+                      style={{ fontSize: 11.5, fill: AXIS_INK, fontWeight: 600 }}>
+                      {fit(t.name, PL - 14, 11.5, true)}<title>{t.name}</title>
+                    </text>
                     {grid && genes.map((g, gi) => {
                       const m = grid.mean[dotAt(grid, gi, ti)]
                       const pct = grid.pct[dotAt(grid, gi, ti)]
