@@ -42,15 +42,16 @@ export default function CondPicker({ label, all, value, other, onChange }: {
   const text = value.join(' + ') || '—'
 
   return (
-    <div className="flex flex-none items-center gap-1.5">
-      <span className="glabel">{label}</span>
+    <div className="flex min-w-0 items-center gap-1.5">
+      <span className="glabel flex-none">{label}</span>
       <button
         ref={trigger}
-        className="sel text-left"
+        className="sel min-w-0 flex-1 text-left"
         // Four pooled levels is "e7.0 + e8.0 + e13.0 + e13.5" — 26 characters,
         // and at 230 px that truncated to an ellipsis on the one control whose
         // whole job is to say which groups are being compared. It grows with
         // what it holds instead of being clipped to a fixed width.
+        // Shrinks to 78 before the row scrolls; the tooltip carries the rest.
         style={{ minWidth: 78, maxWidth: 420 }}
         aria-haspopup="listbox"
         aria-expanded={open}

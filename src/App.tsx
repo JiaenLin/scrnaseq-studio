@@ -203,6 +203,9 @@ export default function App() {
   // cache. The pass is keyed on the object, not the view.
   const [markersGo, setMarkersGo] = useState(false)
   const [markersWant, setMarkersWant] = useState<Set<number>>(new Set())
+  // Which gene list the reader has asked to score, joined. Here rather than in
+  // the tab so it survives a trip to Markers, like every other gate.
+  const [scoreRan, setScoreRan] = useState<string | null>(null)
 
   /**
    * Which organism's gene sets to use, and which collections of them.
@@ -301,6 +304,7 @@ export default function App() {
     // minutes, and opening a tab is not consent to spend them.
     setMarkersGo(!next.lazy)
     setMarkersWant(new Set())
+    setScoreRan(null)
     const det = detectSpecies(next.names.display, next.names.other)
     setSpecies(det.species)
     setSpeciesWhy(det.why)
@@ -570,11 +574,27 @@ export default function App() {
               * 46px-tall strip. The controls still scroll when they have to;
               * the things that open menus are outside the box that clips.
               */}
+            {/**
+              * The controls SHRINK; they do not scroll away.
+              *
+              * They were `flex-none` inside a scroller, which on a real object
+              * meant they never gave way: a cell type called "Cardiomyocyte/
+              * Working cardiomyocyte EXCLUDED" plus two long group names simply
+              * overflowed, and the first thing pushed out of sight was Run —
+              * the button the whole row exists to reach. A select truncates its
+              * own text with an ellipsis and every one of these carries a title,
+              * so shrinking costs a few characters and scrolling cost the
+              * action.
+              *
+              * The scroller stays as the last resort for a genuinely narrow
+              * window, after everything has already given what it can.
+              */}
             <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto py-2">
             {needs.ct && (
-              <label className="flex flex-none items-center gap-1.5">
-                <span className="glabel">Cell type</span>
-                <select className="sel max-w-[220px]" value={ct} onChange={e => setCt(e.target.value)}>
+              <label className="flex min-w-0 items-center gap-1.5">
+                <span className="glabel flex-none">Cell type</span>
+                <select className="sel min-w-0 flex-1" style={{ maxWidth: 220 }} title={ct}
+                  value={ct} onChange={e => setCt(e.target.value)}>
                   {types.map(x => <option key={x.key}>{x.name}</option>)}
                 </select>
               </label>
@@ -582,9 +602,9 @@ export default function App() {
             {showEmb && (
               <>
                 {needs.ct && <div className="gsep" />}
-                <label className="flex flex-none items-center gap-1.5">
-                  <span className="glabel">Embedding</span>
-                  <select className="sel max-w-[170px]" value={emb.key}
+                <label className="flex min-w-0 items-center gap-1.5">
+                  <span className="glabel flex-none">Embedding</span>
+                  <select className="sel min-w-0 flex-1" style={{ maxWidth: 170 }} value={emb.key}
                     onChange={e => setEmbKey(e.target.value)}>
                     {src.embeddings.map(x => <option key={x.key}>{x.key}</option>)}
                   </select>
@@ -597,7 +617,7 @@ export default function App() {
                 <label className="flex flex-none items-center gap-1.5">
                   <span className="glabel">Gene sets</span>
                   <select
-                    className="sel" value={species ?? ''}
+                    className="sel flex-none" value={species ?? ''}
                     aria-label="Species for the gene set library"
                     title={speciesWhy ? `Detected: ${speciesWhy}` : undefined}
                     onChange={e => changeSpecies(e.target.value as Species)}
@@ -729,7 +749,7 @@ export default function App() {
                     // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
                     // 0h" on every other figure in the same session.
                     label={`${condLabel(cs)} vs ${condLabel(ctrl)} · ${ct}`}
-                    palKey={palKey} onPickGene={pickGene} />
+                    rampKey={rampKey} onPickGene={pickGene} />
                 )} />
             ) : tab === 'expr' ? (
               <GeneExpression
@@ -744,7 +764,8 @@ export default function App() {
             ) : tab === 'sets' ? (
               <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
                 onPickGene={pickGene}
-                lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs} />
+                lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
+                scoreRan={scoreRan} onScoreRan={setScoreRan} />
             ) : (
               <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
                 padjMax={padjMax} lfcMin={lfcMin}

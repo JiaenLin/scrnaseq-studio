@@ -29,6 +29,7 @@ const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
 export default function GeneSets({
   src, types, ct, emb, palKey, rampKey, onPickGene, lib, species, sources, onSources,
+  scoreRan, onScoreRan,
 }: {
   src: Source
   types: CellType[]
@@ -42,6 +43,9 @@ export default function GeneSets({
   species: Species
   sources: string[]
   onSources: (next: string[]) => void
+  /** The gene list the reader has actually asked to score, joined. */
+  scoreRan: string | null
+  onScoreRan: (key: string | null) => void
 }) {
   const d = src.d
   const GENES = src.genes
@@ -77,8 +81,16 @@ export default function GeneSets({
     return out
   }, [allSets, find])
 
+  /**
+   * Nothing is chosen until somebody chooses it.
+   *
+   * This used to fall back to `allSets[0]`, which meant opening the tab began
+   * scoring whichever set MSigDB happens to sort first — "Adipogenesis" — over
+   * every cell in the object. On a streamed atlas that is a minute of work for
+   * a term nobody asked about, started by navigation.
+   */
   const chosen = useMemo(
-    () => allSets.find(s => s.id === setId) ?? allSets[0] ?? null, [allSets, setId])
+    () => allSets.find(s => s.id === setId) ?? null, [allSets, setId])
 
   const requested = useMemo(() => {
     if (!useCustom) return chosen?.genes ?? []
@@ -91,13 +103,26 @@ export default function GeneSets({
 
   const { used, missing } = useMemo(() => resolve(src, requested), [src, requested])
 
+  /**
+   * The reader's go-ahead for THIS set.
+   *
+   * The same rule Markers and the contrast tabs use: an object held in memory
+   * answers in milliseconds, so a button in front of a result that is already
+   * there is a button people learn to press without reading. A streamed object
+   * is a pass over every cell, and selecting a name in a list of 13 604 is not
+   * consent to spend one — the reader is browsing the list, and every term they
+   * pass through would start and abandon a pass.
+   */
+  const key = used.join(',')
+  const armed = !src.lazy || scoreRan === key
+
   // A module score reads the object twice, and the two reads are different
   // questions: the expression bins belong to the OBJECT and are asked once ever,
   // the accumulation belongs to the SET. Splitting them is what makes the second
   // signature on an atlas cost one pass instead of two — the bins are already
   // remembered under a key that does not change.
   const { value: avg, pass: binPass } = useJob<'averages'>(
-    src, 'averages', 'gene averages', used.length > 0,
+    src, 'averages', 'gene averages', used.length > 0 && armed,
     () => geneAveragesSync(src) ?? new Float64Array(src.genes.length),
     () => ({ kind: 'averages', ...averagesSpec(src) }),
   )
@@ -114,7 +139,7 @@ export default function GeneSets({
   // switching back to a set already scored costs nothing, and switching away
   // mid-pass abandons it rather than letting it land on top of the new answer.
   const { value: scores, pass: scorePass } = useJob<'score'>(
-    src, 'score', `score|${used.join(',')}`, plan !== null,
+    src, 'score', `score|${key}`, plan !== null && armed,
     () => scoreInline(src, plan!),
     // The engine takes the buffer, so it gets a copy — the plan outlives the job.
     () => ({
@@ -130,7 +155,7 @@ export default function GeneSets({
   // figures from an all-zero array for that frame would show a flat embedding
   // that is not a result. So the card waits from the moment it knows it must,
   // which is before the pass has reported anything.
-  const waiting = src.remote !== null && used.length > 0 && scores === null
+  const waiting = armed && src.remote !== null && used.length > 0 && scores === null
 
   const name = useCustom
     ? `Custom set (${used.length} gene${used.length === 1 ? '' : 's'})`
@@ -239,7 +264,24 @@ export default function GeneSets({
           <div className="empty mt-4">
             {useCustom && !custom.trim()
               ? 'Paste a gene list to score.'
-              : 'None of these genes are measured in this object, so there is nothing to score.'}
+              : !useCustom && !chosen
+                ? 'Pick a set above to score it.'
+                : 'None of these genes are measured in this object, so there is nothing to score.'}
+          </div>
+        ) : !armed ? (
+          /* Chosen, not yet asked for. Browsing a list of 13 604 names is not
+             consent to spend a pass per name, so the reader says when. */
+          <div className="empty mt-4">
+            <div className="card-title mb-1" style={{ color: 'var(--ink)', marginTop: 0 }}>
+              {name}
+            </div>
+            {used.length} gene{used.length === 1 ? '' : 's'} measured here, scored against{' '}
+            {SCORE_DEFAULTS.ctrl} controls each — one pass over every cell.
+            <div className="mt-3.5">
+              <button className="btn btn-primary" onClick={() => onScoreRan(key)}>
+                Score this set
+              </button>
+            </div>
           </div>
         ) : (
           <>

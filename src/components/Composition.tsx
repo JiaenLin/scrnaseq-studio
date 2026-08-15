@@ -460,20 +460,56 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
 
 /** One cell type: a bar per group, its own y axis, samples drawn on top. */
 function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; palKey: PaletteKey }) {
-  const W = 210, H = 152, PL = 42, PB = 36, PT = 16, PR = 8
+  const W = 210, PL = 42, PT = 16, PR = 8
   const per = d.conds.map(c =>
     d.samples.map((s, si) => (s.cond === c ? d.prop[si][ti] : null))
       .filter((v): v is number => v !== null))
   const step = niceStep(Math.max(maxOfAll(per), 1e-4) / 2)
   const maxV = step * 2
-  const Y = (v: number) => PT + (H - PT - PB) * (1 - v / maxV)
   const bw = (W - PL - PR) / d.conds.length
+
+  /**
+   * The bottom margin is measured, not fixed.
+   *
+   * It was 36 units for every object, and the group labels are rotated -38°
+   * when they will not fit upright — so a label hangs `width * sin(38°)` below
+   * its anchor, which for `young_chow` is 33 units on top of the 12 it starts
+   * at. That is 9 past the bottom of a 152-unit box, and `svg { overflow:
+   * visible }` means it does not clip, it PAINTS: on a four-group object the
+   * labels of one row of facets land on the titles of the row underneath.
+   *
+   * 5.4 units per character at the axis size is the same estimate the rotation
+   * decision already uses, so the two cannot disagree about whether a label
+   * fits.
+   */
+  const CHAR = 5.4
+  const widest = Math.max(...d.conds.map(c => c.length)) * CHAR
+  const rotated = d.conds.some(c => c.length * CHAR > bw)
+  // sin(38°) = 0.6157. 12 is where the text starts below the axis, 6 is room
+  // for descenders on the lowest glyph.
+  const PB = rotated ? Math.min(86, 12 + widest * 0.6157 + 6) : 30
+  const PLOT = 106
+  const H = PT + PLOT + PB
+  const Y = (v: number) => PT + PLOT * (1 - v / maxV)
+
+  /**
+   * The title, cut to the panel.
+   *
+   * "Cardiomyocyte/Working cardiomyocyte EXCLUDED" is 44 characters and the
+   * panel is 210 units wide; at the title's 11px it ran a third of the way
+   * into the panel beside it. Real annotations carry names like that, so the
+   * fit is enforced here and the whole name is in the tooltip.
+   */
+  const TITLE_CHAR = 6.05
+  const room = Math.floor((W - PR - 4 - 12) / TITLE_CHAR)
+  const short = t.name.length > room ? `${t.name.slice(0, room - 1)}…` : t.name
 
   return (
     <figure>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${t.name} proportion by group`}>
-        <text className="axis" x={PL} y={11} style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)' }}>
-          <tspan fill={pal(ti, palKey)}>■ </tspan>{t.name}
+        <text className="axis" x={4} y={11} style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)' }}>
+          <tspan fill={pal(ti, palKey)}>■ </tspan>{short}
+          <title>{t.name}</title>
         </text>
         {[0, 1, 2].map(k => (
           <g key={k}>
@@ -487,7 +523,6 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
           const col = pal(ci, palKey)
           const w = Math.min(46, bw * 0.56)
           const lab = d.conds[ci]
-          const rotate = lab.length * 5.4 > bw
           return (
             <g key={lab}>
               <rect x={cx - w / 2} y={Y(mean)} width={w} height={Math.max(0, H - PB - Y(mean))}
@@ -504,7 +539,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
                   ))}
                 </>
               )}
-              {rotate ? (
+              {rotated ? (
                 <text className="axis" transform={`rotate(-38 ${cx} ${H - PB + 12})`}
                   x={cx} y={H - PB + 12} textAnchor="end">{lab}</text>
               ) : (

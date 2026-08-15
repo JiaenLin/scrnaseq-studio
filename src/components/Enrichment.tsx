@@ -9,14 +9,15 @@ import {
   condLabel, combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { MARK_EDGE } from '../lib/figure-ink.ts'
-import { pal, type PaletteKey } from '../lib/palette.ts'
+import { ColorBar } from './svg-parts.tsx'
+import { rampColor, type RampKey } from '../lib/palette.ts'
 import { Card, Chips, Empty, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 
 type Direction = 'both' | 'up' | 'down'
 
 export default function Enrichment({
-  rows, threshold, ctrl, cs, label, palKey, onPickGene,
+  rows, threshold, ctrl, cs, label, rampKey, onPickGene,
   lib, species, sources, onSources,
 }: {
   rows: DERow[]
@@ -24,7 +25,7 @@ export default function Enrichment({
   ctrl: string[]
   cs: string[]
   label: string
-  palKey: PaletteKey
+  rampKey: RampKey
   onPickGene: (g: string) => void
   /** The MSigDB library, loading or loaded. */
   lib: LibraryState
@@ -62,7 +63,11 @@ export default function Enrichment({
   }, [query, index, minSize, maxSize, rankBy])
 
   const shown = results.slice(0, top)
-  const selected = results.find(r => r.id === termId)
+  const nSig = results.filter(r => r.padj < 0.05).length
+  // `|| shown[0]`, like rnaseq-studio: with the table gone the detail card is
+  // how a reader reads a result, and an empty panel under a bar chart is a
+  // page that looks like it has not finished loading.
+  const selected = results.find(r => r.id === termId) ?? shown[0]
 
   // Per-gene statistics for a selected term, ranked among every tested gene, so
   // that a set can be enriched while all its members sit low in the list and you
@@ -85,11 +90,16 @@ export default function Enrichment({
   return (
     <Card
       eyebrow="Over-representation"
-      title={`${results.length} enriched set${results.length === 1 ? '' : 's'}`}
+      // "N enriched sets" counted every set with an overlap, significant or
+      // not — on a demo that was 272 sets of which none cleared correction. The
+      // headline is the number that survived; the number tested is the sentence
+      // below it, where it belongs.
+      title={`${nSig.toLocaleString()} enriched set${nSig === 1 ? '' : 's'}`}
       sub={index
         ? `Hypergeometric on ${query.length} genes ${dirLabel}, against an annotated `
           + `background of ${index.N.toLocaleString()} of the ${tested.length.toLocaleString()} `
-          + `tested. BH across ${results.length.toLocaleString()} sets.`
+          + `tested. ${results.length.toLocaleString()} sets overlapped the list; `
+          + `${nSig.toLocaleString()} reach padj < 0.05 after BH across all of them.`
         : 'Loading the gene sets…'}
     >
       <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
@@ -146,38 +156,26 @@ export default function Enrichment({
             name={`enrichment_${label}`} className="mt-4"
             right={<CsvButton onClick={saveCsv} />}
           >
-            <Bars results={shown} palKey={palKey} onPick={setTermId} selected={termId} />
+            <Bars results={shown} rampKey={rampKey} onPick={setTermId} selected={termId} />
           </Figure>
-          <div className="scrollx mt-4" style={{ maxHeight: 420 }}>
-            <table className="t">
-              <thead>
-                <tr>
-                  <th>Set</th><th>Source</th><th>Overlap</th><th>Fold</th>
-                  <th>p</th><th>p adjusted</th><th>Genes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map(r => (
-                  <tr key={r.id} className="cursor-pointer"
-                    style={r.id === termId ? { background: 'var(--accent-soft)' } : undefined}
-                    onClick={() => setTermId(r.id === termId ? '' : r.id)}>
-                    <td>{r.name}<div className="mono tx-micro" style={{ color: 'var(--ink-3)' }}>{r.id}</div></td>
-                    <td className="whitespace-nowrap" style={{ color: 'var(--ink-2)' }}>{r.source}</td>
-                    <td className="num whitespace-nowrap">{r.count} / {r.setSize}</td>
-                    <td className="num">{r.foldEnrichment.toFixed(1)}×</td>
-                    <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{sci(r.pvalue)}</td>
-                    <td className="num mono tx-micro">{sci(r.padj)}</td>
-                    <td className="mono tx-micro italic" style={{ color: 'var(--ink-2)' }}>
-                      {r.overlap.join(', ')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/**
+            * No results table.
+            *
+            * There was one, with a Genes column holding every overlapping gene.
+            * Across eighteen hand-written sets an overlap was three or four
+            * symbols; against real MSigDB it is routinely a hundred, and one
+            * cell of a hundred italic gene names sets the column width for the
+            * whole table — Set, Source, Overlap, Fold, p and p adjusted all
+            * collapsed to nothing while the genes wrapped into a wall.
+            *
+            * rnaseq-studio never had this table: the bar chart IS the results
+            * view, and one term at a time gets a card with its members and
+            * their statistics. That is the shape here now. Nothing is lost —
+            * the CSV still carries every set, every column and every gene.
+            */}
           <p className="mono mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
             Showing {shown.length} of {results.length} · fold = (k/n) ÷ (K/N) ·
-            click a bar or a row for its member genes
+            click a bar for its member genes · the CSV has every set
           </p>
           {selected && (
             <TermDetail
@@ -253,29 +251,77 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
   )
 }
 
-function Bars({ results, palKey, onPick, selected }: {
-  results: ORAResult[]; palKey: PaletteKey; onPick: (id: string) => void; selected: string
+/**
+ * The results, as a bar per set.
+ *
+ * The encoding is rnaseq-studio's, and it was worth going and reading rather
+ * than deciding again. That app draws bar length = the number of DEGs in the
+ * set and colour = −log₁₀ adjusted p on a continuous scale. This one had it the
+ * other way round: length was −log₁₀ padj and colour was `pal(i, palKey)` — the
+ * ROW INDEX in a categorical palette, which carries no information whatsoever.
+ *
+ * Both halves of that were wrong, and together they made the figure fail
+ * exactly where a reader needs it most. Turn on a small collection where
+ * nothing clears correction and every padj sits near 1, so every −log₁₀ padj
+ * sits near 0, so every bar collapses to the one-pixel minimum — fifteen
+ * hairlines in fifteen unrelated colours, over an axis running to 1.6. Nothing
+ * about that says "nothing is significant here"; it just looks broken.
+ *
+ * Length is the overlap count now, which is a real quantity whatever the
+ * p-values do, and colour is the significance, on the studio's own ramp with a
+ * colour bar to read it by.
+ */
+function Bars({ results, rampKey, onPick, selected }: {
+  results: ORAResult[]; rampKey: RampKey; onPick: (id: string) => void; selected: string
 }) {
-  const rowH = 26, gap = 5, PT = 8, PR = 60, AX = 44
-  // Full set names, never truncated — the bulk studio clipped them and it was
-  // the first thing reported. The label column sizes to the longest name.
-  //
-  // Both extents go through maxOf rather than a spread, for two reasons that are
-  // easy to confuse. The one everyone names is the argument limit: `Math.max(...xs)`
-  // throws past ~124 900 arguments on this machine, and the only thing standing
-  // between this line and that number is `top`, a Chips constant declared eighty
-  // lines up — a bound that lives nowhere near the code depending on it is a bound
-  // waiting for someone to raise it. The one that would have bitten first is
-  // narrower: a single NaN padj poisons a spread, `Math.max(NaN, 1.5)` is NaN, and
-  // every x below becomes NaN, so the whole figure renders with no bars and no
-  // axis and nothing says why. maxOf skips what it cannot compare and falls back,
-  // so one bad row costs one bar. See chart.ts.
-  const PL = Math.min(430, Math.max(180, maxOf(results.map(r => r.name.length * 6.2))))
+  const gap = 5, PT = 8, PR = 74, AX = 44, BAR_H = 74
+  const CHAR = 6.2
+
+  /**
+   * Names are WRAPPED, not cut.
+   *
+   * rnaseq-studio wraps at 40 characters and keeps the whole term; the label
+   * gutter here was capped instead, and because the labels are drawn
+   * `textAnchor="end"` a name past the cap ran off the LEFT edge and lost its
+   * opening words — the part that identifies a pathway. Two lines hold 76
+   * characters, which covers MSigDB; anything longer loses its tail, marked,
+   * with the whole name in the tooltip and in the CSV.
+   */
+  const PL = Math.min(300, Math.max(180, maxOf(results.map(r => r.name.length * CHAR))))
+  const perLine = Math.max(12, Math.floor((PL - 10) / CHAR))
+  const wrap = (name: string): string[] => {
+    if (name.length <= perLine) return [name]
+    const words = name.split(' ')
+    const out: string[] = []
+    let line = ''
+    for (const w of words) {
+      if (!line) line = w
+      else if (line.length + 1 + w.length <= perLine) line += ` ${w}`
+      else { out.push(line); line = w; if (out.length === 2) break }
+    }
+    if (out.length < 2 && line) out.push(line)
+    if (out.length === 2 && out.join(' ').length < name.length) {
+      out[1] = `${out[1].slice(0, Math.max(1, perLine - 1))}…`
+    }
+    return out
+  }
+  const wrapped = results.map(r => wrap(r.name))
+  const lines = Math.max(1, maxOf(wrapped.map(w => w.length)))
+  const rowH = lines > 1 ? 34 : 26
+
   const W = 900
-  const H = PT + results.length * (rowH + gap) + AX
-  const maxV = Math.max(1.5, maxOf(results.map(r => -Math.log10(Math.max(r.padj, 1e-300))))) * 1.05
+  const H = PT + results.length * (rowH + gap) + AX + BAR_H
+  // The axis is the overlap count. maxOf rather than a spread: a single NaN
+  // poisons `Math.max(...)` and takes the whole figure's geometry with it, and
+  // the argument limit is a second reason. See chart.ts.
+  const maxV = Math.max(1, maxOf(results.map(r => r.count)))
   const X = (v: number) => PL + ((W - PL - PR) * v) / maxV
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => maxV * f)
+  const nlp = (r: ORAResult) => -Math.log10(Math.max(r.padj, 1e-300))
+  // The colour scale spans what is actually on screen, and always includes the
+  // 0.05 line — otherwise a page where nothing is significant would stretch a
+  // full ramp across noise and paint it like a result.
+  const hi = Math.max(-Math.log10(0.05) * 1.2, maxOf(results.map(nlp)))
+  const ticks = niceTicks(maxV)
 
   return (
     <div className="mt-4 overflow-x-auto">
@@ -283,36 +329,57 @@ function Bars({ results, palKey, onPick, selected }: {
         aria-label="Enriched gene sets">
         {ticks.map(t => (
           <g key={t}>
-            <line className="axgrid" x1={X(t)} x2={X(t)} y1={PT} y2={H - AX + 2} />
-            <text className="axis" x={X(t)} y={H - AX + 16} textAnchor="middle">{t.toFixed(1)}</text>
+            <line className="axgrid" x1={X(t)} x2={X(t)} y1={PT} y2={H - AX - BAR_H + 2} />
+            <text className="axis" x={X(t)} y={H - AX - BAR_H + 16} textAnchor="middle">{t}</text>
           </g>
         ))}
-        <line x1={X(-Math.log10(0.05))} x2={X(-Math.log10(0.05))} y1={PT} y2={H - AX + 2}
-          stroke="var(--ink-3)" strokeDasharray="4 3" opacity=".8" />
         {results.map((r, i) => {
           const y = PT + i * (rowH + gap)
-          const v = -Math.log10(Math.max(r.padj, 1e-300))
+          const w = wrapped[i]
+          const on = r.id === selected
           return (
             <g key={r.id} style={{ cursor: 'pointer' }}
-              onClick={() => onPick(r.id === selected ? '' : r.id)}>
-              <text className="axis" x={PL - 10} y={y + rowH / 2 + 4} textAnchor="end"
-                style={{ fontSize: 11.5, fill: 'var(--ink)',
-                         fontWeight: r.id === selected ? 700 : 400 }}>{r.name}</text>
-              <rect x={PL} y={y + 3} width={Math.max(1, X(v) - PL)} height={rowH - 6} rx={3}
-                stroke={MARK_EDGE} strokeWidth={0.4}
-                fill={pal(i, palKey)} opacity={r.id === selected ? 1 : 0.85}>
+              onClick={() => onPick(on ? '' : r.id)}>
+              <text className="axis" x={PL - 10} textAnchor="end"
+                y={y + rowH / 2 + 4 - (w.length - 1) * 6}
+                style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: on ? 700 : 400 }}>
+                {w.map((ln, k) => (
+                  <tspan key={k} x={PL - 10} dy={k ? 12 : 0}>{ln}</tspan>
+                ))}
+                <title>{r.name}</title>
+              </text>
+              <rect x={PL} y={y + 3} width={Math.max(1, X(r.count) - PL)} height={rowH - 6} rx={3}
+                stroke={MARK_EDGE} strokeWidth={on ? 1 : 0.4}
+                fill={rampColor(Math.min(1, nlp(r) / hi), rampKey)}>
                 <title>{r.name} — {r.count}/{r.setSize} genes, adjusted p {r.padj.toExponential(1)}</title>
               </rect>
-              <text className="axis" x={X(v) + 7} y={y + rowH / 2 + 4}
+              <text className="axis" x={X(r.count) + 7} y={y + rowH / 2 + 4}
                 style={{ fontSize: 11 }}>{r.count}/{r.setSize}</text>
             </g>
           )
         })}
-        <line className="axline" x1={PL} x2={W - PR} y1={H - AX + 2} y2={H - AX + 2} />
-        <text className="axis" x={(PL + W - PR) / 2} y={H - 6} textAnchor="middle">
-          −log₁₀ adjusted p · dashed line = 0.05
+        <line className="axline" x1={PL} x2={W - PR} y1={H - AX - BAR_H + 2} y2={H - AX - BAR_H + 2} />
+        <text className="axis" x={(PL + W - PR) / 2} y={H - AX - BAR_H + 34} textAnchor="middle">
+          genes of the set in this list
+        </text>
+        {/* The significance, as a scale rather than as bar length — so a page
+            where nothing is significant reads as pale, not as broken. */}
+        <ColorBar cx={(PL + W - PR) / 2} y={H - BAR_H + 16} w={220} h={11}
+          ramp={rampKey} lo={0} hi={hi} id="ora-scale"
+          title="−log₁₀ adjusted p" />
+        <text className="axis" x={(PL + W - PR) / 2} y={H - 4} textAnchor="middle"
+          style={{ fill: 'var(--ink-3)' }}>
+          0.05 is {(-Math.log10(0.05)).toFixed(1)} on this scale
         </text>
       </svg>
     </div>
   )
+}
+
+/** Whole-number ticks for a count axis — a count of 7 has no 3.5. */
+function niceTicks(max: number): number[] {
+  const step = Math.max(1, Math.ceil(max / 5))
+  const out: number[] = []
+  for (let v = 0; v <= max; v += step) out.push(v)
+  return out
 }
