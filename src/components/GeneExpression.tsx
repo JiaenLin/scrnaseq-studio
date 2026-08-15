@@ -117,6 +117,15 @@ export default function GeneExpression(p: GeneProps) {
    * different question — and it put a "Control / Compare" pair above a figure
    * that is not a comparison. The type lives with the figures that use it.
    */
+  /**
+   * Order the dot plot by similarity rather than by storage order.
+   *
+   * Off by default: the object's own cluster order is often deliberate — a
+   * developmental series, a numbered Leiden partition — and silently
+   * rearranging it would hide that. On, it is what pheatmap and scanpy draw,
+   * and it is how you see which populations resemble each other.
+   */
+  const [cluster, setCluster] = useState(false)
   const [ct, setCt] = useState(p.types[0]?.name ?? '')
   const ctName = p.types.some(t => t.name === ct) ? ct : (p.types[0]?.name ?? '')
 
@@ -335,6 +344,15 @@ export default function GeneExpression(p: GeneProps) {
         )}
       </div>
 
+      {p.plot === 'dot' && (
+        <div className="mt-2 flex items-center gap-2">
+          <button className="chip" aria-pressed={cluster} onClick={() => setCluster(!cluster)}
+            title="Order rows and columns by similarity, and draw the trees">
+            Cluster rows &amp; genes
+          </button>
+        </div>
+      )}
+
       <CellFilter p={p} />
 
       <p className="sub mt-2.5">{describe(p, ctName)}</p>
@@ -342,7 +360,7 @@ export default function GeneExpression(p: GeneProps) {
       <div className="mt-3.5">
         {p.genes.length === 0
           ? <div className="empty">Search for a gene above.</div>
-          : p.plot === 'dot' ? <DotPlot {...p} ids={ids} />
+          : p.plot === 'dot' ? <DotPlot {...p} ids={ids} cluster={cluster} />
           : p.plot === 'feature' ? <FeaturePlot {...p} />
           : <ViolinPanel {...p} ids={ids} />}
       </div>

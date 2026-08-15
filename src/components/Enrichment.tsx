@@ -2,11 +2,21 @@ import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import { useSetIndex, type LibraryState } from '../lib/genesets.ts'
 import { wrapAll } from '../lib/labels.ts'
+
+/**
+ * What a bar's length means.
+ *
+ * clusterProfiler draws Count on its barplot and GeneRatio on its dotplot, and
+ * the difference matters: a raw count rewards big sets, so "Ribosome" at 63/84
+ * outdraws a 5-gene pathway matched 5/5 even though the second is the stronger
+ * statement about this list. Gene ratio is the default here for that reason.
+ */
+type BarMetric = 'count' | 'ratio' | 'fold'
 import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
 import { oraIndexed, type ORAResult } from '../lib/ora.ts'
 import GeneSetSources from './GeneSetSources.tsx'
-import { maxOf, sci } from '../lib/chart.ts'
+import { maxOf, sci, minOf } from '../lib/chart.ts'
 import {
   condLabel, combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
@@ -45,6 +55,7 @@ export default function Enrichment({
   const [minSize, setMinSize] = useState(10)
   const [maxSize, setMaxSize] = useState(500)
   const [rankBy, setRankBy] = useState<'padj' | 'count'>('padj')
+  const [metric, setMetric] = useState<BarMetric>('ratio')
   const [termId, setTermId] = useState('')
 
   const query = useMemo(() => rows
@@ -165,6 +176,15 @@ export default function Enrichment({
         <Chips label="Show" value={top} options={[10, 15, 20, 30]} onChange={setTop} />
         <div className="gsep h-6" />
         <label className="flex items-center gap-1.5">
+          <span className="glabel">Bar shows</span>
+          <select className="sel" value={metric} aria-label="What the bar length shows"
+            onChange={e => setMetric(e.target.value as BarMetric)}>
+            <option value="ratio">gene ratio</option>
+            <option value="count">overlap count</option>
+            <option value="fold">fold enrichment</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5">
           <span className="glabel">Rank by</span>
           <select className="sel" value={rankBy} aria-label="Rank terms by"
             onChange={e => setRankBy(e.target.value as 'padj' | 'count')}>
@@ -212,7 +232,8 @@ export default function Enrichment({
             name={`enrichment_${label}`} className="mt-4"
             right={<CsvButton onClick={saveCsv} />}
           >
-            <Bars results={shown} rampKey={rampKey} onPick={setTermId} selected={termId} />
+            <Bars results={shown} rampKey={rampKey} onPick={setTermId} selected={termId}
+              metric={metric} nQuery={query.length} />
           </Figure>
           {/**
             * No results table.
@@ -327,8 +348,12 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
  * p-values do, and colour is the significance, on the studio's own ramp with a
  * colour bar to read it by.
  */
-function Bars({ results, rampKey, onPick, selected }: {
+function Bars({ results, rampKey, onPick, selected, metric, nQuery }: {
   results: ORAResult[]; rampKey: RampKey; onPick: (id: string) => void; selected: string
+  /** What the bar length means — see `value` below. */
+  metric: BarMetric
+  /** How many genes were tested, for the gene ratio. */
+  nQuery: number
 }) {
   const gap = 5, PT = 8, PR = 74, AX = 44, BAR_H = 74
   const CHAR = 6.2
@@ -367,18 +392,56 @@ function Bars({ results, rampKey, onPick, selected }: {
   // The axis is the overlap count. maxOf rather than a spread: a single NaN
   // poisons `Math.max(...)` and takes the whole figure's geometry with it, and
   // the argument limit is a second reason. See chart.ts.
-  const maxV = Math.max(1, maxOf(results.map(r => r.count)))
+  /**
+   * What the bar LENGTH means, following clusterProfiler.
+   *
+   * Its barplot puts Count on x and its dotplot puts GeneRatio — k/n, the share
+   * of the query that landed in the set — and the two answer different
+   * questions. A raw count rewards large sets: "Ribosome" overlapping 63 genes
+   * out of 84 and a 5-gene pathway overlapping all 5 are drawn as a long bar
+   * and a stub, when the second is the stronger statement about the list.
+   * GeneRatio is what makes them comparable, and fold enrichment is the same
+   * quantity against what the background would give by chance.
+   */
+  const value = (r: ORAResult) =>
+    metric === 'ratio' ? r.count / Math.max(1, nQuery)
+      : metric === 'fold' ? r.foldEnrichment
+      : r.count
+  const maxV = Math.max(metric === 'count' ? 1 : 1e-9, maxOf(results.map(value)))
   const X = (v: number) => PL + ((W - PL - PR) * v) / maxV
+  const fmtV = (r: ORAResult) =>
+    metric === 'ratio' ? `${r.count}/${nQuery}`
+      : metric === 'fold' ? `${r.foldEnrichment.toFixed(1)}\u00d7`
+      : `${r.count}/${r.setSize}`
+  const axisLabel =
+    metric === 'ratio' ? 'gene ratio — genes of this list that are in the set'
+      : metric === 'fold' ? 'fold enrichment over the background'
+      : 'genes of the set in this list'
   // r.nlpAdj, not -log10(padj). They agree everywhere padj is representable and
   // differ exactly where it is not: a set whose adjusted p is below 1e-308 has
   // padj === 0, and the clamp that used to stand in for it pinned every such
   // bar to the same 300 — the flat top the volcano used to have, for the same
   // reason and with the same fix.
   const nlp = (r: ORAResult) => r.nlpAdj
-  // The colour scale spans what is actually on screen, and always includes the
-  // 0.05 line — otherwise a page where nothing is significant would stretch a
-  // full ramp across noise and paint it like a result.
-  const hi = Math.max(-Math.log10(0.05) * 1.2, maxOf(results.map(nlp)))
+  /**
+   * The colour scale spans the terms ON SCREEN, not every term tested.
+   *
+   * It ran 0 → the maximum over ALL results, so one term at −log₁₀ padj = 63
+   * pushed everything below about 12 into the pale end and the figure came out
+   * as two dark bars and thirteen white ones. Reported, and it is the scale's
+   * fault rather than the data's: those thirteen span padj 1e-12 to 1e-2, which
+   * is four orders of magnitude of real difference rendered as one colour.
+   *
+   * clusterProfiler's answer is the one taken here — its scale_colour_gradient
+   * is fitted to the terms it draws, not to the whole result table. The floor
+   * still includes the 0.05 line, so a page where nothing is significant stays
+   * pale rather than stretching a full ramp across noise.
+   */
+  const shownNlp = results.map(nlp)
+  const CUT = -Math.log10(0.05)
+  const hi = Math.max(CUT * 1.2, maxOf(shownNlp))
+  const lo = Math.min(CUT, minOf(shownNlp))
+  const at = (r: ORAResult) => (hi > lo ? (nlp(r) - lo) / (hi - lo) : 1)
   const ticks = niceTicks(maxV)
 
   return (
@@ -406,28 +469,34 @@ function Bars({ results, rampKey, onPick, selected }: {
                 ))}
                 <title>{r.name}</title>
               </text>
-              <rect x={PL} y={y + 3} width={Math.max(1, X(r.count) - PL)} height={rowH - 6} rx={3}
+              <rect x={PL} y={y + 3} width={Math.max(1, X(value(r)) - PL)} height={rowH - 6} rx={3}
                 stroke={MARK_EDGE} strokeWidth={on ? 1 : 0.4}
-                fill={rampColor(Math.min(1, nlp(r) / hi), rampKey)}>
-                <title>{r.name} — {r.count}/{r.setSize} genes, adjusted p {r.padj.toExponential(1)}</title>
+                fill={rampColor(Math.min(1, Math.max(0, at(r))), rampKey)}>
+                <title>
+                  {r.name} — {r.count} of this list in a set of {r.setSize},
+                  {' '}{r.foldEnrichment.toFixed(2)}× enrichment,
+                  {' '}adjusted p {r.padj > 0 ? r.padj.toExponential(1) : `<1e-308 (−log₁₀ ${nlp(r).toFixed(1)})`}
+                </title>
               </rect>
-              <text className="axis" x={X(r.count) + 7} y={y + rowH / 2 + 4}
-                style={{ fontSize: 11 }}>{r.count}/{r.setSize}</text>
+              <text className="axis" x={X(value(r)) + 7} y={y + rowH / 2 + 4}
+                style={{ fontSize: 11 }}>{fmtV(r)}</text>
             </g>
           )
         })}
         <line className="axline" x1={PL} x2={W - PR} y1={H - AX - BAR_H + 2} y2={H - AX - BAR_H + 2} />
         <text className="axis" x={(PL + W - PR) / 2} y={H - AX - BAR_H + 34} textAnchor="middle">
-          genes of the set in this list
+          {axisLabel}
         </text>
         {/* The significance, as a scale rather than as bar length — so a page
             where nothing is significant reads as pale, not as broken. */}
         <ColorBar cx={(PL + W - PR) / 2} y={H - BAR_H + 16} w={220} h={11}
-          ramp={rampKey} lo={0} hi={hi} id="ora-scale"
+          ramp={rampKey} lo={lo} hi={hi} id="ora-scale"
           title="−log₁₀ adjusted p" />
         <text className="axis" x={(PL + W - PR) / 2} y={H - 4} textAnchor="middle"
           style={{ fill: 'var(--ink-3)' }}>
-          0.05 is {(-Math.log10(0.05)).toFixed(1)} on this scale
+          {lo <= CUT
+            ? `0.05 is ${CUT.toFixed(1)} on this scale`
+            : `every term drawn is past 0.05 — the scale starts at ${lo.toFixed(1)}`}
         </text>
       </svg>
     </div>

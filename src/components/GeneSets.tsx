@@ -4,7 +4,9 @@ import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf } from '../lib/chart.ts'
 import { drawLabels } from '../lib/canvas-label.ts'
-import { axisTicks } from '../lib/labels.ts'
+import { axisTicks, widestW } from '../lib/labels.ts'
+import { dendroLines, orderRows } from '../lib/cluster.ts'
+import { ColorBar } from './svg-parts.tsx'
 import type { LibraryState } from '../lib/genesets.ts'
 import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
@@ -61,6 +63,8 @@ export default function GeneSets({
   const [custom, setCustom] = useState('')
   const [useCustom, setUseCustom] = useState(false)
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
+  const [heat, setHeat] = useState(false)
+  const [heatCluster, setHeatCluster] = useState(true)
 
   /**
    * Every set in the enabled collections — names only.
@@ -444,6 +448,30 @@ export default function GeneSets({
             <p className="sub mt-2.5">
               Zero is the reference: no higher than genes of comparable abundance.
             </p>
+
+            {/* The score is one number per cell; this is what it was made of.
+                A set can score high because two of its fifty genes are large,
+                and only the per-gene view can tell that from fifty genes moving
+                together. */}
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <span className="glabel">Per gene</span>
+              <button className="chip" aria-pressed={heat} onClick={() => setHeat(!heat)}>
+                Show the genes
+              </button>
+              {heat && (
+                <button className="chip" aria-pressed={heatCluster}
+                  onClick={() => setHeatCluster(!heatCluster)}
+                  title="Order rows and columns by similarity, and draw the trees">
+                  Cluster
+                </button>
+              )}
+            </div>
+            {heat && used.length > 0 && (
+              <Figure name={`set_genes_${slug(name)}`} className="mt-1">
+                <SetHeatmap src={src} genes={used} ids={ids} groupBy={groupBy}
+                  rampDiv="rdbu" cluster={heatCluster} />
+              </Figure>
+            )}
           </>
         )}
       </Card>
@@ -559,6 +587,114 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
 
 /** Height of the colour-bar strip, in the same 640-wide units as the drawing. */
 const BAR_U = 46
+
+/**
+ * The set's genes, one row each, across the identities.
+ *
+ * A module score answers "how strongly does this cell express the signature as
+ * a whole", which is one number and hides everything about how it got there: a
+ * set can score high because two of its fifty genes are enormous, and the score
+ * alone cannot tell that from fifty genes moving together. This is the figure
+ * that can — it is what people go to pheatmap for after running AddModuleScore.
+ *
+ * Z-scored down each gene's own row, like Seurat's DoHeatmap and pheatmap's
+ * `scale = "row"`. Without it the figure is a map of which genes are abundant,
+ * which is a property of the gene and not of the contrast; with it every row
+ * says where THAT gene is highest, which is the comparison the rows are for.
+ */
+function SetHeatmap({ src, genes, ids, groupBy, rampDiv, cluster }: {
+  src: Source
+  genes: string[]
+  ids: ReturnType<typeof identities>
+  groupBy: GroupBy
+  rampDiv: RampKey
+  cluster: boolean
+}) {
+  const cw = 34, rh = 15, PT = 12, PR = 20, BAR_H = 58
+
+  const matrix = useMemo(
+    () => genes.map(g => ids.map(
+      id => src.mean(g, id.ti, groupBy === 'type' ? null : id.cond))),
+    [src, genes, ids, groupBy])
+
+  // Row-scaled. A row with no variance stays at zero rather than dividing by it
+  // — a gene detected nowhere in the panel is not "average everywhere", and a
+  // NaN here would take the whole figure's geometry down with it.
+  const z = useMemo(() => matrix.map(row => {
+    const m = row.reduce((a, b) => a + b, 0) / (row.length || 1)
+    const sd = Math.sqrt(row.reduce((a, b) => a + (b - m) ** 2, 0) / (row.length || 1))
+    return sd > 1e-9 ? row.map(v => Math.max(-2.5, Math.min(2.5, (v - m) / sd))) : row.map(() => 0)
+  }), [matrix])
+
+  const rowTree = useMemo(() => (cluster ? orderRows(z) : null), [cluster, z])
+  const colTree = useMemo(() => {
+    if (!cluster || ids.length < 3) return null
+    return orderRows(ids.map((_c, ci) => z.map(row => row[ci])))
+  }, [cluster, z, ids])
+
+  const rowAt = rowTree ? rowTree.order : genes.map((_g, i) => i)
+  const colAt = colTree ? colTree.order : ids.map((_c, i) => i)
+
+  const TREE = 30
+  const treeT = colTree ? TREE : 0
+  const treeL = rowTree ? TREE : 0
+  const PL = Math.max(80, widestW(genes, 10, false) + 14) + treeL
+  const labels = colAt.map(ci => (groupBy === 'both' ? ids[ci].full : ids[ci].label))
+  const band = cw
+  const ax = axisTicks(labels, { band, leftAnchor: PL + band / 2, px: 9, startAt: 10, upright: 24 })
+
+  const W = PL + colAt.length * cw + PR
+  const plotT = PT + treeT
+  const plotB = plotT + rowAt.length * rh
+  const H = plotB + ax.bottom + BAR_H
+
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: Math.min(W, 560) }}
+        role="img" aria-label={`Expression of ${genes.length} set genes across ${ids.length} identities`}>
+        {colTree && dendroLines(colTree, colAt.length * cw, treeT - 5).map((l, i) => (
+          <line key={`c${i}`} x1={PL + l.x1} x2={PL + l.x2}
+            y1={plotT - 3 - l.y1} y2={plotT - 3 - l.y2}
+            stroke={AXIS_INK} strokeWidth={0.7} />
+        ))}
+        {rowTree && dendroLines(rowTree, rowAt.length * rh, treeL - 7).map((l, i) => (
+          <line key={`r${i}`} x1={PL - treeL + 3 + (treeL - 7 - l.y1)} x2={PL - treeL + 3 + (treeL - 7 - l.y2)}
+            y1={plotT + l.x1} y2={plotT + l.x2}
+            stroke={AXIS_INK} strokeWidth={0.7} />
+        ))}
+
+        {rowAt.map((gi, ri) => colAt.map((ci, cj) => (
+          <rect key={`${gi}-${ci}`} x={PL + cj * cw} y={plotT + ri * rh}
+            width={cw} height={rh}
+            fill={rampColor((z[gi][ci] + 2.5) / 5, rampDiv)}>
+            <title>{genes[gi]} in {ids[ci].full} — z {z[gi][ci].toFixed(2)}</title>
+          </rect>
+        )))}
+
+        {/* Gene names in full, italic as a gene symbol is set in print. */}
+        {rowAt.map((gi, ri) => (
+          <text key={`g${gi}`} x={PL - treeL - 6} y={plotT + ri * rh + rh / 2 + 3.4} textAnchor="end"
+            style={{ fontSize: 10, fill: AXIS_INK, fontStyle: 'italic' }}>{genes[gi]}</text>
+        ))}
+        {colAt.map((ci, cj) => {
+          const cx = PL + cw * (cj + 0.5)
+          return ax.rotate ? (
+            <text key={`i${ci}`} className="axis" transform={`rotate(${-ax.deg} ${cx} ${plotB + 10})`}
+              x={cx} y={plotB + 10} textAnchor="end" style={{ fontSize: 9 }}>
+              {ax.shown[cj]}
+            </text>
+          ) : (
+            <text key={`i${ci}`} className="axis" x={cx} y={plotB + 12} textAnchor="middle"
+              style={{ fontSize: 9 }}>{ax.shown[cj]}</text>
+          )
+        })}
+        <ColorBar cx={W / 2} y={H - BAR_H + 22} w={170} h={10}
+          ramp={rampDiv} lo={-2.5} hi={2.5} id="setheat"
+          title="z-score, down each gene" breaks={[-2.5, 0, 2.5]} />
+      </svg>
+    </div>
+  )
+}
 
 function ScoreViolins({ scores, ids, perId, groupBy }: {
   scores: Float32Array

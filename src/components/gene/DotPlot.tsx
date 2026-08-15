@@ -1,6 +1,8 @@
 // Seurat's dot plot: expression by size and colour, gene by identity.
 
+import { useMemo } from 'react'
 import type { Identity } from '../../types.ts'
+import { dendroLines, orderRows } from '../../lib/cluster.ts'
 import { maxOf, maxOfAll } from '../../lib/chart.ts'
 import { widestW } from '../../lib/labels.ts'
 import { AXIS_INK, GRID_INK, MARK_EDGE } from '../../lib/figure-ink.ts'
@@ -18,9 +20,44 @@ import type { GeneProps } from '../GeneExpression.tsx'
  * That is the most misread property of this figure, so the scaling is a visible
  * switch rather than a silent default.
  */
-export default function DotPlot(p: GeneProps & { ids: Identity[] }) {
-  const rows = p.ids
-  const genes = p.genes
+export default function DotPlot(p: GeneProps & { ids: Identity[]; cluster?: boolean }) {
+  const rows0 = p.ids
+  const genes0 = p.genes
+
+  /**
+   * Rows and columns ordered by how alike they are, with the tree drawn.
+   *
+   * Every published version of this figure — pheatmap, ComplexHeatmap, scanpy's
+   * dotplot, Seurat's DoHeatmap — clusters both axes, because the ordering is
+   * half of what the figure says. Drawn in the object's storage order it is a
+   * table the reader has to sort by eye.
+   *
+   * Clustered on the MEAN expression matrix, not on the fraction detected: the
+   * two are different questions and the colour is the mean, so the tree should
+   * describe what the colour shows. Correlation distance, so populations
+   * running the same programme at different depths sit together — see
+   * lib/cluster.ts.
+   */
+  const meanOf = (r: Identity, g: string) =>
+    p.src.mean(g, r.ti, p.groupBy === 'type' ? null : r.cond)
+  const byRow = useMemo(
+    () => rows0.map(r => genes0.map(g => meanOf(r, g))),
+    // meanOf is a pure function of src and groupBy.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows0, genes0, p.src, p.groupBy])
+
+  const rowTree = useMemo(
+    () => (p.cluster ? orderRows(byRow) : null), [p.cluster, byRow])
+  const colTree = useMemo(() => {
+    if (!p.cluster || genes0.length < 3) return null
+    // Transposed: a column is a gene's profile across the identities.
+    return orderRows(genes0.map((_g, gi) => rows0.map((_r, ri) => byRow[ri][gi])))
+  }, [p.cluster, byRow, genes0, rows0])
+
+  const rows = useMemo(
+    () => (rowTree ? rowTree.order.map(i => rows0[i]) : rows0), [rowTree, rows0])
+  const genes = useMemo(
+    () => (colTree ? colTree.order.map(i => genes0[i]) : genes0), [colTree, genes0])
   const cw = 42, rh = 26, PT = 14, PR = 26
   // The left margin follows the longest identity — "Oligodendrocyte · Reactivated"
   // is more than twice the width of "TAP", and a clipped row label is unreadable.
@@ -50,9 +87,15 @@ export default function DotPlot(p: GeneProps & { ids: Identity[] }) {
   // by side under the panel and the figure has to make room for them.
   const legendH = 74
   const BAR_W = 150
-  const W = Math.max(PL + genes.length * cw + PR, PL + 430)
-  const plotB = PT + rows.length * rh
+  // The trees get a band each, and only when there is a tree to draw.
+  const TREE = 34
+  const treeT = colTree ? TREE : 0
+  const treeL = rowTree ? TREE : 0
+  const W = Math.max(PL + treeL + genes.length * cw + PR, PL + treeL + 430)
+  const plotT = PT + treeT
+  const plotB = plotT + rows.length * rh
   const H = plotB + labelH + legendH
+  const PLx = PL + treeL
 
   const avg = rows.map(r => genes.map(g => p.src.mean(g, r.ti, p.groupBy === 'type' ? null : r.cond)))
   const cv = genes.map((_g, gi) => {
@@ -68,8 +111,8 @@ export default function DotPlot(p: GeneProps & { ids: Identity[] }) {
   const [lo, hi] = p.dotScale ? symmetricRange(-2.5, 2.5) : [0, Math.max(maxOfAll(avg), 0.01)]
   const ramp = p.dotScale ? p.rampDiv : p.rampKey
   const radius = (f: number) => +(1.4 + f * 9).toFixed(2)
-  const X = (gi: number) => PL + cw * (gi + 0.5)
-  const Y = (ri: number) => PT + rh * (ri + 0.5)
+  const X = (gi: number) => PLx + cw * (gi + 0.5)
+  const Y = (ri: number) => plotT + rh * (ri + 0.5)
 
   return (
     <>
@@ -84,29 +127,46 @@ export default function DotPlot(p: GeneProps & { ids: Identity[] }) {
           <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
             style={{ minWidth: W }} role="img"
             aria-label={`Dot plot of ${genes.join(', ')}`}>
+            {/* The trees, drawn against the axes they order. The column tree
+                runs along x above the panel; the row tree is the same shape
+                turned a quarter turn, which is why dendroLines returns spans
+                and depths rather than x and y — the caller decides which is
+                which. */}
+            {colTree && dendroLines(colTree, genes.length * cw, treeT - 6).map((l, i) => (
+              <line key={`ct${i}`}
+                x1={PLx + l.x1} x2={PLx + l.x2}
+                y1={plotT - 4 - l.y1} y2={plotT - 4 - l.y2}
+                stroke={AXIS_INK} strokeWidth={0.8} />
+            ))}
+            {rowTree && dendroLines(rowTree, rows.length * rh, treeL - 8).map((l, i) => (
+              <line key={`rt${i}`}
+                x1={PLx - 4 - l.y1} x2={PLx - 4 - l.y2}
+                y1={plotT + l.x1} y2={plotT + l.x2}
+                stroke={AXIS_INK} strokeWidth={0.8} />
+            ))}
             {/* Grid first, so the marks sit on it rather than under it. Banded
                 rows were doing this job and doing it badly: a stripe is a block
                 of colour competing with the data for the reader's eye, where a
                 hairline just carries it across a wide panel. */}
             {rows.map((r, ri) => (
-              <line key={`h${r.full}`} x1={PL} x2={PL + genes.length * cw}
+              <line key={`h${r.full}`} x1={PLx} x2={PLx + genes.length * cw}
                 y1={Y(ri)} y2={Y(ri)} stroke={GRID_INK} strokeWidth={0.6} />
             ))}
             {genes.map((g, gi) => (
-              <line key={`v${g}`} x1={X(gi)} x2={X(gi)} y1={PT} y2={plotB}
+              <line key={`v${g}`} x1={X(gi)} x2={X(gi)} y1={plotT} y2={plotB}
                 stroke={GRID_INK} strokeWidth={0.6} />
             ))}
 
             {/* Axes and ticks in black — SCpubr sets axis.text and axis.ticks to
                 black rather than the theme's grey, because a figure is judged on
                 paper where grey-on-white reads as faint. */}
-            <line x1={PL} x2={PL} y1={PT} y2={plotB} stroke={AXIS_INK} strokeWidth={0.8} />
-            <line x1={PL} x2={PL + genes.length * cw} y1={plotB} y2={plotB}
+            <line x1={PLx} x2={PLx} y1={plotT} y2={plotB} stroke={AXIS_INK} strokeWidth={0.8} />
+            <line x1={PLx} x2={PLx + genes.length * cw} y1={plotB} y2={plotB}
               stroke={AXIS_INK} strokeWidth={0.8} />
 
             {rows.map((r, ri) => (
               <g key={r.full}>
-                <line x1={PL - 3.5} x2={PL} y1={Y(ri)} y2={Y(ri)} stroke={AXIS_INK} strokeWidth={0.8} />
+                <line x1={PL - 3.5} x2={PLx} y1={Y(ri)} y2={Y(ri)} stroke={AXIS_INK} strokeWidth={0.8} />
                 <text x={PL - 8} y={Y(ri) + 4} textAnchor="end"
                   style={{ fontSize: 11.5, fill: AXIS_INK, fontWeight: 600 }}>
                   {shownRow[ri]}<title>{r.full}</title>
@@ -149,13 +209,13 @@ export default function DotPlot(p: GeneProps & { ids: Identity[] }) {
                 "bottom". The colour bar leads because it is the one a reader
                 consults per mark; the size key is read once. */}
             <ColorBar
-              cx={PL + (W - PL) * 0.32} y={H - legendH + 22} w={BAR_W} h={11}
+              cx={PLx + (W - PLx) * 0.32} y={H - legendH + 22} w={BAR_W} h={11}
               ramp={ramp} lo={lo} hi={hi}
               breaks={p.dotScale ? [-2.5, -1.25, 0, 1.25, 2.5] : undefined}
               title={p.dotScale ? 'Avg. Exp. (z-scored)' : 'Avg. Exp.'}
               id="dotplot-bar"
             />
-            <SizeKey cx={PL + (W - PL) * 0.78} y={H - legendH + 22}
+            <SizeKey cx={PLx + (W - PLx) * 0.78} y={H - legendH + 22}
               title="Percent Expressed" radius={radius} />
           </svg>
         </div>
