@@ -97,52 +97,104 @@ export function axisTicks(labels: readonly string[], o: {
   /** x of the first tick's anchor — how much room it has to reach left into. */
   leftAnchor: number
   px?: number
-  /** Preferred angle; steepened only if neighbours would collide. */
+  /** Preferred angle; steepened when a shallower one will not fit. */
   deg?: number
   /** How far under the axis the text begins. */
   startAt?: number
   descend?: number
-  /** The deepest bottom margin worth spending before cutting labels instead. */
-  maxBottom?: number
   gap?: number
   /** Bottom margin to use when the labels fit upright. */
   upright?: number
-}): { rotate: boolean; deg: number; shown: string[]; bottom: number } {
+}): { rotate: boolean; deg: number; shown: string[]; bottom: number; left: number } {
   const {
     band, leftAnchor, px = 10.5, deg = 38, startAt = 12,
-    descend = 6, maxBottom = 96, gap = 4, upright = 26,
+    descend = 6, gap = 4, upright = 26,
   } = o
+  const full = [...labels]
   if (fitsUpright(labels, band, px, gap)) {
-    return { rotate: false, deg: 0, shown: [...labels], bottom: upright }
+    return { rotate: false, deg: 0, shown: full, bottom: upright, left: 0 }
   }
   const rad = (d: number) => (d * Math.PI) / 180
   const lineH = px * 1.2
+  const widest = widestW(labels, px)
+
+  /**
+   * The angle, chosen to satisfy two constraints and never to force a cut.
+   *
+   * Neighbours clear each other by `band·sin(a)`, so a steeper angle separates
+   * them; and a label anchored at its end reaches `w·cos(a)` to the LEFT, so a
+   * steeper angle also costs less horizontally — at 90° it costs nothing at
+   * all, which is why vertical is the answer for a long name in a narrow band
+   * rather than a shorter name.
+   */
   let a = 90
   for (const cand of [deg, 55, 72, 90]) {
     a = cand
-    if (band * Math.sin(rad(a)) >= lineH) break
+    const separated = band * Math.sin(rad(a)) >= lineH
+    const reach = widest * Math.cos(rad(a))
+    if (separated && reach <= leftAnchor - 2) break
   }
-  // At 90° the text stands straight up from its anchor and reaches left by its
-  // line height, not its length, so only the bottom binds.
-  const room = Math.min(
-    (maxBottom - startAt - descend) / Math.sin(rad(a)),
-    a >= 89 ? Infinity : (leftAnchor - 2) / Math.cos(rad(a)),
-  )
-  const shown = labels.map(s => fit(s, Math.max(18, room), px))
   return {
     rotate: true,
     deg: a,
-    shown,
-    bottom: rotatedBottom(shown, { deg: a, startAt, px, descend, max: maxBottom }),
+    shown: full,
+    // Uncapped. The margin is whatever the longest label needs, because the
+    // alternative is cutting the label, and a cell type with its tail removed
+    // is not a cell type. The caller grows its box to match.
+    bottom: Math.ceil(startAt + widest * Math.sin(rad(a)) + descend),
+    // What the first tick reaches past its own anchor, for the caller's PL.
+    left: Math.max(0, Math.ceil(widest * Math.cos(rad(a)) - leftAnchor + 2)),
   }
 }
 
 /**
+ * Wrap onto as many lines as the text needs. Nothing is dropped.
+ *
+ * Breaks on spaces, then on the punctuation compound annotations actually use
+ * — "Cardiomyocyte/Working cardiomyocyte", "Immune|Myeloid" — and only then
+ * inside a word, because a single token longer than the line has no break
+ * point and leaving it to overflow is worse than splitting it.
+ */
+export function wrapAll(s: string, width: number, px = 10.5, bold = false): string[] {
+  const per = px * (bold ? EM_BOLD : EM_NORMAL)
+  const room = Math.max(3, Math.floor(width / per))
+  if (s.length <= room) return [s]
+  // Split into pieces that may end a line, keeping the delimiter with the piece
+  // before it so "Endothelial/" reads as a continuation rather than a name.
+  const pieces = s.split(/(?<=[ /|,_-])/)
+  const out: string[] = []
+  let line = ''
+  const push = () => { if (line) { out.push(line.trimEnd()); line = '' } }
+  for (const piece of pieces) {
+    if (piece.length > room) {
+      push()
+      for (let i = 0; i < piece.length; i += room) out.push(piece.slice(i, i + room))
+      continue
+    }
+    if (line.length + piece.length > room) push()
+    line += piece
+  }
+  push()
+  return out.length ? out : [s]
+}
+
+/** How many lines `wrapAll` needs, over several labels — for a margin. */
+export const wrapLines = (
+  labels: readonly string[], width: number, px = 10.5, bold = false,
+): number => labels.reduce((n, s) => Math.max(n, wrapAll(s, width, px, bold).length), 1)
+
+/**
  * Cut a label to a width, losing the TAIL.
  *
- * Never the head. A pathway is identified by how its name begins, and a cell
- * type by its lineage — "…/Working cardiomyocyte" and "…c ribosomal proteins"
- * are both worse than useless, because they look like a name.
+ * NOT for figures. Every axis, key and row label in this studio now grows its
+ * margin instead of cutting, because a truncated cell type or pathway is not a
+ * shorter name — it is a different string that looks like one, and a reader
+ * cannot tell "Endothelial/Lymphatic…" from "Endothelial/Lymphoid…". This
+ * survives for interface chrome where the container genuinely cannot grow, and
+ * every such use pairs it with a title attribute holding the whole string.
+ *
+ * Never the head, for the same reason: a pathway is identified by how its name
+ * begins and a cell type by its lineage.
  */
 export function fit(s: string, width: number, px = 10.5, bold = false): string {
   const room = Math.floor(width / (px * (bold ? EM_BOLD : EM_NORMAL)))

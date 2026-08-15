@@ -8,7 +8,7 @@ import {
 } from '../lib/composition.ts'
 import { downloadCsv, svgSheetToFile } from '../lib/download.ts'
 import { MARK_EDGE, PLATE } from '../lib/figure-ink.ts'
-import { axisTicks, fit } from '../lib/labels.ts'
+import { axisTicks, wrapAll, widestW } from '../lib/labels.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Legend } from './Ui.tsx'
@@ -52,7 +52,14 @@ const REMEMBERED = new WeakMap<Dataset, Choice>()
 const arrival = (d: Dataset, types: CellType[]): Choice =>
   ({ parts: 'type', rows: defaultRowAxis(d, types, 'type').key, only: -1 })
 
-const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
+/**
+ * No longer used to shorten a name.
+ *
+ * The stacked figure's row labels are drawn in full and PL is measured from
+ * them — see below. A row reading "Cardiomyocyte/Working c…" is not a shorter
+ * label, it is a different string that looks like one, and two clusters that
+ * share a prefix become indistinguishable rows.
+ */
 
 /** Demo sample ids carry a group prefix the group tick already shows. */
 const shortSample = (s: string) => s.replace(/^(SVZ|TC)_/, '')
@@ -390,16 +397,20 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
   // some white space, the cost of underestimating is a missing axis in the PNG.
   // 6.3 was measured on sample ids and came up 11 px short on
   // "Neuromesodermal progenitors" — wide glyphs, semibold, at 11.5px.
-  const INNER_MAX = 22, GROUP_MAX = 24
-  const longest = (rs: string[], max: number) =>
-    rs.reduce((m, r) => Math.max(m, Math.min(r.length, max)), 0)
-  const innerW = longest(rows.map(r => r.label), INNER_MAX) * 7.6 + 22
+  //
+  // Measured from the WHOLE label, with no character cap on either side. There
+  // used to be one — 22 characters for the row and 24 for its group — with the
+  // text clipped to match, so "Cardiomyocyte/Working…" and
+  // "Cardiomyocyte/Working cardiomyocyte" became the same row. A gutter is
+  // cheap; two clusters that cannot be told apart are not.
+  const innerW = widestW(rows.map(r => r.label), 11.5, true) + 22
   const groupW = hasGroup
-    ? Math.max(48, longest(blocks.map(b => b.label), GROUP_MAX) * 7.2 + 14)
+    ? Math.max(48, widestW(blocks.map(b => b.label), 11, true) + 14)
     : 0
   // Floored at the width this figure has always used, so the default pairing
-  // comes out pixel for pixel as it did before the axes became choosable.
-  const PL = Math.min(420, Math.max(96, groupW + innerW))
+  // comes out pixel for pixel as it did before the axes became choosable. No
+  // ceiling: the figure is inside a horizontal scroller and W grows with PL.
+  const PL = Math.max(96, groupW + innerW)
   const W = PL + 648 + PR
   const H = PT + Math.max(1, rows.length) * (rowH + gap) + AX
   const X = (p: number) => PL + (W - PL - PR) * p
@@ -426,7 +437,7 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
           <g key={`${b.label}|${b.from}`}>
             <text className="axis" x={4} y={(y0 + y1) / 2 + 4} textAnchor="start"
               style={{ fontSize: 11, fill: 'var(--ink-2)', fontWeight: 650 }}>
-              {clip(b.label, GROUP_MAX)}
+              {b.label}
               <title>{b.label}</title>
             </text>
             <rect x={PL - 9} y={y0} width={4} height={y1 - y0} rx={2} fill={b.color}>
@@ -444,7 +455,7 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
           <g key={row.i}>
             <text className="axis" x={PL - 16} y={y + rowH / 2 + 4} textAnchor="end"
               style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: 550 }}>
-              {clip(row.label, INNER_MAX)}
+              {row.label}
               <title>{row.label} — {r.n.toLocaleString('en-US')} cells</title>
             </text>
             {!hasGroup && (
@@ -504,7 +515,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
   // sat 8 units above the top y-tick's, and since both run to the same x the
   // tick was written through the name — 5.4 units of penetration on every
   // facet, on short names as much as long ones. A title needs its own row.
-  const W = 210, PL = 42, PT = 24, PR = 8
+  const W = 210, PL = 42, PR = 8
   const per = d.conds.map(c =>
     d.samples.map((s, si) => (s.cond === c ? d.prop[si][ti] : null))
       .filter((v): v is number => v !== null))
@@ -527,30 +538,38 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
    * rather than a guess. The 5.4 units per character this used to assume was
    * 6% under what the browser actually draws at 10.5 px.
    */
+  /**
+   * The title, WRAPPED rather than cut.
+   *
+   * "Cardiomyocyte/Working cardiomyocyte EXCLUDED" is 44 characters against a
+   * 210-unit panel. It used to be shortened to fit, which named a cell type
+   * that does not exist and made two clusters sharing a lineage prefix into the
+   * same title. It runs onto as many lines as it needs now, and the title band
+   * is as tall as the title — so a long name pushes the plot down instead of
+   * being written across the top y-tick. 12 units go to the "■ " swatch on the
+   * first line, 4 to the left inset.
+   */
+  const titleLines = wrapAll(t.name, W - PR - 4 - 12, 11, true)
+  const PT = 13 + 13 * titleLines.length
+
   const tick = axisTicks(d.conds, {
-    band: bw, leftAnchor: PL + bw / 2, gap: 3, maxBottom: 86, upright: 30,
+    band: bw, leftAnchor: PL + bw / 2, gap: 3, upright: 30,
   })
   const PB = tick.bottom
   const PLOT = 106
   const H = PT + PLOT + PB
   const Y = (v: number) => PT + PLOT * (1 - v / maxV)
 
-  /**
-   * The title, cut to the panel.
-   *
-   * "Cardiomyocyte/Working cardiomyocyte EXCLUDED" is 44 characters and the
-   * panel is 210 units wide; at the title's 11px it ran a third of the way
-   * into the panel beside it. Real annotations carry names like that, so the
-   * fit is enforced here and the whole name is in the tooltip.
-   */
-  // 12 units for the "■ " swatch tspan that precedes it, 4 for the left inset.
-  const short = fit(t.name, W - PR - 4 - 12, 11, true)
-
   return (
     <Figure name={`proportion_${t.name}`} className="facet">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${t.name} proportion by group`}>
-        <text className="axis" x={4} y={11} style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)' }}>
-          <tspan fill={pal(ti, palKey)}>■ </tspan>{short}
+        <text className="axis" x={4} y={11}
+          style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)' }}>
+          {titleLines.map((line, li) => (
+            <tspan key={li} x={4} dy={li === 0 ? 0 : 13}>
+              {li === 0 && <tspan fill={pal(ti, palKey)}>■ </tspan>}{line}
+            </tspan>
+          ))}
           <title>{t.name}</title>
         </text>
         {[0, 1, 2].map(k => (

@@ -578,7 +578,7 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
   const LAB_PX = per > 12 ? 9 : 10
   const bw = (W - PL - PR) / per
   const tick = axisTicks(ids.map(id => (groupBy === 'both' ? id.full : id.label)), {
-    band: bw, leftAnchor: PL + bw / 2, px: LAB_PX, startAt: 12, maxBottom: 92, upright: 30,
+    band: bw, leftAnchor: PL + bw / 2, px: LAB_PX, startAt: 12, upright: 30,
   })
   const PB = tick.bottom
   const H = PT + PLOT + PB

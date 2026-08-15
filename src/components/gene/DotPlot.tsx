@@ -2,7 +2,7 @@
 
 import type { Identity } from '../../types.ts'
 import { maxOf, maxOfAll } from '../../lib/chart.ts'
-import { fit, widestW } from '../../lib/labels.ts'
+import { widestW } from '../../lib/labels.ts'
 import { AXIS_INK, GRID_INK, MARK_EDGE } from '../../lib/figure-ink.ts'
 import { rampColor, symmetricRange } from '../../lib/palette.ts'
 import Figure from '../Figure.tsx'
@@ -35,8 +35,12 @@ export default function DotPlot(p: GeneProps & { ids: Identity[] }) {
    * the card beside it, and the PNG export cropped it away entirely.
    */
   const labels = rows.map(r => r.full)
-  const PL = Math.max(110, Math.min(250, 22 + widestW(labels, 11.5, true)))
-  const shownRow = labels.map(s => fit(s, PL - 14, 11.5, true))
+  // Uncapped. It was min(250, …) with the labels cut to match, so a real
+  // annotation lost its tail on every row — and two clusters sharing a prefix
+  // became the same row label. The gutter grows instead; the figure is inside a
+  // scroller and W below already accounts for PL.
+  const PL = Math.max(110, 22 + widestW(labels, 11.5, true))
+  const shownRow = labels
   const labelH = Math.min(96, 24 + maxOf(genes.map(g => g.length)) * 4.6)
   // The legend is part of the figure, in the figure. It used to be laid out in
   // HTML beside it, so every exported dot plot arrived in a manuscript with no

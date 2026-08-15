@@ -191,8 +191,11 @@ function QcPanel({ d, title, get, tick, palKey }: {
    */
   const labels = d.samples.map(s => s.id.replace(/^(SVZ|TC)_/, ''))
   const ax = axisTicks(labels, {
-    band: bw, leftAnchor: PL + bw / 2, gap: 3, maxBottom: 76, upright: 30,
+    band: bw, leftAnchor: PL + bw / 2, gap: 3, upright: 30,
   })
+  // The box grows to the labels; the labels are never cut to the box. A GEO
+  // series carries ids like "GSM4116579_P7_rep1" and a panel that shows
+  // "GSM4116579_P7…" has told the reader nothing they can act on.
   const PB = ax.bottom
   const H = PT + PLOT + PB
   const Y = (v: number) => PT + PLOT * (1 - (v - y0) / (y1 - y0))

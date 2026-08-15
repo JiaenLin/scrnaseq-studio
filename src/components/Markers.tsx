@@ -5,7 +5,7 @@ import { deMarkersAll, isSig, markersSpec, thresholdFor } from '../lib/stats.ts'
 import { dotAt, dotGrid, type DotGrid } from '../lib/dots.ts'
 import { downloadCsv } from '../lib/download.ts'
 import { maxOf } from '../lib/chart.ts'
-import { fit, widestW } from '../lib/labels.ts'
+import { widestW } from '../lib/labels.ts'
 import { AXIS_INK, GHOST_INK, GRID_INK, LABEL_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
@@ -285,7 +285,7 @@ export default function Markers({
                     <line x1={PL - 3.5} x2={PL} y1={y} y2={y} stroke={AXIS_INK} strokeWidth={0.8} />
                     <text x={PL - 8} y={y + 4} textAnchor="end"
                       style={{ fontSize: 11.5, fill: AXIS_INK, fontWeight: 600 }}>
-                      {fit(t.name, PL - 14, 11.5, true)}<title>{t.name}</title>
+                      {t.name}<title>{t.name}</title>
                     </text>
                     {grid && genes.map((g, gi) => {
                       const m = grid.mean[dotAt(grid, gi, ti)]

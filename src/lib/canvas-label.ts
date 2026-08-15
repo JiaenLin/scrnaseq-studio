@@ -17,19 +17,34 @@
 // plate, and drop any label that cannot be placed clear. Every cluster keeps
 // its colour and its legend entry either way — the label is the redundant
 // encoding, and it is the one that should yield.
+//
+// What is never done is CUTTING a name. A cluster called
+// "Endothelial/Lymphatic" and one called "Endothelial/Lymphoid" differ in their
+// last four characters; an ellipsis makes them the same label. Too wide means
+// smaller type, and past a floor it means no label at all.
 
 export type CanvasLabel = { name: string; x: number; y: number }
 
-/** Cut to a pixel width using the context's own metrics, losing the tail. */
-function cut(ctx: CanvasRenderingContext2D, s: string, maxW: number): string {
-  if (ctx.measureText(s).width <= maxW) return s
-  let lo = 0, hi = s.length
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1
-    if (ctx.measureText(`${s.slice(0, mid)}…`).width <= maxW) lo = mid
-    else hi = mid - 1
+/**
+ * The font size at which a label fits a width, never the label cut to fit it.
+ *
+ * A cluster name is an identifier: "Endothelial/Lymphatic" and
+ * "Endothelial/Lymphoid" differ in their last four characters, so cutting the
+ * tail turns two distinguishable populations into the same string. Shrinking
+ * the type keeps every character and costs only legibility, which the reader
+ * can fix by making the panel bigger. Floored, because below about nine pixels
+ * nothing is gained; past that the label is dropped rather than shortened, and
+ * the cluster keeps its colour and its legend entry.
+ */
+function fitFont(ctx: CanvasRenderingContext2D, text: string, maxW: number, px: number): number {
+  if (ctx.measureText(text).width <= maxW) return px
+  const base = ctx.font
+  for (let size = px - 1; size >= 9; size--) {
+    ctx.font = base.replace(/\d+(\.\d+)?px/, `${size}px`)
+    if (ctx.measureText(text).width <= maxW) return size
   }
-  return lo > 0 ? `${s.slice(0, lo)}…` : ''
+  ctx.font = base
+  return 0
 }
 
 /**
@@ -51,16 +66,20 @@ export function drawLabels(
 
   ctx.textAlign = 'center'
   ctx.strokeStyle = halo
+  const font = ctx.font
   let n = 0
   for (const l of labels) {
-    const text = cut(ctx, l.name, maxW)
-    if (!text) continue
+    const text = l.name
+    ctx.font = font
+    const size = fitFont(ctx, text, maxW, px)
+    if (!size) continue
+    if (size !== px) ctx.font = font.replace(/\d+(\.\d+)?px/, `${size}px`)
     const w = ctx.measureText(text).width
     // Keep it on the plate. A centroid near the edge is common — the outlying
     // clusters are exactly the ones a reader wants named.
     const x = Math.min(CW - pad - w / 2, Math.max(pad + w / 2, l.x))
-    const y = Math.min(CH - pad - px * 0.3, Math.max(pad + px * 0.8, l.y))
-    const box = [x - w / 2 - 2, y - px * 0.78, x + w / 2 + 2, y + px * 0.3]
+    const y = Math.min(CH - pad - size * 0.3, Math.max(pad + size * 0.8, l.y))
+    const box = [x - w / 2 - 2, y - size * 0.78, x + w / 2 + 2, y + size * 0.3]
     if (!placed.every(b =>
       box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3])) continue
     placed.push(box)
@@ -69,5 +88,6 @@ export function drawLabels(
     ctx.fillText(text, x, y)
     n++
   }
+  ctx.font = font
   return n
 }

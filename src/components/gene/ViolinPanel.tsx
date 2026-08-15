@@ -9,7 +9,7 @@
 import { useMemo, useState } from 'react'
 import type { Identity } from '../../types.ts'
 import { density, maxOf, maxOfAll, quantiles } from '../../lib/chart.ts'
-import { axisTicks } from '../../lib/labels.ts'
+import { axisTicks, wrapAll } from '../../lib/labels.ts'
 import {
   DOWN_MARK, GHOST_INK, MARK_EDGE, SUMMARY_INK, TICK_INK, UP_MARK,
 } from '../../lib/figure-ink.ts'
@@ -58,7 +58,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
   const cats = p.ids
   const per = cats.length
   const W = p.cols <= 2 ? 620 : 400
-  const PL = 40, PT = 20, PR = 8
+  const PL0 = 40, PT = 20, PR = 8
   const DET = 9 // strip for the detection bars
   const PLOT = (p.cols <= 2 ? 210 : 190) - 39
 
@@ -73,7 +73,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
    * paints — over the caption, and over the next panel down.
    */
   const LAB_PX = per > 10 ? 9 : 10
-  const bw = (W - PL - PR) / per
+  const bw = (W - PL0 - PR) / per
   const labels = cats.map(c => c.label)
   // leftAnchor is where the FIRST tick sits: the one that reaches back past the
   // y axis when the names are long. It was 62 units off the left edge of the
@@ -81,8 +81,14 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
   // because reserving a capped margin is not the same as fitting the label to
   // it. axisTicks does both, and picks the angle that keeps neighbours apart.
   const tick = axisTicks(labels, {
-    band: bw, leftAnchor: PL + bw / 2, px: LAB_PX, deg: 42, startAt: 11, maxBottom: 88,
+    band: bw, leftAnchor: PL0 + bw / 2, px: LAB_PX, deg: 42, startAt: 11,
   })
+  // Grown by what the first tick reaches back past its own anchor, so a long
+  // name rotates into room that exists rather than off the left of the plate.
+  // The band was measured against PL0, which is the conservative direction:
+  // widening the gutter only narrows the band, and a narrower band is what
+  // makes axisTicks steepen — never the other way.
+  const PL = PL0 + tick.left
   const PB = DET + (both ? 26 : 0) + tick.bottom
   const H = PT + PLOT + PB
 
@@ -171,15 +177,21 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
         })}
         {both && p.types.map((t, ti) => {
           const block = bw * p.src.d.conds.length
-          const maxCh = Math.max(3, Math.floor(block / 5.2))
           const x0 = PL + bw * ti * p.src.d.conds.length
-          const label = t.name.length > maxCh ? `${t.name.slice(0, maxCh - 1)}…` : t.name
+          // Wrapped onto as many lines as the name needs. It was cut to the
+          // block width, so on a real annotation every band read "Cardiomyo…"
+          // and the figure had one label repeated across it.
+          const lines = wrapAll(t.name, block - 4, 9.5, true)
           return (
             <g key={t.key}>
               {ti > 0 && <line className="axgrid" x1={x0} x2={x0} y1={PT} y2={H - PB + DET + 2} />}
-              <text className="axis" x={x0 + block / 2} y={H - 5} textAnchor="middle"
+              <text className="axis" x={x0 + block / 2} y={H - 4 - 11 * (lines.length - 1)}
+                textAnchor="middle"
                 style={{ fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>
-                {label}<title>{t.name}</title>
+                {lines.map((line, li) => (
+                  <tspan key={li} x={x0 + block / 2} dy={li === 0 ? 0 : 11}>{line}</tspan>
+                ))}
+                <title>{t.name}</title>
               </text>
             </g>
           )

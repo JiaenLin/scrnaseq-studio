@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import { useSetIndex, type LibraryState } from '../lib/genesets.ts'
+import { wrapAll } from '../lib/labels.ts'
 import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
 import { oraIndexed, type ORAResult } from '../lib/ora.ts'
@@ -342,27 +343,24 @@ function Bars({ results, rampKey, onPick, selected }: {
    * characters, which covers MSigDB; anything longer loses its tail, marked,
    * with the whole name in the tooltip and in the CSV.
    */
-  const PL = Math.min(300, Math.max(180, maxOf(results.map(r => r.name.length * CHAR))))
+  /**
+   * The gutter, and the names wrapped into it — never cut to it.
+   *
+   * A pathway is identified by its whole name: "Reference electron transfer in
+   * complex i" and "…in complex iv" differ in their last two characters, and
+   * the old wrap ended its second line with an ellipsis whenever the name did
+   * not fit in two. Two rows of this figure could therefore carry the same
+   * visible label for different terms. It runs onto as many lines as it needs
+   * now, and the row grows with it.
+   */
+  const PL = Math.min(320, Math.max(180, maxOf(results.map(r => r.name.length * CHAR))))
   const perLine = Math.max(12, Math.floor((PL - 10) / CHAR))
-  const wrap = (name: string): string[] => {
-    if (name.length <= perLine) return [name]
-    const words = name.split(' ')
-    const out: string[] = []
-    let line = ''
-    for (const w of words) {
-      if (!line) line = w
-      else if (line.length + 1 + w.length <= perLine) line += ` ${w}`
-      else { out.push(line); line = w; if (out.length === 2) break }
-    }
-    if (out.length < 2 && line) out.push(line)
-    if (out.length === 2 && out.join(' ').length < name.length) {
-      out[1] = `${out[1].slice(0, Math.max(1, perLine - 1))}…`
-    }
-    return out
-  }
+  const wrap = (name: string): string[] => wrapAll(name, perLine * CHAR, 11.5)
   const wrapped = results.map(r => wrap(r.name))
   const lines = Math.max(1, maxOf(wrapped.map(w => w.length)))
-  const rowH = lines > 1 ? 34 : 26
+  // The row is as tall as the tallest label needs, rather than stepping once
+  // from one line to two — a four-line term must not write over its neighbour.
+  const rowH = lines > 1 ? 14 + 13 * lines : 26
 
   const W = 900
   const H = PT + results.length * (rowH + gap) + AX + BAR_H

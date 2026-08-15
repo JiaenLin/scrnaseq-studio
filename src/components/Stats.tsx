@@ -10,7 +10,9 @@ import Progress from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt, maxOf } from '../lib/chart.ts'
 import { condKey } from '../lib/source.ts'
-import { AXIS_INK, DOWN_MARK, MARK_EDGE, NULL_MARK, UP_MARK } from '../lib/figure-ink.ts'
+import {
+  AXIS_INK, DOWN_MARK, MARK_EDGE, NULL_MARK, PLATE, UP_MARK,
+} from '../lib/figure-ink.ts'
 import { textW } from '../lib/labels.ts'
 import { KeyRow } from './svg-parts.tsx'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
@@ -432,6 +434,18 @@ function Volcano(p: StatsProps & { de: DEResult }) {
   const X = (v: number) => PL + ((W - PL - PR) * (v + maxX)) / (2 * maxX)
   const Y = (v: number) => PT + (H - PT - PB) * (1 - v / maxY)
 
+  /** A label's box: beside its point, at full length. Never shortened. */
+  const labelBox = (q: { x: number; y: number; r: DERow }): number[] => {
+    const w = textW(q.r.gene, 10.5)
+    const x0 = q.r.lfc > 0 ? q.x + 7 : q.x - 7 - w
+    return [x0 - 1, q.y - 5, x0 + w + 1, q.y + 5]
+  }
+  /** Clear of every box kept so far, and inside the panel the PNG crops to. */
+  const fits = (box: number[], kept: { box: number[] }[]): boolean =>
+    box[0] >= PL - 2 && box[2] <= W - PR + 2
+    && kept.every(k =>
+      box[2] < k.box[0] || box[0] > k.box[2] || box[3] < k.box[1] || box[1] > k.box[3])
+
   const pts = useMemo(
     () => rows.map(r => ({
       r,
@@ -457,32 +471,54 @@ function Volcano(p: StatsProps & { de: DEResult }) {
    * crowded plot then names twelve *readable* genes rather than the twelve
    * highest, which is the trade the control is really offering.
    */
-  const labelled = useMemo(() => {
-    const pin = new Set(pinned)
-    if (!nLabels && !pin.size) return []
+  /**
+   * Which genes are named, in two sets computed separately and deliberately so.
+   *
+   * The automatic labels come from the ranking with a fixed budget and no
+   * reference at all to what the reader has clicked. The first version mixed
+   * them: clicked genes were placed FIRST, taking boxes the automatic ones
+   * would have had, and the budget was `nLabels + pinned.size`. Both made the
+   * whole label set a function of the clicked set, so clicking one point
+   * silently renamed points on the other side of the plot. Reported, and
+   * correct — a figure must not rearrange itself because you asked what one
+   * dot was.
+   *
+   * Greedy over the ranking, keeping a label only if its box is clear of those
+   * already kept: ranked points cluster, so the first n by rank writes Cdk1
+   * over Pcna, and the budget is better spent on n READABLE genes. Nothing is
+   * ever shortened — a gene symbol with its tail cut off is not a gene symbol —
+   * so a label that cannot be placed is simply not drawn.
+   */
+  const auto = useMemo(() => {
+    if (!nLabels) return [] as { q: (typeof pts)[number]; box: number[] }[]
     const kept: { q: (typeof pts)[number]; box: number[] }[] = []
-    // A gene the reader clicked is named whatever the budget says and whatever
-    // it overlaps: they asked for that one by pointing at it, and dropping it
-    // for a collision would make the click look broken. Placed first so the
-    // automatic labels are the ones that yield.
-    for (const pass of [true, false]) {
-      for (const q of pts) {
-        const asked = pin.has(q.r.gene)
-        if (pass !== asked) continue
-        if (!asked && (kept.length >= nLabels + pin.size || !nLabels || !q.sig)) continue
-        const w = textW(q.r.gene, 10.5)
-        const x0 = q.r.lfc > 0 ? q.x + 7 : q.x - 7 - w
-        const box = [x0 - 1, q.y - 5, x0 + w + 1, q.y + 5]
-        const clear = kept.every(k =>
-          box[2] < k.box[0] || box[0] > k.box[2] || box[3] < k.box[1] || box[1] > k.box[3])
-        // And inside the panel: a name hung off the right edge of the last
-        // point is ink the PNG export crops away — it rasterises the viewBox.
-        const inside = box[0] >= PL - 2 && box[2] <= W - PR + 2
-        if (asked || (clear && inside)) kept.push({ q, box })
-      }
+    for (const q of pts) {
+      if (kept.length >= nLabels) break
+      if (!q.sig) continue
+      const box = labelBox(q)
+      if (fits(box, kept)) kept.push({ q, box })
     }
-    return kept.map(k => k.q)
-  }, [pts, nLabels, pinned])
+    return kept
+    // labelBox and fits are pure functions of constants defined above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pts, nLabels])
+
+  /**
+   * The genes the reader clicked, which are always named.
+   *
+   * They may land on an automatic label — they are bold, ringed and haloed, so
+   * they are the one that reads. What they may not do is change WHICH automatic
+   * labels were chosen, which is why `auto` above does not know they exist.
+   */
+  const picked = useMemo(() => {
+    if (!pinned.length) return [] as (typeof pts)[number][]
+    const want = new Set(pinned)
+    const already = new Set(auto.map(k => k.q.r.gene))
+    return pts.filter(q => want.has(q.r.gene) && !already.has(q.r.gene))
+  }, [pts, pinned, auto])
+
+  const labelled = useMemo(
+    () => [...auto.map(k => k.q), ...picked], [auto, picked])
 
   const step = Math.max(1, Math.ceil(maxY / 5))
   const ticks: number[] = []
@@ -490,18 +526,34 @@ function Volcano(p: StatsProps & { de: DEResult }) {
   const up = pts.filter(q => q.sig && q.r.lfc > 0).length
   const dn = pts.filter(q => q.sig && q.r.lfc < 0).length
 
-  // Nearest point in viewBox units, so a click lands on the gene it looks like.
+  /**
+   * The point under the pointer — the one you can SEE there.
+   *
+   * This walked the array forwards and returned the first within twelve units,
+   * which is a different question. Points are painted in array order, so the
+   * one visible at a spot is the LAST drawn there; searching forwards returned
+   * whichever came earliest in the DE table, and in a dense plume that is a
+   * different gene from the one under the cursor. Reported as clicking one dot
+   * and selecting another.
+   *
+   * Backwards, then: topmost first, and a hit means inside that point's own
+   * radius rather than inside a fixed twelve units. Significant points are
+   * drawn at r=4 and the rest at 2.6, so a click on the grey cloud no longer
+   * reaches four units past it to a red one.
+   */
   const pick = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const mx = ((e.clientX - rect.left) / rect.width) * W
     const my = ((e.clientY - rect.top) / rect.height) * H
-    let best: (typeof pts)[number] | null = null
-    let bestD = 144
-    for (const q of pts) {
-      const d2 = (q.x - mx) ** 2 + (q.y - my) ** 2
-      if (d2 < bestD) { bestD = d2; best = q }
+    // A little slop so a click a pixel off a small point still takes it, but
+    // far less than the twelve units that were reaching across neighbours.
+    const SLOP = 2.5
+    for (let i = pts.length - 1; i >= 0; i--) {
+      const q = pts[i]
+      const r = (q.sig ? 4 : 2.6) + SLOP
+      if ((q.x - mx) ** 2 + (q.y - my) ** 2 <= r * r) return q
     }
-    return best
+    return null
   }
 
   return (
@@ -583,20 +635,31 @@ function Volcano(p: StatsProps & { de: DEResult }) {
               stroke={q.sig ? MARK_EDGE : 'none'} strokeWidth={q.sig ? 0.6 : 0}
               opacity={q.sig ? 0.92 : 0.45} />
           ))}
-          {labelled.map(q => (
-            <g key={q.r.gene}>
-              {pinned.includes(q.r.gene) && (
-                <circle cx={q.x} cy={q.y} r={6.5} fill="none"
-                  stroke={AXIS_INK} strokeWidth={1.4} opacity=".9" />
-              )}
-              <text className="axis" x={q.x + (q.r.lfc > 0 ? 7 : -7)} y={q.y + 3.5}
-                textAnchor={q.r.lfc > 0 ? 'start' : 'end'}
-                style={{
-                  fontStyle: 'italic', fontSize: 10.5, fill: 'var(--ink)',
-                  fontWeight: pinned.includes(q.r.gene) ? 700 : 400,
-                }}>{q.r.gene}</text>
-            </g>
-          ))}
+          {labelled.map(q => {
+            const clicked = pinned.includes(q.r.gene)
+            return (
+              <g key={q.r.gene}>
+                {clicked && (
+                  <circle cx={q.x} cy={q.y} r={7} fill="none"
+                    stroke={AXIS_INK} strokeWidth={1.6} opacity=".95" />
+                )}
+                {/* A clicked name is read against whatever is behind it, so it
+                    carries a halo of the plate. Without one a bold label landing
+                    on the plume is unreadable at exactly the moment the reader
+                    asked for it — reported as not being able to see the name. */}
+                <text className="axis" x={q.x + (q.r.lfc > 0 ? 7 : -7)} y={q.y + 3.5}
+                  textAnchor={q.r.lfc > 0 ? 'start' : 'end'}
+                  style={{
+                    fontStyle: 'italic', fontSize: 10.5, fill: 'var(--ink)',
+                    fontWeight: clicked ? 700 : 400,
+                    paintOrder: 'stroke',
+                    stroke: clicked ? PLATE : 'none',
+                    strokeWidth: clicked ? 3.2 : 0,
+                    strokeLinejoin: 'round',
+                  }}>{q.r.gene}</text>
+              </g>
+            )
+          })}
           <line className="axline" x1={PL} x2={W - PR} y1={H - PB} y2={H - PB} />
           <text x={(PL + W - PR) / 2} y={H - PB + 32} textAnchor="middle"
             style={{ fontSize: 11.5, fill: AXIS_INK }}>

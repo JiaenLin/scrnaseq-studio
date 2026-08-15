@@ -65,7 +65,7 @@ const audit = () => page.evaluate(() => {
     return min
   }
 
-  const spill = [], clash = []
+  const spill = [], clash = [], cut = []
   let charts = 0, labels = 0
   for (const svg of document.querySelectorAll('svg')) {
     const vb = svg.viewBox?.baseVal
@@ -94,6 +94,16 @@ const audit = () => page.evaluate(() => {
       return r.width > 0 && r.height > 0
     })
     labels += texts.length
+    // Nothing may be shortened. A truncated cell type or pathway is not a
+    // shorter name — it is a different string that looks like one, and two
+    // that share a prefix become the same label. The margin grows instead, so
+    // an ellipsis anywhere on a figure is now a failure.
+    for (const t of texts) {
+      const s = t.textContent
+      if (s && (s.includes('…') || /\.\.\.$/.test(s.trim()))) {
+        cut.push(`${name}: "${s.trim().slice(0, 34)}"`)
+      }
+    }
     const quads = texts.map(quad)
     for (let i = 0; i < texts.length; i++) {
       for (let j = i + 1; j < texts.length; j++) {
@@ -107,7 +117,7 @@ const audit = () => page.evaluate(() => {
       }
     }
   }
-  return { spill, clash, charts, labels }
+  return { spill, clash, cut, charts, labels }
 })
 
 /** Canvas labels, captured by hooking fillText — getBBox cannot see them. */
@@ -153,7 +163,7 @@ async function walk(what) {
   const tabs = await page.$$eval('[role="tab"]',
     els => els.filter(e => !e.disabled).map(e => e.textContent.trim()))
   let charts = 0, labels = 0
-  const spill = [], clash = []
+  const spill = [], clash = [], cut = []
   for (const t of tabs) {
     await page.getByRole('tab', { name: t, exact: true }).click()
     await page.waitForTimeout(1100)
@@ -161,12 +171,14 @@ async function walk(what) {
     charts += a.charts; labels += a.labels
     spill.push(...a.spill.map(s => `${t} · ${s}`))
     clash.push(...a.clash.map(s => `${t} · ${s}`))
+    cut.push(...a.cut.map(s => `${t} · ${s}`))
   }
   const show = (list, n = 6) => list.slice(0, n).map(s => `${NL}          ${s}`).join('')
     + (list.length > n ? `${NL}          …and ${list.length - n} more` : '')
   ok(spill.length === 0, `${what}: ${charts} charts, ${labels} labels — `
     + `${spill.length} paint outside their box${spill.length ? show(spill) : ''}`)
   ok(clash.length === 0, `${what}: ${clash.length} label pairs overlap${clash.length ? show(clash) : ''}`)
+  ok(cut.length === 0, `${what}: ${cut.length} labels are truncated${cut.length ? show(cut) : ''}`)
   return { charts, labels }
 }
 
@@ -197,9 +209,10 @@ for (const mode of ['Across cell types', 'Across groups', 'Cell type × group'])
     await pb.click()
     await page.waitForTimeout(1500)
     const a = await audit()
-    ok(a.spill.length === 0 && a.clash.length === 0,
+    ok(a.spill.length === 0 && a.clash.length === 0 && a.cut.length === 0,
       `${plot} / ${mode}: ${a.charts} charts, ${a.labels} labels, `
-      + `${a.spill.length} spill, ${a.clash.length} overlap`
+      + `${a.spill.length} spill, ${a.clash.length} overlap, ${a.cut.length} truncated`
+      + (a.cut.length ? `${NL}          ${a.cut.slice(0, 3).join(`${NL}          `)}` : '')
       + (a.spill.length ? `${NL}          ${a.spill.slice(0, 3).join(`${NL}          `)}` : '')
       + (a.clash.length ? `${NL}          ${a.clash.slice(0, 3).join(`${NL}          `)}` : ''))
   }
