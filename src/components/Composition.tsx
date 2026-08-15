@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, Dataset } from '../types.ts'
 import { maxOf, maxOfAll, minOf, niceStep, pctTxt } from '../lib/chart.ts'
 import {
@@ -6,7 +6,7 @@ import {
   refuses, rowAxes,
   type CompField, type CompTable,
 } from '../lib/composition.ts'
-import { downloadCsv } from '../lib/download.ts'
+import { downloadCsv, svgSheetToFile } from '../lib/download.ts'
 import { MARK_EDGE } from '../lib/figure-ink.ts'
 import { axisTicks, fit } from '../lib/labels.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
@@ -62,6 +62,8 @@ export default function Composition({ d, types, palKey }: {
   types: CellType[]
   palKey: PaletteKey
 }) {
+  /** The facet grid, so "Save all panels" can find every panel's SVG. */
+  const sheet = useRef<HTMLDivElement>(null)
   const [choice, setChoice] = useState<Choice>(() => REMEMBERED.get(d) ?? arrival(d, types))
   useEffect(() => { REMEMBERED.set(d, choice) }, [d, choice])
 
@@ -302,7 +304,17 @@ export default function Composition({ d, types, palKey }: {
             ? 'Its own y axis per panel. Dots are animals — overlap means the difference is not evidence.'
             : 'Its own y axis per panel. One sample per group, so there is no spread to show.'}
         >
-          <div className="mt-3.5 flex justify-end">
+          <div className="mt-3.5 flex justify-end gap-2">
+            {/* One file for the whole small multiple. Each panel can still be
+                saved on its own; nine clicks and nine files to reassemble is
+                not what somebody putting a figure together wants. */}
+            <button
+              className="btn btn-quiet"
+              title="Every panel above, tiled into one SVG"
+              onClick={() => svgSheetToFile(
+                [...(sheet.current?.querySelectorAll('svg') ?? [])] as SVGSVGElement[],
+                'proportion_by_group', 3)}
+            >⭳ Save all panels</button>
             <CsvButton
               onClick={() => downloadCsv(
                 'composition_type_by_group_per_sample',
@@ -313,6 +325,7 @@ export default function Composition({ d, types, palKey }: {
             />
           </div>
           <div
+            ref={sheet}
             className="mt-3 grid gap-3"
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(178px, 1fr))' }}
           >

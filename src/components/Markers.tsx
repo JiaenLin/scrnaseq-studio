@@ -255,7 +255,8 @@ export default function Markers({
         )}
         <Figure name="cluster_markers" className="mt-4">
           <div className="overflow-x-auto">
-            <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
+            <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
+              style={{ minWidth: W }} role="img"
               aria-label="Marker gene dot plot">
               {/* Grid behind, axes in black. Same reasoning as the gene tab's
                   dot plot: on paper the interface's greys read as faint. */}

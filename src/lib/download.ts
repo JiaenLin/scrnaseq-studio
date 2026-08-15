@@ -102,6 +102,54 @@ function portableSvg(svg: SVGSVGElement): { xml: string; w: number; h: number } 
 }
 
 /**
+ * Several panels, tiled into one figure.
+ *
+ * A small multiple is one figure that happens to be drawn as nine SVGs, and
+ * saving it meant nine clicks and nine files to reassemble in Illustrator. This
+ * lays the panels out on a grid at their own sizes, on one white plate, so what
+ * comes out is the sheet as it reads on screen.
+ *
+ * Each panel goes in as a nested <svg> with explicit x/y/width/height, which is
+ * the one construction that keeps every panel's own viewBox and coordinate
+ * system intact — re-parenting their children into a shared space would need
+ * every coordinate rewritten, and any one that was missed would silently move.
+ */
+export function svgSheetToFile(
+  svgs: SVGSVGElement[], name: string, cols = 3, gap = 12,
+): void {
+  if (!svgs.length) return
+  const parts = svgs.map(portableSvg)
+  const n = Math.min(cols, parts.length)
+  const rows = Math.ceil(parts.length / n)
+  // A uniform cell, so panels of slightly different heights still line up in a
+  // grid rather than drifting down the page.
+  const cw = Math.max(...parts.map(p => p.w))
+  const ch = Math.max(...parts.map(p => p.h))
+  const W = n * cw + (n + 1) * gap
+  const H = rows * ch + (rows + 1) * gap
+
+  const inner = parts.map((p, i) => {
+    const x = gap + (i % n) * (cw + gap)
+    const y = gap + Math.floor(i / n) * (ch + gap)
+    // The panel's own root, re-attributed to sit in its cell. Its width/height
+    // were set by portableSvg and its viewBox is untouched, so it scales into
+    // the cell exactly as the browser scales it into its card.
+    return p.xml
+      .replace(/^<svg /, `<svg x="${x}" y="${y}" `)
+      .replace(/\swidth="[^"]*"/, ` width="${p.w}"`)
+      .replace(/\sheight="[^"]*"/, ` height="${p.h}"`)
+  }).join('')
+
+  const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" `
+    + `viewBox="0 0 ${W} ${H}">`
+    + `<rect width="${W}" height="${H}" fill="#ffffff"/>${inner}</svg>`
+  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  triggerDownload(url, `${name}_sheet.svg`)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
  * The figure as vector.
  *
  * The only export that survives a journal's production step without being

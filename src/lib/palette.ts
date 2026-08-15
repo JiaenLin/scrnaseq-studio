@@ -32,6 +32,27 @@ export const PALETTES = {
     cols: ['#0073C2', '#EFC000', '#868686', '#CD534C', '#7AA6DC',
            '#003C67', '#8F7700', '#3B3B3B', '#A73030', '#4A6990'],
   },
+  /**
+   * Okabe–Ito, the one palette here that is designed for colour vision
+   * deficiency rather than for a journal's house style.
+   *
+   * Every option above is a journal palette, and none of them claims to be
+   * distinguishable under deuteranopia or protanopia — several are not: npg
+   * opens red against teal, lancet blue against red, jco has three greys.
+   * Cluster colour is the primary encoding on every embedding this studio
+   * draws, and roughly one man in twelve cannot read those pairs apart.
+   *
+   * Okabe & Ito 2008, "Color Universal Design", in the published order with
+   * black last so the seven saturated hues are used first. Eight, not ten —
+   * the set is eight, and padding it with two invented colours would give back
+   * exactly the property it exists for. `pal` wraps, so a ninth cluster reuses
+   * the first, which is true of every palette here past its own length.
+   */
+  okabe: {
+    label: 'Okabe–Ito (colour-blind safe)',
+    cols: ['#E69F00', '#56B4E9', '#009E73', '#F0E442',
+           '#0072B2', '#D55E00', '#CC79A7', '#000000'],
+  },
 } satisfies Record<string, Palette>
 
 /**

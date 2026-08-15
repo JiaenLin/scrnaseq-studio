@@ -608,7 +608,19 @@ function Volcano(p: StatsProps & { de: DEResult }) {
 
           {/* The key, in the figure and centred under the panel, in the same
               language as the marks it describes. */}
-          <KeyRow cx={(PL + W - PR) / 2} y={H - 14} width={W - PL - PR} items={[
+          {/* Size is an encoding too. Significant points are drawn at r=4 and the
+              rest at 2.6, and until now only the colour was explained — in an
+              exported PNG there is nobody left to ask what the small ones are.
+              Drawn at the true radii so the key is a sample of the figure. */}
+          <g>
+            <circle cx={PL + 4} cy={H - 14} r={4} fill={NULL_MARK}
+              stroke={MARK_EDGE} strokeWidth={0.6} opacity={0.92} />
+            <circle cx={PL + 17} cy={H - 14} r={2.6} fill={NULL_MARK} opacity={0.45} />
+            <text x={PL + 24} y={H - 10.5} style={{ fontSize: 10.5, fill: AXIS_INK }}>
+              larger = past both cutoffs
+            </text>
+          </g>
+          <KeyRow cx={(PL + W - PR) / 2 + 60} y={H - 14} width={W - PL - PR - 190} items={[
             { color: UP_MARK, label: `up in ${condLabel(p.cs)}` },
             { color: DOWN_MARK, label: `up in ${condLabel(p.ctrl)}` },
             { color: NULL_MARK, label: 'not significant' },

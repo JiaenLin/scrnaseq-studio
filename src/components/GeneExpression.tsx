@@ -450,20 +450,38 @@ function describe(p: GeneProps, ctName: string) {
 
 function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
   const cols = p.groupBy === 'both' ? Math.min(p.cols, 2) : p.cols
+  /**
+   * Seurat's `pt.size`, as a switch rather than a default.
+   *
+   * A violin is a smoothed estimate, and on a cluster of forty cells it draws a
+   * confident curve over very little evidence — the one case where the outline
+   * is least trustworthy and looks most authoritative. The cells themselves
+   * settle it. Off by default because on a cluster of forty thousand the points
+   * are a solid block that hides the box, which is why Seurat's own default is
+   * 0 for large objects.
+   */
+  const [points, setPoints] = useState(false)
   return (
     <>
+      <div className="mb-2 flex items-center gap-2">
+        <button className="chip" aria-pressed={points} onClick={() => setPoints(!points)}
+          title="Draw the cells themselves over each violin, sampled">
+          Show cells
+        </button>
+      </div>
       <div className="grid gap-3.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        {p.genes.map(g => <Facet key={g} {...p} gene={g} cols={cols} />)}
+        {p.genes.map(g => <Facet key={g} {...p} gene={g} cols={cols} points={points} />)}
       </div>
       <div className="legend mt-3">
         <span>violin + box = per-cell distribution</span>
+        {points && <span>each dot is one cell, up to 300 per group</span>}
         <span>bar under the axis = fraction of cells detecting the gene</span>
       </div>
     </>
   )
 }
 
-function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
+function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean }) {
   const both = p.groupBy === 'both'
   const cats = p.ids
   const per = cats.length
@@ -566,7 +584,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
                   its tick and stays blank. */}
               {v.length > 0 && (
                 <Violin v={v} cx={cx} bw={bw} col={col} lo={lo} hi={hi} Y={Y}
-                  pct={pcts[i]} gene={p.gene} yDet={H - PB + 3} />
+                  pct={pcts[i]} gene={p.gene} yDet={H - PB + 3} points={p.points} />
               )}
               {tick.rotate ? (
                 <text className="axis" transform={`rotate(${-tick.deg} ${cx} ${H - PB + DET + 11})`}
@@ -601,7 +619,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
 }
 
 /** One category's distribution: outline, box, median, and the detection bar. */
-function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet }: {
+function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet, points }: {
   v: number[]
   cx: number
   bw: number
@@ -612,9 +630,32 @@ function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet }: {
   pct: number
   gene: string
   yDet: number
+  /** Draw the cells themselves over the outline — Seurat's `pt.size`. */
+  points?: boolean
 }) {
   const q = quantiles(v)
   const dens = density(v, lo, hi)
+
+  /**
+   * The cells, jittered, at most 300 of them.
+   *
+   * The jitter is deterministic — a hash of the index rather than Math.random —
+   * so a figure does not rearrange itself between renders or between the screen
+   * and the export. Sampled by stride rather than randomly for the same reason,
+   * and because a stride over an unsorted per-cell array is already a fair
+   * sample of it.
+   */
+  const dots = useMemo(() => {
+    if (!points || !v.length) return []
+    const stride = Math.max(1, Math.ceil(v.length / 300))
+    const out: [number, number][] = []
+    for (let i = 0; i < v.length; i += stride) {
+      // A cheap deterministic hash in [-1, 1].
+      const h = Math.sin((i + 1) * 12.9898) * 43758.5453
+      out.push([(h - Math.floor(h)) * 2 - 1, v[i]])
+    }
+    return out
+  }, [points, v])
   const half = bw * 0.36
   const pts = [
     ...dens.map((x, k) => `${(cx + x * half).toFixed(1)},${Y(lo + (hi - lo) * k / 26).toFixed(1)}`),
@@ -630,6 +671,12 @@ function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet }: {
           so the box still reads through it. */}
       <polygon points={pts} fill={col} fillOpacity={0.32}
         stroke={MARK_EDGE} strokeWidth={0.6} />
+      {/* Under the box, over the outline: the box is the summary and has to stay
+          readable through them. */}
+      {dots.map(([j, value], k) => (
+        <circle key={k} cx={cx + j * half * 0.72} cy={Y(value)} r={Math.min(1.5, bw * 0.045)}
+          fill="#1F2430" fillOpacity={0.42} />
+      ))}
       {/* The box drawn dark rather than in the category colour: it summarises
           the distribution rather than being another instance of it, and in the
           same hue at 65% it read as a denser part of the violin. */}
@@ -709,7 +756,14 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
     <>
       <Figure name="dotplot" className="mt-2">
         <div className="overflow-x-auto">
-          <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img"
+          {/* Fills the card, never squashes below its natural size — the same
+              rule the other scrolling figures use. A fixed `width={W}` made this
+              and the marker dot plot the only two figures in the studio that
+              ignored the width available to them: on a wide screen they sat in
+              a corner of their card, and the scroller they live in already
+              handles the case where W is the larger number. */}
+          <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
+            style={{ minWidth: W }} role="img"
             aria-label={`Dot plot of ${genes.join(', ')}`}>
             {/* Grid first, so the marks sit on it rather than under it. Banded
                 rows were doing this job and doing it badly: a stripe is a block
