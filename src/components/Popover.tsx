@@ -77,12 +77,63 @@ export default function Popover({ open, anchor, align = 'left', width, label, ro
       if (box.current?.contains(t) || anchor.current?.contains(t)) return
       onClose()
     }
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const held = { was: false }
+    /**
+     * Escape closes; Tab stays inside.
+     *
+     * The panel is a child of <body>, so without this Tab walks out of it into
+     * whatever happens to follow the app in the document — the reader is
+     * suddenly tabbing through a menu they cannot see. Focus is also returned
+     * to the trigger on close, which is the half people notice: press Escape
+     * and you are back where you were rather than at the top of the page.
+     *
+     * This matters more than it did: there is now a save menu on every panel of
+     * a small multiple, so there can be a hundred of these on one tab.
+     */
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key !== 'Tab') return
+      const el = box.current
+      if (!el) return
+      const focusable = [...el.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]),'
+        + ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+        .filter(n => n.offsetParent !== null || n === document.activeElement)
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const on = document.activeElement
+      // Tabbing within the panel counts as being in it, whether or not focusin
+      // has fired yet for the element being moved to.
+      held.was = true
+      // Wrap at both ends, and pull focus in if it is not in the panel at all.
+      if (!el.contains(on)) { e.preventDefault(); first.focus() }
+      else if (e.shiftKey && on === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && on === last) { e.preventDefault(); first.focus() }
+    }
     document.addEventListener('mousedown', shut)
     document.addEventListener('keydown', key)
+    // Where focus was, so it can go back. Read now rather than on close: by
+    // then the trigger may already have been re-rendered.
+    const from = anchor.current
+    /**
+     * Whether focus was ever inside, tracked rather than checked at teardown.
+     *
+     * Asking `panel.contains(document.activeElement)` in the cleanup does not
+     * work and measurably did not: React removes the portal before the cleanup
+     * runs, so by then the node is detached and focus has already fallen to
+     * <body>. The question "should focus go back to the trigger?" has to be
+     * answered while the panel is still on screen.
+     */
+    const watch = () => { if (box.current?.contains(document.activeElement)) held.was = true }
+    document.addEventListener('focusin', watch)
     return () => {
       document.removeEventListener('mousedown', shut)
       document.removeEventListener('keydown', key)
+      document.removeEventListener('focusin', watch)
+      // Only if the reader was in the panel — otherwise somebody who clicked
+      // elsewhere on the page would be yanked back to the trigger.
+      if (held.was) from?.focus()
     }
   }, [open, anchor, onClose])
 

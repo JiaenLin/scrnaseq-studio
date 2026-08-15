@@ -705,3 +705,58 @@ svg {
     opacity: 0.5;
   }
 }
+
+/**
+ * Increased contrast.
+ *
+ * The interface is built on a slate ramp with deliberately quiet hairlines —
+ * `--line` against `--surface` is a few percent of luminance, which is the
+ * right default for a page whose figures should carry the colour, and the wrong
+ * one for a reader who has asked the system for more separation. So the
+ * structural greys step toward the ink, the dimmed states stop being dimmed,
+ * and the focus ring thickens. Nothing here changes a figure: `--fig-*` and the
+ * `.axis` classes are a separate system that leaves for a white page, and a
+ * reader's screen preference must not silently restyle a figure they export.
+ */
+@media (prefers-contrast: more) {
+  :root {
+    --line: var(--ink-3);
+    --line-2: var(--ink-2);
+    --ink-3: var(--ink-2);
+  }
+  .chip,
+  .btn,
+  .sel,
+  .inp {
+    border-color: var(--ink-2);
+  }
+  /* The per-type toggles carry their off state as inline opacity, so it is
+     raised here rather than removed — an off control still has to read as off. */
+  .type-toggle[aria-pressed='false'] {
+    opacity: 0.75 !important;
+  }
+  .facet .btn-quiet {
+    opacity: 1;
+  }
+  :focus-visible {
+    outline-width: 3px;
+  }
+}
+
+/**
+ * Reduced transparency.
+ *
+ * Every translucent surface here is a soft fill behind a note or a chip —
+ * `--accent-soft`, `--warn-soft`, `--good-soft` — plus the menu shadow. The
+ * preference asks for surfaces that are opaque against what is behind them, so
+ * the soft fills resolve to the sunk panel colour and the shadow becomes a
+ * border, which is what it was standing in for.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --accent-soft: var(--sunk);
+    --warn-soft: var(--sunk);
+    --good-soft: var(--sunk);
+    --shadow-menu: 0 0 0 1px var(--ink-3);
+  }
+}

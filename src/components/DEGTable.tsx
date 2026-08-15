@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import {
   condLabel, combinedScore } from '../lib/stats.ts'
@@ -10,7 +10,17 @@ import { CsvButton } from './Figure.tsx'
 type SortKey = 'gene' | 'mean' | 'pct1' | 'pct2' | 'lfc' | 'combined' | 'p' | 'padj' | 'fdr' | 'nlp'
 
 /** Rows past a first render; anything more and the browser, not the science, is the limit. */
-const MAX_ROWS = 500
+/**
+ * How many rows are put in the DOM at once, and how many more a press adds.
+ *
+ * It was a hard cap: a contrast with three thousand significant genes could be
+ * read to row 500 and no further, and since sorting changes WHICH 500 those
+ * are, the cap behaved like a filter the reader had not asked for. It is a page
+ * size now. The DOM still stays bounded — thirty thousand <tr> elements is a
+ * tab that stops responding, which is what the cap was really protecting
+ * against — but the rest of the table is one press away instead of unreachable.
+ */
+const PAGE = 500
 
 const cellVal = (r: DERow, k: SortKey): number | string | null => {
   switch (k) {
@@ -54,6 +64,11 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
   const [sort, setSort] = useState<SortKey>('nlp')
   const [asc, setAsc] = useState(false)
 
+  const [limit, setLimit] = useState(PAGE)
+  // Back to one page whenever the rows underneath change. Without this, a
+  // reader who pressed "show all" on one contrast would silently be rendering
+  // every row of the next one — including on an object where that is 31 053.
+  useEffect(() => { setLimit(PAGE) }, [rows, q, sigOnly])
   const view = useMemo(() => {
     const query = q.trim().toUpperCase()
     let out = rows
@@ -147,7 +162,7 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
             </tr>
           </thead>
           <tbody>
-            {view.slice(0, MAX_ROWS).map(r => (
+            {view.slice(0, limit).map(r => (
               <tr
                 key={r.gene} className="cursor-pointer" title={`Open ${r.gene} in Gene expression`}
                 onClick={() => onPickGene(r.gene)}
@@ -183,9 +198,20 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
           already sorted and read. What is left is the one thing the table
           itself does not show: that a row is clickable, and that the CSV is
           not truncated. */}
+      {view.length > limit && (
+        <div className="mt-2.5 flex items-center gap-2.5">
+          <button className="btn btn-quiet" onClick={() => setLimit(l => l + PAGE)}>
+            Show {Math.min(PAGE, view.length - limit).toLocaleString()} more
+          </button>
+          <button className="btn btn-quiet" onClick={() => setLimit(view.length)}>
+            Show all {fmt(view.length)}
+          </button>
+        </div>
+      )}
+
       <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
-        {view.length > MAX_ROWS
-          && <>First {MAX_ROWS} of {fmt(view.length)}; the CSV has every row. </>}
+        {view.length > limit
+          && <>Showing {fmt(limit)} of {fmt(view.length)}; the CSV has every row. </>}
         Click a row to open that gene, a header to sort.
       </p>
     </>

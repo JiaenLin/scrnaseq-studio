@@ -549,7 +549,9 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
   }, [d, types, xy, scores, rampKey])
 
   return (
-    <canvas ref={ref} width={size * 2} height={size * 2 + Math.round(BAR_U * (size * 2) / 640)}
+    <canvas
+      role="img" aria-label="Module score on the embedding"
+      ref={ref} width={size * 2} height={size * 2 + Math.round(BAR_U * (size * 2) / 640)}
       style={{ width: '100%', maxWidth: size, height: 'auto', borderRadius: 'var(--r-md)' }} />
   )
 }

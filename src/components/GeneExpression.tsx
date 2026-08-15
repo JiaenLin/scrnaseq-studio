@@ -1039,6 +1039,9 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
       }}
     >
       <canvas
+        role="img"
+        aria-label={`${gene} expression on the embedding`
+          + `${cond ? `, ${cond} only` : ''}`}
         ref={ref} width={Math.round(size * 2)} height={panelHeight(Math.round(size * 2))}
         style={{ width: '100%', maxWidth: Math.round(size), height: 'auto', borderRadius: 'var(--r-md)' }}
       />

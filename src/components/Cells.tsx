@@ -177,6 +177,15 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels }:
 
   return (
     <canvas
+      /* Every SVG figure here carries role="img" and a sentence; the three
+         canvas figures carried nothing, so a screen reader was told there is a
+         canvas. A scatter of 292 495 points has no accessible structure to
+         expose, but it does have a description, and that is the difference
+         between an unlabelled graphic and a figure. */
+      role="img"
+      aria-label={`${fmt(d.cells.length)} cells on the embedding`
+        + `${cond ? `, ${cond} only` : ''}, coloured by ${colorBy}`
+        + `${labels ? `, with ${types.length} cluster names` : ''}`}
       ref={ref} width={Math.round(w * 2)} height={Math.round(h * 2)}
       style={{ width: '100%', height: 'auto', borderRadius: 'var(--r-md)' }}
     />
