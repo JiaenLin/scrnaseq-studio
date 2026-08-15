@@ -282,7 +282,7 @@ export default function App() {
     if (d.length) setSrcs(d)
   }, [lib.manifest, species, srcs.length])
 
-  function adopt(next: Source, defaultGenes: string[]) {
+  function adopt(next: Source) {
     setSrc(next)
     setTypes(next.types.map(t => ({ ...t })))
     setCt(next.types[0]?.name ?? '')
@@ -300,7 +300,10 @@ export default function App() {
     setHiddenTypes(new Set())
     // The object's own default — what the lab chose when it was converted.
     setEmbKey(next.embeddings[0]?.key ?? '')
-    setGenes(defaultGenes.filter(g => next.genes.includes(g)).slice(0, 4))
+    // Nothing chosen. Which gene to look at is the reader's question, and a
+    // tab that opens on four of them has answered it for them — wrongly,
+    // whenever the object is not the one the list was written for.
+    setGenes([])
     setTab('overview')
     setOpenError(null)
     setGeneError(null)
@@ -330,7 +333,11 @@ export default function App() {
     setLoading(true)
     // A frame, so the button's press state paints before the generator runs.
     setTimeout(() => {
-      adopt(demoSource(key), ['Ascl1', 'Gfap', 'Mki67', 'Dcx'])
+      // The demos start empty too. Their four genes were genuinely apt — Ascl1,
+      // Gfap, Mki67, Dcx for a neurogenesis time course — but a tab that
+      // sometimes opens with genes chosen and sometimes does not is a worse
+      // rule than one that never chooses.
+      adopt(demoSource(key))
       setLoading(false)
     }, 0)
   }
@@ -348,16 +355,21 @@ export default function App() {
         ? await openCollection(file, index, (phase, done, total) =>
           setOpenNote(`${phase} — ${done} of ${total}`))
         : bundleSource(parseBundle(await file.arrayBuffer()))
-      // Pick starting genes that exist rather than a fixed list that may not.
-      // Through the object's naming, so these symbols still land on an object
-      // whose matrix is indexed by accessions.
-      const wanted = ['CD3D', 'MS4A1', 'LYZ', 'GNLY', 'PPBP', 'Ascl1', 'Gfap']
-      const found = wanted.flatMap(g => next.names.match(g))
-      const start = (found.length ? found : next.genes.slice(0, 4)).slice(0, 4)
-      // Load them before the first render, so no view ever draws a gene the
-      // object has not handed over yet.
-      await next.ensure(start)
-      adopt(next, start)
+      /**
+       * No genes are chosen for the reader.
+       *
+       * This used to open every object on four genes from a fixed list —
+       * CD3D, MS4A1, LYZ, GNLY, PPBP, Ascl1, Gfap — whichever of them the
+       * object happened to contain. They were a PBMC panel and a mouse
+       * neurogenesis pair, so on anything else they were four genes nobody
+       * asked about, presented as though the studio had chosen them for this
+       * object. On a heart atlas that is Cd3d, Ms4a1, Ppbp and Ascl1: a figure
+       * that looks like a result and is not one.
+       *
+       * The Gene expression tab already says "Search for a gene above", which
+       * is the honest state for a tab whose whole question is which gene.
+       */
+      adopt(next)
     } catch (e) {
       setOpenError(e instanceof Error ? e.message : String(e))
     } finally {

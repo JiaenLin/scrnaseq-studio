@@ -397,5 +397,39 @@ console.log(String.fromCharCode(10) + 'A RECORDED CLUSTER ORDER IS USED, NOT GUE
   check('without a recorded order it still infers one',
     unionLevels(parts).levels.length, 4)
 }
+console.log('\nA GENE NOBODY FETCHED READS AS ZERO, NOT AS A VALUE')
+{
+  // The defect behind "the per gene heatmap shows nothing". The synchronous
+  // accessors answer from resident vectors, so on a streamed object a gene that
+  // has not been fetched reads as a column of zeros — and a heatmap built from
+  // a plain `.map(src.mean)` drew every cell at the neutral colour rather than
+  // failing. It looked like a rendered figure of a set with no signal.
+  const src2 = await openFixture()
+  const g = GENES[0]
+  check('nothing is resident before it is asked for', src2.resident(g), false)
+
+  // withGenes is what the figure must use: a set can be larger than the object
+  // will hold at once, so ensure() is not always available to it.
+  const seen = []
+  const means = new Array(GENES.length).fill(null)
+  await src2.withGenes(GENES, (win, at) => {
+    for (let k = 0; k < win.length; k++) {
+      seen.push(win[k])
+      means[at[k]] = src2.mean(win[k], 0)
+    }
+  })
+  check('every gene is visited exactly once', seen.length, GENES.length)
+  check('and all of them are visited', [...seen].sort(), [...GENES].sort())
+  check('every mean was read', means.every(m => m !== null), true)
+  check('and at least one of them is not zero',
+    means.some(m => Math.abs(m) > 1e-12), true)
+
+  // The comparison that matters: the same numbers ensure() would have given.
+  await src2.ensure(GENES)
+  const direct = GENES.map(x => src2.mean(x, 0))
+  check('streamed windows give exactly what resident vectors give',
+    means.map(m => +m.toFixed(12)), direct.map(m => +m.toFixed(12)))
+}
+
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll collection-source tests passed\n')
 process.exit(failed ? 1 : 0)

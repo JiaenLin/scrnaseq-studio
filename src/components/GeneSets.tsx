@@ -616,15 +616,63 @@ function SetHeatmap({ src, genes, ids, groupBy, rampDiv, cluster }: {
 }) {
   const cw = 34, rh = 15, PT = 12, PR = 20, BAR_H = 58
 
-  const matrix = useMemo(
-    () => genes.map(g => ids.map(
-      id => src.mean(g, id.ti, groupBy === 'type' ? null : id.cond))),
-    [src, genes, ids, groupBy])
+  /**
+   * The matrix, read a window at a time.
+   *
+   * This was a plain useMemo over `src.mean`, which reads the gene's vector
+   * synchronously — and on a streamed object a gene that has not been fetched
+   * reads as a column of zeros. So the figure drew every cell at the neutral
+   * colour: gene names down the side, identities along the bottom, and nothing
+   * in between. Reported as showing nothing, and it was showing zeros.
+   *
+   * `ensure` is not the answer either: a collection holds a bounded number of
+   * gene vectors and a fifty-gene set can exceed it, which throws rather than
+   * silently returning some of them. `withGenes` is the shape this wants — the
+   * same one the marker dot plot uses — because a matrix is an accumulation,
+   * so each window's block can be written and the window let go.
+   */
+  const [matrix, setMatrix] = useState<number[][] | null>(null)
+  const [readErr, setReadErr] = useState<string | null>(null)
+  const [read, setRead] = useState(0)
+
+  useEffect(() => {
+    let live = true
+    setMatrix(null)
+    setReadErr(null)
+    setRead(0)
+    if (!genes.length || !ids.length) { setMatrix([]); return }
+
+    const out = genes.map(() => new Array<number>(ids.length).fill(0))
+    const fill = (g: string, gi: number) => {
+      for (let ci = 0; ci < ids.length; ci++) {
+        out[gi][ci] = src.mean(g, ids[ci].ti, groupBy === 'type' ? null : ids[ci].cond)
+      }
+    }
+    // An object held in memory answers immediately; there is nothing to stream
+    // and nothing to show a bar for.
+    if (!src.lazy) {
+      genes.forEach(fill)
+      setMatrix(out)
+      return
+    }
+    let done = 0
+    src.withGenes(genes, (win, at) => {
+      for (let k = 0; k < win.length; k++) fill(win[k], at[k])
+      done += win.length
+      if (live) setRead(done)
+    }).then(
+      () => { if (live) setMatrix(out) },
+      (e: unknown) => {
+        if (live) setReadErr(e instanceof Error ? e.message : String(e))
+      },
+    )
+    return () => { live = false }
+  }, [src, genes, ids, groupBy])
 
   // Row-scaled. A row with no variance stays at zero rather than dividing by it
   // — a gene detected nowhere in the panel is not "average everywhere", and a
   // NaN here would take the whole figure's geometry down with it.
-  const z = useMemo(() => matrix.map(row => {
+  const z = useMemo(() => (matrix ?? []).map(row => {
     const m = row.reduce((a, b) => a + b, 0) / (row.length || 1)
     const sd = Math.sqrt(row.reduce((a, b) => a + (b - m) ** 2, 0) / (row.length || 1))
     return sd > 1e-9 ? row.map(v => Math.max(-2.5, Math.min(2.5, (v - m) / sd))) : row.map(() => 0)
@@ -651,6 +699,39 @@ function SetHeatmap({ src, genes, ids, groupBy, rampDiv, cluster }: {
   const plotT = PT + treeT
   const plotB = plotT + rowAt.length * rh
   const H = plotB + ax.bottom + BAR_H
+
+  if (readErr) {
+    return (
+      <div className="note note-warn mt-2">
+        <b>The set&rsquo;s genes could not be read.</b>{' '}
+        <span style={{ color: 'var(--ink-2)' }}>{readErr}</span>
+      </div>
+    )
+  }
+  if (!matrix) {
+    // A determinate bar, because withGenes reports every window it finishes and
+    // the total is known — the one thing worse than a wait is a wait with no
+    // idea how long. This is why the figure looked broken rather than busy.
+    return (
+      <div className="panel mt-2">
+        <div className="tx-small" style={{ color: 'var(--ink-2)' }}>
+          Reading {genes.length} genes of this set from the file
+        </div>
+        <div className="mt-2 h-[6px] w-full overflow-hidden rounded-full"
+          style={{ background: 'var(--sunk)' }}>
+          <div className="bar-fill h-full rounded-full"
+            style={{
+              background: 'var(--sel)',
+              transform: `scaleX(${Math.max(0.02, read / Math.max(1, genes.length))})`,
+              transformOrigin: 'left',
+            }} />
+        </div>
+        <div className="mt-1.5 tabular-nums tx-micro" style={{ color: 'var(--ink-3)' }}>
+          {read} of {genes.length}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mt-2 overflow-x-auto">
