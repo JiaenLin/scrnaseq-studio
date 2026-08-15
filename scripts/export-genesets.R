@@ -118,6 +118,7 @@ release <- NULL
 # An optional second argument names the sources to rebuild, so a change to one
 # collection does not cost a re-download of twenty-two.
 only <- if (length(args) > 1) args[-1] else NULL
+written <- list()
 
 for (g in GROUPS) {
   label <- g[[1]]; db <- g[[2]]; sp <- g[[3]]; coll <- g[[4]]; sub <- g[[5]]
@@ -170,9 +171,44 @@ for (g in GROUPS) {
     writeLines(paste(c(nm, subOf[[nm]], genes), collapse = "\t"), con, sep = "\n")
   }
   close(con)
+  written[[basename(path)]] <- label
   message(sprintf("[ ok ] %-6s %-14s %5d sets  %6d genes  -> %s",
                   species, label, length(sets), length(unique(d[[symCol]])), basename(path)))
 }
+
+# The filename -> label map, written by the side that CHOSE the filenames.
+#
+# The packer used to recompute it with its own slug function, in another
+# language, and the two had to agree character for character or a collection was
+# dropped. They disagreed once, over a trailing dash on "KEGG (orthologs)", and
+# nothing anywhere reported it. Now there is one source of truth for the mapping
+# and the packer reads it instead of guessing; its own slug survives only as a
+# fallback for a directory produced before this existed.
+#
+# MERGED with whatever is already there, because a filtered run rebuilds two
+# collections and must not leave a two-entry map describing a directory of
+# thirty-eight — the packer would fall back to guessing for the other
+# thirty-six, which is the failure this file exists to remove.
+esc <- function(x) gsub('"', '\\"', x, fixed = TRUE)
+sidecar <- file.path(out, "sources.json")
+if (file.exists(sidecar)) {
+  prev <- paste(readLines(sidecar, warn = FALSE), collapse = "")
+  # Split on quotes rather than matching a pattern: this file is written two
+  # lines below and holds a flat map of quoted strings, so the odd-numbered
+  # pieces ARE the keys and values in order. No escaping, nothing to get wrong.
+  bits <- strsplit(prev, '"', fixed = TRUE)[[1]]
+  quoted <- bits[seq(2, length(bits), by = 2)]
+  if (length(quoted) >= 2) {
+    for (j in seq(1, length(quoted) - 1, by = 2)) {
+      k <- quoted[j]
+      if (is.null(written[[k]])) written[[k]] <- quoted[j + 1]
+    }
+  }
+}
+pairs <- vapply(names(written),
+                function(k) paste0('"', esc(k), '":"', esc(written[[k]]), '"'),
+                character(1))
+writeLines(paste0("{", paste(pairs, collapse = ","), "}"), sidecar)
 
 writeLines(jsonlite_or_manual <- paste0(
   '{"msigdbr":"', ver, '","human":"', release[["HS"]], '","mouse":"', release[["MM"]], '"}'),

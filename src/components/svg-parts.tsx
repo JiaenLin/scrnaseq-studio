@@ -18,7 +18,7 @@
 // the colour actually changes, so "this dot is about a 2" is a comparison
 // against a mark rather than an estimate.
 
-import { AXIS_INK, FRAME_INK, MARK_EDGE } from '../lib/figure-ink.ts'
+import { AXIS_INK, FRAME_INK, MARK_EDGE, SUMMARY_INK, TICK_INK } from '../lib/figure-ink.ts'
 import { breaksOf, fmtBreak } from '../lib/breaks.ts'
 import { fit, textW, widestW } from '../lib/labels.ts'
 import { mix as mixHex, rampColor, type RampKey } from '../lib/palette.ts'
@@ -71,7 +71,7 @@ export function ColorBar({ cx, y, w, h, ramp, colors, lo, hi, title, id, breaks 
           drawn at the two ends, where a tick would read as part of the frame. */}
       {ticks.filter(v => v > lo && v < hi).map(v => (
         <line key={`t${v}`} x1={pos(v)} x2={pos(v)} y1={y} y2={y + h}
-          stroke="#ffffff" strokeWidth={1.1} />
+          stroke={TICK_INK} strokeWidth={1.1} />
       ))}
       <rect x={x} y={y} width={w} height={h} fill="none"
         stroke={FRAME_INK} strokeWidth={0.9} />
@@ -90,7 +90,7 @@ export function ColorBar({ cx, y, w, h, ramp, colors, lo, hi, title, id, breaks 
  * beside a filled figure asks the reader to match an outline against a disc —
  * which is exactly the judgement the key exists to spare them.
  */
-export function SizeKey({ cx, y, title, radius, steps = [0.25, 0.5, 0.75, 1], fill = '#2B2F36' }: {
+export function SizeKey({ cx, y, title, radius, steps = [0.25, 0.5, 0.75, 1], fill = SUMMARY_INK }: {
   cx: number; y: number; title: string
   radius: (f: number) => number
   steps?: number[]

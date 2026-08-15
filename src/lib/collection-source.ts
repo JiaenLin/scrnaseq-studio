@@ -38,7 +38,16 @@ import { baseSource, type Source } from './source.ts'
 import { readZipDir, payloadStart, readZipEntry, type ZipEntry } from './zipdir.ts'
 
 class CollectionError extends Error {}
-const fail = (msg: string): never => { throw new CollectionError(msg) }
+/**
+ * The annotation is on the VARIABLE, not just the return type.
+ *
+ * TypeScript narrows control flow past a never-returning call only when the
+ * thing being called is declared with an explicit type — with the `: never`
+ * on the arrow alone, `if (!x) fail(...)` does not narrow `x` afterwards, and
+ * every caller was reaching for a `!` to get past it. That is how a parser
+ * that already checks its input ended up full of assertions.
+ */
+const fail: (msg: string) => never = (msg) => { throw new CollectionError(msg) }
 
 /** Inflated chunk bytes held across all parts at once, while idle. */
 const CACHE_BUDGET = 96 << 20
@@ -175,7 +184,17 @@ export async function openCollection(
       if (lines.length !== meta.nGenes) {
         fail(`part ${info.key} has ${lines.length} gene aliases but ${meta.nGenes} genes`)
       }
-      alias = lines.map((a, k) => a || genes![k])
+      // `genes` is filled from part 0 before this runs, but that is an
+      // invariant of the loop rather than something the type system knows —
+      // and this is a user's file. Checked, so a bundle that somehow arrives
+      // with an alias table and no gene list says so instead of throwing
+      // "cannot read properties of null" out of a render.
+      if (!genes) fail(`part ${info.key} carries gene aliases but no gene list`)
+      // Copied to a const: `genes` is a `let`, so the narrowing above does not
+      // survive into the callback — it could in principle be reassigned before
+      // the callback runs. It cannot here, and this says so.
+      const from = genes
+      alias = lines.map((a, k) => a || from[k])
     }
 
     const chunk = need(dir, 'expr.chunk.bin', info.key)
@@ -267,15 +286,19 @@ export async function openCollection(
     sampleCodes.push(sample)
     embeds.push(embed)
     qcs.push(qc)
-    pbTexts.push(dir.has('pseudobulk.tsv')
-      ? dec.decode(await readZipEntry(file, dir.get('pseudobulk.tsv')!)) : null)
+    const pbEntry = dir.get('pseudobulk.tsv')
+    pbTexts.push(pbEntry ? dec.decode(await readZipEntry(file, pbEntry)) : null)
     offset += n
     nnz += meta.nnz ?? 0
   }
   onProgress?.('reading parts', parts.length, parts.length)
 
   const nCells = offset
-  const nGenes = genes!.length
+  // Every path above sets this from part 0; saying so out loud costs nothing
+  // and turns "a part is missing its gene list" from a blank page into a
+  // sentence that names the problem.
+  if (!genes) fail('no part in this collection carries a gene list')
+  const nGenes = genes.length
   const notes: string[] = [...(parts[0].meta.notes ?? [])]
 
   // ---- one set of levels across every part --------------------------------
@@ -669,7 +692,8 @@ function mergePseudobulk(
   // The headers carry sample and cluster by NAME, not by code, so nothing has to
   // be remapped here — which is exactly why the exporter writes them that way.
   const parsed = texts.map((text) => {
-    const lines = text!.split('\n').filter(l => l.trim().length > 0)
+    if (!text) return null
+    const lines = text.split('\n').filter(l => l.trim().length > 0)
     if (lines.length < 2) return null
     const cols = lines[0].split('\t').slice(1).map(h => {
       const [s, c, n] = h.split('||')
@@ -677,10 +701,15 @@ function mergePseudobulk(
     })
     return { lines, cols }
   })
-  if (parsed.some(p => !p)) return null
+  // Narrowed once, rather than asserted at each of the four uses below. The
+  // guard was already here; what was missing was telling the type system, so
+  // every later `p!` was a promise the compiler could not check and a reader
+  // had to take on trust.
+  const ok = parsed.filter((x): x is NonNullable<typeof x> => x !== null)
+  if (ok.length !== parsed.length) return null
 
-  for (const p of parsed) {
-    for (const c of p!.cols) {
+  for (const p of ok) {
+    for (const c of p.cols) {
       const k = key(c)
       const seen = at.get(k)
       if (seen === undefined) { at.set(k, columns.length); columns.push({ ...c }) }
@@ -696,10 +725,14 @@ function mergePseudobulk(
   }
 
   const counts = new Int32Array(genes.length * columns.length)
-  for (const p of parsed) {
-    const map = p!.cols.map(c => at.get(key(c))!)
-    for (let r = 1; r < p!.lines.length; r++) {
-      const cells = p!.lines[r].split('\t')
+  for (const p of ok) {
+    // Every column was inserted into `at` in the loop above, so this lookup
+    // cannot miss — but a -1 would silently accumulate into the wrong gene's
+    // row, so it is checked rather than asserted.
+    const map = p.cols.map(c => at.get(key(c)) ?? -1)
+    if (map.some(m => m < 0)) return null
+    for (let r = 1; r < p.lines.length; r++) {
+      const cells = p.lines[r].split('\t')
       const gi = r - 1
       if (cells[0] !== genes[gi]) return null
       for (let c = 0; c < map.length; c++) {

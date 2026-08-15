@@ -58,3 +58,28 @@ export const DOWN_MARK = '#3B82F6'
 
 /** A mark that carries no signal — the non-significant cloud. */
 export const NULL_MARK = '#9AA3AF'
+
+/**
+ * The dark used for a summary drawn ON a mark rather than beside it.
+ *
+ * A violin's box, the dot plot's legend disc — things that describe a
+ * distribution instead of being another instance of one. Deliberately not
+ * AXIS_INK: pure black against a translucent category fill reads as a hole
+ * punched through it, where this near-black slate sits on the fill.
+ */
+export const SUMMARY_INK = '#1F2430'
+
+/** The plate. Every figure leaves on white, whatever theme it was saved from. */
+export const PLATE = '#FFFFFF'
+
+/**
+ * Cells present but not part of this panel, and the empty end of a bar.
+ *
+ * SCpubr's argument for keeping them: a split panel showing only its own cells
+ * has a different silhouette in every panel, so the reader compares shapes that
+ * were never comparable.
+ */
+export const GHOST_INK = '#E2E5EA'
+
+/** A row label on a figure — darker than interface ink, lighter than the axis. */
+export const LABEL_INK = '#334155'

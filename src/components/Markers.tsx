@@ -6,7 +6,7 @@ import { dotAt, dotGrid, type DotGrid } from '../lib/dots.ts'
 import { downloadCsv } from '../lib/download.ts'
 import { maxOf } from '../lib/chart.ts'
 import { fit, widestW } from '../lib/labels.ts'
-import { AXIS_INK, GRID_INK, MARK_EDGE } from '../lib/figure-ink.ts'
+import { AXIS_INK, GHOST_INK, GRID_INK, LABEL_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
@@ -297,7 +297,7 @@ export default function Markers({
                       return (
                         <circle key={g} cx={PL + cw * (gi + 0.5)} cy={y}
                           r={dotR(pct)}
-                          fill={mix('#e2e8f0', pal(ti, palKey), Math.min(1, m / 2.5))}
+                          fill={mix(GHOST_INK, pal(ti, palKey), Math.min(1, m / 2.5))}
                           stroke={own.has(g) ? pal(ti, palKey) : MARK_EDGE}
                           strokeWidth={own.has(g) ? 1.4 : 0.6}>
                           <title>{g} in {t.name} — {(pct * 100).toFixed(0)}% of cells, mean {m.toFixed(2)}</title>
@@ -309,7 +309,7 @@ export default function Markers({
               })}
               <ColorBar
                 cx={PL + (W - PL) * 0.32} y={H - legendH + 22} w={150} h={11}
-                colors={['#e2e8f0', '#334155']} lo={0} hi={2.5}
+                colors={[GHOST_INK, LABEL_INK]} lo={0} hi={2.5}
                 title="Avg. Exp. · depth of cluster colour"
                 id="markers-bar"
               />

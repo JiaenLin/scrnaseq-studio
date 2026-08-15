@@ -9,7 +9,9 @@ import {
 } from '../lib/chart.ts'
 import { drawFeature, panelHeight } from '../lib/feature-plot.ts'
 import { axisTicks, fit, widestW } from '../lib/labels.ts'
-import { AXIS_INK, DOWN_MARK, GRID_INK, MARK_EDGE, UP_MARK } from '../lib/figure-ink.ts'
+import {
+  AXIS_INK, DOWN_MARK, GHOST_INK, GRID_INK, MARK_EDGE, PLATE, SUMMARY_INK, TICK_INK, UP_MARK,
+} from '../lib/figure-ink.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import {
   DIVERGING, mix, pal, rampColor, rampCss, RAMPS, SEQUENTIAL, symmetricRange,
@@ -573,7 +575,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
         {cats.map((c, i) => {
           const v = scaled[i]
           const cx = PL + bw * (i + 0.5)
-          const col = c.dim !== undefined ? mix('#e2e8f0', c.color, 0.3 + c.dim * 0.7) : c.color
+          const col = c.dim !== undefined ? mix(GHOST_INK, c.color, 0.3 + c.dim * 0.7) : c.color
           return (
             <g key={c.full}>
               {/* A cluster can hold no cells at all in one group — cell type ×
@@ -675,15 +677,15 @@ function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet, points }: {
           readable through them. */}
       {dots.map(([j, value], k) => (
         <circle key={k} cx={cx + j * half * 0.72} cy={Y(value)} r={Math.min(1.5, bw * 0.045)}
-          fill="#1F2430" fillOpacity={0.42} />
+          fill={SUMMARY_INK} fillOpacity={0.42} />
       ))}
       {/* The box drawn dark rather than in the category colour: it summarises
           the distribution rather than being another instance of it, and in the
           same hue at 65% it read as a denser part of the violin. */}
-      <line x1={cx} x2={cx} y1={Y(q.q1)} y2={Y(q.q3)} stroke="#1F2430"
+      <line x1={cx} x2={cx} y1={Y(q.q1)} y2={Y(q.q3)} stroke={SUMMARY_INK}
         strokeWidth={Math.max(2, Math.min(6, bw * 0.34))} />
       <line x1={cx - Math.min(8, bw * 0.4)} x2={cx + Math.min(8, bw * 0.4)}
-        y1={Y(q.med)} y2={Y(q.med)} stroke="#ffffff" strokeWidth={1.8} />
+        y1={Y(q.med)} y2={Y(q.med)} stroke={TICK_INK} strokeWidth={1.8} />
       {/* Detection bar. Without it a gene with heavy dropout is just a spike
           at zero, with no way to tell "absent here" from "absent everywhere". */}
       <rect x={cx - bwid / 2} y={yDet} width={bwid} height={3.5} rx={1.75}
@@ -886,7 +888,7 @@ function FeaturePlot(p: GeneProps) {
         </span>
         {(split || anyHidden) && (
           <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--ink-3)' }}>
-            <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: '#E2E5EA' }} />
+            <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: GHOST_INK }} />
             {anyHidden && split ? 'hidden cells and other groups'
               : anyHidden ? 'hidden cells' : 'the other groups'} — kept as the outline
           </span>
@@ -998,7 +1000,7 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
       borders: p.borders,
       silhouette: true,
       background: getComputedStyle(document.documentElement)
-        .getPropertyValue('--surface').trim() || '#ffffff',
+        .getPropertyValue('--surface').trim() || PLATE,
       title: gene,
       subtitle: cond,
     }
@@ -1035,7 +1037,7 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
         const ctx = out.getContext('2d')
         // A figure going into a manuscript is printed on white, whatever theme
         // it was exported from, and the cluster labels have to be legible on it.
-        if (ctx) drawFeature(ctx, w, h, { ...spec, background: '#ffffff' }, false)
+        if (ctx) drawFeature(ctx, w, h, { ...spec, background: PLATE }, false)
       }}
     >
       <canvas

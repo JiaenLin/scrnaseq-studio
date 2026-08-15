@@ -82,7 +82,25 @@ const LABEL = {
  * Two slug functions that must agree, in two languages; they agree here.
  */
 const slugOf = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-const unslug = new Map(ORDER.map(s => [slugOf(s), s]))
+
+/**
+ * Filename -> label, from the side that chose the filenames.
+ *
+ * The exporter now writes `sources.json` recording the slug it actually used
+ * for each collection, so this stops being a second implementation of R's
+ * slug() that has to agree with it character for character. The recomputed map
+ * remains as a fallback, for a GMT directory produced before that file existed.
+ */
+const sidecar = (() => {
+  const at = join(IN, 'sources.json')
+  if (!existsSync(at)) return null
+  try {
+    return new Map(Object.entries(JSON.parse(readFileSync(at, 'utf8'))))
+  } catch { return null }
+})()
+const guessed = new Map(ORDER.map(s => [slugOf(s), s]))
+const labelFor = (file, species) =>
+  sidecar?.get(file) ?? guessed.get(file.slice(species.length + 1).replace(/\.gmt$/, ''))
 
 /**
  * MSigDB's systematic name, made readable.
@@ -151,7 +169,7 @@ let rawTotal = 0, gzTotal = 0
 for (const species of ['human', 'mouse']) {
   const all = readdirSync(IN)
     .filter(f => f.startsWith(`${species}.`) && f.endsWith('.gmt'))
-    .map(f => ({ file: f, source: unslug.get(basename(f, '.gmt').slice(species.length + 1)) }))
+    .map(f => ({ file: f, source: labelFor(f, species) }))
   // Loudly. A GMT whose label is not in ORDER used to be filtered away here in
   // silence, so a collection could be exported, packed against nothing, and be
   // absent from the app with every step reporting success. It has happened —

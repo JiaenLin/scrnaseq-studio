@@ -28,7 +28,16 @@ export interface ZipEntry {
 }
 
 export class ZipError extends Error {}
-const fail = (msg: string): never => { throw new ZipError(msg) }
+/**
+ * The annotation is on the VARIABLE, not just the return type.
+ *
+ * TypeScript narrows control flow past a never-returning call only when the
+ * thing being called is declared with an explicit type — with the `: never`
+ * on the arrow alone, `if (!x) fail(...)` does not narrow `x` afterwards, and
+ * every caller was reaching for a `!` to get past it. That is how a parser
+ * that already checks its input ended up full of assertions.
+ */
+const fail: (msg: string) => never = (msg) => { throw new ZipError(msg) }
 
 const dv = (b: ArrayBuffer) => new DataView(b)
 

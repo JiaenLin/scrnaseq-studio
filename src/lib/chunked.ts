@@ -71,7 +71,16 @@ export interface GeneVector {
 export type GetBytes = (from: number, to: number) => Promise<Uint8Array>
 
 export class ChunkError extends Error {}
-const fail = (msg: string): never => { throw new ChunkError(msg) }
+/**
+ * The annotation is on the VARIABLE, not just the return type.
+ *
+ * TypeScript narrows control flow past a never-returning call only when the
+ * thing being called is declared with an explicit type — with the `: never`
+ * on the arrow alone, `if (!x) fail(...)` does not narrow `x` afterwards, and
+ * every caller was reaching for a `!` to get past it. That is how a parser
+ * that already checks its input ended up full of assertions.
+ */
+const fail: (msg: string) => never = (msg) => { throw new ChunkError(msg) }
 
 /** How many chunks `nGenes` genes make. */
 export const chunkCount = (nGenes: number, chunkGenes: number): number =>

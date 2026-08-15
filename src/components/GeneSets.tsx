@@ -13,6 +13,7 @@ import { parseGeneList } from '../lib/genes.ts'
 import {
   averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
 } from '../lib/score.ts'
+import { AXIS_INK, LABEL_INK } from '../lib/figure-ink.ts'
 import { drawColorBar } from '../lib/feature-plot.ts'
 import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
@@ -532,7 +533,7 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
       name: t.name,
       x: ((at[ti].x - x0) / (x1 - x0)) * cv.width,
       y: (1 - (at[ti].y - y0) / (y1 - y0)) * plotH,
-    })), { fill: '#334155', halo: 'rgba(255,255,255,.9)' })
+    })), { fill: LABEL_INK, halo: 'rgba(255,255,255,.9)' })
 
     // The scale, on the figure. It was an HTML strip beside the canvas, so an
     // exported score map had colours and no way to read them — and this one is
@@ -543,7 +544,7 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
     drawColorBar(g, {
       x: (cv.width - barW) / 2, y: cv.height - BAR_U * unit + 16 * unit,
       w: barW, h: 9 * unit,
-      ramp: rampKey, lo, hi, ink: '#000000',
+      ramp: rampKey, lo, hi, ink: AXIS_INK,
       label: 'Module score', unit,
     })
   }, [d, types, xy, scores, rampKey])
