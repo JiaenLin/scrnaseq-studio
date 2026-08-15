@@ -1,5 +1,5 @@
 // Enrichment and module-score regressions.
-import { bh, hyperTail, runORA } from '../src/lib/ora.ts'
+import { bh, bhNlp, hyperTail, logHyperTail, runORA } from '../src/lib/ora.ts'
 import { indexFor, parse } from '../src/lib/msigdb.ts'
 import { oraIndexed } from '../src/lib/ora.ts'
 import { detectSpecies, matchRate } from '../src/lib/species.ts'
@@ -204,6 +204,75 @@ console.log('\nENRICHMENT ON A REAL CONTRAST')
     res.every(r => r.padj > 0.05), true)
   check('every result carries the members it was scored on',
     res.every(r => r.overlap.length === r.count), true)
+}
+
+console.log('\nA TAIL TOO SMALL FOR A DOUBLE STILL HAS AN ORDER')
+{
+  // hyperTail summed its terms AFTER exponentiating out of log space, so a set
+  // essentially contained in the query returned exactly 0 — and padj was the
+  // sort key, so every such set arrived tied at the top of the table in library
+  // order. It is the same defect logNormalTail was written to escape on the DE
+  // side of this app, and it now has the same answer: carry -log10 p alongside.
+  check('the double underflows to exactly zero', hyperTail(600, 700, 4000, 22000), 0)
+  const lp = logHyperTail(600, 700, 4000, 22000)
+  check('but the log does not', Number.isFinite(lp) && lp < -700, true)
+
+  // Two sets that BOTH underflow must still be ORDERED, which is the whole
+  // point: 0 === 0 is not a ranking. Measured, not assumed — with K=700,
+  // n=4000, N=22000 the double gives out between k=580 (3.6e-317, already
+  // subnormal and mostly noise) and k=600.
+  check('one k below the boundary still has a double',
+    hyperTail(560, 700, 4000, 22000) > 0, true)
+  check('two k above it do not',
+    hyperTail(600, 700, 4000, 22000) === 0 && hyperTail(700, 700, 4000, 22000) === 0, true)
+  const a = -logHyperTail(700, 700, 4000, 22000) / Math.LN10
+  const b = -logHyperTail(600, 700, 4000, 22000) / Math.LN10
+  near('and the logs still say how far past zero each one is', b, 345.41, 0.05)
+  near('for both of them', a, 541.63, 0.05)
+  check('so they can be ranked against each other', a > b, true)
+
+  // Where the double CAN hold the answer the two must agree — this is a
+  // reformulation of one sum, not a second opinion about it.
+  for (const [k, K, n, N] of [[3, 10, 20, 100], [2, 5, 8, 20], [1, 1, 1, 2], [12, 40, 300, 5000]]) {
+    near(`log and linear agree at k=${k},K=${K},n=${n},N=${N}`,
+      Math.exp(logHyperTail(k, K, n, N)), hyperTail(k, K, n, N), 1e-12)
+  }
+}
+
+console.log('\nBH IN BOTH SPACES IS ONE STEP-UP')
+{
+  const ps = [1e-9, 2e-4, 0.03, 0.2, 0.5, 0.9, 0.011, 0.047]
+  const adj = bh(ps)
+  const adjN = bhNlp(ps.map(v => -Math.log10(v)))
+  for (let i = 0; i < ps.length; i++) {
+    near(`set ${i} agrees between bh and bhNlp`, adjN[i], -Math.log10(adj[i]), 1e-9)
+  }
+  // And the transform holds where bh cannot: p below the smallest double.
+  const deep = bhNlp([953.3, 400.1, 2.0, 0.3])
+  check('an underflowed p keeps a distinct adjusted significance',
+    deep[0] > deep[1] && deep[1] > deep[2], true)
+}
+
+console.log('\nopts.sources NARROWS THE REPORT, NOT THE BACKGROUND')
+{
+  // The convention, pinned, because a review read it as a bug and narrowing the
+  // universe to the filtered sources is exactly what breaks the equivalence
+  // asserted above: oraIndexed takes N from the collections its index was BUILT
+  // from. The reader's real control is the collection toggle, which rebuilds
+  // the index and does move N.
+  const sets = [
+    { source: 'A', id: 'a1', name: 'a1', genes: ['G1', 'G2', 'G3', 'G4'] },
+    { source: 'B', id: 'b1', name: 'b1', genes: ['X1', 'X2', 'X3', 'X4', 'X5', 'X6'] },
+  ]
+  const bg = ['G1', 'G2', 'G3', 'G4', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'Z1', 'Z2']
+  const all = runORA(['G1', 'G2', 'G3'], sets, bg, { minSize: 1, maxSize: 100 })
+  const justA = runORA(['G1', 'G2', 'G3'], sets, bg,
+    { minSize: 1, maxSize: 100, sources: new Set(['A']) })
+  check('only set A can be reported either way', all.length === 1 && justA.length === 1, true)
+  check('and filtering the sources does not move its p-value',
+    justA[0].pvalue, all[0].pvalue)
+  check('because N stayed the annotated background of every set given',
+    Math.abs(all[0].foldEnrichment - justA[0].foldEnrichment) < 1e-12, true)
 }
 
 console.log('\nTHE ORA BACKGROUND IS NOT THE FILTERED LIST')

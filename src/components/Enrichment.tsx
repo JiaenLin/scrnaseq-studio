@@ -339,7 +339,12 @@ function Bars({ results, rampKey, onPick, selected }: {
   // the argument limit is a second reason. See chart.ts.
   const maxV = Math.max(1, maxOf(results.map(r => r.count)))
   const X = (v: number) => PL + ((W - PL - PR) * v) / maxV
-  const nlp = (r: ORAResult) => -Math.log10(Math.max(r.padj, 1e-300))
+  // r.nlpAdj, not -log10(padj). They agree everywhere padj is representable and
+  // differ exactly where it is not: a set whose adjusted p is below 1e-308 has
+  // padj === 0, and the clamp that used to stand in for it pinned every such
+  // bar to the same 300 — the flat top the volcano used to have, for the same
+  // reason and with the same fix.
+  const nlp = (r: ORAResult) => r.nlpAdj
   // The colour scale spans what is actually on screen, and always includes the
   // 0.05 line — otherwise a page where nothing is significant would stretch a
   // full ramp across noise and paint it like a result.

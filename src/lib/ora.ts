@@ -40,13 +40,51 @@ function logChoose(n: number, k: number): number {
   return logGamma(n + 1) - logGamma(k + 1) - logGamma(n - k + 1)
 }
 
-/** P(X ≥ k) for X ~ Hypergeometric(N, K, n): drawing n from N, K successes total. */
-export function hyperTail(k: number, K: number, n: number, N: number): number {
+/**
+ * ln P(X ≥ k) for X ~ Hypergeometric(N, K, n): drawing n from N, K successes.
+ *
+ * The terms are formed in log space — they have to be, since each is a ratio of
+ * factorials of tens of thousands — and this sums them there too, rather than
+ * exponentiating each one and adding. That is the same discipline `stats.ts`
+ * applies to the DE p-values, and it is here for the same reason: a set almost
+ * entirely contained in the query has a tail below 1e-308, and adding those
+ * terms in linear space returns exactly 0. Not a small number — zero. p = 0
+ * makes padj 0, and padj is the sort key, so the strongest results in the table
+ * arrive tied at the top in whatever order the library happened to store them.
+ *
+ * Log-sum-exp, factoring out the largest term so the exponentials that remain
+ * are all ≤ 1. The largest is the first: the hypergeometric pmf is decreasing
+ * in i past its mode, and the tail is summed from k upward with k at or above
+ * the mode whenever the set is enriched — which is the only case that matters
+ * here, since this is the one-sided over-representation tail.
+ */
+export function logHyperTail(k: number, K: number, n: number, N: number): number {
   const maxI = Math.min(K, n)
+  if (k > maxI) return -Infinity
   const denom = logChoose(N, n)
-  let p = 0
-  for (let i = k; i <= maxI; i++) p += Math.exp(logChoose(K, i) + logChoose(N - K, n - i) - denom)
-  return Math.min(1, Math.max(p, 0))
+  let max = -Infinity
+  const terms: number[] = []
+  for (let i = k; i <= maxI; i++) {
+    const t = logChoose(K, i) + logChoose(N - K, n - i) - denom
+    terms.push(t)
+    if (t > max) max = t
+  }
+  if (max === -Infinity) return -Infinity
+  let sum = 0
+  for (const t of terms) sum += Math.exp(t - max)
+  return Math.min(0, max + Math.log(sum))
+}
+
+/**
+ * P(X ≥ k), as a double.
+ *
+ * Kept, because a p-value is what a reader expects to see in a column and what
+ * a CSV should carry. It underflows to 0 below ~1e-308 and that is fine — what
+ * must not happen is for the SORT to underflow with it, which is why `nlp`
+ * below is carried alongside and is what the results are ordered on.
+ */
+export function hyperTail(k: number, K: number, n: number, N: number): number {
+  return Math.min(1, Math.max(Math.exp(logHyperTail(k, K, n, N)), 0))
 }
 
 /** Benjamini–Hochberg adjusted p-values, returned in the input order. */
@@ -58,6 +96,32 @@ export function bh(ps: number[]): number[] {
   for (let rank = m - 1; rank >= 0; rank--) {
     const [p, idx] = order[rank]
     prev = Math.min(prev, (p * m) / (rank + 1))
+    adj[idx] = prev
+  }
+  return adj
+}
+
+/**
+ * The same step-up, on −log₁₀ p instead of p.
+ *
+ * Identical arithmetic seen through a monotone transform: BH multiplies by
+ * m/(rank+1), which in −log₁₀ is a subtraction of log₁₀(m/(rank+1)), and its
+ * running minimum over p becomes a running maximum over −log₁₀ p. Doing it this
+ * way is what lets a set with p = 1e-450 keep a distinct adjusted significance
+ * instead of joining every other underflowed set at zero.
+ *
+ * Input must be ordered by the same key `bh` would order by — which it is, since
+ * −log₁₀ p is decreasing in p.
+ */
+export function bhNlp(nlps: number[]): number[] {
+  const m = nlps.length
+  // Descending nlp is ascending p, so rank 0 is the smallest p.
+  const order = nlps.map((v, i) => [v, i] as const).sort((a, b) => b[0] - a[0])
+  const adj = new Array<number>(m)
+  let prev = 0
+  for (let rank = m - 1; rank >= 0; rank--) {
+    const [v, idx] = order[rank]
+    prev = Math.max(prev, Math.max(0, v - Math.log10(m / (rank + 1))))
     adj[idx] = prev
   }
   return adj
@@ -75,6 +139,16 @@ export interface ORAResult {
   foldEnrichment: number
   pvalue: number
   padj: number
+  /**
+   * −log₁₀ of the raw p, and after BH, −log₁₀ of the adjusted p.
+   *
+   * Carried because `pvalue` and `padj` are doubles and a strongly enriched set
+   * against a large background lands below what a double holds. The same pair
+   * the DE tables carry for the same reason — see significance.ts, which is
+   * where the argument is written out.
+   */
+  nlp: number
+  nlpAdj: number
 }
 
 export interface ORAOpts {
@@ -99,6 +173,22 @@ export function runORA(
   // This function used to take N as the whole tested list, which quietly gave
   // the two sibling studios different p-values for the same contrast against
   // the same collection.
+  //
+  // Over every set GIVEN, not every set `opts.sources` will let through. That
+  // asymmetry is deliberate and was worth resolving rather than assuming: a
+  // review read it as a bug, and narrowing the universe to the filtered sources
+  // made this function disagree with `oraIndexed` — which builds N from the
+  // collections it was CONSTRUCTED with and treats `sources` purely as a
+  // post-filter. The equivalence of those two is the invariant the suite
+  // protects, so the convention is fixed here to match the index.
+  //
+  // It is also the right convention for how the studio actually works. The
+  // reader's control is the collection toggle, and switching one off rebuilds
+  // the index — N moves with it, as it must. `opts.sources` narrows what is
+  // REPORTED out of an already-built background; it is not a second way to
+  // choose the population, and treating it as one would silently give the same
+  // reader two different p-values for one contrast depending on which control
+  // they reached for.
   const universe = new Set<string>()
   for (const s of sets) for (const g of s.genes) universe.add(g.toUpperCase())
   const bg = new Set<string>()
@@ -112,7 +202,7 @@ export function runORA(
   for (const g of q) if (bg.has(g)) n++
   if (!N || !n) return []
 
-  const raw: Omit<ORAResult, 'padj'>[] = []
+  const raw: Omit<ORAResult, 'padj' | 'nlpAdj'>[] = []
   for (const s of sets) {
     if (opts.sources && !opts.sources.has(s.source)) continue
     let K = 0
@@ -131,12 +221,17 @@ export function runORA(
       setSize: K, count: k, overlap,
       foldEnrichment: (k / n) / (K / N),
       pvalue: hyperTail(k, K, n, N),
+      nlp: Math.max(0, -logHyperTail(k, K, n, N) / Math.LN10),
     })
   }
+  // Both, and the order is taken from the one that survives underflow. They are
+  // the same step-up on the same ranking, so padj stays the number a reader can
+  // quote while nlpAdj is the number the table can be sorted by.
   const padj = bh(raw.map(r => r.pvalue))
+  const nlpAdj = bhNlp(raw.map(r => r.nlp))
   return raw
-    .map((r, i) => ({ ...r, padj: padj[i] }))
-    .sort((a, b) => a.padj - b.padj || b.foldEnrichment - a.foldEnrichment)
+    .map((r, i) => ({ ...r, padj: padj[i], nlpAdj: nlpAdj[i] }))
+    .sort((a, b) => b.nlpAdj - a.nlpAdj || b.foldEnrichment - a.foldEnrichment)
 }
 
 /**
@@ -182,7 +277,7 @@ export function oraIndexed(
     for (let i = 0; i < sets.length; i++) counts[sets[i]]++
   }
 
-  const raw: Omit<ORAResult, 'padj'>[] = []
+  const raw: Omit<ORAResult, 'padj' | 'nlpAdj'>[] = []
   for (let i = 0; i < counts.length; i++) {
     const k = counts[i]
     if (k < 1) continue
@@ -201,10 +296,15 @@ export function oraIndexed(
       setSize: s.K, count: k, overlap,
       foldEnrichment: (k / n) / (s.K / N),
       pvalue: hyperTail(k, s.K, n, N),
+      nlp: Math.max(0, -logHyperTail(k, s.K, n, N) / Math.LN10),
     })
   }
+  // Both, and the order is taken from the one that survives underflow. They are
+  // the same step-up on the same ranking, so padj stays the number a reader can
+  // quote while nlpAdj is the number the table can be sorted by.
   const padj = bh(raw.map(r => r.pvalue))
+  const nlpAdj = bhNlp(raw.map(r => r.nlp))
   return raw
-    .map((r, i) => ({ ...r, padj: padj[i] }))
-    .sort((a, b) => a.padj - b.padj || b.foldEnrichment - a.foldEnrichment)
+    .map((r, i) => ({ ...r, padj: padj[i], nlpAdj: nlpAdj[i] }))
+    .sort((a, b) => b.nlpAdj - a.nlpAdj || b.foldEnrichment - a.foldEnrichment)
 }
