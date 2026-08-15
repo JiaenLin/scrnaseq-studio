@@ -17,7 +17,7 @@ import {
 } from '../lib/score.ts'
 import { AXIS_INK, LABEL_INK } from '../lib/figure-ink.ts'
 import { drawColorBar } from '../lib/feature-plot.ts'
-import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import { pal, rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { Card, Mono, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
@@ -65,6 +65,15 @@ export default function GeneSets({
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
   const [heat, setHeat] = useState(false)
   const [heatCluster, setHeatCluster] = useState(true)
+  /**
+   * Columns the reader has taken out of the heatmap.
+   *
+   * By cluster index and by group NAME, not by position in the identity list —
+   * so a group switched off stays off when the grouping changes from cell type
+   * to cell type × group, which is exactly when a reader wants to keep it off.
+   */
+  const [hideT, setHideT] = useState<Set<number>>(new Set())
+  const [hideC, setHideC] = useState<Set<string>>(new Set())
 
   /**
    * Every set in the enabled collections — names only.
@@ -471,10 +480,20 @@ export default function GeneSets({
               )}
             </div>
             {heat && used.length > 0 && (
-              <Figure name={`set_genes_${slug(name)}`} className="mt-1">
-                <SetHeatmap src={src} genes={used} ids={ids} groupBy={groupBy}
-                  rampDiv="rdbu" cluster={heatCluster} />
-              </Figure>
+              <>
+                <HeatFilter
+                  types={types} conds={d.conds} groupBy={groupBy}
+                  hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
+                  palKey={palKey}
+                />
+                <Figure name={`set_genes_${slug(name)}`} className="mt-1">
+                  <SetHeatmap
+                    src={src} genes={used} ids={ids} groupBy={groupBy}
+                    keep={i => !hideT.has(ids[i].ti) && !hideC.has(ids[i].cond ?? '')}
+                    rampDiv="rdbu" cluster={heatCluster}
+                  />
+                </Figure>
+              </>
             )}
           </>
         )}
@@ -593,6 +612,105 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
 const BAR_U = 46
 
 /**
+ * Which cell types and which groups the heatmap draws.
+ *
+ * Two axes rather than one list of identities. Grouped by cell type × group the
+ * identities are the PRODUCT — 133 clusters against 20 groups is 2 660 toggles,
+ * which is not a control, it is a second figure to read. Filtering the two
+ * axes separately is both smaller and what the reader is actually asking:
+ * "these four populations, in these two conditions".
+ *
+ * Hiding is by name and by cluster index, so it survives regrouping: turn a
+ * group off, switch from cell type to cell type × group, and it is still off.
+ */
+function HeatFilter({ types, conds, groupBy, hideT, hideC, onHideT, onHideC, palKey }: {
+  types: CellType[]
+  conds: string[]
+  groupBy: GroupBy
+  hideT: Set<number>
+  hideC: Set<string>
+  onHideT: (next: Set<number>) => void
+  onHideC: (next: Set<string>) => void
+  palKey: PaletteKey
+}) {
+  const [open, setOpen] = useState(false)
+  const showTypes = groupBy !== 'cond'
+  const showConds = groupBy !== 'type' && conds.length > 1
+
+  const toggleT = (ti: number) => {
+    const next = new Set(hideT)
+    if (!next.delete(ti)) next.add(ti)
+    // Never all of them: the figure would have no columns and the only way back
+    // would be this control, which is easy to scroll past.
+    if (next.size >= types.length) return
+    onHideT(next)
+  }
+  const toggleC = (c: string) => {
+    const next = new Set(hideC)
+    if (!next.delete(c)) next.add(c)
+    if (next.size >= conds.length) return
+    onHideC(next)
+  }
+
+  const nT = types.length - hideT.size
+  const nC = conds.length - hideC.size
+  const some = hideT.size > 0 || hideC.size > 0
+
+  return (
+    <div className="mt-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="chip" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+          {open ? '▾' : '▸'} Columns in this heatmap
+        </button>
+        <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+          {showTypes && `${nT} of ${types.length} cell type${types.length === 1 ? '' : 's'}`}
+          {showTypes && showConds && ' · '}
+          {showConds && `${nC} of ${conds.length} groups`}
+        </span>
+        {some && (
+          <button className="btn btn-quiet"
+            onClick={() => { onHideT(new Set()); onHideC(new Set()) }}>Show all</button>
+        )}
+      </div>
+      {open && (
+        <div className="panel mt-2">
+          {showTypes && (
+            <>
+              <div className="glabel mb-1.5">Cell types</div>
+              <div className="grid gap-1"
+                style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))' }}>
+                {types.map((t, ti) => {
+                  const on = !hideT.has(ti)
+                  return (
+                    <button key={t.key} onClick={() => toggleT(ti)} aria-pressed={on}
+                      className="type-toggle flex items-center gap-1.5 rounded-[--r-md] px-2 py-1 text-left"
+                      style={{ opacity: on ? 1 : 0.45 }}>
+                      <i className="sw flex-none" style={{ background: pal(ti, palKey) }} />
+                      <span className="min-w-0 flex-1 tx-micro">{t.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+          {showConds && (
+            <>
+              <div className={`glabel mb-1.5 ${showTypes ? 'mt-3' : ''}`}>Groups</div>
+              <div className="flex flex-wrap gap-1.5">
+                {conds.map(c => (
+                  <button key={c} className="chip" aria-pressed={!hideC.has(c)}
+                    onClick={() => toggleC(c)}>{c}</button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * The set's genes, one row each, across the identities.
  *
  * A module score answers "how strongly does this cell express the signature as
@@ -606,10 +724,20 @@ const BAR_U = 46
  * which is a property of the gene and not of the contrast; with it every row
  * says where THAT gene is highest, which is the comparison the rows are for.
  */
-function SetHeatmap({ src, genes, ids, groupBy, rampDiv, cluster }: {
+function SetHeatmap({ src, genes, ids, keep, groupBy, rampDiv, cluster }: {
   src: Source
   genes: string[]
+  /** Every identity, whether drawn or not — see `keep`. */
   ids: ReturnType<typeof identities>
+  /**
+   * Which of them to draw, by index into `ids`.
+   *
+   * The matrix is read over ALL of them and the columns are selected here,
+   * rather than re-reading the file whenever a cell type is switched off.
+   * Reading is the expensive half — on a streamed object it is a pass per
+   * window of genes — and it does not depend on which columns survive.
+   */
+  keep: (i: number) => boolean
   groupBy: GroupBy
   rampDiv: RampKey
   cluster: boolean
@@ -669,29 +797,51 @@ function SetHeatmap({ src, genes, ids, groupBy, rampDiv, cluster }: {
     return () => { live = false }
   }, [src, genes, ids, groupBy])
 
-  // Row-scaled. A row with no variance stays at zero rather than dividing by it
-  // — a gene detected nowhere in the panel is not "average everywhere", and a
-  // NaN here would take the whole figure's geometry down with it.
-  const z = useMemo(() => (matrix ?? []).map(row => {
+  /** The columns actually drawn, as indices into `ids`. */
+  const cols = useMemo(
+    () => ids.map((_id, i) => i).filter(keep), [ids, keep])
+
+  /**
+   * Row-scaled, over the KEPT columns only.
+   *
+   * Scaling before filtering would be the wrong order: a z-score says where a
+   * gene is highest AMONG THE COLUMNS SHOWN, so dropping a cell type has to
+   * change the scale. Otherwise a reader who removes the one population a gene
+   * is high in still sees that gene's remaining columns pushed to the blue end
+   * by a mean that includes a column no longer on screen.
+   *
+   * A row with no variance stays at zero rather than dividing by it — a gene
+   * detected nowhere in the panel is not "average everywhere", and a NaN here
+   * would take the figure's geometry with it.
+   */
+  const z = useMemo(() => (matrix ?? []).map(full => {
+    const row = cols.map(ci => full[ci])
     const m = row.reduce((a, b) => a + b, 0) / (row.length || 1)
     const sd = Math.sqrt(row.reduce((a, b) => a + (b - m) ** 2, 0) / (row.length || 1))
     return sd > 1e-9 ? row.map(v => Math.max(-2.5, Math.min(2.5, (v - m) / sd))) : row.map(() => 0)
-  }), [matrix])
+  }), [matrix, cols])
 
+  // Both trees are functions of `z`, and `z` is a function of which columns
+  // survive — so removing a cell type re-clusters rather than leaving a
+  // dendrogram describing an arrangement that is no longer on screen.
   const rowTree = useMemo(() => (cluster ? orderRows(z) : null), [cluster, z])
   const colTree = useMemo(() => {
-    if (!cluster || ids.length < 3) return null
-    return orderRows(ids.map((_c, ci) => z.map(row => row[ci])))
-  }, [cluster, z, ids])
+    if (!cluster || cols.length < 3) return null
+    return orderRows(cols.map((_c, ci) => z.map(row => row[ci])))
+  }, [cluster, z, cols])
 
   const rowAt = rowTree ? rowTree.order : genes.map((_g, i) => i)
-  const colAt = colTree ? colTree.order : ids.map((_c, i) => i)
+  // Positions within `cols`, so `cols[colAt[j]]` is the identity in column j.
+  const colAt = colTree ? colTree.order : cols.map((_c, i) => i)
 
   const TREE = 30
   const treeT = colTree ? TREE : 0
   const treeL = rowTree ? TREE : 0
   const PL = Math.max(80, widestW(genes, 10, false) + 14) + treeL
-  const labels = colAt.map(ci => (groupBy === 'both' ? ids[ci].full : ids[ci].label))
+  const labels = colAt.map(j => {
+    const id = ids[cols[j]]
+    return groupBy === 'both' ? id.full : id.label
+  })
   const band = cw
   const ax = axisTicks(labels, { band, leftAnchor: PL + band / 2, px: 9, startAt: 10, upright: 24 })
 
@@ -733,10 +883,17 @@ function SetHeatmap({ src, genes, ids, groupBy, rampDiv, cluster }: {
     )
   }
 
+  if (!cols.length) {
+    return (
+      <div className="empty mt-2">Every column is switched off — turn one back on above.</div>
+    )
+  }
+
   return (
     <div className="mt-2 overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: Math.min(W, 560) }}
-        role="img" aria-label={`Expression of ${genes.length} set genes across ${ids.length} identities`}>
+        role="img"
+        aria-label={`Expression of ${genes.length} set genes across ${cols.length} identities`}>
         {colTree && dendroLines(colTree, colAt.length * cw, treeT - 5).map((l, i) => (
           <line key={`c${i}`} x1={PL + l.x1} x2={PL + l.x2}
             y1={plotT - 3 - l.y1} y2={plotT - 3 - l.y2}
@@ -748,11 +905,11 @@ function SetHeatmap({ src, genes, ids, groupBy, rampDiv, cluster }: {
             stroke={AXIS_INK} strokeWidth={0.7} />
         ))}
 
-        {rowAt.map((gi, ri) => colAt.map((ci, cj) => (
-          <rect key={`${gi}-${ci}`} x={PL + cj * cw} y={plotT + ri * rh}
+        {rowAt.map((gi, ri) => colAt.map((j, cj) => (
+          <rect key={`${gi}-${cols[j]}`} x={PL + cj * cw} y={plotT + ri * rh}
             width={cw} height={rh}
-            fill={rampColor((z[gi][ci] + 2.5) / 5, rampDiv)}>
-            <title>{genes[gi]} in {ids[ci].full} — z {z[gi][ci].toFixed(2)}</title>
+            fill={rampColor((z[gi][j] + 2.5) / 5, rampDiv)}>
+            <title>{genes[gi]} in {ids[cols[j]].full} — z {z[gi][j].toFixed(2)}</title>
           </rect>
         )))}
 
@@ -761,15 +918,16 @@ function SetHeatmap({ src, genes, ids, groupBy, rampDiv, cluster }: {
           <text key={`g${gi}`} x={PL - treeL - 6} y={plotT + ri * rh + rh / 2 + 3.4} textAnchor="end"
             style={{ fontSize: 10, fill: AXIS_INK, fontStyle: 'italic' }}>{genes[gi]}</text>
         ))}
-        {colAt.map((ci, cj) => {
+        {colAt.map((j, cj) => {
           const cx = PL + cw * (cj + 0.5)
           return ax.rotate ? (
-            <text key={`i${ci}`} className="axis" transform={`rotate(${-ax.deg} ${cx} ${plotB + 10})`}
+            <text key={`i${cols[j]}`} className="axis"
+              transform={`rotate(${-ax.deg} ${cx} ${plotB + 10})`}
               x={cx} y={plotB + 10} textAnchor="end" style={{ fontSize: 9 }}>
               {ax.shown[cj]}
             </text>
           ) : (
-            <text key={`i${ci}`} className="axis" x={cx} y={plotB + 12} textAnchor="middle"
+            <text key={`i${cols[j]}`} className="axis" x={cx} y={plotB + 12} textAnchor="middle"
               style={{ fontSize: 9 }}>{ax.shown[cj]}</text>
           )
         })}

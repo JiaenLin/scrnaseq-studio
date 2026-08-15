@@ -140,6 +140,60 @@ console.log(`${NL}2 · CLICKING A VOLCANO POINT NAMES THE GENE`)
   }
 }
 
+console.log(`${NL}6 · THE HEATMAP'S COLUMNS CAN BE CHOSEN, AND RE-CLUSTER`)
+{
+  await page.getByRole('tab', { name: 'Gene sets' }).click()
+  await page.waitForTimeout(2600)
+  await page.locator('input[aria-label="Search gene sets"]').fill('mitotic cell cycle')
+  await page.waitForTimeout(800)
+  await page.locator('[role="option"]').first().click()
+  await page.waitForTimeout(3200)
+  await page.getByRole('button', { name: 'Show the genes', exact: true }).click()
+  await page.waitForTimeout(2000)
+
+  const read = () => page.evaluate(() => {
+    const svg = document.querySelector('svg[aria-label*="set genes"]')
+    if (!svg) return null
+    return {
+      cells: svg.querySelectorAll('rect').length,
+      lines: svg.querySelectorAll('line').length,
+      aria: svg.getAttribute('aria-label') ?? '',
+    }
+  })
+  const a = await read()
+  ok(a !== null && a.cells > 0, `the heatmap draws ${a?.cells ?? 0} cells`)
+  // Zeros are the bug this replaced: the figure has to have more than one
+  // colour in it, or it is a grid of neutral squares again.
+  const fills = await page.evaluate(() => new Set([...document.querySelectorAll(
+    'svg[aria-label*="set genes"] rect')].map(r => r.getAttribute('fill'))).size)
+  ok(fills > 1, `${fills} distinct colours, so it is not reading zeros`)
+
+  await page.getByRole('button', { name: /Columns in this heatmap/ }).click()
+  await page.waitForTimeout(400)
+  // Scoped to the filter's own panel: `.type-toggle` is also the gene-set
+  // picker's row class, and an unscoped selector changes the SET instead —
+  // which is how the first run of this check reported 12 genes becoming 18.
+  const panel = page.locator('div.panel').filter({ hasText: 'Cell types' }).last()
+  const toggles = panel.locator('.type-toggle')
+  const n = await toggles.count()
+  ok(n > 2, `${n} cell types can be switched off`)
+  await toggles.nth(0).click()
+  await page.waitForTimeout(400)
+  await toggles.nth(1).click()
+  await page.waitForTimeout(900)
+
+  const c = await read()
+  const genesOf = t => t.match(/of (\d+) set/)?.[1]
+  const idsOf = t => Number(t.match(/across (\d+)/)?.[1] ?? 0)
+  ok(genesOf(a.aria) === genesOf(c.aria), `the same ${genesOf(c.aria)} genes are drawn`)
+  ok(idsOf(c.aria) === idsOf(a.aria) - 2,
+    `identities went ${idsOf(a.aria)} → ${idsOf(c.aria)}`)
+  ok(c.cells < a.cells, `${a.cells - c.cells} cells dropped with them`)
+  // The point of the request: the tree describes what is on screen now.
+  ok(c.lines !== a.lines,
+    `the dendrograms were rebuilt (${a.lines} → ${c.lines} segments)`)
+}
+
 if (errors.length) console.log(`${NL}  ERRORS: ${errors.slice(0, 4).join(' | ')}`)
 console.log(`${NL}  ${failed === 0 ? 'all clear' : `${failed} failing check(s)`}`)
 await browser.close()
