@@ -45,8 +45,16 @@ if (!hasDbSpecies)
 # label, db_species, species, collection, subcollection
 GROUPS <- list(
   list("Hallmark",     "HS", "Homo sapiens", "H",  NA),
-  list("KEGG",         "HS", "Homo sapiens", "C2", "CP:KEGG_LEGACY"),
-  list("KEGG MEDICUS", "HS", "Homo sapiens", "C2", "CP:KEGG_MEDICUS"),
+  # BOTH KEGG subcollections, as one source — the rule rnaseq-studio applies
+  # (`grepl("^CP:KEGG", sub)`) and worth matching so the sibling studios cannot
+  # disagree about what "KEGG" contains.
+  #
+  # Shipping CP:KEGG_LEGACY alone was the defect: 186 sets frozen at the 2011
+  # snapshot, which is both too few to be worth switching on and skewed toward
+  # the metabolism and disease maps KEGG had curated by then. CP:KEGG_MEDICUS
+  # is the modern representation and adds 658 network and module sets. Together
+  # they are what a reader means by "KEGG".
+  list("KEGG",         "HS", "Homo sapiens", "C2", c("CP:KEGG_LEGACY", "CP:KEGG_MEDICUS")),
   list("Reactome",     "HS", "Homo sapiens", "C2", "CP:REACTOME"),
   list("WikiPathways", "HS", "Homo sapiens", "C2", "CP:WIKIPATHWAYS"),
   list("BioCarta",     "HS", "Homo sapiens", "C2", "CP:BIOCARTA"),
@@ -56,6 +64,27 @@ GROUPS <- list(
   list("Cell type",    "HS", "Homo sapiens", "C8", NA),
   list("Oncogenic",    "HS", "Homo sapiens", "C6", NA),
   list("Immunologic",  "HS", "Homo sapiens", "C7", "IMMUNESIGDB"),
+  # The rest of MSigDB. Every one of these was simply absent, which meant the
+  # studio shipped 20 367 of the human database's 35 361 sets and said nothing
+  # about the other 15 000 — a reader who switched every collection on still
+  # could not test PID, or a perturbation signature, or a TF's targets.
+  #
+  # Same merge rule as KEGG wherever one database is split across
+  # subcollections: TFT:GTRD with TFT:TFT_LEGACY, MIR:MIRDB with MIR:MIR_LEGACY.
+  # Different databases stay apart, however adjacent — C4's three are three
+  # different things and pooling them would misdescribe all of them.
+  list("PID",          "HS", "Homo sapiens", "C2", "CP:PID"),
+  list("Canonical (other)", "HS", "Homo sapiens", "C2", "CP"),
+  list("Perturbations", "HS", "Homo sapiens", "C2", "CGP"),
+  list("TF targets",   "HS", "Homo sapiens", "C3", c("TFT:GTRD", "TFT:TFT_LEGACY")),
+  list("miRNA targets", "HS", "Homo sapiens", "C3", c("MIR:MIRDB", "MIR:MIR_LEGACY")),
+  list("Cancer atlas (3CA)", "HS", "Homo sapiens", "C4", "3CA"),
+  list("Cancer modules", "HS", "Homo sapiens", "C4", "CM"),
+  list("Cancer neighbourhoods", "HS", "Homo sapiens", "C4", "CGN"),
+  list("Positional",   "HS", "Homo sapiens", "C1", NA),
+  list("Human phenotype", "HS", "Homo sapiens", "C5", "HPO"),
+  list("Vaccine response", "HS", "Homo sapiens", "C7", "VAX"),
+  list("Copy-number correlates", "HS", "Homo sapiens", "C9", NA),
 
   # Mouse KEGG does not exist natively: MSigDB does not redistribute KEGG for
   # mouse, and KEGG's own licence does not permit us to ship its data either.
@@ -63,7 +92,7 @@ GROUPS <- list(
   # legitimate route, and it is labelled as a projection everywhere it appears —
   # it is a claim about human pathways mapped onto mouse genes, which is a
   # weaker thing than a mouse annotation and must not be presented as one.
-  list("KEGG (orthologs)", "HS", "Mus musculus", "C2", "CP:KEGG_LEGACY"),
+  list("KEGG (orthologs)", "HS", "Mus musculus", "C2", c("CP:KEGG_LEGACY", "CP:KEGG_MEDICUS")),
   list("Hallmark",     "MM", "Mus musculus", "MH", NA),
   list("Reactome",     "MM", "Mus musculus", "M2", "CP:REACTOME"),
   list("WikiPathways", "MM", "Mus musculus", "M2", "CP:WIKIPATHWAYS"),
@@ -72,23 +101,50 @@ GROUPS <- list(
   list("GO:MF",        "MM", "Mus musculus", "M5", "GO:MF"),
   list("GO:CC",        "MM", "Mus musculus", "M5", "GO:CC"),
   list("Cell type",    "MM", "Mus musculus", "M8", NA),
-  list("Immunologic",  "MM", "Mus musculus", "M7", NA)
+  list("Immunologic",  "MM", "Mus musculus", "M7", NA),
+  # Mouse, likewise complete — but NATIVE only. The one projected collection
+  # stays the one exception it was declared to be; adding ten more would turn a
+  # labelled compromise into the way this library works.
+  list("Perturbations", "MM", "Mus musculus", "M2", "CGP"),
+  list("TF targets",   "MM", "Mus musculus", "M3", "GTRD"),
+  list("miRNA targets", "MM", "Mus musculus", "M3", "MIRDB"),
+  list("Mouse phenotype", "MM", "Mus musculus", "M5", "MPT"),
+  list("Positional",   "MM", "Mus musculus", "M1", NA)
 )
 
 slug <- function(s) gsub("^-|-$", "", gsub("[^a-z0-9]+", "-", tolower(s)))
 release <- NULL
 
+# An optional second argument names the sources to rebuild, so a change to one
+# collection does not cost a re-download of twenty-two.
+only <- if (length(args) > 1) args[-1] else NULL
+
 for (g in GROUPS) {
   label <- g[[1]]; db <- g[[2]]; sp <- g[[3]]; coll <- g[[4]]; sub <- g[[5]]
-  a <- list(db_species = db, species = sp)
-  if (newApi) {
-    a$collection <- coll
-    if (!is.na(sub)) a$subcollection <- sub
-  } else {
-    a$category <- coll
-    if (!is.na(sub)) a$subcategory <- sub
+  if (!is.null(only) && !(label %in% only)) next
+  # `sub` may name several subcollections belonging under one source. Queried
+  # separately and stacked, because msigdbr takes one at a time — and note that
+  # `is.na(sub)` on a vector returns a vector, which `if` would reject.
+  subs <- if (length(sub) == 1 && is.na(sub)) NA_character_ else sub
+  parts <- list()
+  for (sb in subs) {
+    a <- list(db_species = db, species = sp)
+    if (newApi) {
+      a$collection <- coll
+      if (!is.na(sb)) a$subcollection <- sb
+    } else {
+      a$category <- coll
+      if (!is.na(sb)) a$subcategory <- sb
+    }
+    one <- as.data.frame(do.call(msigdbr::msigdbr, a))
+    if (nrow(one)) {
+      one$.sub <- if (is.na(sb)) coll else paste0(coll, ":", sb)
+      parts[[length(parts) + 1]] <- one
+    }
   }
-  d <- as.data.frame(do.call(msigdbr::msigdbr, a))
+  if (!length(parts)) { message("[skip] ", db, " ", label, " — empty"); next }
+  common <- Reduce(intersect, lapply(parts, names))
+  d <- do.call(rbind, lapply(parts, function(x) x[, common, drop = FALSE]))
   if (!nrow(d)) { message("[skip] ", db, " ", label, " — empty"); next }
 
   # Column names have moved across versions; take whichever exists.
@@ -99,6 +155,9 @@ for (g in GROUPS) {
   if (!is.null(verCol) && !is.na(verCol)) release[[db]] <- as.character(d[[verCol]][1])
 
   sets <- split(d[[symCol]], d[[nameCol]])
+  # Which subcollection each set came from — with two merged under one source
+  # this can no longer be a constant.
+  subOf <- tapply(d$.sub, d[[nameCol]], function(x) x[1])
   species <- if (sp == "Mus musculus") "mouse" else "human"
   path <- file.path(out, sprintf("%s.%s.gmt", species, slug(label)))
   con <- file(path, "wb")
@@ -108,8 +167,7 @@ for (g in GROUPS) {
     if (!length(genes)) next
     # GMT: name, a description column, then the members. The description is the
     # collection so the packer can carry it, matching the Broad's own layout.
-    writeLines(paste(c(nm, paste0(coll, if (!is.na(sub)) paste0(":", sub) else ""), genes),
-                     collapse = "\t"), con, sep = "\n")
+    writeLines(paste(c(nm, subOf[[nm]], genes), collapse = "\t"), con, sep = "\n")
   }
   close(con)
   message(sprintf("[ ok ] %-6s %-14s %5d sets  %6d genes  -> %s",

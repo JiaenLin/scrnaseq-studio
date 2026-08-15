@@ -31,11 +31,31 @@ const OUT = outArg > 0 ? process.argv[outArg + 1] : 'public/genesets'
  * single-cell studio and they are the collection most likely to be useful here.
  */
 const ON = new Set(['Hallmark', 'KEGG', 'KEGG (orthologs)', 'Reactome', 'WikiPathways',
-  'GO:BP', 'Cell type'])
+  'PID', 'GO:BP', 'Cell type'])
 
-/** The order collections are offered in — broadest and most used first. */
-const ORDER = ['Hallmark', 'KEGG', 'KEGG (orthologs)', 'KEGG MEDICUS', 'Reactome',
-  'WikiPathways', 'BioCarta', 'GO:BP', 'GO:MF', 'GO:CC', 'Cell type', 'Oncogenic', 'Immunologic']
+/**
+ * The order collections are offered in, grouped the way MSigDB groups them.
+ *
+ * EVERY label the exporter writes must appear here. `unslug` is built from this
+ * list, so a collection missing from it is not offered in some other order —
+ * it is dropped from the manifest with no error at any point. That is how
+ * mouse KEGG went missing once already, and it is why this list is now checked
+ * against the input directory rather than trusted.
+ */
+const ORDER = [
+  // Curated pathways — what most people mean by "pathway enrichment".
+  'Hallmark', 'KEGG', 'KEGG (orthologs)', 'Reactome', 'WikiPathways', 'PID',
+  'BioCarta', 'Canonical (other)',
+  // Ontologies.
+  'GO:BP', 'GO:MF', 'GO:CC', 'Human phenotype', 'Mouse phenotype',
+  // Signatures from experiments.
+  'Cell type', 'Perturbations', 'Immunologic', 'Vaccine response', 'Oncogenic',
+  // Regulatory targets.
+  'TF targets', 'miRNA targets',
+  // Cancer and genome position.
+  'Cancer atlas (3CA)', 'Cancer modules', 'Cancer neighbourhoods',
+  'Copy-number correlates', 'Positional',
+]
 
 /**
  * Collections that are NOT a native annotation for their species.
@@ -129,10 +149,21 @@ const manifest = { generated: new Date().toISOString().slice(0, 10), msigdbr: re
 let rawTotal = 0, gzTotal = 0
 
 for (const species of ['human', 'mouse']) {
-  const files = readdirSync(IN)
+  const all = readdirSync(IN)
     .filter(f => f.startsWith(`${species}.`) && f.endsWith('.gmt'))
     .map(f => ({ file: f, source: unslug.get(basename(f, '.gmt').slice(species.length + 1)) }))
-    .filter(f => f.source)
+  // Loudly. A GMT whose label is not in ORDER used to be filtered away here in
+  // silence, so a collection could be exported, packed against nothing, and be
+  // absent from the app with every step reporting success. It has happened —
+  // mouse KEGG, over a trailing dash in one of the two slug functions.
+  const orphans = all.filter(f => !f.source).map(f => f.file)
+  if (orphans.length) {
+    console.error(`\n  ${species}: ${orphans.length} GMT file(s) match no label in ORDER:`)
+    for (const o of orphans) console.error(`    ${o}`)
+    console.error('  Add them to ORDER in this file, or delete them from the input.\n')
+    process.exitCode = 1
+  }
+  const files = all.filter(f => f.source)
     .sort((a, b) => ORDER.indexOf(a.source) - ORDER.indexOf(b.source))
   if (!files.length) continue
 

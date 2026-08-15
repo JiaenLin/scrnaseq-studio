@@ -19,19 +19,10 @@
         {
           "source": "KEGG",
           "file": "human.kegg.gs",
-          "nSets": 186,
-          "nGenes": 5246,
-          "bytes": 40262,
+          "nSets": 844,
+          "nGenes": 6031,
+          "bytes": 71149,
           "on": true,
-          "projected": false
-        },
-        {
-          "source": "KEGG MEDICUS",
-          "file": "human.kegg-medicus.gs",
-          "nSets": 658,
-          "nGenes": 2788,
-          "bytes": 35793,
-          "on": false,
           "projected": false
         },
         {
@@ -53,11 +44,29 @@
           "projected": false
         },
         {
+          "source": "PID",
+          "file": "human.pid.gs",
+          "nSets": 196,
+          "nGenes": 2534,
+          "bytes": 24911,
+          "on": true,
+          "projected": false
+        },
+        {
           "source": "BioCarta",
           "file": "human.biocarta.gs",
           "nSets": 292,
           "nGenes": 1509,
           "bytes": 15811,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Canonical (other)",
+          "file": "human.canonical-other.gs",
+          "nSets": 19,
+          "nGenes": 349,
+          "bytes": 2719,
           "on": false,
           "projected": false
         },
@@ -89,12 +98,48 @@
           "projected": false
         },
         {
+          "source": "Human phenotype",
+          "file": "human.human-phenotype.gs",
+          "nSets": 5793,
+          "nGenes": 5172,
+          "bytes": 1076205,
+          "on": false,
+          "projected": false
+        },
+        {
           "source": "Cell type",
           "file": "human.cell-type.gs",
           "nSets": 866,
           "nGenes": 20573,
           "bytes": 428379,
           "on": true,
+          "projected": false
+        },
+        {
+          "source": "Perturbations",
+          "file": "human.perturbations.gs",
+          "nSets": 3555,
+          "nGenes": 21766,
+          "bytes": 1083748,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Immunologic",
+          "file": "human.immunologic.gs",
+          "nSets": 4872,
+          "nGenes": 20450,
+          "bytes": 2335337,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Vaccine response",
+          "file": "human.vaccine-response.gs",
+          "nSets": 347,
+          "nGenes": 13434,
+          "bytes": 153513,
+          "on": false,
           "projected": false
         },
         {
@@ -107,11 +152,65 @@
           "projected": false
         },
         {
-          "source": "Immunologic",
-          "file": "human.immunologic.gs",
-          "nSets": 4872,
-          "nGenes": 20450,
-          "bytes": 2335337,
+          "source": "TF targets",
+          "file": "human.tf-targets.gs",
+          "nSets": 1116,
+          "nGenes": 28062,
+          "bytes": 1055670,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "miRNA targets",
+          "file": "human.mirna-targets.gs",
+          "nSets": 2598,
+          "nGenes": 16871,
+          "bytes": 912913,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Cancer atlas (3CA)",
+          "file": "human.cancer-atlas-3ca.gs",
+          "nSets": 148,
+          "nGenes": 2992,
+          "bytes": 27479,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Cancer modules",
+          "file": "human.cancer-modules.gs",
+          "nSets": 431,
+          "nGenes": 8359,
+          "bytes": 116061,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Cancer neighbourhoods",
+          "file": "human.cancer-neighbourhoods.gs",
+          "nSets": 427,
+          "nGenes": 4883,
+          "bytes": 82761,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Copy-number correlates",
+          "file": "human.copy-number-correlates.gs",
+          "nSets": 62,
+          "nGenes": 3396,
+          "bytes": 24697,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Positional",
+          "file": "human.positional.gs",
+          "nSets": 302,
+          "nGenes": 43595,
+          "bytes": 241358,
           "on": false,
           "projected": false
         }
@@ -134,9 +233,9 @@
         {
           "source": "KEGG (orthologs)",
           "file": "mouse.kegg-orthologs.gs",
-          "nSets": 186,
+          "nSets": 835,
           "nGenes": 5032,
-          "bytes": 39415,
+          "bytes": 64304,
           "on": true,
           "projected": true
         },
@@ -195,6 +294,15 @@
           "projected": false
         },
         {
+          "source": "Mouse phenotype",
+          "file": "mouse.mouse-phenotype.gs",
+          "nSets": 92,
+          "nGenes": 1018,
+          "bytes": 10594,
+          "on": false,
+          "projected": false
+        },
+        {
           "source": "Cell type",
           "file": "mouse.cell-type.gs",
           "nSets": 233,
@@ -204,11 +312,47 @@
           "projected": false
         },
         {
+          "source": "Perturbations",
+          "file": "mouse.perturbations.gs",
+          "nSets": 984,
+          "nGenes": 18567,
+          "bytes": 347078,
+          "on": false,
+          "projected": false
+        },
+        {
           "source": "Immunologic",
           "file": "mouse.immunologic.gs",
           "nSets": 787,
           "nGenes": 5981,
           "bytes": 139075,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "TF targets",
+          "file": "mouse.tf-targets.gs",
+          "nSets": 279,
+          "nGenes": 23587,
+          "bytes": 464152,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "miRNA targets",
+          "file": "mouse.mirna-targets.gs",
+          "nSets": 1768,
+          "nGenes": 16488,
+          "bytes": 538294,
+          "on": false,
+          "projected": false
+        },
+        {
+          "source": "Positional",
+          "file": "mouse.positional.gs",
+          "nSets": 341,
+          "nGenes": 41393,
+          "bytes": 228939,
           "on": false,
           "projected": false
         }

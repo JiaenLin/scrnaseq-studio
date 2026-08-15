@@ -4,7 +4,7 @@ import { indexFor, parse } from '../src/lib/msigdb.ts'
 import { oraIndexed } from '../src/lib/ora.ts'
 import { detectSpecies, matchRate } from '../src/lib/species.ts'
 import { gunzipSync } from 'fflate'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 // The real library, off disk. These are the assets the app ships, so a broken
 // generator or a corrupted file fails here rather than in a browser.
@@ -93,6 +93,58 @@ check('source filter is honoured', (() => {
   return runORA(GENES, DEFS, GENES, { minSize: 1, maxSize: 999, sources: only })
     .every(r => r.source === 'Hallmark')
 })(), true)
+
+console.log('\nEVERY COLLECTION MSIGDB HAS, NOT A SELECTION OF THEM')
+{
+  // What this pins: the studio shipped 20 367 of the human database's 35 361
+  // sets and said nothing about the rest — PID, perturbations, TF and miRNA
+  // targets, phenotypes and the cancer collections were absent entirely, and
+  // KEGG shipped only its frozen 2011 subcollection. A reader who switched
+  // every collection on still could not test them.
+  //
+  // The numbers are MSigDB 2026.1's own, read out of msigdbr at export time.
+  // If a release moves them this test fails, which is the point: it should be a
+  // decision to ship a different amount of the database, never a drift.
+  const man = JSON.parse(readFileSync('public/genesets/manifest.json', 'utf8'))
+  const total = sp => man.species[sp].sources.reduce((a, c) => a + c.nSets, 0)
+  const has = (sp, name) => man.species[sp].sources.find(c => c.source === name)
+
+  check('human ships all 35 361 sets', total('human'), 35361)
+  // Mouse is 17 068 native plus the one labelled ortholog projection.
+  check('mouse ships all 17 068 native sets, plus KEGG orthologs',
+    total('mouse'), 17068 + 835)
+
+  check('KEGG is both subcollections, not just the legacy snapshot',
+    has('human', 'KEGG').nSets, 186 + 658)
+  check('and the mouse projection is too', has('mouse', 'KEGG (orthologs)').nSets, 835)
+  check('KEGG MEDICUS is no longer a separate source',
+    has('human', 'KEGG MEDICUS'), undefined)
+
+  // The collections that were missing outright.
+  for (const [sp, name, n] of [
+    ['human', 'PID', 196], ['human', 'Perturbations', 3555],
+    ['human', 'TF targets', 506 + 610], ['human', 'miRNA targets', 2377 + 221],
+    ['human', 'Human phenotype', 5793], ['human', 'Vaccine response', 347],
+    ['human', 'Cancer atlas (3CA)', 148], ['human', 'Positional', 302],
+    ['mouse', 'Perturbations', 984], ['mouse', 'TF targets', 279],
+    ['mouse', 'miRNA targets', 1768], ['mouse', 'Mouse phenotype', 92],
+    ['mouse', 'Positional', 341],
+  ]) check(`${sp} ${name} is present and complete`, has(sp, name)?.nSets, n)
+
+  // Only one collection may claim to be something it is not.
+  const projected = [...man.species.human.sources, ...man.species.mouse.sources]
+    .filter(c => c.projected).map(c => c.source)
+  check('exactly one projected collection, and it says so in its name',
+    projected, ['KEGG (orthologs)'])
+
+  // Every file the manifest names must exist, or a collection is offered and
+  // then fails to load when it is switched on.
+  const missing = []
+  for (const sp of ['human', 'mouse'])
+    for (const c of man.species[sp].sources)
+      if (!existsSync(`public/genesets/${c.file}`)) missing.push(c.file)
+  check('every collection the manifest offers has a file', missing, [])
+}
 
 console.log('\nTHE MSIGDB ASSETS')
 check('the mouse hallmark collection is the size MSigDB publishes',
