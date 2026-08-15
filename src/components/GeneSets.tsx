@@ -4,7 +4,7 @@ import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf } from '../lib/chart.ts'
 import type { LibraryState } from '../lib/genesets.ts'
-import type { Species } from '../lib/species.ts'
+import type { Detection, Species } from '../lib/species.ts'
 import GeneSetSources from './GeneSetSources.tsx'
 import { parseGeneList } from '../lib/genes.ts'
 import {
@@ -29,7 +29,7 @@ const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
 export default function GeneSets({
   src, types, ct, emb, palKey, rampKey, onPickGene, lib, species, sources, onSources,
-  scoreRan, onScoreRan,
+  detected, scoreRan, onScoreRan,
 }: {
   src: Source
   types: CellType[]
@@ -43,6 +43,7 @@ export default function GeneSets({
   species: Species
   sources: string[]
   onSources: (next: string[]) => void
+  detected: Detection | null
   /** The gene list the reader has actually asked to score, joined. */
   scoreRan: string | null
   onScoreRan: (key: string | null) => void
@@ -184,7 +185,7 @@ export default function GeneSets({
       >
         {!useCustom && (
           <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
-            background={GENES} />
+            background={GENES} detected={detected} />
         )}
 
         <div className="flex flex-wrap items-center gap-2">

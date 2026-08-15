@@ -89,10 +89,17 @@ console.log('\nSWITCHING SPECIES LOADS THE OTHER LIBRARY')
   const survived = Number((s2 ?? '').match(/of which\s*([\d,]+)/)?.[1]?.replace(/,/g, '') ?? -1)
   ok(survived > 0, `the wrong library still leaves ${survived.toLocaleString()} sets `
     + `(vs ${surviving.toLocaleString()}) — a count cannot catch this`)
-  const warn = await page.getByText(/may be for the wrong organism/).count()
-  ok(warn === 1, 'and the spelling check warns that the organism is wrong')
-  const pct = await page.getByText(/% of this object/).textContent()
-  ok(/Only 0\.0%/.test(pct ?? ''), `it reports the real overlap — "${pct?.trim().slice(0, 80)}…"`)
+  // The check is a disagreement with what the object's own names say, not a
+  // coverage ratio: a ratio measured how much of the transcriptome the enabled
+  // collections annotate, which on a real mouse object with Hallmark alone is
+  // 12.5% and says nothing about species at all.
+  const warn = await page.getByText(/this object looks like/).count()
+  ok(warn === 1, 'the species check notices the object disagrees with the choice')
+  const msg = await page.getByText(/this object looks like/).textContent()
+  ok(/looks like mouse/.test(msg ?? ''), `and says which — "${msg?.trim().slice(0, 96)}…"`)
+  // And the coverage line is present, labelled as coverage.
+  const cov = await page.getByText(/annotate \d+% of the genes/).count()
+  ok(cov === 1, 'coverage is reported separately, as coverage')
   await page.screenshot({ path: `${shots}/genesets-wrong-species.png` })
 }
 

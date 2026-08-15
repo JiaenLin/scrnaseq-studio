@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import { useSetIndex, type LibraryState } from '../lib/genesets.ts'
-import type { Species } from '../lib/species.ts'
+import type { Detection, Species } from '../lib/species.ts'
 import { oraIndexed, type ORAResult } from '../lib/ora.ts'
 import GeneSetSources from './GeneSetSources.tsx'
 import { maxOf, sci } from '../lib/chart.ts'
@@ -18,7 +18,7 @@ type Direction = 'both' | 'up' | 'down'
 
 export default function Enrichment({
   rows, threshold, ctrl, cs, label, rampKey, onPickGene,
-  lib, species, sources, onSources,
+  lib, species, sources, onSources, detected,
 }: {
   rows: DERow[]
   threshold: { padj: number; lfc: number }
@@ -32,6 +32,7 @@ export default function Enrichment({
   species: Species
   sources: string[]
   onSources: (next: string[]) => void
+  detected: Detection | null
 }) {
   const [dir, setDir] = useState<Direction>('both')
   const [top, setTop] = useState(15)
@@ -103,7 +104,7 @@ export default function Enrichment({
         : 'Loading the gene sets…'}
     >
       <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
-        index={index} background={tested} />
+        index={index} background={tested} detected={detected} />
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="glabel">Direction</span>

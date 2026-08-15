@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { LibraryState, SetIndex } from '../lib/genesets.ts'
-import { matchRate, type Species } from '../lib/species.ts'
+import type { Detection, Species } from '../lib/species.ts'
 
 /**
  * Which MSigDB collections are in play, and what state the library is in.
@@ -17,7 +17,7 @@ import { matchRate, type Species } from '../lib/species.ts'
  * as a pause.
  */
 export default function GeneSetSources({
-  lib, species, sources, onSources, index, background,
+  lib, species, sources, onSources, index, background, detected,
 }: {
   lib: LibraryState
   species: Species
@@ -32,31 +32,52 @@ export default function GeneSetSources({
    * and passes null.
    */
   index?: SetIndex | null
-  /** The object's own gene names, for the spelling check below. */
+  /** The object's own gene names, for the coverage figure below. */
   background: readonly string[]
+  /** What the object's names say it is, for the species check. */
+  detected: Detection | null
 }) {
   const avail = lib.manifest?.species[species]?.sources ?? []
 
   /**
-   * Does this library spell genes the way this object does?
+   * How much of this object any enabled set covers.
    *
-   * It has to be asked, because getting it wrong is not visible in the results.
-   * Matching is deliberately case-insensitive — exporters upper-case things —
-   * so a mouse object run against the human library still matches most of its
-   * genes and comes back with a full page of enrichments. On the time-course
-   * demo the human library leaves MORE sets standing than the mouse one, so
-   * the count cannot warn anybody either.
+   * This is COVERAGE, and it used to be presented as a species check — "only
+   * 12.5% of this object's genes are spelled the way the Mouse library spells
+   * them", on an object that is unmistakably mouse. It was measuring the wrong
+   * thing entirely: with Hallmark alone enabled the library holds 4 291 symbols
+   * and the object measures 34 290, so 12.5% is arithmetic, not a diagnosis.
+   * Turn on the six default collections and the same object reads 58.8%.
    *
-   * Compared case-sensitively the two separate completely: 98.6% against the
-   * library built for the object, 0% against the other one. That is the number
-   * worth showing, and it is the only thing here that can catch a wrong pick.
+   * Which species the sets are for is a different question with a better
+   * answer, one line down: the object's own names already settle it.
    */
-  const fit = useMemo(() => {
+  const covered = useMemo(() => {
     if (!lib.collections.length) return null
     const syms = new Set<string>()
-    for (const c of lib.collections) for (const g of c.symbols) syms.add(g)
-    return matchRate(background, syms)
+    for (const c of lib.collections) for (const g of c.symbols) syms.add(g.toUpperCase())
+    if (!background.length) return null
+    let hit = 0
+    for (const g of background) if (syms.has(g.toUpperCase())) hit++
+    return hit / background.length
   }, [lib.collections, background])
+
+  /**
+   * The species check that is actually a species check.
+   *
+   * Not a ratio: a disagreement between what the reader has chosen and what the
+   * object's own gene names say. On the object that prompted this, detection
+   * read ENSMUSG accessions at 100% confidence while a coverage ratio was
+   * calling it 12.5% — one of those is evidence about a species and the other
+   * is evidence about a collection.
+   *
+   * Only raised when detection had something real to go on. An object whose
+   * symbols were upper-cased upstream genuinely looks human, and shouting at
+   * someone who has correctly overridden that is worse than staying quiet.
+   */
+  const wrongSpecies = detected
+    && detected.species !== species
+    && (detected.from === 'accession' || (detected.from === 'symbols' && detected.support > 0.8))
   const toggle = (name: string) => {
     const on = sources.includes(name)
     // Never all off: the card below would have nothing to test against and the
@@ -102,13 +123,19 @@ export default function GeneSetSources({
                     {chosen.length === 1 ? '' : 's'}.</>}
       </p>
 
-      {fit !== null && fit < 0.25 && (
+      {covered !== null && (
+        <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+          These collections annotate {(covered * 100).toFixed(0)}% of the genes this object
+          measures. That fraction is the annotated background, and turning more collections on
+          raises it.
+        </p>
+      )}
+
+      {wrongSpecies && detected && (
         <p className="mt-1.5 tx-micro" style={{ color: 'var(--warn)' }}>
-          <b>These sets may be for the wrong organism.</b> Only{' '}
-          {(fit * 100).toFixed(1)}% of this object&rsquo;s genes are spelled the way the{' '}
-          {lib.manifest?.species[species]?.label ?? species} library spells them. Matching
-          ignores case, so results will still appear — they will just be answering a
-          question about a different species.
+          <b>These sets are for {lib.manifest?.species[species]?.label ?? species}, and this
+          object looks like {detected.species}</b> — {detected.why}. Matching ignores case, so
+          results will still appear; they will be answering a question about a different species.
         </p>
       )}
     </div>

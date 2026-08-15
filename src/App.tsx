@@ -20,7 +20,7 @@ import GeneSets from './components/GeneSets.tsx'
 import Methods from './components/Methods.tsx'
 import ViewBoundary from './components/Boundary.tsx'
 import ViewMenu from './components/ViewMenu.tsx'
-import { detectSpecies, type Species } from './lib/species.ts'
+import { detectSpecies, type Detection, type Species } from './lib/species.ts'
 import { defaultSources, useGeneSets } from './lib/genesets.ts'
 import { Empty } from './components/Ui.tsx'
 
@@ -222,7 +222,7 @@ export default function App() {
   // fires on the initial value, not on the eventual one.
   const [species, setSpecies] = useState<Species | null>(null)
   const changeSpecies = (next: Species) => { setSpecies(next); setSrcs([]) }
-  const [speciesWhy, setSpeciesWhy] = useState('')
+  const [detected, setDetected] = useState<Detection | null>(null)
   const [srcs, setSrcs] = useState<string[]>([])
 
   // Bumped by the error boundary's Try again, and part of its key, so that one
@@ -307,7 +307,7 @@ export default function App() {
     setScoreRan(null)
     const det = detectSpecies(next.names.display, next.names.other)
     setSpecies(det.species)
-    setSpeciesWhy(det.why)
+    setDetected(det)
     // Cleared rather than defaulted here: the manifest may not have arrived,
     // and the effect below fills them in for whichever species this turns out
     // to be. Carrying the previous object's choice across would be worse — the
@@ -619,7 +619,7 @@ export default function App() {
                   <select
                     className="sel flex-none" value={species ?? ''}
                     aria-label="Species for the gene set library"
-                    title={speciesWhy ? `Detected: ${speciesWhy}` : undefined}
+                    title={detected ? `Detected: ${detected.why}` : undefined}
                     onChange={e => changeSpecies(e.target.value as Species)}
                   >
                     {Object.entries(lib.manifest?.species ?? {}).map(([k, v]) => (
@@ -749,6 +749,7 @@ export default function App() {
                     // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
                     // 0h" on every other figure in the same session.
                     label={`${condLabel(cs)} vs ${condLabel(ctrl)} · ${ct}`}
+                    detected={detected}
                     rampKey={rampKey} onPickGene={pickGene} />
                 )} />
             ) : tab === 'expr' ? (
@@ -765,6 +766,7 @@ export default function App() {
               <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
                 onPickGene={pickGene}
                 lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
+                detected={detected}
                 scoreRan={scoreRan} onScoreRan={setScoreRan} />
             ) : (
               <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
