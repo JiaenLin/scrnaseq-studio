@@ -22,7 +22,7 @@ import { downloadCsv, slug } from '../lib/download.ts'
 import { Card, Mono, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import { useJob } from '../lib/compute.ts'
-import Progress from './Progress.tsx'
+import Progress, { Failed } from './Progress.tsx'
 
 /**
  * The card between deciding to compute and the first word back from the worker.
@@ -196,7 +196,7 @@ export default function GeneSets({
   // the accumulation belongs to the SET. Splitting them is what makes the second
   // signature on an atlas cost one pass instead of two — the bins are already
   // remembered under a key that does not change.
-  const { value: avg, pass: binPass } = useJob<'averages'>(
+  const { value: avg, pass: binPass, failed: binFailed, retry: binRetry } = useJob<'averages'>(
     src, 'averages', 'gene averages', used.length > 0 && armed,
     () => geneAveragesSync(src) ?? new Float64Array(src.genes.length),
     () => ({ kind: 'averages', ...averagesSpec(src) }),
@@ -213,7 +213,7 @@ export default function GeneSets({
   // Every cell × every weighted gene. Keyed on the genes themselves, so
   // switching back to a set already scored costs nothing, and switching away
   // mid-pass abandons it rather than letting it land on top of the new answer.
-  const { value: scores, pass: scorePass } = useJob<'score'>(
+  const { value: scores, pass: scorePass, failed: scoreFailed, retry: scoreRetry } = useJob<'score'>(
     src, 'score', `score|${key}`, plan !== null && armed,
     () => scoreInline(src, plan!),
     // The engine takes the buffer, so it gets a copy — the plan outlives the job.
@@ -223,6 +223,8 @@ export default function GeneSets({
     }),
   )
   const pass = binPass ?? scorePass
+  const failed = binFailed ?? scoreFailed
+  const retry = binFailed ? binRetry : scoreRetry
   const empty = useMemo(() => new Float32Array(d.cells.length), [d.cells.length])
   const scoreOf = scores ?? empty
 
@@ -344,7 +346,9 @@ export default function GeneSets({
           {SCORE_DEFAULTS.nbin} expression bins
         </p>
 
-        {waiting ? (
+        {failed ? (
+          <Failed error={failed} onRetry={retry} what="The module score" />
+        ) : waiting ? (
           <Progress pass={pass ?? STARTING} title={useCustom
             ? `Scoring ${requested.length} gene${requested.length === 1 ? '' : 's'} across every cell`
             : `Scoring ${name} across every cell`} />

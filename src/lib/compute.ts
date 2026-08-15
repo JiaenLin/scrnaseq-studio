@@ -180,6 +180,21 @@ function tasksFor(src: Source): Map<string, Task> {
   return m
 }
 
+/**
+ * Forget a slot's task, so the next ask builds a fresh one.
+ *
+ * A task that settled with an error keeps that error, and `taskFor` returns the
+ * live task whenever the key matches — so without this, retrying the same
+ * question hands back the same failure without going near the worker.
+ */
+function dropTask(src: Source, slot: string) {
+  const all = TASKS.get(src)
+  const live = all?.get(slot)
+  if (!live) return
+  live.running.cancel()
+  all?.delete(slot)
+}
+
 function taskFor(src: Source, slot: string, key: string, make: () => Job): Task | null {
   const all = tasksFor(src)
   const live = all.get(slot)
@@ -273,7 +288,14 @@ export function useJob<K extends Job['kind']>(
   enabled: boolean,
   inline: () => ResultOf[K],
   job: () => Extract<Job, { kind: K }>,
-): { value: ResultOf[K] | null; pass: Pass | null } {
+): {
+  value: ResultOf[K] | null
+  pass: Pass | null
+  /** The pass failed. The card shows this and offers `retry` — see below. */
+  failed: Error | null
+  /** Discard the failure and ask again. */
+  retry: () => void
+} {
   // Held in refs so a render caused by progress cannot restart the job.
   const inlineRef = useRef(inline)
   const jobRef = useRef(job)
@@ -288,8 +310,12 @@ export function useJob<K extends Job['kind']>(
 
   const [done, setDone] = useState<{ key: string; value: ResultOf[K] } | null>(null)
   const [pass, setPass] = useState<Pass | null>(null)
+  const [failed, setFailed] = useState<Error | null>(null)
+  /** Bumped by `retry`, to re-run the effect on the same key. */
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    setFailed(null)
     if (!enabled || !src.remote) { setPass(null); return }
     const cached = cacheGet(src, key)
     if (cached) {
@@ -303,8 +329,20 @@ export function useJob<K extends Job['kind']>(
     const settle = (t: Task) => {
       if (t.error) {
         setPass(null)
-        // Rethrow where React can show it rather than swallowing a damaged file.
-        setDone(() => { throw t.error })
+        /**
+         * Reported, not thrown.
+         *
+         * This used to rethrow into the render so the error boundary caught it,
+         * which unmounts the whole view — for a pass that may well succeed on a
+         * second attempt, because the common cause is the browser reclaiming a
+         * worker under memory pressure rather than anything wrong with the
+         * file. The reader lost the tab and every control they had set on it.
+         *
+         * The card shows the message and a way to try again instead. A file
+         * that is genuinely damaged says so every time and nothing is hidden;
+         * a transient failure costs one click.
+         */
+        setFailed(t.error)
       } else if (t.value !== undefined) {
         setPass(null)
         setDone({ key, value: t.value as ResultOf[K] })
@@ -317,14 +355,27 @@ export function useJob<K extends Job['kind']>(
     // Only stop listening. Ending the pass is `taskFor`'s decision, and it makes
     // it on the evidence that matters: whether the question has changed.
     return () => { task.listeners.delete(settle) }
-  }, [src, slot, key, enabled])
+  }, [src, slot, key, enabled, attempt])
 
-  if (!enabled) return { value: null, pass: null }
-  if (!src.remote) return { value: memo, pass: null }
+  const retry = () => {
+    // Drop the failed task so taskFor builds a fresh one rather than handing
+    // back the one that is already holding an error.
+    dropTask(src, slot)
+    setFailed(null)
+    setAttempt(a => a + 1)
+  }
+
+  if (!enabled) return { value: null, pass: null, failed: null, retry }
+  if (!src.remote) return { value: memo, pass: null, failed: null, retry }
   // Both readings are keyed, and only this key's answer can come out of either:
   // `done` carries the key it was settled under, and `peek` is a lookup by key.
   // A late answer to a withdrawn question has nowhere to appear in either.
-  if (done?.key === key) return { value: done.value, pass }
+  if (done?.key === key) return { value: done.value, pass, failed, retry }
   const hit = cachePeek(src, key)
-  return { value: hit ? (hit.value as ResultOf[K]) : null, pass: hit ? null : pass }
+  return {
+    value: hit ? (hit.value as ResultOf[K]) : null,
+    pass: hit ? null : pass,
+    failed,
+    retry,
+  }
 }

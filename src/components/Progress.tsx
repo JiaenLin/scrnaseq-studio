@@ -46,3 +46,34 @@ export default function Progress({ pass, title }: { pass: Pass; title: string })
     </div>
   )
 }
+
+/**
+ * A pass that failed, and the way to ask again.
+ *
+ * This used to be thrown into the render so the error boundary caught it, which
+ * unmounts the whole view. But the common cause is not a damaged file — it is
+ * the browser reclaiming a worker under memory pressure on an object of this
+ * size, and the same pass usually succeeds on a second attempt. Losing the tab
+ * and every control set on it is a large price for that.
+ *
+ * The engine now replaces a dead worker rather than latching, so "try again"
+ * really is a fresh attempt on a live worker rather than a retry against the
+ * same corpse. A file that is genuinely damaged reports the same message every
+ * time, and nothing is hidden.
+ */
+export function Failed({ error, onRetry, what }: {
+  error: Error
+  onRetry: () => void
+  /** What was being computed, in the reader's terms. */
+  what: string
+}) {
+  return (
+    <div className="note note-warn mt-3.5">
+      <b>{what} did not finish.</b>{' '}
+      <span style={{ color: 'var(--ink-2)' }}>{error.message}</span>
+      <div className="mt-2.5">
+        <button className="btn btn-primary" onClick={onRetry}>Try again</button>
+      </div>
+    </div>
+  )
+}

@@ -13,7 +13,7 @@ import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { Card, Chips, Empty } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import { useJob } from '../lib/compute.ts'
-import Progress from './Progress.tsx'
+import Progress, { Failed } from './Progress.tsx'
 
 /**
  * The same grid `dotGrid` builds, filled one window of genes at a time.
@@ -81,7 +81,7 @@ export default function Markers({
   //
   // Two lines, and neither of them knows where the work happens. A demo object
   // computes in the useMemo; the atlas computes in the worker and reports back.
-  const { value: results, pass } = useJob<'markers'>(
+  const { value: results, pass, failed, retry } = useJob<'markers'>(
     src, 'markers', `markers|${wantKey}`, go,
     () => deMarkersAll(src),
     () => ({ kind: 'markers', ...markersSpec(src, null, want.size ? chosen : null) }),
@@ -137,7 +137,9 @@ export default function Markers({
   if (pass) {
     return (
       <Card eyebrow="Markers · one vs rest">
-        <Progress pass={pass} title="One Wilcoxon per cluster, against every other cell" />
+        {failed
+          ? <Failed error={failed} onRetry={retry} what="The marker pass" />
+          : <Progress pass={pass} title="One Wilcoxon per cluster, against every other cell" />}
       </Card>
     )
   }

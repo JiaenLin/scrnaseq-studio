@@ -6,7 +6,7 @@ import {
   MIN_REPS_PB, PCT_GATE, pseudobulkColumns, sameOrOverlapping, wilcoxSpec, type DEResult,
 } from '../lib/stats.ts'
 import { useJob } from '../lib/compute.ts'
-import Progress from './Progress.tsx'
+import Progress, { Failed } from './Progress.tsx'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt, maxOf } from '../lib/chart.ts'
 import { condKey } from '../lib/source.ts'
@@ -349,7 +349,7 @@ export function Differential(p: StatsProps & {
   /** Enrichment is wired in App — it needs the gene universe and the palette. */
   enrichment: (rows: DERow[]) => React.ReactNode
 }) {
-  const { value: de, pass } = useDE(p)
+  const { value: de, pass, failed, retry } = useDE(p)
   const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p, de)
   return (
     <Card>
@@ -358,7 +358,8 @@ export function Differential(p: StatsProps & {
         <span className="eyebrow">{contrastLabel(p)}</span>
       </div>
       <MethodBar {...p} />
-      {blocked ?? (pass ? <Progress pass={pass} title={testing(p)} /> : de && (
+      {blocked ?? (failed ? <Failed error={failed} onRetry={retry} what="This contrast" />
+        : pass ? <Progress pass={pass} title={testing(p)} /> : de && (
         <>
           <ThresholdBar {...p} />
           {p.view === 'table' ? <DEGTable {...p} de={de} />

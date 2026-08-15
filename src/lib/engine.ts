@@ -40,7 +40,8 @@ interface Entry {
   settle: (r: FromWorker & { event: 'done' | 'error' }) => void
 }
 
-class Engine {
+/** Exported for scripts/test-engine.mjs, which drives it with a stubbed Worker. */
+export class Engine {
   private worker: Worker
   private pending = new Map<number, Entry>()
   private next = 1
@@ -48,10 +49,36 @@ class Engine {
 
   readonly src: Source
 
+  private readonly file: Blob
+  private readonly plan: NonNullable<Source['remote']>['plan']
+  /** How many times this engine has had to replace its worker. */
+  private restarts = 0
+
   constructor(src: Source, file: Blob, plan: NonNullable<Source['remote']>['plan']) {
     this.src = src
-    this.worker = new Worker(new URL('./engine-worker.ts', import.meta.url), { type: 'module' })
-    this.worker.addEventListener('message', (e: MessageEvent<FromWorker>) => {
+    this.file = file
+    this.plan = plan
+    this.worker = this.spawn()
+  }
+
+  /**
+   * A worker, wired up and mounted on the file.
+   *
+   * Separated from the constructor so a worker that dies can be REPLACED. It
+   * could not be before: one failure latched `fatal` and every job asked for
+   * afterwards rejected against it, for the lifetime of the page. A worker can
+   * die for reasons that have nothing to do with the next question — the
+   * browser reclaiming memory under pressure is the common one on an object
+   * this size — and a studio that answers "the compute worker failed" until you
+   * reload is worse than one that simply tries again.
+   *
+   * In-flight jobs still fail, and must: their state died with the worker and
+   * there is nothing left to deliver. What changes is that the NEXT question
+   * gets a working engine.
+   */
+  private spawn(): Worker {
+    const w = new Worker(new URL('./engine-worker.ts', import.meta.url), { type: 'module' })
+    w.addEventListener('message', (e: MessageEvent<FromWorker>) => {
       const d = e.data
       const entry = this.pending.get(d.id)
       // No entry means the question was withdrawn. There is nothing to deliver
@@ -61,15 +88,39 @@ class Engine {
       this.pending.delete(d.id)
       entry.settle(d)
     })
-    this.worker.addEventListener('error', (ev: ErrorEvent) => {
-      // A worker that dies never answers, and without this every view waits
-      // behind a progress bar that will never move. The failure is remembered so
-      // that jobs asked for AFTER it fail immediately too, rather than each one
-      // discovering the silence for itself.
-      this.fatal = `the compute worker failed: ${ev.message || 'no reason given'}`
-      this.failAll(this.fatal)
+    w.addEventListener('error', (ev: ErrorEvent) => {
+      this.died(ev.message || 'no reason given', w)
     })
-    this.send({ cmd: 'mount', file, plan })
+    // A message the worker could not send — a value that failed structured
+    // clone — arrives here and nowhere else. Untreated it is silence, which is
+    // the one failure mode a progress bar cannot distinguish from slowness.
+    w.addEventListener('messageerror', () => {
+      this.died('a result could not be passed back from the worker', w)
+    })
+    w.postMessage({ cmd: 'mount', file: this.file, plan: this.plan } satisfies ToWorker)
+    return w
+  }
+
+  /**
+   * The worker is gone: fail what was in flight, then stand a new one up.
+   *
+   * Bounded, because a worker that dies on mount would otherwise be respawned
+   * forever. Past the bound the engine latches, which is the old behaviour and
+   * the right one once the failure is clearly not transient.
+   */
+  private died(why: string, from: Worker) {
+    // Ignore an event from a worker already replaced — terminate() does not
+    // always silence one that is mid-failure.
+    if (from !== this.worker) return
+    const message = `the compute worker failed: ${why}`
+    try { this.worker.terminate() } catch { /* already gone */ }
+    this.failAll(message)
+    if (this.restarts >= 3) {
+      this.fatal = `${message} — and it failed again after ${this.restarts} restarts`
+      return
+    }
+    this.restarts++
+    this.worker = this.spawn()
   }
 
   private send(m: ToWorker, transfer: Transferable[] = []) {
@@ -116,6 +167,8 @@ class Engine {
   }
 
   close() {
+    // Past any restart: closing is deliberate and must not be undone by it.
+    this.restarts = Infinity
     this.worker.terminate()
     this.fatal = 'this object was closed'
     this.failAll(this.fatal)
