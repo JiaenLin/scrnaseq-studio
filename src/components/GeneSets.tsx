@@ -59,17 +59,32 @@ export default function GeneSets({
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
 
   /**
-   * Every set in the enabled collections, flattened once.
+   * Every set in the enabled collections — names only.
    *
-   * The old picker was a <select> over eighteen hand-written sets. MSigDB is up
-   * to 20 454, which no dropdown can hold, so the control below is a search
-   * field over this list and the select is gone.
+   * The old picker was a <select> over eighteen hand-written sets. MSigDB has
+   * 35 361 for human, which no dropdown can hold, so the control below is a
+   * search field over this list and the select is gone.
+   *
+   * What this deliberately does NOT do is resolve the members. It used to build
+   * `genes: Array.from(s.genes, i => c.symbols[i])` for every set here, which
+   * on the default collections is 960 067 strings allocated to render a list of
+   * forty — and 4.1 million with every collection switched on. The members of
+   * one set are wanted only once somebody picks it, so they are read there.
    */
   const allSets = useMemo(() => lib.collections.flatMap(
-    c => c.sets.map(s => ({
-      id: s.id, name: s.name, source: c.source,
-      genes: Array.from(s.genes, i => c.symbols[i]),
+    (c, ci) => c.sets.map((s, si) => ({
+      // n is the member COUNT, which the picker shows. Reading .length off the
+      // index array costs nothing; building the array of symbols to count it is
+      // what this whole memo exists to avoid.
+      id: s.id, name: s.name, source: c.source, ci, si, n: s.genes.length,
     }))), [lib.collections])
+
+  /** The members of one set, resolved on demand. */
+  const membersOf = useMemo(() => (ci: number, si: number): string[] => {
+    const c = lib.collections[ci]
+    const s = c?.sets[si]
+    return s ? Array.from(s.genes, i => c.symbols[i]) : []
+  }, [lib.collections])
 
   const hits = useMemo(() => {
     const q = find.trim().toLowerCase()
@@ -96,13 +111,14 @@ export default function GeneSets({
     () => allSets.find(s => s.id === setId) ?? null, [allSets, setId])
 
   const requested = useMemo(() => {
-    if (!useCustom) return chosen?.genes ?? []
+    // Resolved here and only here — the picker above carries names, not members.
+    if (!useCustom) return chosen ? membersOf(chosen.ci, chosen.si) : []
     // Parsed once. It was parsed twice — the whole gene list, per keystroke.
     // Either naming: on an accession-indexed object a pasted list of symbols
     // resolves, and so does a pasted list of accessions.
     const { found, missing } = parseGeneList(custom, GENES, src.names)
     return found.concat(missing)
-  }, [useCustom, custom, chosen, GENES, src.names])
+  }, [useCustom, custom, chosen, membersOf, GENES, src.names])
 
   const { used, missing } = useMemo(() => resolve(src, requested), [src, requested])
 
@@ -213,7 +229,7 @@ export default function GeneSets({
                 onChange={e => setCustom(e.target.value)}
               />
               <button className="btn btn-quiet"
-                onClick={() => setCustom((allSets[0]?.genes ?? []).slice(0, 12).join(', '))}
+                onClick={() => setCustom(membersOf(0, 0).slice(0, 12).join(', '))}
                 disabled={!allSets.length}>Load example</button>
               <button className="btn btn-quiet" onClick={() => setCustom('')}>Clear</button>
             </>
@@ -241,7 +257,7 @@ export default function GeneSets({
                 <span className="min-w-0 flex-1 truncate tx-small"
                   style={{ fontWeight: h.id === chosen?.id ? 600 : 400 }}>{h.name}</span>
                 <span className="mono flex-none tx-micro" style={{ color: 'var(--ink-3)' }}>
-                  {h.genes.length}
+                  {h.n}
                 </span>
               </button>
             ))}
