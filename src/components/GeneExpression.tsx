@@ -8,7 +8,7 @@ import {
   quantiles,
 } from '../lib/chart.ts'
 import { drawFeature, panelHeight } from '../lib/feature-plot.ts'
-import { fitsUpright, rotatedBottom } from '../lib/labels.ts'
+import { axisTicks, fit, widestW } from '../lib/labels.ts'
 import { AXIS_INK, DOWN_MARK, GRID_INK, MARK_EDGE, UP_MARK } from '../lib/figure-ink.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import {
@@ -485,9 +485,15 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
   const LAB_PX = per > 10 ? 9 : 10
   const bw = (W - PL - PR) / per
   const labels = cats.map(c => c.label)
-  const rotated = !fitsUpright(labels, bw, LAB_PX)
-  const PB = DET + (both ? 26 : 0)
-    + (rotated ? rotatedBottom(labels, { deg: 42, startAt: 11, px: LAB_PX }) : 26)
+  // leftAnchor is where the FIRST tick sits: the one that reaches back past the
+  // y axis when the names are long. It was 62 units off the left edge of the
+  // box on a real annotation, and the margin below was 47 short as well —
+  // because reserving a capped margin is not the same as fitting the label to
+  // it. axisTicks does both, and picks the angle that keeps neighbours apart.
+  const tick = axisTicks(labels, {
+    band: bw, leftAnchor: PL + bw / 2, px: LAB_PX, deg: 42, startAt: 11, maxBottom: 88,
+  })
+  const PB = DET + (both ? 26 : 0) + tick.bottom
   const H = PT + PLOT + PB
 
   const series = cats.map(c => p.src.values(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond))
@@ -562,13 +568,13 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string }) {
                 <Violin v={v} cx={cx} bw={bw} col={col} lo={lo} hi={hi} Y={Y}
                   pct={pcts[i]} gene={p.gene} yDet={H - PB + 3} />
               )}
-              {rotated ? (
-                <text className="axis" transform={`rotate(-42 ${cx} ${H - PB + DET + 11})`}
+              {tick.rotate ? (
+                <text className="axis" transform={`rotate(${-tick.deg} ${cx} ${H - PB + DET + 11})`}
                   x={cx} y={H - PB + DET + 11} textAnchor="end"
-                  style={{ fontSize: LAB_PX }}>{c.label}<title>{c.full}</title></text>
+                  style={{ fontSize: LAB_PX }}>{tick.shown[i]}<title>{c.full}</title></text>
               ) : (
                 <text className="axis" x={cx} y={H - PB + DET + 13} textAnchor="middle"
-                  style={{ fontSize: LAB_PX }}>{c.label}<title>{c.full}</title></text>
+                  style={{ fontSize: LAB_PX }}>{tick.shown[i]}<title>{c.full}</title></text>
               )}
             </g>
           )
@@ -656,7 +662,19 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
   const cw = 42, rh = 26, PT = 14, PR = 26
   // The left margin follows the longest identity — "Oligodendrocyte · Reactivated"
   // is more than twice the width of "TAP", and a clipped row label is unreadable.
-  const PL = Math.max(110, Math.min(250, 22 + maxOf(rows.map(r => r.full.length)) * 6.1))
+  /**
+   * The row-label gutter, measured, and the labels cut to it.
+   *
+   * Two halves of one bug. The estimate was 6.1 units per character against the
+   * 6.96 the browser draws at 11.5 px semibold — 12% short — and the cap at 250
+   * was never enforced on the text, which is drawn as `r.full` with no fit at
+   * all. So a real cell-type name did not merely crowd the gutter, it ran 53
+   * units off the left of the box; `svg { overflow: visible }` painted it over
+   * the card beside it, and the PNG export cropped it away entirely.
+   */
+  const labels = rows.map(r => r.full)
+  const PL = Math.max(110, Math.min(250, 22 + widestW(labels, 11.5, true)))
+  const shownRow = labels.map(s => fit(s, PL - 14, 11.5, true))
   const labelH = Math.min(96, 24 + maxOf(genes.map(g => g.length)) * 4.6)
   // The legend is part of the figure, in the figure. It used to be laid out in
   // HTML beside it, so every exported dot plot arrived in a manuscript with no
@@ -717,7 +735,9 @@ function DotPlot(p: GeneProps & { ids: Identity[] }) {
               <g key={r.full}>
                 <line x1={PL - 3.5} x2={PL} y1={Y(ri)} y2={Y(ri)} stroke={AXIS_INK} strokeWidth={0.8} />
                 <text x={PL - 8} y={Y(ri) + 4} textAnchor="end"
-                  style={{ fontSize: 11.5, fill: AXIS_INK, fontWeight: 600 }}>{r.full}</text>
+                  style={{ fontSize: 11.5, fill: AXIS_INK, fontWeight: 600 }}>
+                  {shownRow[ri]}<title>{r.full}</title>
+                </text>
               </g>
             ))}
 

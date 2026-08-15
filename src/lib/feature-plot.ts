@@ -12,6 +12,7 @@
 
 import type { Cell } from '../types.ts'
 import { breaksOf, fmtBreak } from './breaks.ts'
+import { drawLabels } from './canvas-label.ts'
 import { FRAME_INK, TICK_INK } from './figure-ink.ts'
 import { rampColor, type RampKey } from './palette.ts'
 
@@ -142,16 +143,15 @@ export function drawFeature(
 
   if (o.labels) {
     ctx.font = `600 ${Math.round(17 * unit)}px system-ui, sans-serif`
-    ctx.textAlign = 'center'
     ctx.lineWidth = 3.5 * unit
-    ctx.strokeStyle = dark ? 'rgba(0,0,0,.85)' : 'rgba(255,255,255,.9)'
-    for (const l of o.labels) {
-      const px = (l.x - x0) * sx
-      const py = TOP + PH - (l.y - y0) * sy
-      ctx.strokeText(l.name, px, py)
-      ctx.fillStyle = dark ? '#E6EAF2' : '#334155'
-      ctx.fillText(l.name, px, py)
-    }
+    drawLabels(ctx, o.labels.map(l => ({
+      name: l.name,
+      x: (l.x - x0) * sx,
+      y: TOP + PH - (l.y - y0) * sy,
+    })), {
+      fill: dark ? '#E6EAF2' : '#334155',
+      halo: dark ? 'rgba(0,0,0,.85)' : 'rgba(255,255,255,.9)',
+    })
   }
 
   const ink = dark ? '#E6EAF2' : '#000000'

@@ -69,6 +69,75 @@ export function rotatedBottom(
 }
 
 /**
+ * The whole bottom-axis decision: upright or rotated, at what angle, cut to
+ * what width, over how deep a margin.
+ *
+ * These four answers have to agree, and split across four call sites they did
+ * not. `rotatedBottom` alone caps the margin at 96 units — which decides how
+ * far a 253-unit label hangs PAST the box, not whether it hangs past at all,
+ * and a measured 47 units of the violin panel's group names were landing on
+ * the caption below. A cap on the margin is only half a decision; the other
+ * half is cutting the label to the margin that was actually reserved.
+ *
+ * Three constraints, all of them geometry:
+ *
+ *   bottom  a label of width w at angle a hangs `w·sin(a)` below its anchor
+ *   left    anchored at its end, it also reaches `w·cos(a)` to the LEFT — so
+ *           the first tick on the axis is the one that runs off the plate
+ *   pitch   two neighbours `band` apart clear each other by `band·sin(a)`,
+ *           which is why 40 categories in 352 units overlapped at 42° no
+ *           matter how much bottom margin was reserved
+ *
+ * The angle steepens to satisfy the third, then the width is cut to satisfy
+ * the first two at that angle.
+ */
+export function axisTicks(labels: readonly string[], o: {
+  /** Horizontal pitch between neighbouring ticks. */
+  band: number
+  /** x of the first tick's anchor — how much room it has to reach left into. */
+  leftAnchor: number
+  px?: number
+  /** Preferred angle; steepened only if neighbours would collide. */
+  deg?: number
+  /** How far under the axis the text begins. */
+  startAt?: number
+  descend?: number
+  /** The deepest bottom margin worth spending before cutting labels instead. */
+  maxBottom?: number
+  gap?: number
+  /** Bottom margin to use when the labels fit upright. */
+  upright?: number
+}): { rotate: boolean; deg: number; shown: string[]; bottom: number } {
+  const {
+    band, leftAnchor, px = 10.5, deg = 38, startAt = 12,
+    descend = 6, maxBottom = 96, gap = 4, upright = 26,
+  } = o
+  if (fitsUpright(labels, band, px, gap)) {
+    return { rotate: false, deg: 0, shown: [...labels], bottom: upright }
+  }
+  const rad = (d: number) => (d * Math.PI) / 180
+  const lineH = px * 1.2
+  let a = 90
+  for (const cand of [deg, 55, 72, 90]) {
+    a = cand
+    if (band * Math.sin(rad(a)) >= lineH) break
+  }
+  // At 90° the text stands straight up from its anchor and reaches left by its
+  // line height, not its length, so only the bottom binds.
+  const room = Math.min(
+    (maxBottom - startAt - descend) / Math.sin(rad(a)),
+    a >= 89 ? Infinity : (leftAnchor - 2) / Math.cos(rad(a)),
+  )
+  const shown = labels.map(s => fit(s, Math.max(18, room), px))
+  return {
+    rotate: true,
+    deg: a,
+    shown,
+    bottom: rotatedBottom(shown, { deg: a, startAt, px, descend, max: maxBottom }),
+  }
+}
+
+/**
  * Cut a label to a width, losing the TAIL.
  *
  * Never the head. A pathway is identified by how its name begins, and a cell

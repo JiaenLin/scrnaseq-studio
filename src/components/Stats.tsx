@@ -11,6 +11,7 @@ import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt, maxOf } from '../lib/chart.ts'
 import { condKey } from '../lib/source.ts'
 import { AXIS_INK, DOWN_MARK, MARK_EDGE, NULL_MARK, UP_MARK } from '../lib/figure-ink.ts'
+import { textW } from '../lib/labels.ts'
 import { KeyRow } from './svg-parts.tsx'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
 import { Card, Empty, Mono, Seg } from './Ui.tsx'
@@ -424,6 +425,38 @@ function Volcano(p: StatsProps & { de: DEResult }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, p.padjMax, p.lfcMin, maxX, maxY])
 
+  /**
+   * Which genes get a name, and where.
+   *
+   * "Labels: 12" is a budget, not a promise of the first twelve. Ranked points
+   * cluster — the strongest hits sit together at the top of the plume — so
+   * taking the first n by rank wrote Cdk1 over Pcna and Sox11 over Vim. A gene
+   * name overlapping another gene name is worse than no name at all, because
+   * the reader cannot tell which of the two they are looking at.
+   *
+   * So: walk the ranking, keep a label only if its box is clear of every box
+   * already kept, and carry on down the list until the budget is filled. A
+   * crowded plot then names twelve *readable* genes rather than the twelve
+   * highest, which is the trade the control is really offering.
+   */
+  const labelled = useMemo(() => {
+    if (!nLabels) return []
+    const kept: { q: (typeof pts)[number]; box: number[] }[] = []
+    for (const q of pts) {
+      if (kept.length >= nLabels) break
+      if (!q.sig) continue
+      const w = textW(q.r.gene, 10.5)
+      const x0 = q.r.lfc > 0 ? q.x + 7 : q.x - 7 - w
+      const box = [x0 - 1, q.y - 5, x0 + w + 1, q.y + 5]
+      const clear = kept.every(k =>
+        box[2] < k.box[0] || box[0] > k.box[2] || box[3] < k.box[1] || box[1] > k.box[3])
+      // And inside the panel: a name hung off the right edge of the last point
+      // is ink the PNG export crops away, because it rasterises the viewBox.
+      if (clear && box[0] >= PL - 2 && box[2] <= W - PR + 2) kept.push({ q, box })
+    }
+    return kept.map(k => k.q)
+  }, [pts, nLabels])
+
   const step = Math.max(1, Math.ceil(maxY / 5))
   const ticks: number[] = []
   for (let t = 0; t <= maxY; t += step) ticks.push(t)
@@ -472,9 +505,14 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           onMouseLeave={() => setHover(null)}
           onClick={e => { const q = pick(e); if (q) p.onPickGene(q.r.gene) }}
         >
+          {/* The end ticks are anchored to the panel edge, not centred on it.
+              Centred, "-3.4" hung half its width past x = PL and landed on the
+              y-axis numbers beside it; the same at the right edge put ink
+              outside the viewBox, which the PNG export then cropped. */}
           {[-2, -1, 0, 1, 2].map(f => {
             const v = (maxX * f) / 2
-            return <text key={f} x={X(v)} y={H - PB + 15} textAnchor="middle"
+            return <text key={f} x={X(v)} y={H - PB + 15}
+              textAnchor={f === -2 ? 'start' : f === 2 ? 'end' : 'middle'}
               style={{ fontSize: 10.5, fill: AXIS_INK }}>{v.toFixed(1)}</text>
           })}
           {ticks.map(t => (
@@ -502,7 +540,7 @@ function Volcano(p: StatsProps & { de: DEResult }) {
               stroke={q.sig ? MARK_EDGE : 'none'} strokeWidth={q.sig ? 0.6 : 0}
               opacity={q.sig ? 0.92 : 0.45} />
           ))}
-          {pts.filter(q => q.sig).slice(0, nLabels).map(q => (
+          {labelled.map(q => (
             <text key={q.r.gene} className="axis" x={q.x + (q.r.lfc > 0 ? 7 : -7)} y={q.y + 3.5}
               textAnchor={q.r.lfc > 0 ? 'start' : 'end'}
               style={{ fontStyle: 'italic', fontSize: 10.5, fill: 'var(--ink)' }}>{q.r.gene}</text>
@@ -518,7 +556,7 @@ function Volcano(p: StatsProps & { de: DEResult }) {
 
           {/* The key, in the figure and centred under the panel, in the same
               language as the marks it describes. */}
-          <KeyRow cx={(PL + W - PR) / 2} y={H - 14} items={[
+          <KeyRow cx={(PL + W - PR) / 2} y={H - 14} width={W - PL - PR} items={[
             { color: UP_MARK, label: `up in ${condLabel(p.cs)}` },
             { color: DOWN_MARK, label: `up in ${condLabel(p.ctrl)}` },
             { color: NULL_MARK, label: 'not significant' },

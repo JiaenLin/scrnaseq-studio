@@ -8,6 +8,7 @@ import {
 } from '../lib/composition.ts'
 import { downloadCsv } from '../lib/download.ts'
 import { MARK_EDGE } from '../lib/figure-ink.ts'
+import { axisTicks, fit } from '../lib/labels.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Legend } from './Ui.tsx'
@@ -460,7 +461,11 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
 
 /** One cell type: a bar per group, its own y axis, samples drawn on top. */
 function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; palKey: PaletteKey }) {
-  const W = 210, PL = 42, PT = 16, PR = 8
+  // PT is the title's band, not a decorative gap. At 16 the title's baseline
+  // sat 8 units above the top y-tick's, and since both run to the same x the
+  // tick was written through the name — 5.4 units of penetration on every
+  // facet, on short names as much as long ones. A title needs its own row.
+  const W = 210, PL = 42, PT = 24, PR = 8
   const per = d.conds.map(c =>
     d.samples.map((s, si) => (s.cond === c ? d.prop[si][ti] : null))
       .filter((v): v is number => v !== null))
@@ -478,16 +483,15 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
    * visible }` means it does not clip, it PAINTS: on a four-group object the
    * labels of one row of facets land on the titles of the row underneath.
    *
-   * 5.4 units per character at the axis size is the same estimate the rotation
-   * decision already uses, so the two cannot disagree about whether a label
-   * fits.
+   * The estimate lives in labels.ts so the "does it fit?" test and the "how
+   * much room?" calculation cannot disagree — and so it is one measured number
+   * rather than a guess. The 5.4 units per character this used to assume was
+   * 6% under what the browser actually draws at 10.5 px.
    */
-  const CHAR = 5.4
-  const widest = Math.max(...d.conds.map(c => c.length)) * CHAR
-  const rotated = d.conds.some(c => c.length * CHAR > bw)
-  // sin(38°) = 0.6157. 12 is where the text starts below the axis, 6 is room
-  // for descenders on the lowest glyph.
-  const PB = rotated ? Math.min(86, 12 + widest * 0.6157 + 6) : 30
+  const tick = axisTicks(d.conds, {
+    band: bw, leftAnchor: PL + bw / 2, gap: 3, maxBottom: 86, upright: 30,
+  })
+  const PB = tick.bottom
   const PLOT = 106
   const H = PT + PLOT + PB
   const Y = (v: number) => PT + PLOT * (1 - v / maxV)
@@ -500,9 +504,8 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
    * into the panel beside it. Real annotations carry names like that, so the
    * fit is enforced here and the whole name is in the tooltip.
    */
-  const TITLE_CHAR = 6.05
-  const room = Math.floor((W - PR - 4 - 12) / TITLE_CHAR)
-  const short = t.name.length > room ? `${t.name.slice(0, room - 1)}…` : t.name
+  // 12 units for the "■ " swatch tspan that precedes it, 4 for the left inset.
+  const short = fit(t.name, W - PR - 4 - 12, 11, true)
 
   return (
     <figure>
@@ -539,11 +542,15 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
                   ))}
                 </>
               )}
-              {rotated ? (
-                <text className="axis" transform={`rotate(-38 ${cx} ${H - PB + 12})`}
-                  x={cx} y={H - PB + 12} textAnchor="end">{lab}</text>
+              {tick.rotate ? (
+                <text className="axis" transform={`rotate(${-tick.deg} ${cx} ${H - PB + 12})`}
+                  x={cx} y={H - PB + 12} textAnchor="end">
+                  {tick.shown[ci]}<title>{lab}</title>
+                </text>
               ) : (
-                <text className="axis" x={cx} y={H - PB + 13} textAnchor="middle">{lab}</text>
+                <text className="axis" x={cx} y={H - PB + 13} textAnchor="middle">
+                  {tick.shown[ci]}<title>{lab}</title>
+                </text>
               )}
             </g>
           )

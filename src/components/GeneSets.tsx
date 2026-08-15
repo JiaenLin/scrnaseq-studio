@@ -3,6 +3,8 @@ import type { CellType, Dataset, GroupBy } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf } from '../lib/chart.ts'
+import { drawLabels } from '../lib/canvas-label.ts'
+import { axisTicks } from '../lib/labels.ts'
 import type { LibraryState } from '../lib/genesets.ts'
 import type { Detection, Species } from '../lib/species.ts'
 import GeneSetSources from './GeneSetSources.tsx'
@@ -444,17 +446,13 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
       g.fill()
     }
     g.font = '600 17px system-ui'
-    g.textAlign = 'center'
     g.lineWidth = 3.5
-    g.strokeStyle = 'rgba(255,255,255,.9)'
     const at = clusterCentroids(xy, d, types.length)
-    types.forEach((t, ti) => {
-      const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
-      const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * plotH
-      g.strokeText(t.name, X, Y)
-      g.fillStyle = '#334155'
-      g.fillText(t.name, X, Y)
-    })
+    drawLabels(g, types.map((t, ti) => ({
+      name: t.name,
+      x: ((at[ti].x - x0) / (x1 - x0)) * cv.width,
+      y: (1 - (at[ti].y - y0) / (y1 - y0)) * plotH,
+    })), { fill: '#334155', halo: 'rgba(255,255,255,.9)' })
 
     // The scale, on the figure. It was an HTML strip beside the canvas, so an
     // exported score map had colours and no way to read them — and this one is
@@ -486,8 +484,21 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
   groupBy: GroupBy
 }) {
   const per = ids.length
-  const W = 860, H = 280, PL = 46, PT = 14, PR = 10
-  const PB = groupBy === 'both' ? 88 : 68
+  const W = 860, PLOT = 168, PL = 46, PT = 14, PR = 10
+  /**
+   * 88 units when grouped by both, 68 otherwise — which asks how many labels
+   * there are and never how long they are. Grouped by both, the label is
+   * `id.full`: a cell-type name and a group name joined, the longest string
+   * this figure ever draws, and always rotated. The same measurement every
+   * other axis in the studio now uses, so it cannot disagree with them.
+   */
+  const LAB_PX = per > 12 ? 9 : 10
+  const bw = (W - PL - PR) / per
+  const tick = axisTicks(ids.map(id => (groupBy === 'both' ? id.full : id.label)), {
+    band: bw, leftAnchor: PL + bw / 2, px: LAB_PX, startAt: 12, maxBottom: 92, upright: 30,
+  })
+  const PB = tick.bottom
+  const H = PT + PLOT + PB
   const values = perId.map(idx => {
     const out = idx.map(i => scores[i])
     // Violins do not need every cell; a stride keeps the density honest and fast.
@@ -498,8 +509,7 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
   // A signature every cell scores identically on is rare but not impossible,
   // and it must draw a flat line rather than NaN coordinates.
   const { y0, y1 } = axisRange(minOf(all), maxOf(all))
-  const Y = (v: number) => PT + (H - PT - PB) * (1 - (v - y0) / (y1 - y0))
-  const bw = (W - PL - PR) / per
+  const Y = (v: number) => PT + PLOT * (1 - (v - y0) / (y1 - y0))
 
   return (
     <div className="mt-3 overflow-x-auto">
@@ -536,11 +546,17 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
                 strokeWidth={Math.max(2, Math.min(6, bw * 0.3))} opacity=".7" />
               <line x1={cx - Math.min(9, bw * 0.4)} x2={cx + Math.min(9, bw * 0.4)}
                 y1={Y(q.med)} y2={Y(q.med)} stroke={id.color} strokeWidth={2} />
-              <text className="axis" transform={`rotate(-38 ${cx} ${H - PB + 12})`}
-                x={cx} y={H - PB + 12} textAnchor="end"
-                style={{ fontSize: per > 12 ? 9 : 10 }}>
-                {groupBy === 'both' ? id.full : id.label}
-              </text>
+              {tick.rotate ? (
+                <text className="axis" transform={`rotate(${-tick.deg} ${cx} ${H - PB + 12})`}
+                  x={cx} y={H - PB + 12} textAnchor="end" style={{ fontSize: LAB_PX }}>
+                  {tick.shown[i]}<title>{id.full}</title>
+                </text>
+              ) : (
+                <text className="axis" x={cx} y={H - PB + 14} textAnchor="middle"
+                  style={{ fontSize: LAB_PX }}>
+                  {tick.shown[i]}<title>{id.full}</title>
+                </text>
+              )}
             </g>
           )
         })}

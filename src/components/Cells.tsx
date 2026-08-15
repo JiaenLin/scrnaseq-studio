@@ -3,6 +3,7 @@ import type { CellType, ColorBy, Dataset } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { clusterCentroids, embedExtent, fmt, hasSignal } from '../lib/chart.ts'
+import { drawLabels } from '../lib/canvas-label.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { Card, Legend } from './Ui.tsx'
 
@@ -164,17 +165,13 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels }:
 
     if (labels) {
       g.font = '600 20px system-ui'
-      g.textAlign = 'center'
-      g.strokeStyle = surface
       g.lineWidth = 4
       const at = clusterCentroids(xy, d, types.length)
-      types.forEach((t, ti) => {
-        const X = ((at[ti].x - x0) / (x1 - x0)) * cv.width
-        const Y = (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height
-        g.strokeText(t.name, X, Y)
-        g.fillStyle = ink
-        g.fillText(t.name, X, Y)
-      })
+      drawLabels(g, types.map((t, ti) => ({
+        name: t.name,
+        x: ((at[ti].x - x0) / (x1 - x0)) * cv.width,
+        y: (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height,
+      })), { fill: ink, halo: surface })
     }
   }, [d, types, xy, cond, colorBy, palKey, rampKey, labels])
 

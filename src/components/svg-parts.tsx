@@ -20,6 +20,7 @@
 
 import { AXIS_INK, FRAME_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { breaksOf, fmtBreak } from '../lib/breaks.ts'
+import { fit, textW, widestW } from '../lib/labels.ts'
 import { mix as mixHex, rampColor, type RampKey } from '../lib/palette.ts'
 
 /** How many stops the gradient is written with. Smooth enough at any size. */
@@ -98,8 +99,8 @@ export function SizeKey({ cx, y, title, radius, steps = [0.25, 0.5, 0.75, 1], fi
   // Laid out on measured widths rather than a fixed pitch, so the big marks do
   // not collide with their own labels at one end while the small ones swim at
   // the other.
-  const gap = 10, textW = 22
-  const spans = steps.map(v => radius(v) * 2 + 4 + textW)
+  const gap = 10, labW = 22
+  const spans = steps.map(v => radius(v) * 2 + 4 + labW)
   const total = spans.reduce((a, b) => a + b, 0) + gap * (steps.length - 1)
   let cursor = cx - total / 2
   const placed = steps.map((v, i) => {
@@ -127,22 +128,50 @@ export function SizeKey({ cx, y, title, radius, steps = [0.25, 0.5, 0.75, 1], fi
   )
 }
 
-/** A row of categorical swatches, centred — for a volcano's directions. */
-export function KeyRow({ cx, y, items }: {
+/**
+ * A row of categorical swatches, centred — for a volcano's directions.
+ *
+ * Laid out on measured widths, for the reason SizeKey above is: a fixed pitch
+ * is a bet that every label is about the same length, and the volcano's are
+ * not. "up" and "not significant" differ by a factor of six as it is, and when
+ * levels are pooled the key reads "up in young_chow + young_hfd + old_chow" —
+ * 168 units of pitch against 210 of label, so the entry wrote 63 units into
+ * its neighbour. Measuring costs nothing and cannot be wrong by a factor.
+ */
+export function KeyRow({ cx, y, items, width }: {
   cx: number; y: number; items: { color: string; label: string }[]
+  /** Available width, if the caller knows it — labels are cut to fit inside. */
+  width?: number
 }) {
-  const pitch = 168
-  const start = cx - (items.length - 1) * pitch / 2
+  const px = 11, dot = 9, dotGap = 6, gap = 20
+  const span = (s: string) => dot + dotGap + textW(s, px)
+  let labels = items.map(it => it.label)
+  if (width) {
+    const chrome = items.length * (dot + dotGap) + gap * (items.length - 1)
+    const room = (width - chrome) / items.length
+    // Cut only if the row genuinely will not fit; a short key keeps its words.
+    if (widestW(labels, px) * items.length > width - chrome) {
+      labels = labels.map(s => fit(s, Math.max(28, room), px))
+    }
+  }
+  const total = labels.reduce((a, s) => a + span(s), 0) + gap * (items.length - 1)
+  let cursor = cx - total / 2
   return (
     <g>
-      {items.map((it, i) => (
-        <g key={it.label}>
-          <circle cx={start + i * pitch - 8} cy={y} r={4.5}
-            fill={it.color} stroke={MARK_EDGE} strokeWidth={0.6} />
-          <text x={start + i * pitch + 2} y={y + 3.5}
-            style={{ fontSize: 11, fill: AXIS_INK }}>{it.label}</text>
-        </g>
-      ))}
+      {items.map((it, i) => {
+        const x = cursor
+        cursor += span(labels[i]) + gap
+        return (
+          <g key={it.label}>
+            <circle cx={x + dot / 2} cy={y} r={4.5}
+              fill={it.color} stroke={MARK_EDGE} strokeWidth={0.6} />
+            <text x={x + dot + dotGap} y={y + 3.5}
+              style={{ fontSize: px, fill: AXIS_INK }}>
+              {labels[i]}{labels[i] !== it.label && <title>{it.label}</title>}
+            </text>
+          </g>
+        )
+      })}
     </g>
   )
 }

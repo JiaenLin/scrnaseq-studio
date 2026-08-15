@@ -1,6 +1,7 @@
 import type { CellType, Dataset } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import { axisRange, cellsBySample, fmt, quantiles, density, minOf, maxOf , hasSignal } from '../lib/chart.ts'
+import { axisTicks } from '../lib/labels.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { Card, Stat } from './Ui.tsx'
@@ -172,13 +173,29 @@ function QcPanel({ d, title, get, tick, palKey }: {
   tick: (v: number) => string
   palKey: PaletteKey
 }) {
-  const W = 330, H = 190, PL = 46, PB = 30, PT = 16, PR = 8
+  const W = 330, PLOT = 144, PL = 46, PT = 16, PR = 8
   const per = cellsBySample(d).map(idx => idx.map(i => get(d.cells[i])))
   const all = per.flat()
   // None of these covariates can be negative, so the axis must not imply it can.
   const { y0, y1 } = axisRange(minOf(all), maxOf(all), { fromZero: true })
-  const Y = (v: number) => PT + (H - PT - PB) * (1 - (v - y0) / (y1 - y0))
   const bw = (W - PL - PR) / d.samples.length
+
+  /**
+   * Sample ids, laid out on what they measure rather than on a fixed 30 units.
+   *
+   * The demo objects carry ids like "1" and "2" and four of them, so upright
+   * and centred was right and stayed unquestioned. A real GEO series carries
+   * "GSM4116579_P7_rep1" and twelve of them: at twelve samples each label gets
+   * 23 units of band and needs 110, which is not a near miss — it is every
+   * label written over both of its neighbours, 54 overlapping pairs per panel.
+   */
+  const labels = d.samples.map(s => s.id.replace(/^(SVZ|TC)_/, ''))
+  const ax = axisTicks(labels, {
+    band: bw, leftAnchor: PL + bw / 2, gap: 3, maxBottom: 76, upright: 30,
+  })
+  const PB = ax.bottom
+  const H = PT + PLOT + PB
+  const Y = (v: number) => PT + PLOT * (1 - (v - y0) / (y1 - y0))
 
   return (
     <figure className="min-w-[280px] flex-1 basis-[300px]">
@@ -211,9 +228,16 @@ function QcPanel({ d, title, get, tick, palKey }: {
                 fill={col} opacity=".85" rx={1.5} />
               <line x1={cx - 5.5} x2={cx + 5.5} y1={Y(q.med)} y2={Y(q.med)}
                 stroke="var(--surface)" strokeWidth={1.6} />
-              <text className="axis" x={cx} y={H - PB + 13} textAnchor="middle">
-                {d.samples[i].id.replace(/^(SVZ|TC)_/, '')}
-              </text>
+              {ax.rotate ? (
+                <text className="axis" transform={`rotate(${-ax.deg} ${cx} ${H - PB + 12})`}
+                  x={cx} y={H - PB + 12} textAnchor="end">
+                  {ax.shown[i]}<title>{d.samples[i].id}</title>
+                </text>
+              ) : (
+                <text className="axis" x={cx} y={H - PB + 13} textAnchor="middle">
+                  {ax.shown[i]}<title>{d.samples[i].id}</title>
+                </text>
+              )}
             </g>
           )
         })}
