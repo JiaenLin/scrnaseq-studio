@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
-import { GENE_SETS, SET_SOURCES } from '../lib/genesets.ts'
-import { runORA, type ORAResult } from '../lib/ora.ts'
+import { useSetIndex, type LibraryState } from '../lib/genesets.ts'
+import type { Species } from '../lib/species.ts'
+import { oraIndexed, type ORAResult } from '../lib/ora.ts'
+import GeneSetSources from './GeneSetSources.tsx'
 import { maxOf, sci } from '../lib/chart.ts'
 import {
   condLabel, combinedScore } from '../lib/stats.ts'
@@ -13,20 +15,26 @@ import Figure, { CsvButton } from './Figure.tsx'
 
 type Direction = 'both' | 'up' | 'down'
 
-export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, label, palKey, onPickGene }: {
+export default function Enrichment({
+  rows, threshold, ctrl, cs, label, palKey, onPickGene,
+  lib, species, sources, onSources,
+}: {
   rows: DERow[]
-  genes: string[]
   threshold: { padj: number; lfc: number }
   ctrl: string[]
   cs: string[]
   label: string
   palKey: PaletteKey
   onPickGene: (g: string) => void
+  /** The MSigDB library, loading or loaded. */
+  lib: LibraryState
+  species: Species
+  sources: string[]
+  onSources: (next: string[]) => void
 }) {
   const [dir, setDir] = useState<Direction>('both')
   const [top, setTop] = useState(15)
-  const [sources, setSources] = useState<Set<string>>(new Set(SET_SOURCES))
-  const [minSize, setMinSize] = useState(3)
+  const [minSize, setMinSize] = useState(10)
   const [maxSize, setMaxSize] = useState(500)
   const [rankBy, setRankBy] = useState<'padj' | 'count'>('padj')
   const [termId, setTermId] = useState('')
@@ -36,12 +44,22 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
     .filter(r => dir === 'both' || (dir === 'up' ? r.lfc > 0 : r.lfc < 0))
     .map(r => r.gene), [rows, threshold, dir])
 
+  // The background is the genes THIS contrast tested, not every gene in the
+  // object: a gene that never got a p-value could never have been called
+  // significant, so it was never in the population the list was drawn from.
+  const tested = useMemo(() => rows.map(r => r.gene), [rows])
+  const index = useSetIndex(lib.collections, tested)
+
+  // oraIndexed, not runORA: the library is up to 20 454 sets and this re-runs
+  // on every drag of a threshold slider. The fold against the background
+  // happened once, above; what happens here is a walk over the query.
   const results = useMemo(() => {
-    const out = runORA(query, GENE_SETS, GENES, { minSize, maxSize, sources })
+    if (!index) return []
+    const out = oraIndexed(query, index, { minSize, maxSize })
     return rankBy === 'count'
       ? [...out].sort((a, b) => b.count - a.count || a.padj - b.padj)
       : out
-  }, [query, sources, minSize, maxSize, rankBy, GENES])
+  }, [query, index, minSize, maxSize, rankBy])
 
   const shown = results.slice(0, top)
   const selected = results.find(r => r.id === termId)
@@ -68,10 +86,16 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
     <Card
       eyebrow="Over-representation"
       title={`${results.length} enriched set${results.length === 1 ? '' : 's'}`}
-      sub={`Hypergeometric on ${query.length} genes ${dirLabel}, against the `
-        + `${GENES.length} this object measured. BH across ${results.length} sets.`}
+      sub={index
+        ? `Hypergeometric on ${query.length} genes ${dirLabel}, against an annotated `
+          + `background of ${index.N.toLocaleString()} of the ${tested.length.toLocaleString()} `
+          + `tested. BH across ${results.length.toLocaleString()} sets.`
+        : 'Loading the gene sets…'}
     >
-      <div className="mt-3.5 flex flex-wrap items-center gap-2">
+      <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
+        index={index} background={tested} />
+
+      <div className="flex flex-wrap items-center gap-2">
         <span className="glabel">Direction</span>
         <Seg<Direction>
           value={dir} onChange={setDir}
@@ -103,19 +127,6 @@ export default function Enrichment({ rows, threshold, genes: GENES, ctrl, cs, la
             aria-label="Maximum set size"
             onChange={e => setMaxSize(Math.max(1, +e.target.value || 1))} />
         </label>
-        <div className="gsep h-6" />
-        <span className="glabel">Collections</span>
-        {SET_SOURCES.map(s => (
-          <button
-            key={s} className="chip" aria-pressed={sources.has(s)}
-            onClick={() => setSources(prev => {
-              const next = new Set(prev)
-              if (next.has(s) && next.size > 1) next.delete(s)
-              else next.add(s)
-              return next
-            })}
-          >{s}</button>
-        ))}
       </div>
 
       {shown.length === 0 ? (

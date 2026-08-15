@@ -1,94 +1,139 @@
-// The built-in gene set collection.
+// The gene-set library, as the app consumes it.
 //
-// An .h5ad does not carry gene sets, so unlike the bulk studio — which reads
-// them from the result bundle — this app has to bring its own. What ships here
-// is a small collection relevant to neural stem cell work, with real GO, KEGG
-// and Hallmark identifiers where they exist and an explicit "Curated" source
-// where the set is a signature from a specific paper.
+// This file used to BE the library: eighteen sets typed out by hand, with a
+// comment explaining that an .h5ad carries no gene sets so the studio had to
+// bring its own. The first half of that was true and the second half was a
+// choice, and it was the wrong one — an over-representation test against
+// eighteen sets somebody picked in advance cannot discover anything they did
+// not already suspect, and the p-values it prints look exactly like real ones.
 //
-// Sets deliberately contain genes the demo object does not measure. That is the
-// normal case with any real collection, and it is why the background is always
-// the intersection of the collection with the genes the object actually
-// measured — scoring against genes the assay could not detect inflates every
-// enrichment it produces.
+// It is MSigDB now, per species, fetched on demand. What is left here is the
+// wiring: which collections are enabled, loading them, and folding them against
+// the object to make the index ORA runs on.
 
-import type { GeneSetDef } from './ora.ts'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  indexFor, isLoaded, loadCollection, loadManifest,
+  type Collection, type Manifest, type SetIndex,
+} from './msigdb.ts'
+import type { Species } from './species.ts'
 
-export const GENE_SETS: GeneSetDef[] = [
-  {
-    source: 'GO:BP', id: 'GO:0000086', name: 'G2/M transition of mitotic cell cycle',
-    genes: ['Mki67', 'Top2a', 'Cenpf', 'Ube2c', 'Ccnb1', 'Cdk1', 'Plk1', 'Aurka', 'Bub1', 'Cdc20'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0006260', name: 'DNA replication',
-    genes: ['Mcm2', 'Mcm5', 'Pcna', 'Ccnd2', 'Rrm2', 'Mcm3', 'Mcm7', 'Gins2', 'Fen1', 'Rfc4'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0045786', name: 'Negative regulation of cell cycle',
-    genes: ['Cdkn1a', 'Cdkn1b', 'Id3', 'Hes1', 'Notch1', 'Rb1', 'Cdkn2a', 'Gas1'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0097150', name: 'Neural stem cell population maintenance',
-    genes: ['Gfap', 'Hopx', 'Id3', 'Notch1', 'Hes1', 'Hes5', 'Sox9', 'Thbs4', 'Aqp4', 'Slc1a3', 'Sox2'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0007405', name: 'Neuroblast proliferation',
-    genes: ['Ascl1', 'Dlx2', 'Egfr', 'Sox11', 'Sp8', 'Dcx', 'Mash1'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0030182', name: 'Neuron differentiation',
-    genes: ['Dcx', 'Tubb3', 'Nrxn3', 'Sox11', 'Dlx2', 'Sp8', 'Map2', 'Neurod1', 'Stmn1'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0010001', name: 'Glial cell differentiation',
-    genes: ['Plp1', 'Mbp', 'Mog', 'Sox10', 'Cnp', 'Olig2', 'Gfap', 'Cldn11'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0042063', name: 'Gliogenesis and astrocyte identity',
-    genes: ['Slc1a3', 'Agt', 'Ntsr2', 'Clu', 'Aqp4', 'Gfap', 'S100b', 'Sparcl1', 'Mt1', 'Aldh1l1'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0001774', name: 'Microglial cell activation',
-    genes: ['Cx3cr1', 'C1qa', 'Ctss', 'P2ry12', 'Hexb', 'Trem2', 'Tyrobp', 'C1qb'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0043534', name: 'Blood vessel endothelial cell migration',
-    genes: ['Cldn5', 'Pecam1', 'Flt1', 'Ly6c1', 'Kdr', 'Tek', 'Cdh5', 'Esam'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0048514', name: 'Mural cell and pericyte development',
-    genes: ['Pdgfrb', 'Kcnj8', 'Anpep', 'Vtn', 'Higd1b', 'Des', 'Rgs5', 'Notch3'],
-  },
-  {
-    source: 'KEGG', id: 'mmu04330', name: 'Notch signaling pathway',
-    genes: ['Notch1', 'Hes1', 'Hes5', 'Dll1', 'Jag1', 'Rbpj', 'Dtx1', 'Notch2'],
-  },
-  {
-    source: 'Hallmark', id: 'HALLMARK_E2F_TARGETS', name: 'E2F targets',
-    genes: ['Mcm2', 'Mcm5', 'Pcna', 'Top2a', 'Cdk1', 'Ccnb1', 'Ube2c', 'Rrm2', 'Cenpf', 'Mki67'],
-  },
-  {
-    source: 'Hallmark', id: 'HALLMARK_TNFA_SIGNALING_VIA_NFKB', name: 'Immediate early response',
-    genes: ['Fos', 'Jun', 'Egr1', 'Junb', 'Fosb', 'Arc', 'Npas4', 'Ier2', 'Nr4a1'],
-  },
-  {
-    source: 'Curated', id: 'QUIESCENT_NSC', name: 'Quiescent NSC signature (Llorens-Bobadilla 2015)',
-    genes: ['Gfap', 'Aqp4', 'Id3', 'Hopx', 'Thbs4', 'S100b', 'Clu', 'Sparcl1', 'Cdkn1a', 'Slc1a3'],
-  },
-  {
-    source: 'Curated', id: 'ACTIVE_NSC', name: 'Activated NSC signature (Codega 2014)',
-    genes: ['Ascl1', 'Egfr', 'Ccnd2', 'Mcm2', 'Sox2', 'Nes', 'Vim', 'Mki67', 'Dlx2'],
-  },
-  {
-    source: 'Curated', id: 'DOPAMINERGIC', name: 'Dopaminergic specification',
-    genes: ['Nr4a2', 'Th', 'Pitx3', 'Slc6a3', 'Ddc', 'Lmx1b'],
-  },
-  {
-    source: 'GO:BP', id: 'GO:0006412', name: 'Translation and ribosome',
-    genes: ['Rpl13a', 'Actb', 'Gapdh', 'Eef1a1', 'Rpl7', 'Rps6', 'Rplp0', 'Eif4a1'],
-  },
-]
+export type { SetIndex } from './msigdb.ts'
 
-export const SET_SOURCES = [...new Set(GENE_SETS.map(s => s.source))]
+export interface LibraryState {
+  /** What each species offers, or null until the manifest lands. */
+  manifest: Manifest | null
+  /**
+   * The enabled collections, once every one of them has arrived.
+   *
+   * Collections, not a folded index: the background an enrichment is tested
+   * against is the genes THAT CONTRAST tested, which differs between contrasts
+   * on one object, so folding belongs to the caller. rnaseq-studio splits it
+   * the same way — one `prepareSets` per bundle, one background per contrast.
+   */
+  collections: Collection[]
+  /** How many of the requested collections have arrived. */
+  done: number
+  total: number
+  loading: boolean
+  error: string | null
+}
 
-export const setById = (id: string) => GENE_SETS.find(s => s.id === id)
+/** The sources a species starts with, from the manifest's own `on` flags. */
+export function defaultSources(manifest: Manifest | null, species: Species): string[] {
+  return manifest?.species[species]?.sources.filter(s => s.on).map(s => s.source) ?? []
+}
+
+/**
+ * Load the enabled collections for a species and fold them against an object.
+ *
+ * Two costs, deliberately separated. The DOWNLOAD belongs to the species and
+ * the collection — mouse GO:BP is the same 1.4 MB whatever object is open — so
+ * it is cached for the life of the tab, and switching back to a source you had
+ * a minute ago costs nothing. The INDEX belongs to the object, because it is
+ * the object's own gene list that decides which sets survive and how large each
+ * one is; it is rebuilt when the object or the enabled sources change, and
+ * costs about 55 ms on the full human default library.
+ */
+export function useGeneSets(
+  /** null before an object is open — nothing is fetched until then. */
+  species: Species | null,
+  sources: readonly string[],
+): LibraryState {
+  const [manifest, setManifest] = useState<Manifest | null>(null)
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [done, setDone] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  // Only the newest request may land: switching species while three files are
+  // in flight must not fold the old species' sets into the new index.
+  const token = useRef(0)
+
+  useEffect(() => {
+    loadManifest().then(setManifest, (e: unknown) =>
+      setError(e instanceof Error ? e.message : String(e)))
+  }, [])
+
+  const wanted = useMemo(() => {
+    if (!species) return []
+    const avail = manifest?.species[species]?.sources ?? []
+    return avail.filter(s => sources.includes(s.source))
+  }, [manifest, species, sources])
+
+  // The identity of the request, so the effect does not re-fire on a new array
+  // that names the same files.
+  const key = `${species}|${wanted.map(w => w.file).join(',')}`
+
+  useEffect(() => {
+    if (!manifest) return
+    const mine = ++token.current
+    setError(null)
+    if (!wanted.length) { setCollections([]); setDone(0); return }
+    // Anything already cached is not a download, so adding one source to a
+    // library that is already in hand does not redraw the card as "loading".
+    const already = wanted.filter(w => isLoaded(w.file)).length
+    setDone(already)
+    let landed = already
+    Promise.all(wanted.map(w => {
+      const fresh = !isLoaded(w.file)
+      return loadCollection(w.file).then(c => {
+        if (fresh && token.current === mine) setDone(++landed)
+        return c
+      })
+    })).then(
+      cs => { if (token.current === mine) { setCollections(cs); setDone(cs.length) } },
+      (e: unknown) => {
+        if (token.current === mine) setError(e instanceof Error ? e.message : String(e))
+      },
+    )
+    // `key` is the identity of `wanted`; depending on the array itself would
+    // re-run this on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manifest, key])
+
+  const ready = wanted.length > 0 && collections.length === wanted.length
+
+  return {
+    manifest,
+    collections: ready ? collections : EMPTY,
+    done,
+    total: wanted.length,
+    loading: wanted.length > 0 && !ready && !error,
+    error,
+  }
+}
+
+/** One frozen empty array, so a not-ready library is referentially stable. */
+const EMPTY: Collection[] = []
+
+/**
+ * Fold the loaded collections against one contrast's tested genes.
+ *
+ * Separate from the hook because the background is per contrast, and memoised
+ * on its own because folding the full human default library costs about 50 ms
+ * and must not repeat on a threshold drag.
+ */
+export function useSetIndex(collections: Collection[], background: string[]): SetIndex | null {
+  return useMemo(
+    () => (collections.length ? indexFor(collections, background) : null),
+    [collections, background])
+}

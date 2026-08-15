@@ -3,7 +3,9 @@ import type { CellType, Dataset, GroupBy } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf } from '../lib/chart.ts'
-import { GENE_SETS } from '../lib/genesets.ts'
+import type { LibraryState } from '../lib/genesets.ts'
+import type { Species } from '../lib/species.ts'
+import GeneSetSources from './GeneSetSources.tsx'
 import { parseGeneList } from '../lib/genes.ts'
 import {
   averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
@@ -25,7 +27,9 @@ import Progress from './Progress.tsx'
  */
 const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
-export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickGene }: {
+export default function GeneSets({
+  src, types, ct, emb, palKey, rampKey, onPickGene, lib, species, sources, onSources,
+}: {
   src: Source
   types: CellType[]
   ct: string
@@ -34,22 +38,56 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
   palKey: PaletteKey
   rampKey: RampKey
   onPickGene: (g: string) => void
+  lib: LibraryState
+  species: Species
+  sources: string[]
+  onSources: (next: string[]) => void
 }) {
   const d = src.d
   const GENES = src.genes
-  const [setId, setSetId] = useState(GENE_SETS[0].id)
+  const [setId, setSetId] = useState('')
+  const [find, setFind] = useState('')
   const [custom, setCustom] = useState('')
   const [useCustom, setUseCustom] = useState(false)
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
 
+  /**
+   * Every set in the enabled collections, flattened once.
+   *
+   * The old picker was a <select> over eighteen hand-written sets. MSigDB is up
+   * to 20 454, which no dropdown can hold, so the control below is a search
+   * field over this list and the select is gone.
+   */
+  const allSets = useMemo(() => lib.collections.flatMap(
+    c => c.sets.map(s => ({
+      id: s.id, name: s.name, source: c.source,
+      genes: Array.from(s.genes, i => c.symbols[i]),
+    }))), [lib.collections])
+
+  const hits = useMemo(() => {
+    const q = find.trim().toLowerCase()
+    if (!q) return allSets.slice(0, 40)
+    const words = q.split(/\s+/)
+    const out = []
+    for (const s of allSets) {
+      const hay = `${s.name} ${s.id}`.toLowerCase()
+      if (words.every(w => hay.includes(w))) out.push(s)
+      if (out.length >= 40) break
+    }
+    return out
+  }, [allSets, find])
+
+  const chosen = useMemo(
+    () => allSets.find(s => s.id === setId) ?? allSets[0] ?? null, [allSets, setId])
+
   const requested = useMemo(() => {
-    if (!useCustom) return GENE_SETS.find(s => s.id === setId)?.genes ?? []
+    if (!useCustom) return chosen?.genes ?? []
     // Parsed once. It was parsed twice — the whole gene list, per keystroke.
     // Either naming: on an accession-indexed object a pasted list of symbols
     // resolves, and so does a pasted list of accessions.
     const { found, missing } = parseGeneList(custom, GENES, src.names)
     return found.concat(missing)
-  }, [useCustom, custom, setId, GENES, src.names])
+  }, [useCustom, custom, chosen, GENES, src.names])
 
   const { used, missing } = useMemo(() => resolve(src, requested), [src, requested])
 
@@ -96,7 +134,7 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
 
   const name = useCustom
     ? `Custom set (${used.length} gene${used.length === 1 ? '' : 's'})`
-    : GENE_SETS.find(s => s.id === setId)?.name ?? ''
+    : chosen?.name ?? ''
 
   const ids = useMemo(
     () => identities(d, types, groupBy, ct, palKey), [d, types, groupBy, ct, palKey])
@@ -119,19 +157,26 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
         sub={<>Seurat&rsquo;s <Mono>AddModuleScore</Mono>: the set&rsquo;s mean, minus a control
           set matched on expression level.</>}
       >
-        <div className="mt-3.5 flex flex-wrap items-center gap-2">
+        {!useCustom && (
+          <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
+            background={GENES} />
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
           <Seg<'lib' | 'own'>
             value={useCustom ? 'own' : 'lib'}
             onChange={k => setUseCustom(k === 'own')}
-            options={[{ k: 'lib', label: 'Built-in set' }, { k: 'own', label: 'My own genes' }]}
+            options={[{ k: 'lib', label: 'MSigDB' }, { k: 'own', label: 'My own genes' }]}
           />
           {!useCustom ? (
-            <select className="sel max-w-[420px]" value={setId} onChange={e => setSetId(e.target.value)}
-              aria-label="Gene set">
-              {GENE_SETS.map(s => (
-                <option key={s.id} value={s.id}>{s.source} · {s.name}</option>
-              ))}
-            </select>
+            <input
+              className="inp w-[380px]" value={find}
+              placeholder={lib.loading ? 'loading MSigDB…'
+                : `search ${allSets.length.toLocaleString()} sets — cell cycle, notch…`}
+              aria-label="Search gene sets"
+              disabled={lib.loading}
+              onChange={e => setFind(e.target.value)}
+            />
           ) : (
             <>
               <input
@@ -140,11 +185,40 @@ export default function GeneSets({ src, types, ct, emb, palKey, rampKey, onPickG
                 onChange={e => setCustom(e.target.value)}
               />
               <button className="btn btn-quiet"
-                onClick={() => setCustom(GENE_SETS[1].genes.join(', '))}>Load example</button>
+                onClick={() => setCustom((allSets[0]?.genes ?? []).slice(0, 12).join(', '))}
+                disabled={!allSets.length}>Load example</button>
               <button className="btn btn-quiet" onClick={() => setCustom('')}>Clear</button>
             </>
           )}
         </div>
+
+        {/* The matches, as a list rather than a dropdown: at 20 454 sets the
+            names are what the reader is choosing between, and a <select> shows
+            one at a time. Capped at forty — narrowing the search is the way to
+            find something, not scrolling. */}
+        {!useCustom && !lib.loading && (
+          <div className="panel mt-2 max-h-[210px] overflow-y-auto">
+            {hits.length === 0 ? (
+              <p className="tx-small" style={{ color: 'var(--ink-3)' }}>
+                Nothing matches “{find}”.
+              </p>
+            ) : hits.map(h => (
+              <button
+                key={h.id} className="type-toggle flex w-full items-baseline gap-2 rounded-[--r-md] px-2 py-1 text-left"
+                aria-pressed={h.id === chosen?.id}
+                style={{ background: h.id === chosen?.id ? 'var(--surface)' : 'transparent' }}
+                onClick={() => setSetId(h.id)}
+              >
+                <span className="glabel flex-none" style={{ width: 92 }}>{h.source}</span>
+                <span className="min-w-0 flex-1 truncate tx-small"
+                  style={{ fontWeight: h.id === chosen?.id ? 600 : 400 }}>{h.name}</span>
+                <span className="mono flex-none tx-micro" style={{ color: 'var(--ink-3)' }}>
+                  {h.genes.length}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
           {`${used.length} of ${requested.length} genes found in this object`}

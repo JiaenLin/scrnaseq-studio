@@ -1,0 +1,188 @@
+{
+  "generated": "2026-08-15",
+  "msigdbr": "26.1.0",
+  "species": {
+    "human": {
+      "label": "Human",
+      "taxon": "Homo sapiens",
+      "release": "2026.1.Hs",
+      "sources": [
+        {
+          "source": "Hallmark",
+          "file": "human.hallmark.gs",
+          "nSets": 50,
+          "nGenes": 4384,
+          "bytes": 31108,
+          "on": true
+        },
+        {
+          "source": "KEGG",
+          "file": "human.kegg.gs",
+          "nSets": 186,
+          "nGenes": 5246,
+          "bytes": 40262,
+          "on": true
+        },
+        {
+          "source": "KEGG MEDICUS",
+          "file": "human.kegg-medicus.gs",
+          "nSets": 658,
+          "nGenes": 2788,
+          "bytes": 35793,
+          "on": false
+        },
+        {
+          "source": "Reactome",
+          "file": "human.reactome.gs",
+          "nSets": 1839,
+          "nGenes": 11448,
+          "bytes": 245534,
+          "on": true
+        },
+        {
+          "source": "WikiPathways",
+          "file": "human.wikipathways.gs",
+          "nSets": 925,
+          "nGenes": 9273,
+          "bytes": 140176,
+          "on": true
+        },
+        {
+          "source": "BioCarta",
+          "file": "human.biocarta.gs",
+          "nSets": 292,
+          "nGenes": 1509,
+          "bytes": 15811,
+          "on": false
+        },
+        {
+          "source": "GO:BP",
+          "file": "human.go-bp.gs",
+          "nSets": 7538,
+          "nGenes": 18215,
+          "bytes": 1374565,
+          "on": true
+        },
+        {
+          "source": "GO:MF",
+          "file": "human.go-mf.gs",
+          "nSets": 1872,
+          "nGenes": 15971,
+          "bytes": 291633,
+          "on": false
+        },
+        {
+          "source": "GO:CC",
+          "file": "human.go-cc.gs",
+          "nSets": 1080,
+          "nGenes": 14953,
+          "bytes": 258088,
+          "on": false
+        },
+        {
+          "source": "Cell type",
+          "file": "human.cell-type.gs",
+          "nSets": 866,
+          "nGenes": 20573,
+          "bytes": 428379,
+          "on": true
+        },
+        {
+          "source": "Oncogenic",
+          "file": "human.oncogenic.gs",
+          "nSets": 189,
+          "nGenes": 10927,
+          "bytes": 105804,
+          "on": false
+        },
+        {
+          "source": "Immunologic",
+          "file": "human.immunologic.gs",
+          "nSets": 4872,
+          "nGenes": 20450,
+          "bytes": 2335337,
+          "on": false
+        }
+      ]
+    },
+    "mouse": {
+      "label": "Mouse",
+      "taxon": "Mus musculus",
+      "release": "2026.1.Mm",
+      "sources": [
+        {
+          "source": "Hallmark",
+          "file": "mouse.hallmark.gs",
+          "nSets": 50,
+          "nGenes": 4291,
+          "bytes": 30881,
+          "on": true
+        },
+        {
+          "source": "Reactome",
+          "file": "mouse.reactome.gs",
+          "nSets": 1333,
+          "nGenes": 9285,
+          "bytes": 179010,
+          "on": true
+        },
+        {
+          "source": "WikiPathways",
+          "file": "mouse.wikipathways.gs",
+          "nSets": 202,
+          "nGenes": 4810,
+          "bytes": 41200,
+          "on": true
+        },
+        {
+          "source": "BioCarta",
+          "file": "mouse.biocarta.gs",
+          "nSets": 252,
+          "nGenes": 1162,
+          "bytes": 12847,
+          "on": false
+        },
+        {
+          "source": "GO:BP",
+          "file": "mouse.go-bp.gs",
+          "nSets": 7781,
+          "nGenes": 19935,
+          "bytes": 1448011,
+          "on": true
+        },
+        {
+          "source": "GO:MF",
+          "file": "mouse.go-mf.gs",
+          "nSets": 1899,
+          "nGenes": 17896,
+          "bytes": 302868,
+          "on": false
+        },
+        {
+          "source": "GO:CC",
+          "file": "mouse.go-cc.gs",
+          "nSets": 1067,
+          "nGenes": 15937,
+          "bytes": 277540,
+          "on": false
+        },
+        {
+          "source": "Cell type",
+          "file": "mouse.cell-type.gs",
+          "nSets": 233,
+          "nGenes": 10687,
+          "bytes": 137291,
+          "on": true
+        },
+        {
+          "source": "Immunologic",
+          "file": "mouse.immunologic.gs",
+          "nSets": 787,
+          "nGenes": 5981,
+          "bytes": 139075,
+          "on": false
+        }
+      ]
+    }
+  }
+}

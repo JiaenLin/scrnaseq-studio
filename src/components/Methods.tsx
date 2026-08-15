@@ -47,7 +47,9 @@ const METHOD_REFS: [RegExp, RefKey][] = [
 const refFor = (text: string, table: [RegExp, RefKey][]): RefKey | null =>
   table.find(([re]) => re.test(text))?.[1] ?? null
 
-export default function Methods({ src, types, ti, ctrl, cs, method, padjMax, lfcMin }: {
+export default function Methods({
+  src, types, ti, ctrl, cs, method, padjMax, lfcMin, lib,
+}: {
   src: Source
   types: CellType[]
   ti: number
@@ -57,6 +59,11 @@ export default function Methods({ src, types, ti, ctrl, cs, method, padjMax, lfc
   /** The cutoffs actually in force, so the prose can never drift from the figures. */
   padjMax: number
   lfcMin: number
+  /**
+   * Which MSigDB is loaded, so the prose names the release rather than a
+   * version somebody typed into it once. Null before it arrives.
+   */
+  lib: { release: string; taxon: string } | null
 }) {
   const d = src.d
   const design = designFor(src, ti, ctrl, cs)
@@ -202,8 +209,19 @@ export default function Methods({ src, types, ti, ctrl, cs, method, padjMax, lfc
             <p className="mb-0 mt-3">
               <b>Enrichment tests against the genes this object measured</b>, never the whole
               genome: testing against genes the assay could not detect inflates every result.
-              A module score subtracts a control set matched on expression level, which is what
-              makes zero meaningful.
+              The background is narrowed once more, to the measured genes that are in at least
+              one set — the annotated background — because a gene no set contains could never
+              have been drawn into one. A module score subtracts a control set matched on
+              expression level, which is what makes zero meaningful.
+            </p>
+            <p className="mb-0 mt-3">
+              <b>The gene sets are MSigDB{lib ? ` ${lib.release}` : ''}</b>
+              {lib && <>, the collections native to {lib.taxon}</>}. Native, not projected:
+              MSigDB curates a separate mouse database, and mapping the human sets across
+              orthologs instead would give different membership for every set — over the fifty
+              hallmark sets the two agree on a mean Jaccard of 0.57 and not one is identical.
+              Only the collections switched on are tested, and the correction is applied across
+              those.
             </p>
             <p className="mb-0 mt-3">
               <b>What this text will not say.</b> It names no normalization, variable-gene count,

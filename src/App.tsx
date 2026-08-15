@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CellType, ColorBy, DEView, GroupBy, Method, PlotKind, TabId } from './types.ts'
 import { parseBundle } from './lib/bundle.ts'
 import { readCollectionIndex } from './lib/collection.ts'
@@ -20,6 +20,8 @@ import GeneSets from './components/GeneSets.tsx'
 import Methods from './components/Methods.tsx'
 import ViewBoundary from './components/Boundary.tsx'
 import ViewMenu from './components/ViewMenu.tsx'
+import { detectSpecies, type Species } from './lib/species.ts'
+import { defaultSources, useGeneSets } from './lib/genesets.ts'
 import { Empty } from './components/Ui.tsx'
 
 /**
@@ -100,10 +102,16 @@ interface Needs {
    * effect was on three tabs the reader could not see.
    */
   runs: boolean
+  /**
+   * This tab reads the gene-set library, so which organism's sets are loaded
+   * changes its answer. A fact about the object, like the embedding, so the
+   * control sits in this bar rather than on the card.
+   */
+  library: boolean
 }
 
-const NOTHING: Needs = { ct: false, contrast: false, runs: false }
-const BOTH: Needs = { ct: true, contrast: true, runs: true }
+const NOTHING: Needs = { ct: false, contrast: false, runs: false, library: false }
+const BOTH: Needs = { ct: true, contrast: true, runs: true, library: true }
 
 /**
  * Which shared controls belong above a given tab.
@@ -137,12 +145,12 @@ function needsOf(tab: TabId): Needs {
     case 'de': return BOTH
     // Both sides, because the paragraph names them — but no Run: this tab
     // reads what the others computed and never starts a pass of its own.
-    case 'methods': return { ct: true, contrast: true, runs: false }
+    case 'methods': return { ct: true, contrast: true, runs: false, library: true }
     // Nothing. Gene expression picks its own cell type beside the figures that
     // use it, and it is not a comparison — a Control / Compare pair over it read
     // as a claim that the panels below were showing that contrast.
     case 'expr': return NOTHING
-    case 'sets': return { ct: true, contrast: false, runs: false }
+    case 'sets': return { ct: true, contrast: false, runs: false, library: true }
     default: return NOTHING
   }
 }
@@ -196,6 +204,24 @@ export default function App() {
   const [markersGo, setMarkersGo] = useState(false)
   const [markersWant, setMarkersWant] = useState<Set<number>>(new Set())
 
+  /**
+   * Which organism's gene sets to use, and which collections of them.
+   *
+   * Detected from the object when it opens, and overridable — MSigDB spells the
+   * same gene GFAP for human and Gfap for mouse, so the wrong library does not
+   * error, it silently returns nothing. `speciesWhy` carries the evidence the
+   * guess was made on, because a reader who disagrees needs to see what it was
+   * based on before they change it.
+   */
+  // null until an object is open and has been read. It used to start at
+  // 'human', which meant every mouse object downloaded 2.2 MB of the human
+  // library before `adopt` had a chance to say otherwise — the effect below
+  // fires on the initial value, not on the eventual one.
+  const [species, setSpecies] = useState<Species | null>(null)
+  const changeSpecies = (next: Species) => { setSpecies(next); setSrcs([]) }
+  const [speciesWhy, setSpeciesWhy] = useState('')
+  const [srcs, setSrcs] = useState<string[]>([])
+
   // Bumped by the error boundary's Try again, and part of its key, so that one
   // click both rebuilds the view from current state and gives it a boundary that
   // has not caught anything yet. Nothing else reads it; it exists to be changed.
@@ -227,6 +253,20 @@ export default function App() {
   // Only the newest gene request may land: clicking through a marker table
   // faster than the file can answer must not leave an older panel on screen.
   const geneToken = useRef(0)
+
+  // Above the "no object open" return, because a hook cannot be conditional.
+  // Costs one small manifest fetch on load; the collections themselves are only
+  // fetched once a species has some enabled.
+  const lib = useGeneSets(species, srcs)
+
+  // The species' own defaults, once the manifest says what it has. Written only
+  // when nothing is chosen, so this cannot fight a reader who has just turned a
+  // collection off.
+  useEffect(() => {
+    if (!lib.manifest || !species || srcs.length) return
+    const d = defaultSources(lib.manifest, species)
+    if (d.length) setSrcs(d)
+  }, [lib.manifest, species, srcs.length])
 
   function adopt(next: Source, defaultGenes: string[]) {
     setSrc(next)
@@ -261,6 +301,14 @@ export default function App() {
     // minutes, and opening a tab is not consent to spend them.
     setMarkersGo(!next.lazy)
     setMarkersWant(new Set())
+    const det = detectSpecies(next.names.display, next.names.other)
+    setSpecies(det.species)
+    setSpeciesWhy(det.why)
+    // Cleared rather than defaulted here: the manifest may not have arrived,
+    // and the effect below fills them in for whichever species this turns out
+    // to be. Carrying the previous object's choice across would be worse — the
+    // collections differ by species and mouse has no KEGG.
+    setSrcs([])
   }
 
   const openDemo = (key: string) => {
@@ -543,9 +591,30 @@ export default function App() {
                 </label>
               </>
             )}
-            {needs.contrast && d.multi && (
+            {needs.library && (
               <>
                 {(needs.ct || showEmb) && <div className="gsep" />}
+                <label className="flex flex-none items-center gap-1.5">
+                  <span className="glabel">Gene sets</span>
+                  <select
+                    className="sel" value={species ?? ''}
+                    aria-label="Species for the gene set library"
+                    title={speciesWhy ? `Detected: ${speciesWhy}` : undefined}
+                    onChange={e => changeSpecies(e.target.value as Species)}
+                  >
+                    {Object.entries(lib.manifest?.species ?? {}).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                    {/* Before the manifest lands there is one option, so the
+                        select shows the detected species rather than blank. */}
+                    {!lib.manifest && species && <option value={species}>{species}</option>}
+                  </select>
+                </label>
+              </>
+            )}
+            {needs.contrast && d.multi && (
+              <>
+                {(needs.ct || showEmb || needs.library) && <div className="gsep" />}
                 <CondPicker label="Control" all={d.conds} value={ctrl} other={cs}
                   onChange={setCtrl} />
                 <CondPicker label="Compare" all={d.conds} value={cs} other={ctrl}
@@ -654,7 +723,8 @@ export default function App() {
               <Differential {...statsProps} view={deView} onView={setDeView}
                 enrichment={rows => (
                   <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
-                    genes={src.genes} ctrl={ctrl} cs={cs}
+                    ctrl={ctrl} cs={cs}
+                    lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
                     // condLabel, not the raw arrays — those join on a comma, so
                     // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
                     // 0h" on every other figure in the same session.
@@ -673,10 +743,15 @@ export default function App() {
                 onHidden={setHiddenTypes} onClip={setFeatureClip} onBorders={setCellBorders} />
             ) : tab === 'sets' ? (
               <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
-                onPickGene={pickGene} />
+                onPickGene={pickGene}
+                lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs} />
             ) : (
               <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
-                padjMax={padjMax} lfcMin={lfcMin} />
+                padjMax={padjMax} lfcMin={lfcMin}
+                lib={species && lib.manifest?.species[species]
+                  ? { release: lib.manifest.species[species].release,
+                    taxon: lib.manifest.species[species].taxon }
+                  : null} />
             )}
           </ViewBoundary>
         </div>
