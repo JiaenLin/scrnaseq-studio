@@ -56,10 +56,28 @@ console.log(`${NL}3 · EVERY PROPORTION PANEL SAVES ON ITS OWN`)
   }
 }
 
+console.log(`${NL}5 · NO GENE IS CHOSEN FOR THE READER`)
+{
+  await page.getByRole('tab', { name: 'Gene expression' }).click()
+  await page.waitForTimeout(900)
+  const empty = await page.locator('.empty').first().textContent().catch(() => '')
+  ok(/Search for a gene/i.test(empty ?? ''), `the tab opens empty: "${(empty ?? '').trim()}"`)
+  const chips = await page.locator('button', { hasText: /^\s*(Cd3d|Ms4a1|Ppbp|Lyz|Gnly)\s*×?\s*$/ }).count()
+  ok(chips === 0, `${chips} genes were pre-selected`)
+}
+
 console.log(`${NL}4 · A VIOLIN OF NOTHING IS A LINE`)
 {
   await page.getByRole('tab', { name: 'Gene expression' }).click()
   await page.waitForTimeout(900)
+  // A gene has to be asked for first. Nothing is pre-selected any more — the
+  // tab opens on "Search for a gene above", because which gene to look at is
+  // the question it exists to ask, and four genes from a fixed list answered it
+  // wrongly on every object that list was not written for.
+  const field = page.locator('input[aria-label^="Search a gene"]')
+  await field.fill('Ascl1')
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(1000)
   const vb = page.getByRole('button', { name: 'Violin panel', exact: true })
   if (await vb.count()) await vb.click()
   await page.waitForTimeout(1400)
