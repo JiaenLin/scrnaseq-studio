@@ -206,6 +206,47 @@ console.log('\nENRICHMENT ON A REAL CONTRAST')
     res.every(r => r.overlap.length === r.count), true)
 }
 
+console.log('\nTHE ORA BACKGROUND IS NOT THE FILTERED LIST')
+{
+  // The bug this pins: Enrichment used to build its background from the rows
+  // deWilcox returns, on the reasoning that a gene which never got a p-value
+  // was never in the population the list was drawn from. The reasoning is
+  // right; the mapping was wrong. deWilcox drops a gene BEFORE testing it
+  // whenever |log2FC| < LFC_GATE, so its rows are the genes that already passed
+  // an effect-size gate — and the query is the significant subset of those.
+  //
+  // The result is arithmetic, not biology: n/N approaches 1, every set's k/n
+  // matches its K/N, every fold enrichment is 1 and no p can be small. A user
+  // reported 324 changed genes and zero enriched sets against a background of
+  // 328. On this demo it is starker: every returned row is significant.
+  const src = demoSource('cohort')
+  const ti = src.clusters.indexOf('qNSC')
+  const th = thresholdFor('wilcox')
+  const de = deWilcox(src, ti, 'Quiescent', 'Reactivated')
+  const sig = de.rows.filter(r => isSig(r, th)).map(r => r.gene)
+
+  check('deWilcox returns fewer rows than the object measures',
+    de.rows.length < src.genes.length, true)
+  check('and nearly all of them are significant, which is the trap',
+    sig.length / de.rows.length > 0.9, true)
+
+  const filtered = indexFor(MOUSE, de.rows.map(r => r.gene))
+  const measured = indexFor(MOUSE, src.genes)
+  check('the filtered background is far smaller than the measured one',
+    filtered.N < measured.N / 2, true)
+
+  const bad = oraIndexed(sig, filtered, { minSize: 3, maxSize: 500 })
+  const good = oraIndexed(sig, measured, { minSize: 3, maxSize: 500 })
+  // Every fold enrichment collapses to 1 when the background is the filtered
+  // list, because the query IS the background.
+  check('against the filtered background every fold enrichment is 1',
+    bad.length === 0 || bad.every(r => Math.abs(r.foldEnrichment - 1) < 1e-9), true)
+  check('against the measured background they are not',
+    good.some(r => r.foldEnrichment > 1.5), true)
+  check('and the measured background returns more sets to look at',
+    good.length > bad.length, true)
+}
+
 console.log('\nMODULE SCORE')
 {
   const src = demoSource('cohort')

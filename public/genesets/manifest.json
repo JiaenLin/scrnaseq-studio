@@ -13,7 +13,8 @@
           "nSets": 50,
           "nGenes": 4384,
           "bytes": 31108,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "KEGG",
@@ -21,7 +22,8 @@
           "nSets": 186,
           "nGenes": 5246,
           "bytes": 40262,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "KEGG MEDICUS",
@@ -29,7 +31,8 @@
           "nSets": 658,
           "nGenes": 2788,
           "bytes": 35793,
-          "on": false
+          "on": false,
+          "projected": false
         },
         {
           "source": "Reactome",
@@ -37,7 +40,8 @@
           "nSets": 1839,
           "nGenes": 11448,
           "bytes": 245534,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "WikiPathways",
@@ -45,7 +49,8 @@
           "nSets": 925,
           "nGenes": 9273,
           "bytes": 140176,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "BioCarta",
@@ -53,7 +58,8 @@
           "nSets": 292,
           "nGenes": 1509,
           "bytes": 15811,
-          "on": false
+          "on": false,
+          "projected": false
         },
         {
           "source": "GO:BP",
@@ -61,7 +67,8 @@
           "nSets": 7538,
           "nGenes": 18215,
           "bytes": 1374565,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "GO:MF",
@@ -69,7 +76,8 @@
           "nSets": 1872,
           "nGenes": 15971,
           "bytes": 291633,
-          "on": false
+          "on": false,
+          "projected": false
         },
         {
           "source": "GO:CC",
@@ -77,7 +85,8 @@
           "nSets": 1080,
           "nGenes": 14953,
           "bytes": 258088,
-          "on": false
+          "on": false,
+          "projected": false
         },
         {
           "source": "Cell type",
@@ -85,7 +94,8 @@
           "nSets": 866,
           "nGenes": 20573,
           "bytes": 428379,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "Oncogenic",
@@ -93,7 +103,8 @@
           "nSets": 189,
           "nGenes": 10927,
           "bytes": 105804,
-          "on": false
+          "on": false,
+          "projected": false
         },
         {
           "source": "Immunologic",
@@ -101,7 +112,8 @@
           "nSets": 4872,
           "nGenes": 20450,
           "bytes": 2335337,
-          "on": false
+          "on": false,
+          "projected": false
         }
       ]
     },
@@ -116,7 +128,17 @@
           "nSets": 50,
           "nGenes": 4291,
           "bytes": 30881,
-          "on": true
+          "on": true,
+          "projected": false
+        },
+        {
+          "source": "KEGG (orthologs)",
+          "file": "mouse.kegg-orthologs.gs",
+          "nSets": 186,
+          "nGenes": 5032,
+          "bytes": 39415,
+          "on": true,
+          "projected": true
         },
         {
           "source": "Reactome",
@@ -124,7 +146,8 @@
           "nSets": 1333,
           "nGenes": 9285,
           "bytes": 179010,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "WikiPathways",
@@ -132,7 +155,8 @@
           "nSets": 202,
           "nGenes": 4810,
           "bytes": 41200,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "BioCarta",
@@ -140,7 +164,8 @@
           "nSets": 252,
           "nGenes": 1162,
           "bytes": 12847,
-          "on": false
+          "on": false,
+          "projected": false
         },
         {
           "source": "GO:BP",
@@ -148,7 +173,8 @@
           "nSets": 7781,
           "nGenes": 19935,
           "bytes": 1448011,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "GO:MF",
@@ -156,7 +182,8 @@
           "nSets": 1899,
           "nGenes": 17896,
           "bytes": 302868,
-          "on": false
+          "on": false,
+          "projected": false
         },
         {
           "source": "GO:CC",
@@ -164,7 +191,8 @@
           "nSets": 1067,
           "nGenes": 15937,
           "bytes": 277540,
-          "on": false
+          "on": false,
+          "projected": false
         },
         {
           "source": "Cell type",
@@ -172,7 +200,8 @@
           "nSets": 233,
           "nGenes": 10687,
           "bytes": 137291,
-          "on": true
+          "on": true,
+          "projected": false
         },
         {
           "source": "Immunologic",
@@ -180,7 +209,8 @@
           "nSets": 787,
           "nGenes": 5981,
           "bytes": 139075,
-          "on": false
+          "on": false,
+          "projected": false
         }
       ]
     }

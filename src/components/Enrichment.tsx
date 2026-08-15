@@ -17,10 +17,12 @@ import Figure, { CsvButton } from './Figure.tsx'
 type Direction = 'both' | 'up' | 'down'
 
 export default function Enrichment({
-  rows, threshold, ctrl, cs, label, rampKey, onPickGene,
+  rows, threshold, ctrl, cs, label, rampKey, onPickGene, background,
   lib, species, sources, onSources, detected,
 }: {
   rows: DERow[]
+  /** Every gene the object measures — the population the list was drawn from. */
+  background: string[]
   threshold: { padj: number; lfc: number }
   ctrl: string[]
   cs: string[]
@@ -46,11 +48,31 @@ export default function Enrichment({
     .filter(r => dir === 'both' || (dir === 'up' ? r.lfc > 0 : r.lfc < 0))
     .map(r => r.gene), [rows, threshold, dir])
 
-  // The background is the genes THIS contrast tested, not every gene in the
-  // object: a gene that never got a p-value could never have been called
-  // significant, so it was never in the population the list was drawn from.
-  const tested = useMemo(() => rows.map(r => r.gene), [rows])
-  const index = useSetIndex(lib.collections, tested)
+  /**
+   * The background is every gene the object MEASURES.
+   *
+   * It was `rows.map(r => r.gene)` — the rows deWilcox returns — on the
+   * reasoning that a gene which never got a p-value was never in the population
+   * the list was drawn from. That reasoning is right and the mapping was wrong,
+   * because deWilcox does not return every gene it tested: src/lib/stats.ts
+   * drops a gene before the test whenever |log2FC| < 0.25, which is Seurat's
+   * `logfc.threshold`, a speed pre-filter and not a claim that the gene was
+   * unmeasured.
+   *
+   * So the background WAS the genes that had already passed an effect-size
+   * gate, and the query was the significant subset of those. On a real contrast
+   * that is 324 significant genes inside a background of 328, n/N = 0.99, every
+   * set's k/n matches its K/N, every fold enrichment is 1.00 and every p is 1.
+   * The user who reported "324 DEGs and no enrichment at all" was looking at
+   * arithmetic, not biology. On the cohort demo it is starker still: twelve rows
+   * returned, all twelve significant, n/N exactly 1.
+   *
+   * rnaseq-studio's equivalent is `bundle.degByContrast[...]`, which is the
+   * whole DESeq2 table — every gene tested, unfiltered by effect size — so it
+   * never had this problem, and mapping one onto the other is what introduced
+   * it here.
+   */
+  const index = useSetIndex(lib.collections, background)
 
   // oraIndexed, not runORA: the library is up to 20 454 sets and this re-runs
   // on every drag of a threshold slider. The fold against the background
@@ -98,13 +120,13 @@ export default function Enrichment({
       title={`${nSig.toLocaleString()} enriched set${nSig === 1 ? '' : 's'}`}
       sub={index
         ? `Hypergeometric on ${query.length} genes ${dirLabel}, against an annotated `
-          + `background of ${index.N.toLocaleString()} of the ${tested.length.toLocaleString()} `
-          + `tested. ${results.length.toLocaleString()} sets overlapped the list; `
+          + `background of ${index.N.toLocaleString()} of the ${background.length.toLocaleString()} `
+          + `this object measures. ${results.length.toLocaleString()} sets overlapped the list; `
           + `${nSig.toLocaleString()} reach padj < 0.05 after BH across all of them.`
         : 'Loading the gene sets…'}
     >
       <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
-        index={index} background={tested} detected={detected} />
+        index={index} background={background} detected={detected} />
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="glabel">Direction</span>

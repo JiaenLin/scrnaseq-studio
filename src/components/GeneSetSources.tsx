@@ -97,6 +97,7 @@ export default function GeneSetSources({
           <button
             key={s.source} className="chip" aria-pressed={sources.includes(s.source)}
             title={`${s.nSets.toLocaleString()} sets · ${(s.bytes / 1e6).toFixed(2)} MB`
+              + (s.projected ? ' · human sets mapped through orthologs, not a mouse annotation' : '')
               + (sources.includes(s.source) ? '' : ' — not downloaded yet')}
             onClick={() => toggle(s.source)}
           >
@@ -128,6 +129,14 @@ export default function GeneSetSources({
           These collections annotate {(covered * 100).toFixed(0)}% of the genes this object
           measures. That fraction is the annotated background, and turning more collections on
           raises it.
+        </p>
+      )}
+
+      {chosen.some(s => s.projected) && (
+        <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+          {chosen.filter(s => s.projected).map(s => s.source).join(', ')} is human sets mapped
+          through orthologs, not a {lib.manifest?.species[species]?.label.toLowerCase() ?? species}{' '}
+          annotation — MSigDB publishes no native one. Read it as a weaker claim than the rest.
         </p>
       )}
 

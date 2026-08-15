@@ -43,6 +43,12 @@ export interface ManifestSource {
   bytes: number
   /** Enabled the first time an object of this species is opened. */
   on: boolean
+  /**
+   * Not a native annotation for this species — human sets mapped through
+   * orthologs. Only mouse KEGG, and only because no native one is
+   * distributable. Carried this far so the interface can say so.
+   */
+  projected?: boolean
 }
 
 export interface Manifest {

@@ -15,8 +15,13 @@
 # identical membership. This exports the native collections only, so a mouse
 # result is a claim about a mouse annotation.
 #
-# Mouse has no KEGG. MSigDB does not redistribute it for mouse, and projecting
-# the human pathways across would put a KEGG label on something KEGG never said.
+# One exception, and it is labelled as one: mouse KEGG. MSigDB publishes no
+# native mouse KEGG and KEGG's own licence does not let this repository ship its
+# data, so the only legitimate route is msigdbr's documented ortholog projection
+# of the human collection. It is exported as "KEGG (orthologs)" and carries a
+# `projected` flag through the manifest into the interface, because a human
+# pathway mapped onto mouse genes is a weaker claim than a mouse annotation and
+# must not sit in the row looking like one.
 
 args <- commandArgs(trailingOnly = TRUE)
 out <- if (length(args)) args[1] else "scratch-msigdb/gmt"
@@ -52,6 +57,13 @@ GROUPS <- list(
   list("Oncogenic",    "HS", "Homo sapiens", "C6", NA),
   list("Immunologic",  "HS", "Homo sapiens", "C7", "IMMUNESIGDB"),
 
+  # Mouse KEGG does not exist natively: MSigDB does not redistribute KEGG for
+  # mouse, and KEGG's own licence does not permit us to ship its data either.
+  # msigdbr's documented ortholog projection of the human collection is the one
+  # legitimate route, and it is labelled as a projection everywhere it appears —
+  # it is a claim about human pathways mapped onto mouse genes, which is a
+  # weaker thing than a mouse annotation and must not be presented as one.
+  list("KEGG (orthologs)", "HS", "Mus musculus", "C2", "CP:KEGG_LEGACY"),
   list("Hallmark",     "MM", "Mus musculus", "MH", NA),
   list("Reactome",     "MM", "Mus musculus", "M2", "CP:REACTOME"),
   list("WikiPathways", "MM", "Mus musculus", "M2", "CP:WIKIPATHWAYS"),
@@ -87,7 +99,7 @@ for (g in GROUPS) {
   if (!is.null(verCol) && !is.na(verCol)) release[[db]] <- as.character(d[[verCol]][1])
 
   sets <- split(d[[symCol]], d[[nameCol]])
-  species <- if (db == "MM") "mouse" else "human"
+  species <- if (sp == "Mus musculus") "mouse" else "human"
   path <- file.path(out, sprintf("%s.%s.gmt", species, slug(label)))
   con <- file(path, "wb")
   for (nm in names(sets)) {

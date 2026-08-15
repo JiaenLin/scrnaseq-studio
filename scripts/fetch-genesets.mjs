@@ -30,19 +30,39 @@ const OUT = outArg > 0 ? process.argv[outArg + 1] : 'public/genesets'
  * mean by "pathway enrichment"; cell-type signatures are on because this is a
  * single-cell studio and they are the collection most likely to be useful here.
  */
-const ON = new Set(['Hallmark', 'KEGG', 'Reactome', 'WikiPathways', 'GO:BP', 'Cell type'])
+const ON = new Set(['Hallmark', 'KEGG', 'KEGG (orthologs)', 'Reactome', 'WikiPathways',
+  'GO:BP', 'Cell type'])
 
 /** The order collections are offered in — broadest and most used first. */
-const ORDER = ['Hallmark', 'KEGG', 'KEGG MEDICUS', 'Reactome', 'WikiPathways', 'BioCarta',
-  'GO:BP', 'GO:MF', 'GO:CC', 'Cell type', 'Oncogenic', 'Immunologic']
+const ORDER = ['Hallmark', 'KEGG', 'KEGG (orthologs)', 'KEGG MEDICUS', 'Reactome',
+  'WikiPathways', 'BioCarta', 'GO:BP', 'GO:MF', 'GO:CC', 'Cell type', 'Oncogenic', 'Immunologic']
+
+/**
+ * Collections that are NOT a native annotation for their species.
+ *
+ * Mouse KEGG is human KEGG mapped through orthologs, because no native one is
+ * distributable. It is a weaker claim than the rest of the library and the
+ * interface says so wherever it appears, rather than letting it sit in a row
+ * of native collections looking like one of them.
+ */
+const PROJECTED = new Set(['KEGG (orthologs)'])
 
 const LABEL = {
   human: { label: 'Human', taxon: 'Homo sapiens' },
   mouse: { label: 'Mouse', taxon: 'Mus musculus' },
 }
 
-/** Back from a file slug to the collection label the R export used. */
-const unslug = new Map(ORDER.map(s => [s.toLowerCase().replace(/[^a-z0-9]+/g, '-'), s]))
+/**
+ * Back from a file slug to the collection label the R export used.
+ *
+ * Character for character what slug() in export-genesets.R does, TRAILING DASH
+ * INCLUDED — "KEGG (orthologs)" ends in a bracket, so a naive slug leaves
+ * "kegg-orthologs-" while R writes "kegg-orthologs", the lookup misses, and the
+ * collection is silently dropped from the manifest with no error anywhere.
+ * Two slug functions that must agree, in two languages; they agree here.
+ */
+const slugOf = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+const unslug = new Map(ORDER.map(s => [slugOf(s), s]))
 
 /**
  * MSigDB's systematic name, made readable.
@@ -126,11 +146,12 @@ for (const species of ['human', 'mouse']) {
     writeFileSync(join(OUT, name), gz)
     rawTotal += gmt.length
     gzTotal += gz.length
-    sources.push({ source, file: name, nSets, nGenes, bytes: gz.length, on: ON.has(source) })
+    sources.push({ source, file: name, nSets, nGenes, bytes: gz.length,
+      on: ON.has(source), projected: PROJECTED.has(source) })
     console.log(`  ${source.padEnd(14)} ${String(nSets).padStart(5)} sets  `
       + `${String(nGenes).padStart(6)} genes  `
       + `gmt ${(gmt.length / 1e6).toFixed(2)} MB -> gz ${(gz.length / 1e6).toFixed(2)} MB`
-      + (ON.has(source) ? '  [on]' : ''))
+      + (ON.has(source) ? '  [on]' : '') + (PROJECTED.has(source) ? '  [orthologs]' : ''))
   }
   manifest.species[species] = { ...LABEL[species], release: release[species], sources }
 }

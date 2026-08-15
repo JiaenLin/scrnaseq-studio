@@ -743,7 +743,7 @@ export default function App() {
               <Differential {...statsProps} view={deView} onView={setDeView}
                 enrichment={rows => (
                   <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
-                    ctrl={ctrl} cs={cs}
+                    ctrl={ctrl} cs={cs} background={src.genes}
                     lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
                     // condLabel, not the raw arrays — those join on a comma, so
                     // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
