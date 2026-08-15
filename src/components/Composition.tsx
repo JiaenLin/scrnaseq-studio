@@ -460,6 +460,19 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
 }
 
 /** One cell type: a bar per group, its own y axis, samples drawn on top. */
+/**
+ * One cell type's panel, saveable on its own.
+ *
+ * These were bare <figure> elements, so the only export on this tab was the
+ * stacked-bar figure above — and a small multiple is the one layout where
+ * exporting the sheet is least likely to be what anybody wants. A cell type's
+ * proportion across groups is a panel of its own in a manuscript, and there was
+ * no way to get it out of here except a screenshot.
+ *
+ * Each facet is its own Figure because Figure exports the first <svg> it finds
+ * inside itself: wrapping the grid would have produced one button that always
+ * saved the first cell type, which is worse than no button.
+ */
 function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; palKey: PaletteKey }) {
   // PT is the title's band, not a decorative gap. At 16 the title's baseline
   // sat 8 units above the top y-tick's, and since both run to the same x the
@@ -508,7 +521,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
   const short = fit(t.name, W - PR - 4 - 12, 11, true)
 
   return (
-    <figure>
+    <Figure name={`proportion_${t.name}`} className="facet">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${t.name} proportion by group`}>
         <text className="axis" x={4} y={11} style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)' }}>
           <tspan fill={pal(ti, palKey)}>■ </tspan>{short}
@@ -557,6 +570,6 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
         })}
         <line className="axline" x1={PL} x2={W - PR} y1={H - PB} y2={H - PB} />
       </svg>
-    </figure>
+    </Figure>
   )
 }

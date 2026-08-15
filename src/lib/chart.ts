@@ -28,19 +28,92 @@ export function quantiles(arr: number[]): Quantiles {
   return { min: a[0], q1: q(0.25), med: q(0.5), q3: q(0.75), max: a[a.length - 1] }
 }
 
-/** Kernel density profile normalized to half-width 1, for a violin outline. */
+/**
+ * Silverman's rule of thumb for a Gaussian kernel bandwidth — R's `bw.nrd0`.
+ *
+ *   h = 0.9 · min(sd, IQR/1.34) · n^(-1/5)
+ *
+ * `min(sd, IQR/1.34)` rather than sd alone because single-cell expression is
+ * not close to normal: a gene detected in a fifth of the cells has most of its
+ * mass at exactly zero and a long right tail, and the standard deviation of
+ * that is set by the tail. The IQR term is what stops one bright outlier from
+ * choosing a bandwidth wide enough to smear the whole distribution flat.
+ *
+ * R falls back to the IQR, then the absolute deviation, then 1 when the spread
+ * is zero; this returns 0 instead and lets the caller decide, because a violin
+ * of a gene nobody expresses should collapse to a line and not fall back to an
+ * arbitrary width.
+ */
+export function bwNrd0(sorted: number[]): number {
+  const n = sorted.length
+  if (n < 2) return 0
+  const mean = sorted.reduce((a, b) => a + b, 0) / n
+  let ss = 0
+  for (const v of sorted) ss += (v - mean) ** 2
+  const sd = Math.sqrt(ss / (n - 1))
+  const at = (f: number) => sorted[Math.min(n - 1, Math.floor(f * n))]
+  const iqr = at(0.75) - at(0.25)
+  const spread = iqr > 0 ? Math.min(sd, iqr / 1.349) : sd
+  return spread > 0 ? 0.9 * spread * Math.pow(n, -0.2) : 0
+}
+
+/**
+ * Kernel density profile normalized to half-width 1, for a violin outline.
+ *
+ * Three things here were wrong, and all three showed up as the same complaint:
+ * a cell type with no expression drew a fat violin anyway.
+ *
+ * 1. The bandwidth was `(hi - lo) / 14` — a fixed fraction of the AXIS, with no
+ *    reference to the data. Every cell sitting at exactly zero still produced a
+ *    Gaussian a fourteenth of the axis wide, so "not detected" was drawn as a
+ *    blob a fifth of the panel tall. It is now Silverman's rule from the values
+ *    themselves, which is what R's density() and therefore ggplot's geom_violin
+ *    and Seurat's VlnPlot use.
+ *
+ * 2. Nothing trimmed the estimate to the data. A KDE is smooth and infinite, so
+ *    it put mass above the largest value observed and below the smallest —
+ *    drawing expression the object does not contain. ggplot's geom_violin trims
+ *    to the observed range by default and so does this now.
+ *
+ * 3. The profile was scaled by its own maximum, so every violin came out the
+ *    same width whatever it held. That IS the convention (ggplot's
+ *    scale = "width", Seurat's default) and it is kept — but it is exactly what
+ *    makes the first two defects read as "no expression, and still a shape".
+ */
 export function density(arr: number[], lo: number, hi: number, steps = 26): number[] {
-  const h = (hi - lo) / 14 || 1
+  const out = new Array<number>(steps + 1).fill(0)
+  if (!arr.length) return out
   const step = Math.max(1, Math.floor(arr.length / 300))
-  const out: number[] = []
+  const used: number[] = []
+  for (let k = 0; k < arr.length; k += step) used.push(arr[k])
+  used.sort((a, b) => a - b)
+
+  const min = used[0], max = used[used.length - 1]
+  const h = bwNrd0(used)
+  // No spread at all: every cell has the same value. There is no distribution
+  // to smooth, and the honest drawing is a line at that value — one step wide
+  // so it is visible, not a bell curve that claims a variance of nothing.
+  if (h <= 0) {
+    const i = Math.round(((min - lo) / ((hi - lo) || 1)) * steps)
+    if (i >= 0 && i <= steps) out[i] = 1
+    return out
+  }
+
   for (let i = 0; i <= steps; i++) {
     const x = lo + ((hi - lo) * i) / steps
+    // Trimmed to the observed range, as geom_violin does: outside it there is
+    // no data, so there is nothing for the outline to be describing.
+    if (x < min || x > max) continue
     let s = 0
-    for (let k = 0; k < arr.length; k += step) {
-      const z = (arr[k] - x) / h
+    for (const v of used) {
+      const z = (v - x) / h
+      // Past four bandwidths the Gaussian contributes under 1e-4 of its peak
+      // and the sum is dominated by rounding; skipping it is what keeps this
+      // affordable over 300 samples × 27 steps × every panel.
+      if (z > 4 || z < -4) continue
       s += Math.exp(-0.5 * z * z)
     }
-    out.push(s)
+    out[i] = s
   }
   const m = maxOf(out) || 1
   return out.map(v => v / m)

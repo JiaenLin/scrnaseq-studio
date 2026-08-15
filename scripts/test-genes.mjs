@@ -1,6 +1,7 @@
 // Gene search regressions (npm test, and in CI before deploy).
 // Runs the real src/lib/genes.ts via Node's built-in TypeScript type-stripping.
 import { makeGeneNames, mergeGenes, parseGeneList, rankGenes, MAX_GENES } from '../src/lib/genes.ts'
+import { bwNrd0, density } from '../src/lib/chart.ts'
 
 let failed = 0
 const check = (name, got, want) => {
@@ -135,5 +136,43 @@ console.log(String.fromCharCode(10) + 'AN AXIS DRAWS EVEN WHEN EVERY VALUE IS TH
   check('every bound is finite',
     [flat, same, norm].every(r => Number.isFinite(r.y0) && Number.isFinite(r.y1)), true)
 }
+console.log('\nA VIOLIN OF NOTHING IS A LINE, NOT A SHAPE')
+{
+  // Reported as "the violin plot shows a weird shape even with no expression".
+  // The bandwidth was (hi - lo) / 14 — a fixed fraction of the AXIS, with no
+  // reference to the data — so every cell sitting at exactly zero still drew a
+  // Gaussian a fourteenth of the axis wide. Nothing trimmed the estimate to the
+  // observed range either, so the outline claimed expression the object does
+  // not contain.
+  const flat = density(new Array(200).fill(0), 0, 4)
+  check('all cells at zero: one step wide', flat.filter(v => v > 0).length, 1)
+  check('and that step is at zero', flat.indexOf(1), 0)
+
+  const one = density(new Array(200).fill(2), 0, 4)
+  check('all cells at one value: a line at that value', one.filter(v => v > 0).length, 1)
+  check('placed where the value is', one.indexOf(1), 13)
+
+  // Trimmed: a real distribution must not be drawn outside its own range.
+  const half = density(Array.from({ length: 300 }, (_, i) => (i % 100) / 100), 0, 4)
+  check('nothing is drawn above the largest value observed',
+    half.slice(8).every(v => v === 0), true)
+  check('but the occupied part is a real profile',
+    half.slice(0, 8).filter(v => v > 0).length > 3, true)
+
+  // The bandwidth follows the data, which is the whole fix.
+  const tight = bwNrd0([...Array(100).keys()].map(i => i / 1000).sort((a, b) => a - b))
+  const wide = bwNrd0([...Array(100).keys()].map(i => i / 10).sort((a, b) => a - b))
+  check('a hundred-fold wider spread gives a wider bandwidth', wide > tight * 50, true)
+  check('no spread gives no bandwidth', bwNrd0([3, 3, 3, 3]), 0)
+
+  // Zero-inflation is the normal case in single cell: most cells at 0 and a
+  // long right tail. min(sd, IQR/1.349) is what keeps the tail from choosing
+  // a bandwidth wide enough to flatten the peak at zero.
+  const zi = new Array(180).fill(0).concat([2, 3, 4, 5, 9, 14, 20])
+  const d = density(zi, 0, 20)
+  check('the mode is at zero where the cells are', d.indexOf(1), 0)
+  check('and the tail is drawn, not smoothed away', d.slice(1).some(v => v > 0), true)
+}
+
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll gene-search tests passed\n')
 process.exit(failed ? 1 : 0)

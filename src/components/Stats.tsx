@@ -391,6 +391,18 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
 
 function Volcano(p: StatsProps & { de: DEResult }) {
   const [hover, setHover] = useState<DERow | null>(null)
+  /**
+   * Genes the reader has clicked, named on the figure and kept there.
+   *
+   * Clicking used to leave the tab — it called onPickGene, which selects the
+   * gene and navigates to Gene expression. That is a large, surprising action
+   * for a click on a scatter plot: the reader loses the volcano they were
+   * reading, along with every threshold and label they had set on it, and gets
+   * a different tab about one gene. What a click on a point is actually asking
+   * is "which gene is that?" — so it answers that, and the answer stays on the
+   * figure and in the export.
+   */
+  const [pinned, setPinned] = useState<string[]>([])
   const [nLabels, setNLabels] = useState(12)
   const de = p.de
   const rows = useMemo(() => de.rows, [de])
@@ -440,22 +452,31 @@ function Volcano(p: StatsProps & { de: DEResult }) {
    * highest, which is the trade the control is really offering.
    */
   const labelled = useMemo(() => {
-    if (!nLabels) return []
+    const pin = new Set(pinned)
+    if (!nLabels && !pin.size) return []
     const kept: { q: (typeof pts)[number]; box: number[] }[] = []
-    for (const q of pts) {
-      if (kept.length >= nLabels) break
-      if (!q.sig) continue
-      const w = textW(q.r.gene, 10.5)
-      const x0 = q.r.lfc > 0 ? q.x + 7 : q.x - 7 - w
-      const box = [x0 - 1, q.y - 5, x0 + w + 1, q.y + 5]
-      const clear = kept.every(k =>
-        box[2] < k.box[0] || box[0] > k.box[2] || box[3] < k.box[1] || box[1] > k.box[3])
-      // And inside the panel: a name hung off the right edge of the last point
-      // is ink the PNG export crops away, because it rasterises the viewBox.
-      if (clear && box[0] >= PL - 2 && box[2] <= W - PR + 2) kept.push({ q, box })
+    // A gene the reader clicked is named whatever the budget says and whatever
+    // it overlaps: they asked for that one by pointing at it, and dropping it
+    // for a collision would make the click look broken. Placed first so the
+    // automatic labels are the ones that yield.
+    for (const pass of [true, false]) {
+      for (const q of pts) {
+        const asked = pin.has(q.r.gene)
+        if (pass !== asked) continue
+        if (!asked && (kept.length >= nLabels + pin.size || !nLabels || !q.sig)) continue
+        const w = textW(q.r.gene, 10.5)
+        const x0 = q.r.lfc > 0 ? q.x + 7 : q.x - 7 - w
+        const box = [x0 - 1, q.y - 5, x0 + w + 1, q.y + 5]
+        const clear = kept.every(k =>
+          box[2] < k.box[0] || box[0] > k.box[2] || box[3] < k.box[1] || box[1] > k.box[3])
+        // And inside the panel: a name hung off the right edge of the last
+        // point is ink the PNG export crops away — it rasterises the viewBox.
+        const inside = box[0] >= PL - 2 && box[2] <= W - PR + 2
+        if (asked || (clear && inside)) kept.push({ q, box })
+      }
     }
     return kept.map(k => k.q)
-  }, [pts, nLabels])
+  }, [pts, nLabels, pinned])
 
   const step = Math.max(1, Math.ceil(maxY / 5))
   const ticks: number[] = []
@@ -487,6 +508,14 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           ▼ {dn} up in {condLabel(p.ctrl)}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
+          {pinned.length > 0 && (
+            <>
+              <button className="btn btn-quiet" onClick={() => setPinned([])}>
+                Clear {pinned.length} clicked
+              </button>
+              <div className="gsep" />
+            </>
+          )}
           <span className="glabel">Labels</span>
           {[0, 12, 25].map(n => (
             <button key={n} className="chip" aria-pressed={nLabels === n} onClick={() => setNLabels(n)}>
@@ -503,7 +532,15 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           style={{ cursor: hover ? 'pointer' : 'default' }}
           onMouseMove={e => setHover(pick(e)?.r ?? null)}
           onMouseLeave={() => setHover(null)}
-          onClick={e => { const q = pick(e); if (q) p.onPickGene(q.r.gene) }}
+          onClick={e => {
+            const q = pick(e)
+            if (!q) return
+            // Clicking a named gene again un-names it, so the figure can be
+            // cleaned up with the same gesture that built it.
+            setPinned(prev => prev.includes(q.r.gene)
+              ? prev.filter(g => g !== q.r.gene)
+              : [...prev, q.r.gene])
+          }}
         >
           {/* The end ticks are anchored to the panel edge, not centred on it.
               Centred, "-3.4" hung half its width past x = PL and landed on the
@@ -541,9 +578,18 @@ function Volcano(p: StatsProps & { de: DEResult }) {
               opacity={q.sig ? 0.92 : 0.45} />
           ))}
           {labelled.map(q => (
-            <text key={q.r.gene} className="axis" x={q.x + (q.r.lfc > 0 ? 7 : -7)} y={q.y + 3.5}
-              textAnchor={q.r.lfc > 0 ? 'start' : 'end'}
-              style={{ fontStyle: 'italic', fontSize: 10.5, fill: 'var(--ink)' }}>{q.r.gene}</text>
+            <g key={q.r.gene}>
+              {pinned.includes(q.r.gene) && (
+                <circle cx={q.x} cy={q.y} r={6.5} fill="none"
+                  stroke={AXIS_INK} strokeWidth={1.4} opacity=".9" />
+              )}
+              <text className="axis" x={q.x + (q.r.lfc > 0 ? 7 : -7)} y={q.y + 3.5}
+                textAnchor={q.r.lfc > 0 ? 'start' : 'end'}
+                style={{
+                  fontStyle: 'italic', fontSize: 10.5, fill: 'var(--ink)',
+                  fontWeight: pinned.includes(q.r.gene) ? 700 : 400,
+                }}>{q.r.gene}</text>
+            </g>
           ))}
           <line className="axline" x1={PL} x2={W - PR} y1={H - PB} y2={H - PB} />
           <text x={(PL + W - PR) / 2} y={H - PB + 32} textAnchor="middle"
@@ -575,7 +621,7 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           {hover
             ? `${hover.gene} · log₂FC ${hover.lfc.toFixed(2)}`
               + ` · −log₁₀ padj ${nlpTxt(hover.nlp)} · padj ${pTxt(hover.padj)}`
-            : '· hover a point to read it, click to open it in Gene expression'}
+            : '· hover a point to read it, click to keep its name on the figure'}
         </span>
       </div>
 

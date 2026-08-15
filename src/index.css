@@ -515,6 +515,21 @@ svg {
    * click on a 190px row read as the page redrawing rather than as the control
    * responding. Opacity is set inline by the caller — this adds the feedback.
    */
+  /* A save control on every panel of a small multiple.
+     Each facet needs its own — Figure exports the first <svg> inside itself, so
+     one button over the grid would always have saved the first cell type. But
+     nine of them, or a hundred and thirty-three, is a grid of buttons with
+     charts between them, so the control recedes until the panel is under the
+     pointer. Never hidden: it stays legible at rest, holds its place in the
+     layout, and comes fully forward on keyboard focus as well as on hover. */
+  .facet .btn-quiet {
+    opacity: 0.4;
+    transition: opacity var(--d-press) ease;
+  }
+  .facet:hover .btn-quiet,
+  .facet:focus-within .btn-quiet {
+    opacity: 1;
+  }
   .type-toggle {
     transition: opacity var(--d-press) ease, background-color var(--d-press) ease,
       transform var(--d-press) var(--ease-out);
