@@ -83,3 +83,29 @@ export const GHOST_INK = '#E2E5EA'
 
 /** A row label on a figure — darker than interface ink, lighter than the axis. */
 export const LABEL_INK = '#334155'
+
+/**
+ * Figure type sizes.
+ *
+ * A separate scale from the interface's --t-* tokens, deliberately: a figure
+ * leaves this app for a white page and is sized in the reader's terms, not the
+ * chrome's. But it was not a scale at all — 9, 9.5, 10, 10.5, 11, 11.5 and 12
+ * were typed at the point of use across six files, which is the same drift the
+ * interface tokens were introduced to end.
+ *
+ * It matters more here than it looks, because labels.ts reserves margins from a
+ * size passed in by the caller. A label drawn at 11.5 and measured at 10.5 is a
+ * margin 9% short, and `svg { overflow: visible }` means that does not clip, it
+ * paints. Naming the sizes is what lets the drawing and the measuring quote the
+ * same number.
+ */
+export const FIG_TYPE = {
+  /** Dense tick labels, where a panel holds more than ten of them. */
+  dense: 9,
+  /** Axis ticks and most in-figure text. Matches the .axis class in index.css. */
+  tick: 10.5,
+  /** A panel title, a row label, a key entry. */
+  label: 11.5,
+  /** An axis title, or a legend heading. */
+  title: 11.5,
+} as const

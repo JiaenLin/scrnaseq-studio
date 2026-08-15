@@ -7,7 +7,7 @@ import {
   type CompField, type CompTable,
 } from '../lib/composition.ts'
 import { downloadCsv, svgSheetToFile } from '../lib/download.ts'
-import { MARK_EDGE } from '../lib/figure-ink.ts'
+import { MARK_EDGE, PLATE } from '../lib/figure-ink.ts'
 import { axisTicks, fit } from '../lib/labels.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
@@ -64,8 +64,10 @@ export default function Composition({ d, types, palKey }: {
 }) {
   /** The facet grid, so "Save all panels" can find every panel's SVG. */
   const sheet = useRef<HTMLDivElement>(null)
+  const [shownRows, setShownRows] = useState(ROW_CAP)
   const [choice, setChoice] = useState<Choice>(() => REMEMBERED.get(d) ?? arrival(d, types))
   useEffect(() => { REMEMBERED.set(d, choice) }, [d, choice])
+  useEffect(() => { setShownRows(ROW_CAP) }, [d, choice])
 
   const fields = compFields(d)
   const parts: CompField = fields.includes(choice.parts) ? choice.parts : 'type'
@@ -120,7 +122,12 @@ export default function Composition({ d, types, palKey }: {
     return out
   }, [table, only, outer, innerField, innerNames, outerNames, palKey, condAt, d.samples])
 
-  const drawn = chosen.slice(0, Math.max(ROW_CAP, d.samples.length))
+  // The same treatment the DEG table got, for the same reason: a cap that the
+  // reader cannot pass is a filter they did not ask for. The floor keeps the
+  // default pairing whole whatever the object, and each press adds another
+  // page rather than putting several thousand rows in the DOM at once.
+  const floor = Math.max(ROW_CAP, d.samples.length)
+  const drawn = chosen.slice(0, Math.max(floor, shownRows))
   const hidden = chosen.length - drawn.length
 
   // The rule this figure is built on: a bar may not merge the cells of several
@@ -265,8 +272,14 @@ export default function Composition({ d, types, palKey }: {
               </div>
             )}
             {hidden > 0 && (
-              <div className="note mt-4">
-                <b>Showing {drawn.length} of {chosen.length} rows.</b> The CSV has every one.
+              <div className="note mt-4 flex flex-wrap items-center gap-2.5">
+                <span>
+                  <b>Showing {drawn.length} of {chosen.length} rows.</b> The CSV has every one.
+                </span>
+                <button className="btn btn-quiet"
+                  onClick={() => setShownRows(drawn.length + ROW_CAP)}>
+                  Show {Math.min(ROW_CAP, hidden)} more
+                </button>
               </div>
             )}
             {(sparse || thin > 0) && (
@@ -457,7 +470,7 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
                     {/* A number only where it fits; a clipped "1%" is worse than none. */}
                     {xb - xa > 30 && (
                       <text x={(xa + xb) / 2} y={y + rowH / 2 + 3.5} textAnchor="middle"
-                        style={{ fontSize: 10, fill: '#fff', fontWeight: 650 }}>
+                        style={{ fontSize: 10, fill: PLATE, fontWeight: 650 }}>
                         {(p * 100).toFixed(0)}%
                       </text>
                     )}
