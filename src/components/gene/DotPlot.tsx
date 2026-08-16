@@ -46,13 +46,36 @@ export default function DotPlot(p: GeneProps & { ids: Identity[]; cluster?: bool
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows0, genes0, p.src, p.groupBy])
 
+  /**
+   * Clustered on what the COLOURS show.
+   *
+   * The trees were built from the raw means while the plate was z-scored per
+   * gene whenever "Scale each gene" was on, so the dendrogram described one
+   * matrix and the colours another. pheatmap and ComplexHeatmap cluster after
+   * scaling for exactly this reason: the tree is a claim about the picture.
+   *
+   * Correlation distance is invariant to a per-gene affine scaling, so the ROW
+   * order is often unchanged — but the column order is not, and neither is the
+   * tree's shape, which is what a reader reads off the heights.
+   */
+  const shown = useMemo(() => {
+    if (!p.dotScale) return byRow
+    return byRow.map(row => row.slice())
+      .map((_r, ri) => genes0.map((_g, gi) => {
+        const col = rows0.map((_x, k) => byRow[k][gi])
+        const m = col.reduce((a, b) => a + b, 0) / col.length
+        const sd = Math.sqrt(col.reduce((a, b) => a + (b - m) ** 2, 0) / col.length) || 1
+        return Math.max(-2.5, Math.min(2.5, (byRow[ri][gi] - m) / sd))
+      }))
+  }, [byRow, genes0, rows0, p.dotScale])
+
   const rowTree = useMemo(
-    () => (p.cluster ? orderRows(byRow) : null), [p.cluster, byRow])
+    () => (p.cluster ? orderRows(shown) : null), [p.cluster, shown])
   const colTree = useMemo(() => {
     if (!p.cluster || genes0.length < 3) return null
     // Transposed: a column is a gene's profile across the identities.
-    return orderRows(genes0.map((_g, gi) => rows0.map((_r, ri) => byRow[ri][gi])))
-  }, [p.cluster, byRow, genes0, rows0])
+    return orderRows(genes0.map((_g, gi) => rows0.map((_r, ri) => shown[ri][gi])))
+  }, [p.cluster, shown, genes0, rows0])
 
   const rows = useMemo(
     () => (rowTree ? rowTree.order.map(i => rows0[i]) : rows0), [rowTree, rows0])

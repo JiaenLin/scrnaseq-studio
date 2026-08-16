@@ -130,7 +130,13 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
             barely detected here — max {(maxPct * 100).toFixed(0)}%
           </text>
         )}
-        {p.groupBy !== 'type' && Math.abs(dl) >= 0.15 && (
+        {/* 'cond' only. It admitted 'both' as well, where `cats` is
+            types.flatMap(t => conds.map(...)) — so cats[0] is (first type,
+            first group) and the last is (LAST type, last group), and the number
+            in the corner was the ratio between two unrelated populations, drawn
+            in the volcano's own direction-of-change ink with no denominator
+            and no tooltip. */}
+        {p.groupBy === 'cond' && Math.abs(dl) >= 0.15 && (
           <text className="axis" x={W - PR} y={11} textAnchor="end"
             style={{ fill: dl > 0 ? UP_MARK : DOWN_MARK, fontWeight: 600 }}>
             {dl > 0 ? '+' : ''}{dl.toFixed(1)}

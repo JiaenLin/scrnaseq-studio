@@ -143,6 +143,22 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels }:
     g.fillStyle = sunk
     g.fillRect(0, 0, cv.width, cv.height)
     const { x0, x1, y0, y1 } = embedExtent(xy)
+    /**
+     * The top of the mito ramp, from the data rather than a literal 9.
+     *
+     * Both exporters convert mitochondrial content to a PERCENTAGE, so a fixed
+     * ceiling of 9 gave every cell from 9% to 100% the identical colour: a
+     * dying 40–60% cluster looked exactly like a healthy one at 9, and the
+     * reader could not see where their own QC cutoff fell. The 99th percentile
+     * rather than the maximum, so one extreme cell does not flatten the rest —
+     * which is the same rule the feature plot's percentile ceiling uses.
+     */
+    const mitoTop = (() => {
+      if (colorBy !== 'mito') return 0
+      const vs = d.cells.map(c => c.mito).filter(v => v > 0).sort((a, b) => a - b)
+      if (!vs.length) return 0
+      return vs[Math.min(vs.length - 1, Math.floor(vs.length * 0.99))] || 0
+    })()
     const r = labels ? (cond ? 1.7 : 1.9) : 1.4
 
     // Expression is drawn low-to-high so a small positive population is not
@@ -156,7 +172,7 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels }:
         colorBy === 'type' ? pal(c.t, palKey)
         : colorBy === 'cond' ? pal(d.conds.indexOf(c.cond), palKey)
         : colorBy === 'sample' ? pal(d.samples.findIndex(s => s.id === c.s), palKey)
-        : rampColor(Math.min(1, c.mito / 9), rampKey)
+        : rampColor(mitoTop > 0 ? Math.min(1, c.mito / mitoTop) : 0, rampKey)
       g.beginPath()
       g.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
         (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)

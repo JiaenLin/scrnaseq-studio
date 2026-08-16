@@ -196,10 +196,22 @@ export function runORA(
     const u = g.toUpperCase()
     if (universe.has(u)) bg.add(u)
   }
-  const q = new Set(query.map(g => g.toUpperCase()))
+  /**
+   * Upper-cased query gene -> the spelling the caller used.
+   *
+   * A Set of upper-cased names would lose that, and the overlap has to come
+   * back in the reader's own vocabulary: the term-detail table joins it against
+   * the object's DE rows, and a foreign casing fails that join silently. First
+   * spelling wins, so the answer does not depend on the order of the list.
+   */
+  const q = new Map<string, string>()
+  for (const g of query) {
+    const u = g.toUpperCase()
+    if (!q.has(u)) q.set(u, g)
+  }
   const N = bg.size
   let n = 0
-  for (const g of q) if (bg.has(g)) n++
+  for (const g of q.keys()) if (bg.has(g)) n++
   if (!N || !n) return []
 
   const raw: Omit<ORAResult, 'padj' | 'nlpAdj'>[] = []
@@ -211,7 +223,8 @@ export function runORA(
       const g = gene.toUpperCase()
       if (!bg.has(g)) continue
       K++
-      if (q.has(g)) overlap.push(gene)
+      const asked = q.get(g)
+      if (asked !== undefined) overlap.push(asked)
     }
     if (K < opts.minSize || K > opts.maxSize) continue
     const k = overlap.length
@@ -264,9 +277,15 @@ export function oraIndexed(
 
   const hit: number[] = []
   const inQuery = new Set<number>()
+  /** Row -> the spelling the caller used, so the overlap can join back to it. */
+  const queryOf = new Map<number, string>()
   for (const g of query) {
     const at = index.idOf.get(g.toUpperCase())
-    if (at !== undefined && !inQuery.has(at)) { inQuery.add(at); hit.push(at) }
+    if (at !== undefined && !inQuery.has(at)) {
+      inQuery.add(at)
+      hit.push(at)
+      queryOf.set(at, g)
+    }
   }
   const n = inQuery.size
   if (!n) return []
@@ -289,7 +308,16 @@ export function oraIndexed(
     const overlap: string[] = []
     for (let j = 0; j < s.members.length; j++) {
       const at = s.members[j]
-      if (inQuery.has(at)) overlap.push(index.symbols[at])
+      // The QUERY's spelling, not the library's.
+      //
+      // `index.symbols[at]` is how the collection spells the gene, and the
+      // term-detail table joins the overlap back against the object's own DE
+      // rows. On an object whose genes are upper-cased while the library is
+      // title-cased — a mouse matrix indexed by accessions, a human GMT scored
+      // on a mouse object — every join missed and a term reporting "120/197
+      // genes" showed an empty table. k, K, N and p were all correct; only the
+      // member list was unusable.
+      if (inQuery.has(at)) overlap.push(queryOf.get(at) ?? index.symbols[at])
     }
     raw.push({
       id: s.id, name: s.name, source: s.source,

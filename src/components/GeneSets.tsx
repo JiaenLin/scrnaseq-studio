@@ -65,6 +65,8 @@ export default function GeneSets({
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
   const [heat, setHeat] = useState(false)
   const [heatCluster, setHeatCluster] = useState(true)
+  /** The heatmap's own grouping, independent of the violins above it. */
+  const [heatBy, setHeatBy] = useState<GroupBy>('type')
   /**
    * Columns the reader has taken out of the heatmap.
    *
@@ -249,6 +251,8 @@ export default function GeneSets({
 
   const ids = useMemo(
     () => identities(d, types, groupBy, ct, palKey), [d, types, groupBy, ct, palKey])
+  const heatIds = useMemo(
+    () => identities(d, types, heatBy, ct, palKey), [d, types, heatBy, ct, palKey])
   const perId = useCellsByIdentity(d, ids, types.length, groupBy)
   // Not while the pass is running: the table it feeds is not on screen, and
   // summarising 292 495 zeroes to draw nothing is work the user waits through.
@@ -462,42 +466,65 @@ export default function GeneSets({
               Zero is the reference: no higher than genes of comparable abundance.
             </p>
 
-            {/* The score is one number per cell; this is what it was made of.
-                A set can score high because two of its fifty genes are large,
-                and only the per-gene view can tell that from fifty genes moving
-                together. */}
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <span className="glabel">Per gene</span>
-              <button className="chip" aria-pressed={heat} onClick={() => setHeat(!heat)}>
-                Show the genes
-              </button>
-              {heat && (
+          </>
+        )}
+      </Card>
+
+      {/*
+        Its own card, not a strip under the violins.
+
+        The score is one number per cell; this is what it was made of, and it
+        answers a different question — a set can reach a high score because two
+        of its fifty genes are large or because fifty genes moved together, and
+        only the per-gene view separates those. A different question deserves its
+        own heading, its own grouping and its own export, rather than inheriting
+        the violin's and reading as a footnote to it.
+      */}
+      {armed && used.length > 0 && !waiting && (
+        <Card
+          eyebrow="Gene sets · per gene"
+          title="Every gene of the set, across identities"
+          sub="Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is."
+        >
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button className="chip" aria-pressed={heat} onClick={() => setHeat(!heat)}>
+              {heat ? 'Hide the heatmap' : 'Show the genes'}
+            </button>
+            {heat && (
+              <>
+                <div className="gsep" />
+                {/* Its OWN grouping. It used to follow the violins', so asking
+                    for the per-gene view across groups meant changing the figure
+                    above it too. */}
+                <span className="glabel">Group by</span>
+                <Seg<GroupBy> value={heatBy} onChange={setHeatBy} options={modes} />
+                <div className="gsep" />
                 <button className="chip" aria-pressed={heatCluster}
                   onClick={() => setHeatCluster(!heatCluster)}
                   title="Order rows and columns by similarity, and draw the trees">
                   Cluster
                 </button>
-              )}
-            </div>
-            {heat && used.length > 0 && (
-              <>
-                <HeatFilter
-                  types={types} conds={d.conds} groupBy={groupBy}
-                  hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
-                  palKey={palKey}
-                />
-                <Figure name={`set_genes_${slug(name)}`} className="mt-1">
-                  <SetHeatmap
-                    src={src} genes={used} ids={ids} groupBy={groupBy}
-                    keep={i => !hideT.has(ids[i].ti) && !hideC.has(ids[i].cond ?? '')}
-                    rampDiv="rdbu" cluster={heatCluster}
-                  />
-                </Figure>
               </>
             )}
-          </>
-        )}
-      </Card>
+          </div>
+          {heat && (
+            <>
+              <HeatFilter
+                types={types} conds={d.conds} groupBy={heatBy}
+                hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
+                palKey={palKey}
+              />
+              <Figure name={`set_genes_${slug(name)}`} className="mt-1">
+                <SetHeatmap
+                  src={src} genes={used} ids={heatIds} groupBy={heatBy}
+                  keep={i => !hideT.has(heatIds[i].ti) && !hideC.has(heatIds[i].cond ?? '')}
+                  rampDiv="rdbu" cluster={heatCluster}
+                />
+              </Figure>
+            </>
+          )}
+        </Card>
+      )}
     </>
   )
 }
@@ -891,7 +918,22 @@ function SetHeatmap({ src, genes, ids, keep, groupBy, rampDiv, cluster }: {
 
   return (
     <div className="mt-2 overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: Math.min(W, 560) }}
+      {/*
+        Drawn at its natural size, not stretched to the card.
+
+        `width="100%"` scales the viewBox to whatever width is available, so a
+        heatmap of four columns was blown up until each cell was a hundred
+        pixels across and the gene names were larger than the card's own
+        heading — the figure got LESS readable as it got simpler, which is
+        backwards. Every unit in the viewBox is now one CSS pixel up to the
+        width of the card, and `max-width: 100%` still shrinks it on a narrow
+        screen rather than forcing a scrollbar.
+
+        The scroller around it handles the other end: a hundred columns is
+        wider than the card and scrolls, at the same cell size as four.
+      */}
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
+        style={{ maxWidth: '100%' }}
         role="img"
         aria-label={`Expression of ${genes.length} set genes across ${cols.length} identities`}>
         {colTree && dendroLines(colTree, colAt.length * cw, treeT - 5).map((l, i) => (
