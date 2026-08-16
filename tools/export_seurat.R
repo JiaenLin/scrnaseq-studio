@@ -284,6 +284,31 @@ sample_ids <- levels(smp)
 if (!is.null(cond_col) && cond_col %in% names(md)) {
   cond <- droplevels(factor(md[[cond_col]][keep]))
   conditions <- levels(cond)
+  # The bundle stores condition per SAMPLE, not per cell. That is right for the
+  # usual design and silently wrong for any other: a hashed lane carrying two
+  # treatments, or a donor sampled before and after, used to take the FIRST
+  # cell's condition and relabel every other cell in that sample to match, with
+  # per-group totals that still looked plausible.
+  #
+  # A sample that genuinely spans conditions is two samples. Splitting it keeps
+  # every cell's condition correct and needs no change to the bundle format.
+  # Objects whose samples each hold one condition are untouched.
+  spanning <- names(which(vapply(
+    split(as.character(cond), as.character(smp)),
+    function(v) length(unique(v)) > 1L, logical(1))))
+  if (length(spanning)) {
+    lab <- ifelse(as.character(smp) %in% spanning,
+                  paste0(as.character(smp), "|", as.character(cond)),
+                  as.character(smp))
+    smp <- factor(lab, levels = unique(lab))
+    old_n <- length(sample_ids)
+    sample_ids <- levels(smp)
+    note(length(spanning), " sample(s) held cells from more than one ", cond_col,
+         ", so each was split into one sample per group (", old_n, " -> ",
+         length(sample_ids), "). The bundle records condition per sample, and ",
+         "relabelling those cells to the sample's first condition would have put ",
+         "them in the wrong group with no visible sign")
+  }
   sample_cond <- vapply(sample_ids, function(s) as.character(cond[which(smp == s)[1]]), "")
 } else {
   if (!is.null(cond_col)) note("meta.data has no ", cond_col)

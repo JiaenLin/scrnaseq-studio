@@ -161,12 +161,29 @@
 
   /* Export stamps this on the root while it reads the computed colours, so a
      figure saved from dark mode carries the ink it will be printed with rather
-     than pale text on the white plate. Only the figure variables: the interface
-     is not what is being exported. */
+     than pale text on the white plate.
+
+     It used to flip only the --fig-* family, on the reasoning that "the
+     interface is not what is being exported". That premise is false: four
+     figures paint their largest text with interface tokens — the violin's gene
+     name and cell-type bands, the enrichment term labels, the composition row
+     names, the volcano's clicked genes — so a figure saved from dark mode
+     carried #e2e8f0 text onto a white plate at about 1.16:1 contrast, which is
+     invisible. An adversarial review measured it on the built app.
+
+     So the interface ink flips too, for the duration of the read. Nothing else
+     does: backgrounds and accents are not what a figure is made of, and a
+     figure's own plate is painted white by portableSvg regardless. */
   :root[data-theme='light'] {
     --fig-ink: #000000;
     --fig-line: #000000;
     --fig-grid: #dcdfe4;
+    --ink: #0f172a;
+    --ink-2: #475569;
+    --ink-3: #94a3b8;
+    --surface: #ffffff;
+    --line: #e2e8f0;
+    --line-2: #cbd5e1;
   }
 }
 

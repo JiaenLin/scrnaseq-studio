@@ -257,11 +257,49 @@ def main() -> None:
 
     if args.condition and args.condition in a.obs:
         cond_codes, conditions = categorical(a.obs[args.condition])
-        # A sample belongs to one condition; take the first cell's.
-        sample_cond = []
+        # The bundle stores condition per SAMPLE, not per cell. That is right for
+        # the usual design — one animal, one treatment — and silently wrong for
+        # any other: a hashed lane carrying two treatments, or a donor sampled
+        # before and after, used to take the FIRST cell's condition and relabel
+        # every other cell in that sample to match. The per-group totals still
+        # came out plausible, so there was no symptom to notice.
+        #
+        # A sample that genuinely spans conditions is two samples. Splitting it
+        # here keeps every cell's condition correct, needs no change to the
+        # bundle format, and is what an analyst would do by hand. Objects whose
+        # samples each hold one condition are untouched — the common case does
+        # not pay for the rare one.
+        spanning = []
         for si in range(len(sample_ids)):
             hit = np.flatnonzero(sample_codes == si)
-            sample_cond.append(conditions[cond_codes[hit[0]]] if len(hit) else conditions[0])
+            if len(hit) and len(np.unique(cond_codes[hit])) > 1:
+                spanning.append(si)
+
+        if spanning:
+            pair_at, new_ids, sample_cond = {}, [], []
+            new_codes = np.zeros(n, dtype=np.int64)
+            for i in range(n):
+                si, ci = int(sample_codes[i]), int(cond_codes[i])
+                key = (si, ci)
+                if key not in pair_at:
+                    pair_at[key] = len(new_ids)
+                    base = sample_ids[si]
+                    # Only a split sample is renamed, so an object where one
+                    # animal spans conditions does not rename all the others.
+                    new_ids.append(f'{base}|{conditions[ci]}' if si in spanning else base)
+                    sample_cond.append(conditions[ci])
+                new_codes[i] = pair_at[key]
+            note(f'{len(spanning)} sample(s) held cells from more than one '
+                 f'{args.condition!r}, so each was split into one sample per group '
+                 f'({len(sample_ids)} -> {len(new_ids)}). The bundle records condition '
+                 "per sample, and relabelling those cells to the sample's first "
+                 'condition would have put them in the wrong group with no visible sign')
+            sample_codes, sample_ids = new_codes, new_ids
+        else:
+            sample_cond = []
+            for si in range(len(sample_ids)):
+                hit = np.flatnonzero(sample_codes == si)
+                sample_cond.append(conditions[cond_codes[hit[0]]] if len(hit) else conditions[0])
     else:
         if args.condition:
             note(f'obs has no {args.condition!r}')
