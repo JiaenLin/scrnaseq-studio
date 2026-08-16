@@ -29,6 +29,8 @@ export interface Table {
   lfc: Float64Array
   p: Float64Array
   padj: Float64Array
+  /** Benjamini-Hochberg, beside the Bonferroni in padj. */
+  fdr: Float64Array
   /** -log10 of the adjusted p. Carried because `padj` underflows; see types.ts. */
   nlp: Float64Array
   pct1: Float64Array
@@ -66,6 +68,11 @@ export function encodeTable(r: RawResult): Table {
     lfc: new Float64Array(n),
     p: new Float64Array(n),
     padj: new Float64Array(n),
+    // fdr crosses too. It did not, so the Benjamini-Hochberg column was blank
+    // on exactly the objects the code's own comment says Bonferroni over
+    // thirty thousand genes is too harsh for: every streamed source is lazy,
+    // every lazy source goes through the worker, and the column rendered "—".
+    fdr: new Float64Array(n),
     nlp: new Float64Array(n),
     pct1: new Float64Array(n),
     pct2: new Float64Array(n),
@@ -78,6 +85,7 @@ export function encodeTable(r: RawResult): Table {
     t.lfc[i] = row.lfc
     t.p[i] = row.p
     t.padj[i] = row.padj
+    t.fdr[i] = row.fdr
     t.nlp[i] = row.nlp
     t.pct1[i] = row.pct1
     t.pct2[i] = row.pct2
@@ -90,7 +98,7 @@ export function decodeTable(genes: readonly string[], t: Table): DEResult {
   for (let i = 0; i < t.gene.length; i++) {
     rows[i] = {
       gene: genes[t.gene[i]],
-      lfc: t.lfc[i], p: t.p[i], padj: t.padj[i], nlp: t.nlp[i],
+      lfc: t.lfc[i], p: t.p[i], padj: t.padj[i], fdr: t.fdr[i], nlp: t.nlp[i],
       pct1: t.pct1[i], pct2: t.pct2[i],
     }
   }
@@ -99,7 +107,7 @@ export function decodeTable(genes: readonly string[], t: Table): DEResult {
 
 /** Every buffer in a table, so the whole result moves rather than copies. */
 export const tableBuffers = (t: Table): ArrayBufferLike[] =>
-  [t.gene, t.lfc, t.p, t.padj, t.nlp, t.pct1, t.pct2].map(a => a.buffer)
+  [t.gene, t.lfc, t.p, t.padj, t.fdr, t.nlp, t.pct1, t.pct2].map(a => a.buffer)
 
 /* ---------------- messages ---------------- */
 

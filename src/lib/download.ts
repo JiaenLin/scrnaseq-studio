@@ -9,6 +9,16 @@
 const STYLE_PROPS = [
   'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-opacity',
   'opacity', 'font-size', 'font-family', 'font-weight', 'font-style', 'text-anchor',
+  // paint-order, or a haloed label is ERASED by its own halo.
+  //
+  // The volcano's clicked gene names use `paint-order: stroke` to put a 3.2-unit
+  // plate-coloured outline BEHIND the glyph. Without the property the stroke and
+  // its width still inline, and SVG's default order paints fill first then
+  // stroke — so the halo is drawn over the letters and the label disappears.
+  // Measured by an adversarial review: 0 dark pixels in the export against
+  // 2 453 on screen. Correct on screen, gone in the file, which is the worst
+  // place for a defect to live.
+  'paint-order', 'stroke-linejoin',
 ] as const
 
 function inlineStyles(src: Element, dst: Element) {

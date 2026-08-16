@@ -16,7 +16,7 @@ import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
 import { oraIndexed, type ORAResult } from '../lib/ora.ts'
 import GeneSetSources from './GeneSetSources.tsx'
-import { maxOf, sci, minOf } from '../lib/chart.ts'
+import { maxOf, minOf, niceStep, sci } from '../lib/chart.ts'
 import {
   condLabel, combinedScore } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
@@ -117,6 +117,25 @@ export default function Enrichment({
     for (const st of index.sets) if (st.K >= minSize && st.K <= maxSize) n++
     return { n, of: index.sets.length }
   }, [index, minSize, maxSize])
+
+  /**
+   * The query size the TEST used: genes in the list that are in the annotated
+   * background, deduplicated — `oraIndexed` sets n from exactly this.
+   *
+   * The gene ratio was dividing by the raw DE list length instead, so a list
+   * whose genes are half unannotated reported a ratio half what the test
+   * computed, and the number beside each bar (k/n) disagreed with the p-value
+   * beside it. clusterProfiler's GeneRatio uses the same n as its test.
+   */
+  const nInBg = useMemo(() => {
+    if (!index) return query.length
+    const seen = new Set<number>()
+    for (const g of query) {
+      const at = index.idOf.get(g.toUpperCase())
+      if (at !== undefined) seen.add(at)
+    }
+    return seen.size
+  }, [query, index])
 
   const shown = results.slice(0, top)
   const nSig = results.filter(r => r.padj < 0.05).length
@@ -233,7 +252,7 @@ export default function Enrichment({
             right={<CsvButton onClick={saveCsv} />}
           >
             <Bars results={shown} rampKey={rampKey} onPick={setTermId} selected={termId}
-              metric={metric} nQuery={query.length} />
+              metric={metric} nQuery={nInBg} />
           </Figure>
           {/**
             * No results table.
@@ -442,7 +461,7 @@ function Bars({ results, rampKey, onPick, selected, metric, nQuery }: {
   const hi = Math.max(CUT * 1.2, maxOf(shownNlp))
   const lo = Math.min(CUT, minOf(shownNlp))
   const at = (r: ORAResult) => (hi > lo ? (nlp(r) - lo) / (hi - lo) : 1)
-  const ticks = niceTicks(maxV)
+  const ticks = niceTicks(maxV, metric === 'count')
 
   return (
     <div className="mt-4 overflow-x-auto">
@@ -504,9 +523,21 @@ function Bars({ results, rampKey, onPick, selected, metric, nQuery }: {
 }
 
 /** Whole-number ticks for a count axis — a count of 7 has no 3.5. */
-function niceTicks(max: number): number[] {
-  const step = Math.max(1, Math.ceil(max / 5))
+/**
+ * Ticks for an axis that may be a count OR a fraction.
+ *
+ * `Math.max(1, ...)` forced a whole-number step, which is right for an overlap
+ * count and useless for a gene ratio: the default metric maxes out around 0.38,
+ * so the step was 1 and the axis rendered a single tick at 0 — drawn on the
+ * axis line itself. The figure exported with no readable scale at all.
+ *
+ * `niceStep` already produces the 1/1.5/2/2.5/3/4/5/7.5×10ⁿ ladder ggplot2 uses;
+ * the integer floor now applies only where the quantity really is a count.
+ */
+function niceTicks(max: number, integral = true): number[] {
+  const step = integral ? Math.max(1, Math.ceil(max / 5)) : niceStep(max / 5)
+  if (!(step > 0)) return [0]
   const out: number[] = []
-  for (let v = 0; v <= max; v += step) out.push(v)
+  for (let v = 0; v <= max + step * 1e-9; v += step) out.push(+v.toFixed(6))
   return out
 }

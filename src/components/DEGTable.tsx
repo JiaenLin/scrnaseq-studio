@@ -37,10 +37,16 @@ const cellVal = (r: DERow, k: SortKey): number | string | null => {
     // columns themselves gives the right answer today only because the rows
     // arrive ranked and Array#sort is stable, and that is a fact about two
     // other files.
-    case 'p': case 'padj': return -r.nlp
-    // BH is monotone in p, so the same key orders it — and unlike fdr itself it
-    // does not go flat where the double bottoms out.
-    case 'fdr': return -r.nlp
+    // r.p and r.padj, not -r.nlp. The proxy was chosen because ascending
+    // -nlp is ascending p — which is true only ABOVE the clamp: finish() pins
+    // nlp to 0 for every row with padj >= 1, so the key went flat over that
+    // block and the sort fell through to arrival order, which is |log2FC|
+    // descending. A reader sorting to find the WEAKEST hits was handed the
+    // smallest fold changes instead. nlp stays as the tiebreak, where it does
+    // separate rows whose p has bottomed out at the double's floor.
+    case 'p': return r.p
+    case 'padj': return r.padj
+    case 'fdr': return r.fdr ?? 1
     default: return r[k]
   }
 }
