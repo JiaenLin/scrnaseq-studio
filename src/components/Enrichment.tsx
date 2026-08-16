@@ -29,7 +29,7 @@ import Figure, { CsvButton } from './Figure.tsx'
 type Direction = 'both' | 'up' | 'down'
 
 export default function Enrichment({
-  rows, threshold, ctrl, cs, label, rampKey, onPickGene, background,
+  rows, threshold, ctrl, cs, label, onPickGene, background,
   lib, species, sources, onSources, customSets, onCustomSets, detected,
 }: {
   rows: DERow[]
@@ -39,7 +39,13 @@ export default function Enrichment({
   ctrl: string[]
   cs: string[]
   label: string
-  rampKey: RampKey
+  /**
+   * No rampKey. The one figure here encodes significance, which has no second
+   * direction and no natural zero, so its scale is fixed rather than inherited
+   * — see `sigRamp` below. The prop was taken and passed down, which is how a
+   * reader's choice of a diverging or blue-green ramp reached a quantity it
+   * does not describe.
+   */
   onPickGene: (g: string) => void
   /** The MSigDB library, loading or loaded. */
   lib: LibraryState
@@ -251,7 +257,7 @@ export default function Enrichment({
             name={`enrichment_${label}`} className="mt-4"
             right={<CsvButton onClick={saveCsv} />}
           >
-            <Bars results={shown} rampKey={rampKey} onPick={setTermId} selected={termId}
+            <Bars results={shown} onPick={setTermId} selected={termId}
               metric={metric} nQuery={nInBg} />
           </Figure>
           {/**
@@ -367,8 +373,8 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
  * p-values do, and colour is the significance, on the studio's own ramp with a
  * colour bar to read it by.
  */
-function Bars({ results, rampKey, onPick, selected, metric, nQuery }: {
-  results: ORAResult[]; rampKey: RampKey; onPick: (id: string) => void; selected: string
+function Bars({ results, onPick, selected, metric, nQuery }: {
+  results: ORAResult[]; onPick: (id: string) => void; selected: string
   /** What the bar length means — see `value` below. */
   metric: BarMetric
   /** How many genes were tested, for the gene ratio. */
@@ -456,6 +462,31 @@ function Bars({ results, rampKey, onPick, selected, metric, nQuery }: {
    * still includes the 0.05 line, so a page where nothing is significant stays
    * pale rather than stretching a full ramp across noise.
    */
+  /**
+   * Significance is SEQUENTIAL. A diverging ramp is the wrong shape for it.
+   *
+   * The bars inherit the studio's global ramp, which the reader may have set to
+   * a diverging one for expression — and a diverging scale has a meaningful
+   * midpoint, which significance does not have. Fitting the domain to the terms
+   * on screen then put the least significant of them at the blue end: a term at
+   * −log₁₀ padj = 10, which is p = 1e-10, was drawn in the colour every reader
+   * takes to mean "not significant". Reported, and it is the ramp rather than
+   * the domain that is wrong — the domain fix is what made it visible.
+   *
+   * Fixed rather than inherited, and the first attempt at this was too narrow.
+   * Mapping only the DIVERGING choices to a sequential one still left `mako`,
+   * which is sequential and blue-green: at the same 26% it gives rgb(85,190,173),
+   * which reads exactly as badly. The property that matters is not "diverging"
+   * but "does the low end look like the absence of the thing", and the only
+   * reliable way to have that is to choose the scale here.
+   *
+   * clusterProfiler hardcodes its gradient for the same reason. The reader's
+   * ramp still applies everywhere the quantity genuinely has two directions or
+   * a natural zero — the dot plot's z-score, the per-gene heatmap, the feature
+   * plots — which is where choosing it means something.
+   */
+  const sigRamp: RampKey = 'red'
+
   const shownNlp = results.map(nlp)
   const CUT = -Math.log10(0.05)
   const hi = Math.max(CUT * 1.2, maxOf(shownNlp))
@@ -490,7 +521,7 @@ function Bars({ results, rampKey, onPick, selected, metric, nQuery }: {
               </text>
               <rect x={PL} y={y + 3} width={Math.max(1, X(value(r)) - PL)} height={rowH - 6} rx={3}
                 stroke={MARK_EDGE} strokeWidth={on ? 1 : 0.4}
-                fill={rampColor(Math.min(1, Math.max(0, at(r))), rampKey)}>
+                fill={rampColor(Math.min(1, Math.max(0, at(r))), sigRamp)}>
                 <title>
                   {r.name} — {r.count} of this list in a set of {r.setSize},
                   {' '}{r.foldEnrichment.toFixed(2)}× enrichment,
@@ -509,7 +540,7 @@ function Bars({ results, rampKey, onPick, selected, metric, nQuery }: {
         {/* The significance, as a scale rather than as bar length — so a page
             where nothing is significant reads as pale, not as broken. */}
         <ColorBar cx={(PL + W - PR) / 2} y={H - BAR_H + 16} w={220} h={11}
-          ramp={rampKey} lo={lo} hi={hi} id="ora-scale"
+          ramp={sigRamp} lo={lo} hi={hi} id="ora-scale"
           title="−log₁₀ adjusted p" />
         <text className="axis" x={(PL + W - PR) / 2} y={H - 4} textAnchor="middle"
           style={{ fill: 'var(--ink-3)' }}>

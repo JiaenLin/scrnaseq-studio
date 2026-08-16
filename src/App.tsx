@@ -773,8 +773,7 @@ export default function App() {
                     // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
                     // 0h" on every other figure in the same session.
                     label={`${condLabel(cs)} vs ${condLabel(ctrl)} · ${ct}`}
-                    detected={detected}
-                    rampKey={rampKey} onPickGene={pickGene} />
+                    detected={detected} onPickGene={pickGene} />
                 )} />
             ) : tab === 'expr' ? (
               <GeneExpression
