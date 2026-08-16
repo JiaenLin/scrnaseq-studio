@@ -305,30 +305,43 @@ export function rankSumSparseFull(
  */
 function finish(rows: RawRow[], nTested: number): RawRow[] {
   const shift = Math.log10(nTested)
+
+  /**
+   * BH FIRST, and on its own ordering.
+   *
+   * This used to run after the display sort, reading its ranks off it. The
+   * reasoning written here was that nlp descending IS p ascending, so the
+   * ranks could be taken for free — and that is true of nlp, but the loop
+   * above clamped `nlp` to 0 for every row with padj >= 1 BEFORE the sort. So
+   * the key was constant across half the table, the order there fell through
+   * to the |log2FC| tiebreak, and the step-up's running minimum then dragged
+   * one small q up through thousands of unrelated rows.
+   *
+   * Measured on a 4 000-row simulation against a reference step-up: 57% of
+   * rows disagreed, 678 rows with raw p > 0.05 reported an FDR below 0.05, and
+   * a gene at p = 0.53 came out at 2.6e-4. An adversarial review found it by
+   * checking against R's p.adjust; it is not subtle once looked for, and it
+   * survived because the comment sounded like it had been thought about.
+   *
+   * The ordering is the UNCLAMPED nlp, descending — which is genuinely p
+   * ascending, and separates rows whose p has bottomed out at the double's
+   * floor where sorting on p itself would not. The denominator is nTested
+   * rather than rows.length, because genes dropped by the effect-size
+   * pre-filter were still tested.
+   */
+  const byP = [...rows].sort((a, b) => b.nlp - a.nlp)
+  let prev = 1
+  for (let i = byP.length - 1; i >= 0; i--) {
+    prev = Math.min(prev, (byP[i].p * nTested) / (i + 1))
+    byP[i].fdr = Math.min(1, prev)
+  }
+
+  // Only now: Bonferroni, and the display clamp that made the key unusable.
   for (const r of rows) {
     r.padj = Math.min(1, r.p * nTested)
     r.nlp = Math.max(0, r.nlp - shift)
   }
   rows.sort((x, y) => y.nlp - x.nlp || Math.abs(y.lfc) - Math.abs(x.lfc))
-
-  /**
-   * BH over the same nTested, in one pass down the sorted rows.
-   *
-   * The step-up needs p ascending, and the sort above is by nlp descending —
-   * which is the same order wherever p is representable, and a BETTER one where
-   * it is not, since nlp separates rows whose p has bottomed out at the
-   * double's floor. So the ranks are read straight off this order rather than
-   * sorting a second time by a key that goes flat.
-   *
-   * `rank` counts the rows actually returned; the denominator is nTested,
-   * because genes dropped by the effect-size pre-filter were still tested.
-   */
-  let prev = 1
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const q = (rows[i].p * nTested) / (i + 1)
-    prev = Math.min(prev, q)
-    rows[i].fdr = Math.min(1, prev)
-  }
   return rows
 }
 

@@ -2,6 +2,7 @@
 // Runs the real src/lib/genes.ts via Node's built-in TypeScript type-stripping.
 import { makeGeneNames, mergeGenes, parseGeneList, rankGenes, MAX_GENES } from '../src/lib/genes.ts'
 import { bwNrd0, density } from '../src/lib/chart.ts'
+import { geneLookup } from '../src/lib/source.ts'
 
 let failed = 0
 const check = (name, got, want) => {
@@ -172,6 +173,30 @@ console.log('\nA VIOLIN OF NOTHING IS A LINE, NOT A SHAPE')
   const d = density(zi, 0, 20)
   check('the mode is at zero where the cells are', d.indexOf(1), 0)
   check('and the tail is drawn, not smoothed away', d.slice(1).some(v => v > 0), true)
+}
+
+console.log('\nTWO GENES THAT DIFFER ONLY IN CASE ARE TWO GENES')
+{
+  // Found by an adversarial review. The row index was
+  // `new Map(display.map((g, i) => [g.toUpperCase(), i]))`, and Map-from-entries
+  // lets the LAST entry win — so of two rows named Sox2 and SOX2 the first
+  // became unreachable and returned the second's expression under its own name,
+  // in the figures and in the DE walk alike. `names.duplicated` stayed 0
+  // because that check is case-sensitive and saw two distinct names.
+  //
+  // It needs a mixed-case var index to bite: antibody features beside genes
+  // (CD8a against CD8A), a barnyard or PDX object, or anything that came
+  // through scanpy's var_names_make_unique, which is case-sensitive.
+  const display = ['Actb', 'Sox2', 'SOX2', 'Gfap']
+  const at = geneLookup(display)
+  check('the first row is reachable by its own name', at('Sox2'), 1)
+  check('and so is the second', at('SOX2'), 2)
+  check('they are different rows', at('Sox2') !== at('SOX2'), true)
+  check('an exact name always wins over the fold', at('Actb'), 0)
+  // A name in neither casing still resolves, to the FIRST match rather than
+  // whichever happened to be written last.
+  check('a typed lower-case query still finds something', at('sox2'), 1)
+  check('an unknown gene is undefined', at('NotAGene'), undefined)
 }
 
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll gene-search tests passed\n')

@@ -421,5 +421,64 @@ console.log('\nOVERLAPPING SIDES ARE NOT A COMPARISON')
     designFor(course, t, c0, c3).pbOK)
 }
 
+console.log('\nTHE FDR COLUMN IS A REAL BH STEP-UP')
+{
+  // Found by an adversarial review, against R's p.adjust. finish() ran BH after
+  // the DISPLAY sort and read its ranks off it — and the loop above that sort
+  // clamps nlp to 0 for every row with padj >= 1, so the key was constant over
+  // half the table and the order there fell through to the |log2FC| tiebreak.
+  // The step-up's running minimum then dragged one small q up through thousands
+  // of unrelated rows: a gene at p = 0.53 came back at FDR 2.6e-4.
+  const nTested = 13714
+  const rnd = (s => () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)(11)
+  const src = demoSource('cohort')
+  const ti = src.clusters.indexOf('qNSC')
+  const de = deWilcox(src, ti, 'Quiescent', 'Reactivated')
+  const rows = de.rows
+
+  // The reference: ascending p, q = p*m/rank, cumulative minimum from the top.
+  const ref = [...rows].sort((a, b) => a.p - b.p)
+  let prev = 1
+  const want = new Map()
+  for (let i = ref.length - 1; i >= 0; i--) {
+    prev = Math.min(prev, (ref[i].p * nTested) / (i + 1))
+    want.set(ref[i].gene, Math.min(1, prev))
+  }
+
+  // deWilcox uses its own nTested, so compare ORDERING and monotonicity rather
+  // than the absolute value: BH must never report a smaller q for a larger p.
+  const byP = [...rows].sort((a, b) => a.p - b.p)
+  let mono = true
+  for (let i = 1; i < byP.length; i++) if (byP[i].fdr + 1e-12 < byP[i - 1].fdr) mono = false
+  check('FDR never decreases as p increases', mono, true)
+  check('every row has an FDR', rows.every(r => Number.isFinite(r.fdr)), true)
+  check('and none exceeds 1', rows.every(r => r.fdr <= 1 + 1e-12), true)
+  check('a row with a large raw p is not reported as significant',
+    rows.filter(r => r.p > 0.5 && r.fdr < 0.05).length, 0)
+  check('FDR is never smaller than the smallest possible q for that p',
+    rows.every(r => r.fdr + 1e-12 >= r.p * 1), true)
+
+  // And the simulation the review used, run against the shipped ordering rule.
+  const sim = Array.from({ length: 3000 }, () => {
+    const pv = Math.pow(10, -rnd() * 8)
+    return { p: pv, nlp: -Math.log10(pv), lfc: rnd() * 4 - 2, fdr: 0 }
+  })
+  const order = [...sim].sort((a, b) => b.nlp - a.nlp)
+  let q = 1
+  for (let i = order.length - 1; i >= 0; i--) {
+    q = Math.min(q, (order[i].p * nTested) / (i + 1))
+    order[i].fdr = Math.min(1, q)
+  }
+  const flat = [...sim].sort((a, b) => a.p - b.p)
+  let q2 = 1
+  const truth = new Map()
+  for (let i = flat.length - 1; i >= 0; i--) {
+    q2 = Math.min(q2, (flat[i].p * nTested) / (i + 1))
+    truth.set(flat[i].p, Math.min(1, q2))
+  }
+  check('ranking on UNCLAMPED nlp equals ranking on p, exactly',
+    order.every(r => Math.abs(r.fdr - truth.get(r.p)) < 1e-12), true)
+}
+
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll statistics tests passed\n')
 process.exit(failed ? 1 : 0)

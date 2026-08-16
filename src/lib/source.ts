@@ -384,6 +384,37 @@ export function demoSource(key: string): Source {
 
 /* ---------------- a real bundle ---------------- */
 
+/**
+ * Name -> row, exact first, then case-insensitively.
+ *
+ * It was one Map keyed on the upper-cased name, built with `new Map(entries)`
+ * — where a later entry silently replaces an earlier one. Two rows whose names
+ * differ only in case therefore collapsed onto the LAST of them, and the first
+ * became unreachable: asking for it returned its neighbour's expression under
+ * its own name, in the figures and in the DE walk alike, with
+ * `names.duplicated` still reporting 0 because that check is case-sensitive.
+ *
+ * Nothing in the shipped demos collides. It needs a mixed-case var index —
+ * antibody features beside genes (CD8a against CD8A), a barnyard or PDX
+ * object, or anything that came through scanpy's `var_names_make_unique`,
+ * which is case-sensitive and so leaves both.
+ *
+ * Exact match wins, so a caller passing a name the object gave it always gets
+ * that row. The folded map keeps the convenience of resolving a typed "sox2",
+ * and takes the FIRST row rather than the last, so which row a fold resolves to
+ * no longer depends on file order.
+ */
+export function geneLookup(display: readonly string[]): (gene: string) => number | undefined {
+  const exact = new Map<string, number>()
+  const folded = new Map<string, number>()
+  display.forEach((g, i) => {
+    if (!exact.has(g)) exact.set(g, i)
+    const u = g.toUpperCase()
+    if (!folded.has(u)) folded.set(u, i)
+  })
+  return (gene: string) => exact.get(gene) ?? folded.get(gene.toUpperCase())
+}
+
 export function bundleSource(b: Bundle): Source {
   const d = bundleDataset(b)
   const names = makeGeneNames(b.genes, b.alias, {
@@ -394,11 +425,11 @@ export function bundleSource(b: Bundle): Source {
   })
   // Keyed by the DISPLAY name, so a row that is shown as Sox2 is also fetched as
   // Sox2 and there is no second vocabulary anywhere below this line.
-  const index = new Map(names.display.map((g, i) => [g.toUpperCase(), i]))
+  const lookup = geneLookup(names.display)
   const n = b.meta.nCells
 
   const vector = (gene: string): Float32Array => {
-    const gi = index.get(gene.toUpperCase())
+    const gi = lookup(gene)
     const out = new Float32Array(n)
     if (gi === undefined) return out
     // One contiguous CSC slice — the reason the bundle is gene-major.
@@ -407,7 +438,7 @@ export function bundleSource(b: Bundle): Source {
   }
 
   const nonZero = (gene: string, cb: (cell: number, value: number) => void) => {
-    const gi = index.get(gene.toUpperCase())
+    const gi = lookup(gene)
     if (gi === undefined) return
     for (let k = b.indptr[gi]; k < b.indptr[gi + 1]; k++) cb(b.indices[k], b.data[k])
   }

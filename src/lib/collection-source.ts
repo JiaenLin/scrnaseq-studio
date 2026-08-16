@@ -34,7 +34,7 @@ import {
 import type { CollectionIndex, CollectionMeta, PartEntry } from './collection.ts'
 import { unionLevels } from './levels.ts'
 import { scanMatrix, type MatrixPlan } from './part-scan.ts'
-import { baseSource, type Source } from './source.ts'
+import { geneLookup, baseSource, type Source } from './source.ts'
 import { readZipDir, payloadStart, readZipEntry, type ZipEntry } from './zipdir.ts'
 
 class CollectionError extends Error {}
@@ -437,7 +437,7 @@ export async function openCollection(
     missing: meta1.geneAlias?.missing,
   })
   const display = names.display
-  const geneIndex = new Map(display.map((g, i) => [g.toUpperCase(), i]))
+  const lookupGene = geneLookup(display)
   const loaded = new Map<string, Sparse>()
   let loadedBytes = 0
   // Genes somebody is being shown right now, which eviction may not take: the
@@ -459,7 +459,7 @@ export async function openCollection(
     }
   }
 
-  const indexOf = (gene: string): number => geneIndex.get(gene.toUpperCase()) ?? -1
+  const indexOf = (gene: string): number => lookupGene(gene.toUpperCase()) ?? -1
 
   /** What one gene costs assembled, from the offsets alone — nothing is read. */
   const costOf = (gi: number): number => {
