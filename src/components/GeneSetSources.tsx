@@ -134,6 +134,7 @@ export default function GeneSetSources({
             key={s.source} className="chip" aria-pressed={sources.includes(s.source)}
             title={`${s.nSets.toLocaleString()} sets · ${(s.bytes / 1e6).toFixed(2)} MB`
               + (s.projected ? ' · human sets mapped through orthologs, not a mouse annotation' : '')
+              + (s.derived ? ` · the metabolic pathways of ${s.derived.join(', ')}, under their own ids` : '')
               + (sources.includes(s.source) ? '' : ' — not downloaded yet')}
             onClick={() => toggle(s.source)}
           >
@@ -195,6 +196,27 @@ export default function GeneSetSources({
           raises it.
         </p>
       )}
+
+      {/*
+        A derived collection says what it is a subset OF.
+
+        Without it "Metabolic" sits in that row looking like a database beside
+        KEGG and Reactome, which would make a term found in it read as a second,
+        independent line of evidence for the same pathway. It is the same sets:
+        same systematic ids, same members, chosen out of those collections by
+        name. What it is FOR is the sentence after — turning its parents off is
+        the whole point, because over-representation is corrected across
+        everything tested and 9 000 sets spend that correction on terms nobody
+        asked about.
+      */}
+      {chosen.filter(s => s.derived?.length).map(s => (
+        <p key={s.source} className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+          <b>{s.source}</b> is the metabolic pathways of {s.derived!.join(', ')}, under their own
+          MSigDB ids — so a set in both is tested once, and switching those collections off
+          leaves a test of metabolism alone, corrected across {s.nSets.toLocaleString()} sets
+          instead of {avail.filter(x => x.on).reduce((a, x) => a + x.nSets, 0).toLocaleString()}.
+        </p>
+      ))}
 
       {chosen.some(s => s.projected) && (
         <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>

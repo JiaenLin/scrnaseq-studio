@@ -106,7 +106,15 @@ console.log('\nEVERY COLLECTION MSIGDB HAS, NOT A SELECTION OF THEM')
   // If a release moves them this test fails, which is the point: it should be a
   // decision to ship a different amount of the database, never a drift.
   const man = JSON.parse(readFileSync('public/genesets/manifest.json', 'utf8'))
-  const total = sp => man.species[sp].sources.reduce((a, c) => a + c.nSets, 0)
+  // Derived collections are excluded from the total, and that is not a loophole
+  // in the count — they carry no set MSigDB did not publish. Metabolic is a
+  // subset of the curated pathway collections under their parents' own ids, so
+  // adding its 502 to the human sum would make this assertion read "the studio
+  // ships 35 863 of MSigDB's 35 361", which is arithmetic about nothing. What
+  // stops IT from drifting is the block below, which checks every id against a
+  // parent.
+  const native = sp => man.species[sp].sources.filter(c => !c.derived)
+  const total = sp => native(sp).reduce((a, c) => a + c.nSets, 0)
   const has = (sp, name) => man.species[sp].sources.find(c => c.source === name)
 
   check('human ships all 35 361 sets', total('human'), 35361)
@@ -144,6 +152,64 @@ console.log('\nEVERY COLLECTION MSIGDB HAS, NOT A SELECTION OF THEM')
     for (const c of man.species[sp].sources)
       if (!existsSync(`public/genesets/${c.file}`)) missing.push(c.file)
   check('every collection the manifest offers has a file', missing, [])
+}
+
+console.log('\nTHE DERIVED METABOLIC COLLECTION IS ITS PARENTS, NOT A NEW DATABASE')
+{
+  // What this pins: Metabolic exists so a reader can test metabolism without
+  // spending the correction on nine thousand terms they did not ask about. That
+  // only works if it is the SAME sets — same systematic ids, same members —
+  // because a copy under a new id would be tested twice whenever a parent is
+  // also on, and could not be cited as the pathway it came from.
+  const man = JSON.parse(readFileSync('public/genesets/manifest.json', 'utf8'))
+  for (const [sp, nSets] of [['human', 502], ['mouse', 335]]) {
+    const entry = man.species[sp].sources.find(c => c.source === 'Metabolic')
+    check(`${sp} offers Metabolic`, entry?.nSets, nSets)
+    check(`${sp} Metabolic names its parents`, entry.derived.length > 1, true)
+    // Off, because every one of its sets is already in a collection that is on
+    // — switching it on alone changes nothing, and what it is for is what it
+    // lets you switch off.
+    check(`${sp} Metabolic is off by default`, entry.on, false)
+
+    const derived = collection(entry.file)
+    check(`${sp} Metabolic parses to the count the manifest claims`,
+      derived.sets.length, nSets)
+
+    // Every id, and every member, has to be findable in a parent.
+    const parents = entry.derived.map(name =>
+      collection(man.species[sp].sources.find(c => c.source === name).file))
+    const byId = new Map()
+    for (const c of parents) {
+      for (const s of c.sets) {
+        if (!byId.has(s.id)) byId.set(s.id, new Set(Array.from(s.genes, i => c.symbols[i])))
+      }
+    }
+    const orphan = derived.sets.filter(s => !byId.has(s.id)).map(s => s.id)
+    check(`${sp} every Metabolic set is one of its parents' sets`, orphan, [])
+    const edited = derived.sets.filter(s => {
+      const want = byId.get(s.id)
+      const got = Array.from(s.genes, i => derived.symbols[i])
+      return !want || want.size !== got.length || got.some(g => !want.has(g))
+    }).map(s => s.id)
+    check(`${sp} and carries its parent's members unchanged`, edited, [])
+
+    // The selection is by name, so the names have to be metabolic. A spot check
+    // of what must be in, and of what must not.
+    for (const id of ['HALLMARK_GLYCOLYSIS', 'HALLMARK_OXIDATIVE_PHOSPHORYLATION',
+      'HALLMARK_FATTY_ACID_METABOLISM']) {
+      check(`${sp} Metabolic contains ${id}`, derived.sets.some(s => s.id === id), true)
+    }
+    check(`${sp} Metabolic excludes signalling that merely contains a metabolite`,
+      derived.sets.some(s => /PURINERGIC|NUCLEOTIDE_EXCISION_REPAIR/.test(s.id)), false)
+  }
+
+  // The point of keeping the ids: both on is not two tests of one pathway.
+  const both = ['mouse.hallmark.gs', 'mouse.metabolic.gs'].map(collection)
+  const idx = indexFor(both, GENES)
+  check('a set in two enabled collections is folded once',
+    idx.sets.length, new Set(idx.sets.map(s => s.id)).size)
+  check('and the parent collection is the one that names it',
+    idx.sets.filter(s => s.id.startsWith('HALLMARK_')).every(s => s.source === 'Hallmark'), true)
 }
 
 console.log('\nTHE MSIGDB ASSETS')

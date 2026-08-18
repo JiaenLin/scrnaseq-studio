@@ -49,6 +49,17 @@ export interface ManifestSource {
    * distributable. Carried this far so the interface can say so.
    */
   projected?: boolean
+  /**
+   * The collections this one was subset from, when it is not a database of its
+   * own — Metabolic, which scripts/derive-metabolic.mjs takes out of the
+   * curated pathway collections by name.
+   *
+   * Carried so the interface can say where a set came from rather than let a
+   * derived collection sit in the row looking like a separate source of
+   * evidence. The sets keep their parents' systematic ids, so a term found
+   * here is the parent's term and `indexFor` folds it once even with both on.
+   */
+  derived?: string[]
 }
 
 export interface Manifest {
@@ -191,6 +202,7 @@ export function indexFor(collections: Collection[], background: string[]): SetIn
   const sets: IndexedSet[] = []
   const sources: string[] = []
   const hits: number[][] = []
+  const byId = new Set<string>()
   let species = '', release = ''
 
   for (const c of collections) {
@@ -216,6 +228,22 @@ export function indexFor(collections: Collection[], background: string[]): SetIn
       return (seen[gi] = at)
     }
     for (const s of c.sets) {
+      // One id, one test.
+      //
+      // No two MSigDB collections shared an id while every collection was a
+      // separate database, so this was not a case that could arise. It arises
+      // now: Metabolic is a SUBSET of the curated pathway collections and
+      // keeps their ids, so a reader with both it and Reactome on would
+      // otherwise have REACTOME_GLYCOLYSIS tested twice — two rows in the
+      // table, and two of the tests Benjamini–Hochberg corrects across, for
+      // one pathway. A custom GMT that repeats an MSigDB set is the same
+      // situation from the other direction.
+      //
+      // The first enabled collection carrying the id wins, so the source
+      // column names where it was read from and the members are that
+      // collection's.
+      if (byId.has(s.id)) continue
+      byId.add(s.id)
       const members: number[] = []
       for (let i = 0; i < s.genes.length; i++) {
         const at = idxOfMember(s.genes[i])

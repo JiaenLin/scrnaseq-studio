@@ -15,6 +15,7 @@
 import { gzipSync } from 'fflate'
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, basename } from 'node:path'
+import { deriveMetabolic } from './derive-metabolic.mjs'
 
 const inArg = process.argv.indexOf('--in')
 const IN = inArg > 0 ? process.argv[inArg + 1] : 'scratch-msigdb/gmt'
@@ -206,6 +207,14 @@ for (const species of ['human', 'mouse']) {
 }
 
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
+
+// The derived collections, from the files just written rather than from the GMT
+// export — so what is selected is selected out of exactly the bytes the app
+// loads, and so re-running this script cannot leave them behind. It rewrites
+// the manifest it was just handed.
+console.log('\nDerived')
+deriveMetabolic(OUT)
+
 const on = Object.values(manifest.species)
   .flatMap(s => s.sources.filter(x => x.on).map(x => x.bytes))
   .reduce((a, b) => a + b, 0)
