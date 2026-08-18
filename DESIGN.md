@@ -312,24 +312,60 @@ origin goes in the **name** — `Glycolysis (Hallmark)`, `Glycolysis (Reactome)`
 because three identical rows in a results table tell a reader nothing. The test asserts
 the names are unique for exactly that reason.
 
-The selection is by NAME, and that is a real limit, stated rather than hidden: MSigDB
-ships no machine-readable metabolic flag. What makes it defensible is that **the rule
-differs by the kind of source**. A pathway database has already decided that a pathway
-is a pathway, so a KEGG entry called "X metabolism" needs no guard. An ontology has
-not — it classifies everything — so the same vocabulary there is guarded against
-macromolecule turnover, and GO:MF is additionally required to name an enzyme, because a
-molecular function is metabolic only when it is a reaction. Without that gate the
-vocabulary returns 99 MF terms dominated by "phospholipid binding" and "guanyl
-nucleotide exchange factor activity"; with it, 19, all of them a metabolic enzyme.
+**Which terms, and how they were chosen.** By hand, into `scripts/metabolic-terms.tsv`,
+which is committed and is the input this build reads. It is not a rule the script
+evaluates, and that is the second thing this section had to change.
 
-Two details of the guards are worth recording because they were found by the tests
-rather than by reading. `PROTEIN` is matched on the word and not the substring, so
-lipoprotein and apolipoprotein metabolism survive while protein catabolism does not —
-and so does *proteinogenic* amino acid biosynthesis, which a substring match would have
-thrown away. And `MITOCHONDRI` is deliberately absent from the vocabulary: it reads as
-a metabolic word and would carry in mitochondrial translation and mitochondrial DNA
-replication, where the respiratory terms are already caught by `ELECTRON_TRANSPORT`,
-`CELLULAR_RESPIRATION` and `ATP_SYNTHESIS`, which say what they mean.
+It *was* a rule — a vocabulary of forty metabolic words matched against the systematic
+name, guarded differently for pathway databases and for ontologies. A vocabulary is only
+ever as good as the correlation between what a pathway is called and what it is about,
+and that correlation fails exactly where it matters. It missed
+`KEGG_PENTOSE_AND_GLUCURONATE_INTERCONVERSIONS`, a metabolic map with no metabolic word
+in it; `REACTOME_COMPLEX_I_BIOGENESIS`, which builds the respiratory chain;
+`REACTOME_MITOCHONDRIAL_BIOGENESIS`; `KEGG_INSULIN_SIGNALING_PATHWAY` and
+`KEGG_PPAR_SIGNALING_PATHWAY`, whose whole subject is metabolic control; and
+`KEGG_TYPE_II_DIABETES_MELLITUS`. No vocabulary catches those without catching half of
+signalling with them.
+
+So all **15 646** term names in the pathway and ontology collections — the union across
+both species, since they share systematic ids, so each term is decided once — were read
+and judged against written criteria, and **2 813** were kept. A list is auditable in a
+way a regexp is not: it diffs, it can be argued with line by line, and it cannot quietly
+change its mind about a term nobody was looking at. `scripts/test-sets.mjs` holds the
+six terms above as the regression, so a return to matching fails.
+
+The criteria are the boundary: the biochemistry of small molecules, energy metabolism,
+redox and one-carbon, storage and mobilisation, metabolite transport, the pathways that
+*regulate* metabolism, metabolic disease, metabolic enzyme activities, and the
+compartments that exist to do metabolism. Not macromolecule turnover, which GO also
+calls metabolism — protein, RNA and DNA metabolic processes, translation, the proteasome
+— nor the top-of-hierarchy terms that cover everything, nor signalling and development
+where a metabolite is incidental.
+
+**One statement, one set.** The library said "oxidative phosphorylation" sixty times
+over: every electron-transfer step, every respiratory complex's assembly, each database's
+own copy, and the GO regulation-of terms above them. Sixty sets that are one claim at
+different resolutions is sixty rows in a results table for one finding, and sixty of the
+tests the Benjamini–Hochberg correction is spread across — the same disease the whole
+collection exists to cure, inside the collection. That family is consolidated to **four**:
+Hallmark's and KEGG's oxidative phosphorylation, Reactome's aerobic respiration, and
+mitochondrial biogenesis, which is a different question from respiring. Terms whose
+subject is another family that merely happens in the mitochondrion — beta-oxidation, the
+TCA cycle, iron–sulfur clusters, mitochondrial fatty acid synthesis — stay with their own
+kind, and the test checks that consolidating the organelle did not cost the biochemistry.
+
+Ribosomes needed no consolidation: they are macromolecule turnover and the criteria never
+admitted them. The single survivor,
+`GOBP_NONRIBOSOMAL_PEPTIDE_BIOSYNTHETIC_PROCESS`, is genuine small-molecule metabolism and
+is named for what it is *not*.
+
+**A curated list rots, so it is watched.** A term the list names that no collection ships
+is a rename nobody noticed, and the test fails on it. A term in a new release that *looks*
+metabolic and is in neither record is reported by the build — which is what the old
+vocabulary is now for, and its only remaining job. The 428 terms that were judged and
+deliberately left out are written down too, prefixed `!`, so the build can tell "nobody
+has looked at this yet" from "somebody looked and said no", and so the second is arguable
+in a diff instead of invisible.
 
 ## 3. Interface
 

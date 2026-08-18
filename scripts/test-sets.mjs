@@ -1,6 +1,7 @@
 // Enrichment and module-score regressions.
 import { bh, bhNlp, hyperTail, logHyperTail, runORA } from '../src/lib/ora.ts'
 import { indexFor, parse } from '../src/lib/msigdb.ts'
+import { readTerms } from './derive-metabolic.mjs'
 import { oraIndexed } from '../src/lib/ora.ts'
 import { detectSpecies, matchRate } from '../src/lib/species.ts'
 import { gunzipSync } from 'fflate'
@@ -158,13 +159,13 @@ console.log('\nTHE METABOLIC LIBRARY IS A COLLECTION, NOT A FOLD OF THE OTHERS')
 {
   // What this pins: Metabolic exists so a reader can test metabolism without
   // spending the correction on fifteen thousand terms they did not ask about,
-  // AND so that enabling it beside a full default library does something. The
-  // first version kept its parents' ids, which meant indexFor folded every one
-  // of its sets away whenever a parent was on — a collection that did nothing
-  // until you switched four others off. Its own ids are what fixed that, and
-  // they are what these checks are about.
+  // AND so that enabling it beside a full default library does something. An
+  // earlier version kept its parents' ids, which meant indexFor folded every
+  // one of its sets away whenever a parent was on — a collection that did
+  // nothing until you switched four others off. Its own ids are what fixed
+  // that, and they are what the first checks are about.
   const man = JSON.parse(readFileSync('public/genesets/manifest.json', 'utf8'))
-  for (const [sp, nSets] of [['human', 1533], ['mouse', 1391]]) {
+  for (const [sp, nSets] of [['human', 2610], ['mouse', 2360]]) {
     const entry = man.species[sp].sources.find(c => c.source === 'Metabolic')
     check(`${sp} offers Metabolic`, entry?.nSets, nSets)
     check(`${sp} Metabolic names what it was assembled from`, entry.derived.length > 1, true)
@@ -211,7 +212,7 @@ console.log('\nTHE METABOLIC LIBRARY IS A COLLECTION, NOT A FOLD OF THE OTHERS')
     }).map(s2 => s2.id)
     check(`${sp} and carries that set's members unchanged`, edited, [])
 
-    // Three databases call a set "Glycolysis". Merged into one collection the
+    // Several databases call a set "Glycolysis". Merged into one collection the
     // source column says "Metabolic" for all of them, so the origin has to be
     // in the NAME or the results table has identical rows telling a reader
     // nothing.
@@ -220,38 +221,92 @@ console.log('\nTHE METABOLIC LIBRARY IS A COLLECTION, NOT A FOLD OF THE OTHERS')
       names.every(n => /\([^)]+\)$/.test(n)), true)
     check(`${sp} and the names are therefore unique`,
       new Set(names).size, names.length)
+  }
 
-    // A spot check of what must be in, and of what the ontology guard keeps out.
-    for (const id of ['METABOLIC_HALLMARK_GLYCOLYSIS',
-      'METABOLIC_HALLMARK_OXIDATIVE_PHOSPHORYLATION',
-      'METABOLIC_HALLMARK_FATTY_ACID_METABOLISM']) {
-      check(`${sp} Metabolic contains ${id}`, derived.sets.some(s2 => s2.id === id), true)
+  console.log('\n  the selection is a curated list, and it beats the vocabulary it replaced')
+  {
+    // What this pins: the terms were chosen by reading all 15,646 names, not by
+    // matching them. The check is the six terms the vocabulary provably missed
+    // — a metabolic map with no metabolic word in it, two biogenesis pathways,
+    // two whose subject is metabolic CONTROL, and a metabolic disease. If the
+    // selection ever goes back to being a rule, these are what fail.
+    const human = collection(man.species.human.sources
+      .find(c => c.source === 'Metabolic').file)
+    const has = id => human.sets.some(s2 => s2.id === 'METABOLIC_' + id)
+    for (const id of ['KEGG_PENTOSE_AND_GLUCURONATE_INTERCONVERSIONS',
+      'REACTOME_COMPLEX_I_BIOGENESIS', 'REACTOME_MITOCHONDRIAL_BIOGENESIS',
+      'KEGG_INSULIN_SIGNALING_PATHWAY', 'KEGG_PPAR_SIGNALING_PATHWAY',
+      'KEGG_TYPE_II_DIABETES_MELLITUS']) {
+      check(`  a name match would have missed ${id}`, has(id), true)
     }
-    check(`${sp} Metabolic excludes signalling that merely contains a metabolite`,
-      derived.sets.some(s2 => /PURINERGIC|NUCLEOTIDE_EXCISION_REPAIR/.test(s2.id)), false)
-    // GO calls protein turnover, mRNA decay and tRNA processing metabolic
-    // processes. They are, in GO's sense, and they are not what this
-    // collection is for. Named individually, and checked to be CANDIDATES
-    // first — asserting the absence of something that was never in the input
-    // proves nothing about the guard.
+    // And the guards still hold: GO calls protein turnover, mRNA decay and tRNA
+    // processing metabolic processes. They are, in GO's sense, and they are not
+    // what this collection is for. Checked as CANDIDATES first — asserting the
+    // absence of something that was never in the input proves nothing.
     const turnover = ['GOBP_PROTEIN_CATABOLIC_PROCESS', 'GOBP_MRNA_CATABOLIC_PROCESS',
       'GOBP_TRNA_METABOLIC_PROCESS']
-    const bp = collection(man.species[sp].sources.find(c => c.source === 'GO:BP').file)
-    check(`${sp} GO:BP does carry the turnover terms`,
+    const bp = collection(man.species.human.sources.find(c => c.source === 'GO:BP').file)
+    check('  GO:BP does carry the turnover terms',
       turnover.filter(id => bp.sets.some(s2 => s2.id === id)), turnover)
-    check(`${sp} and Metabolic excludes every one of them`,
-      turnover.filter(id => derived.sets.some(s2 => s2.id === 'METABOLIC_' + id)), [])
-    // The guard is on the WORD, not the substring: proteinogenic amino acid
-    // biosynthesis is amino acid metabolism and has to survive it.
-    check(`${sp} while proteinogenic amino acid biosynthesis survives`,
-      derived.sets.some(s2 => s2.id === 'METABOLIC_GOBP_PROTEINOGENIC_AMINO_ACID_BIOSYNTHETIC_PROCESS'),
-      true)
+    check('  and Metabolic excludes every one of them', turnover.filter(has), [])
+    check('  while proteinogenic amino acid biosynthesis survives',
+      has('GOBP_PROTEINOGENIC_AMINO_ACID_BIOSYNTHETIC_PROCESS'), true)
+  }
+
+  console.log('\n  one biological statement is one set, not sixty')
+  {
+    // What this pins: the library said "oxidative phosphorylation" sixty times
+    // over — every electron-transfer step, every respiratory complex's
+    // assembly, each database's own copy. That is sixty rows in a results table
+    // for one finding, and sixty of the tests the correction is spread across.
+    // The family is consolidated to four; terms whose subject is a DIFFERENT
+    // family that merely happens in the mitochondrion stay with their own kind.
+    const FAMILY = /OXIDATIVE_PHOSPHORYL|RESPIRASOME|RESPIRATORY_CHAIN|ELECTRON_TRANSPORT|ELECTRON_TRANSFER_IN_COMPLEX|OXPHOS|ATP_SYNTHASE|PROTON_TRANSPORTING|CELLULAR_RESPIRATION|AEROBIC_RESPIRATION|MITOCHONDRI|RESPIRATORY_ELECTRON/
+    const ELSEWHERE = /BETA_?OXIDATION|FATTY_ACID|IRON_SULFUR|NAD_METABOLISM|TCA|CITRIC|CITRATE|PYRUVATE|AMINO_ACID|CALCIUM|APOPTO|FISSION|FUSION|MITOPHAGY|UNFOLDED/
+    for (const sp of ['human', 'mouse']) {
+      const ids = collection(man.species[sp].sources
+        .find(c => c.source === 'Metabolic').file).sets.map(s2 => s2.id)
+      const fam = ids.filter(i => FAMILY.test(i) && !ELSEWHERE.test(i))
+      check(`  ${sp} keeps under five mitochondrial respiration sets`, fam.length < 5, true)
+      // Ribosomes needed no consolidating — they are macromolecule turnover and
+      // the criteria never admitted them. The one survivor is named for what it
+      // is NOT, and is genuine small-molecule metabolism.
+      check(`  ${sp} carries no ribosome or translation set`,
+        ids.filter(i => /RIBOSOM|TRANSLATION/.test(i) && !/NONRIBOSOMAL/.test(i)), [])
+      // The families that merely happen there are untouched, so consolidating
+      // the organelle did not quietly cost the biochemistry.
+      check(`  ${sp} still carries beta-oxidation`,
+        ids.some(i => /BETA_?OXIDATION/.test(i)), true)
+      check(`  ${sp} still carries the TCA cycle`,
+        ids.some(i => /TCA_CYCLE|CITRIC_ACID/.test(i)), true)
+    }
+  }
+
+  console.log('\n  the list and the library stay in step')
+  {
+    // A term in the list that no collection ships is a rename nobody noticed;
+    // it costs nothing at runtime and is exactly the kind of rot a curated list
+    // is prone to, so it fails here rather than being reported and ignored.
+    const { terms, judged } = readTerms()
+    const offered = new Set()
+    for (const sp of ['human', 'mouse']) {
+      for (const c of man.species[sp].sources) {
+        if (c.source === 'Metabolic') continue
+        for (const s2 of collection(c.file).sets) offered.add(s2.id)
+      }
+    }
+    check('every included term exists in a shipped collection',
+      [...terms.keys()].filter(id => !offered.has(id)), [])
+    check('and so does every term recorded as left out',
+      [...judged].filter(id => !offered.has(id)), [])
+    check('the two records do not overlap',
+      [...judged].filter(id => terms.has(id)), [])
   }
 
   // The property the ids buy: enabling it beside a parent adds its sets rather
   // than folding into it. Both versions of glycolysis survive, under different
-  // sources, which is also what makes the double-testing warning on the card
-  // a true statement rather than a precaution.
+  // sources, which is what makes the double-testing warning on the card a true
+  // statement rather than a precaution.
   const both = ['mouse.hallmark.gs', 'mouse.metabolic.gs'].map(collection)
   const idx = indexFor(both, GENES)
   const glyc = idx.sets.filter(s2 =>

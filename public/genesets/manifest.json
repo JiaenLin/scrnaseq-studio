@@ -19,9 +19,9 @@
         {
           "source": "Metabolic",
           "file": "human.metabolic.gs",
-          "nSets": 1533,
-          "nGenes": 8839,
-          "bytes": 181141,
+          "nSets": 2610,
+          "nGenes": 7578,
+          "bytes": 229177,
           "on": false,
           "projected": false,
           "derived": [
@@ -30,8 +30,11 @@
             "Reactome",
             "WikiPathways",
             "PID",
+            "BioCarta",
+            "Canonical (other)",
             "GO:BP",
-            "GO:MF"
+            "GO:MF",
+            "GO:CC"
           ]
         },
         {
@@ -251,9 +254,9 @@
         {
           "source": "Metabolic",
           "file": "mouse.metabolic.gs",
-          "nSets": 1391,
-          "nGenes": 9191,
-          "bytes": 177755,
+          "nSets": 2360,
+          "nGenes": 7080,
+          "bytes": 211596,
           "on": false,
           "projected": false,
           "derived": [
@@ -261,8 +264,10 @@
             "KEGG (orthologs)",
             "Reactome",
             "WikiPathways",
+            "BioCarta",
             "GO:BP",
-            "GO:MF"
+            "GO:MF",
+            "GO:CC"
           ]
         },
         {
