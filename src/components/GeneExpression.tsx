@@ -126,6 +126,18 @@ export default function GeneExpression(p: GeneProps) {
    * and it is how you see which populations resemble each other.
    */
   const [cluster, setCluster] = useState(false)
+  /**
+   * Which way round the dot plate is drawn.
+   *
+   * Seurat's orientation — identities down the side, genes along the bottom —
+   * is the default and is right for the handful of genes this tab used to
+   * hold. It is the wrong one for a marker panel: fifty genes along the bottom
+   * is a figure wider than any page with every name rotated, where fifty genes
+   * down the side is a column you scroll. pheatmap, ComplexHeatmap and scanpy's
+   * dotplot all draw it that way round, so this is the other convention rather
+   * than a new one. Nothing about the numbers changes.
+   */
+  const [flipDot, setFlipDot] = useState(false)
   const [ct, setCt] = useState(p.types[0]?.name ?? '')
   const ctName = p.types.some(t => t.name === ct) ? ct : (p.types[0]?.name ?? '')
 
@@ -350,6 +362,13 @@ export default function GeneExpression(p: GeneProps) {
             title="Order rows and columns by similarity, and draw the trees">
             Cluster rows &amp; genes
           </button>
+          <button className="chip" aria-pressed={flipDot} onClick={() => setFlipDot(!flipDot)}
+            title="Swap the axes — genes down the side, identities along the bottom">
+            Transpose
+          </button>
+          <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+            {flipDot ? 'genes down the side' : 'genes along the bottom'}
+          </span>
         </div>
       )}
 
@@ -360,7 +379,7 @@ export default function GeneExpression(p: GeneProps) {
       <div className="mt-3.5">
         {p.genes.length === 0
           ? <div className="empty">Search for a gene above.</div>
-          : p.plot === 'dot' ? <DotPlot {...p} ids={ids} cluster={cluster} />
+          : p.plot === 'dot' ? <DotPlot {...p} ids={ids} cluster={cluster} flip={flipDot} />
           : p.plot === 'feature' ? <FeaturePlot {...p} />
           : <ViolinPanel {...p} ids={ids} />}
       </div>

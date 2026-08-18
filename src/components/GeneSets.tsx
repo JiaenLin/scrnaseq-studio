@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, Dataset, GroupBy } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
-import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf } from '../lib/chart.ts'
+import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf, maxOfAll } from '../lib/chart.ts'
 import { drawLabels } from '../lib/canvas-label.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
 import { dendroLines, orderRows } from '../lib/cluster.ts'
@@ -65,6 +65,19 @@ export default function GeneSets({
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
   const [heat, setHeat] = useState(false)
   const [heatCluster, setHeatCluster] = useState(true)
+  /**
+   * Whether the per-gene heatmap z-scores each row.
+   *
+   * On is Seurat's DoHeatmap and pheatmap's `scale = "row"`, and it is still
+   * the default: it makes every row say where THAT gene is highest, which is
+   * the comparison the rows are for. Off is the other honest question — how
+   * much of each gene there actually is — and until now the figure could not
+   * answer it. A set of ribosomal genes z-scores into a picture of noise; the
+   * raw means say plainly that all of them are large everywhere.
+   */
+  const [heatScale, setHeatScale] = useState(true)
+  /** Which way round the plate is drawn — see the same switch on the dot plot. */
+  const [heatFlip, setHeatFlip] = useState(false)
   /** The heatmap's own grouping, independent of the violins above it. */
   const [heatBy, setHeatBy] = useState<GroupBy>('type')
   /**
@@ -484,7 +497,9 @@ export default function GeneSets({
         <Card
           eyebrow="Gene sets · per gene"
           title="Every gene of the set, across identities"
-          sub="Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is."
+          sub={heatScale
+            ? "Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is."
+            : 'Mean expression as the object holds it, on one scale for every gene — so a row says how abundant that gene is.'}
         >
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button className="chip" aria-pressed={heat} onClick={() => setHeat(!heat)}>
@@ -504,6 +519,15 @@ export default function GeneSets({
                   title="Order rows and columns by similarity, and draw the trees">
                   Cluster
                 </button>
+                <div className="gsep" />
+                <button className="chip" aria-pressed={heatScale}
+                  onClick={() => setHeatScale(!heatScale)}
+                  title="z-score each gene across the identities shown — pheatmap scale = row"
+                >Scale each gene</button>
+                <button className="chip" aria-pressed={heatFlip}
+                  onClick={() => setHeatFlip(!heatFlip)}
+                  title="Swap the axes — identities down the side, genes along the bottom"
+                >Transpose</button>
               </>
             )}
           </div>
@@ -518,7 +542,8 @@ export default function GeneSets({
                 <SetHeatmap
                   src={src} genes={used} ids={heatIds} groupBy={heatBy}
                   keep={i => !hideT.has(heatIds[i].ti) && !hideC.has(heatIds[i].cond ?? '')}
-                  rampDiv="rdbu" cluster={heatCluster}
+                  rampDiv="rdbu" rampSeq={rampKey} scale={heatScale} flip={heatFlip}
+                  cluster={heatCluster}
                 />
               </Figure>
             </>
@@ -751,7 +776,9 @@ function HeatFilter({ types, conds, groupBy, hideT, hideC, onHideT, onHideC, pal
  * which is a property of the gene and not of the contrast; with it every row
  * says where THAT gene is highest, which is the comparison the rows are for.
  */
-function SetHeatmap({ src, genes, ids, keep, groupBy, rampDiv, cluster }: {
+function SetHeatmap({
+  src, genes, ids, keep, groupBy, rampDiv, rampSeq, scale, flip, cluster,
+}: {
   src: Source
   genes: string[]
   /** Every identity, whether drawn or not — see `keep`. */
@@ -766,7 +793,14 @@ function SetHeatmap({ src, genes, ids, keep, groupBy, rampDiv, cluster }: {
    */
   keep: (i: number) => boolean
   groupBy: GroupBy
+  /** The diverging scale, for z-scores. */
   rampDiv: RampKey
+  /** The sequential scale, for raw means — a quantity with no second direction. */
+  rampSeq: RampKey
+  /** Whether each gene is z-scored down its own row. */
+  scale: boolean
+  /** Genes along the bottom rather than down the side. */
+  flip: boolean
   cluster: boolean
 }) {
   const cw = 34, rh = 15, PT = 12, PR = 20, BAR_H = 58
@@ -829,52 +863,84 @@ function SetHeatmap({ src, genes, ids, keep, groupBy, rampDiv, cluster }: {
     () => ids.map((_id, i) => i).filter(keep), [ids, keep])
 
   /**
-   * Row-scaled, over the KEPT columns only.
+   * What each square is worth: a z-score, or the mean as the object holds it.
    *
-   * Scaling before filtering would be the wrong order: a z-score says where a
-   * gene is highest AMONG THE COLUMNS SHOWN, so dropping a cell type has to
-   * change the scale. Otherwise a reader who removes the one population a gene
-   * is high in still sees that gene's remaining columns pushed to the blue end
-   * by a mean that includes a column no longer on screen.
+   * Row-scaled, over the KEPT columns only. Scaling before filtering would be
+   * the wrong order: a z-score says where a gene is highest AMONG THE COLUMNS
+   * SHOWN, so dropping a cell type has to change the scale. Otherwise a reader
+   * who removes the one population a gene is high in still sees that gene's
+   * remaining columns pushed to the blue end by a mean that includes a column
+   * no longer on screen.
    *
    * A row with no variance stays at zero rather than dividing by it — a gene
    * detected nowhere in the panel is not "average everywhere", and a NaN here
    * would take the figure's geometry with it.
+   *
+   * Unscaled the rows are simply the means, kept on ONE scale across the whole
+   * plate: per-row it would be the scaling again under another name, and the
+   * question this mode exists to answer is which genes are abundant.
    */
-  const z = useMemo(() => (matrix ?? []).map(full => {
+  const v = useMemo(() => (matrix ?? []).map(full => {
     const row = cols.map(ci => full[ci])
+    if (!scale) return row
     const m = row.reduce((a, b) => a + b, 0) / (row.length || 1)
     const sd = Math.sqrt(row.reduce((a, b) => a + (b - m) ** 2, 0) / (row.length || 1))
-    return sd > 1e-9 ? row.map(v => Math.max(-2.5, Math.min(2.5, (v - m) / sd))) : row.map(() => 0)
-  }), [matrix, cols])
+    return sd > 1e-9 ? row.map(x => Math.max(-2.5, Math.min(2.5, (x - m) / sd))) : row.map(() => 0)
+  }), [matrix, cols, scale])
 
-  // Both trees are functions of `z`, and `z` is a function of which columns
-  // survive — so removing a cell type re-clusters rather than leaving a
-  // dendrogram describing an arrangement that is no longer on screen.
-  const rowTree = useMemo(() => (cluster ? orderRows(z) : null), [cluster, z])
-  const colTree = useMemo(() => {
+  /** The ends of the colour scale, and which scale it is. */
+  const [lo, hi] = scale ? [-2.5, 2.5] : [0, Math.max(maxOfAll(v), 0.01)]
+  const span = hi - lo
+  const ramp = scale ? rampDiv : rampSeq
+
+  // Both trees are functions of `v`, and `v` is a function of which columns
+  // survive and of whether the rows are scaled — so removing a cell type or
+  // turning the scaling off re-clusters, rather than leaving a dendrogram that
+  // describes an arrangement no longer on screen.
+  const geneTree = useMemo(() => (cluster ? orderRows(v) : null), [cluster, v])
+  const idTree = useMemo(() => {
     if (!cluster || cols.length < 3) return null
-    return orderRows(cols.map((_c, ci) => z.map(row => row[ci])))
-  }, [cluster, z, cols])
+    return orderRows(cols.map((_c, ci) => v.map(row => row[ci])))
+  }, [cluster, v, cols])
 
-  const rowAt = rowTree ? rowTree.order : genes.map((_g, i) => i)
-  // Positions within `cols`, so `cols[colAt[j]]` is the identity in column j.
-  const colAt = colTree ? colTree.order : cols.map((_c, i) => i)
+  const geneAt = geneTree ? geneTree.order : genes.map((_g, i) => i)
+  // Positions within `cols`, so `cols[idAt[j]]` is the identity in column j.
+  const idAt = idTree ? idTree.order : cols.map((_c, i) => i)
+
+  /**
+   * Which quantity is on which axis.
+   *
+   * Genes down the side is the default, as DoHeatmap and pheatmap draw it. A
+   * hundred-gene set is a hundred rows you scroll; a hundred columns is a plate
+   * wider than any page, which is why the other orientation is offered rather
+   * than assumed.
+   */
+  const vAt = flip ? idAt : geneAt
+  const hAt = flip ? geneAt : idAt
+  const labelOf = {
+    gene: (i: number) => genes[i],
+    id: (j: number) => {
+      const id = ids[cols[j]]
+      return groupBy === 'both' ? id.full : id.label
+    },
+  }
+  const vLabels = vAt.map(i => (flip ? labelOf.id(i) : labelOf.gene(i)))
+  const hLabels = hAt.map(i => (flip ? labelOf.gene(i) : labelOf.id(i)))
+  /** The plate square at (row, column), as (gene, column-of-`cols`) indices. */
+  const cellAt = (vi: number, hj: number): [number, number] =>
+    (flip ? [hAt[hj], vAt[vi]] : [vAt[vi], hAt[hj]])
 
   const TREE = 30
-  const treeT = colTree ? TREE : 0
-  const treeL = rowTree ? TREE : 0
-  const PL = Math.max(80, widestW(genes, 10, false) + 14) + treeL
-  const labels = colAt.map(j => {
-    const id = ids[cols[j]]
-    return groupBy === 'both' ? id.full : id.label
-  })
-  const band = cw
-  const ax = axisTicks(labels, { band, leftAnchor: PL + band / 2, px: 9, startAt: 10, upright: 24 })
+  const vTree = flip ? idTree : geneTree
+  const hTree = flip ? geneTree : idTree
+  const treeT = hTree ? TREE : 0
+  const treeL = vTree ? TREE : 0
+  const PL = Math.max(80, widestW(vLabels, 10, false) + 14) + treeL
+  const ax = axisTicks(hLabels, { band: cw, leftAnchor: PL + cw / 2, px: 9, startAt: 10, upright: 24 })
 
-  const W = PL + colAt.length * cw + PR
+  const W = PL + hAt.length * cw + PR
   const plotT = PT + treeT
-  const plotB = plotT + rowAt.length * rh
+  const plotB = plotT + vAt.length * rh
   const H = plotB + ax.bottom + BAR_H
 
   if (readErr) {
@@ -936,46 +1002,57 @@ function SetHeatmap({ src, genes, ids, keep, groupBy, rampDiv, cluster }: {
         style={{ maxWidth: '100%' }}
         role="img"
         aria-label={`Expression of ${genes.length} set genes across ${cols.length} identities`}>
-        {colTree && dendroLines(colTree, colAt.length * cw, treeT - 5).map((l, i) => (
+        {hTree && dendroLines(hTree, hAt.length * cw, treeT - 5).map((l, i) => (
           <line key={`c${i}`} x1={PL + l.x1} x2={PL + l.x2}
             y1={plotT - 3 - l.y1} y2={plotT - 3 - l.y2}
             stroke={AXIS_INK} strokeWidth={0.7} />
         ))}
-        {rowTree && dendroLines(rowTree, rowAt.length * rh, treeL - 7).map((l, i) => (
+        {vTree && dendroLines(vTree, vAt.length * rh, treeL - 7).map((l, i) => (
           <line key={`r${i}`} x1={PL - treeL + 3 + (treeL - 7 - l.y1)} x2={PL - treeL + 3 + (treeL - 7 - l.y2)}
             y1={plotT + l.x1} y2={plotT + l.x2}
             stroke={AXIS_INK} strokeWidth={0.7} />
         ))}
 
-        {rowAt.map((gi, ri) => colAt.map((j, cj) => (
-          <rect key={`${gi}-${cols[j]}`} x={PL + cj * cw} y={plotT + ri * rh}
-            width={cw} height={rh}
-            fill={rampColor((z[gi][j] + 2.5) / 5, rampDiv)}>
-            <title>{genes[gi]} in {ids[cols[j]].full} — z {z[gi][j].toFixed(2)}</title>
-          </rect>
-        )))}
+        {vAt.map((_a, vi) => hAt.map((_b, hj) => {
+          const [gi, cj] = cellAt(vi, hj)
+          return (
+            <rect key={`${gi}-${cols[cj]}`} x={PL + hj * cw} y={plotT + vi * rh}
+              width={cw} height={rh}
+              fill={rampColor((v[gi][cj] - lo) / span, ramp)}>
+              <title>
+                {genes[gi]} in {ids[cols[cj]].full} — {scale ? 'z ' : 'mean '}
+                {v[gi][cj].toFixed(2)}
+              </title>
+            </rect>
+          )
+        }))}
 
-        {/* Gene names in full, italic as a gene symbol is set in print. */}
-        {rowAt.map((gi, ri) => (
-          <text key={`g${gi}`} x={PL - treeL - 6} y={plotT + ri * rh + rh / 2 + 3.4} textAnchor="end"
-            style={{ fontSize: 10, fill: AXIS_INK, fontStyle: 'italic' }}>{genes[gi]}</text>
+        {/* Gene names in full, italic as a gene symbol is set in print; cell
+            types upright, as a name is. */}
+        {vLabels.map((lab, vi) => (
+          <text key={`v${vi}`} x={PL - treeL - 6} y={plotT + vi * rh + rh / 2 + 3.4} textAnchor="end"
+            style={{ fontSize: 10, fill: AXIS_INK, fontStyle: flip ? 'normal' : 'italic' }}>
+            {lab}<title>{lab}</title>
+          </text>
         ))}
-        {colAt.map((j, cj) => {
-          const cx = PL + cw * (cj + 0.5)
+        {hLabels.map((lab, hj) => {
+          const cx = PL + cw * (hj + 0.5)
+          const style = { fontSize: 9, fontStyle: flip ? ('italic' as const) : ('normal' as const) }
           return ax.rotate ? (
-            <text key={`i${cols[j]}`} className="axis"
+            <text key={`h${hj}`} className="axis"
               transform={`rotate(${-ax.deg} ${cx} ${plotB + 10})`}
-              x={cx} y={plotB + 10} textAnchor="end" style={{ fontSize: 9 }}>
-              {ax.shown[cj]}
+              x={cx} y={plotB + 10} textAnchor="end" style={style}>
+              {lab}<title>{lab}</title>
             </text>
           ) : (
-            <text key={`i${cols[j]}`} className="axis" x={cx} y={plotB + 12} textAnchor="middle"
-              style={{ fontSize: 9 }}>{ax.shown[cj]}</text>
+            <text key={`h${hj}`} className="axis" x={cx} y={plotB + 12} textAnchor="middle"
+              style={style}>{lab}<title>{lab}</title></text>
           )
         })}
         <ColorBar cx={W / 2} y={H - BAR_H + 22} w={170} h={10}
-          ramp={rampDiv} lo={-2.5} hi={2.5} id="setheat"
-          title="z-score, down each gene" breaks={[-2.5, 0, 2.5]} />
+          ramp={ramp} lo={lo} hi={hi} id="setheat"
+          title={scale ? 'z-score, down each gene' : `mean ${src.meta.expression}`}
+          breaks={scale ? [-2.5, 0, 2.5] : undefined} />
       </svg>
     </div>
   )

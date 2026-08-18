@@ -4,7 +4,22 @@
 // so an exact match is never buried, and take a pasted list without asking the
 // user to clean it first.
 
-export const MAX_GENES = 24
+/**
+ * How many genes one panel may hold.
+ *
+ * 24 was the cap for as long as the tab drew one figure per gene at a readable
+ * size, and it is the wrong number for the two figures that draw a COLUMN per
+ * gene: a dot plot and a per-gene heatmap of a marker panel are routinely
+ * fifty to a hundred genes, and the cap turned a pasted list into a silent
+ * truncation of its own tail — `mergeGenes` keeps the most recent, so the
+ * genes dropped were the ones at the START of what the reader pasted.
+ *
+ * The cost is bounded by what a source can answer for, not by this: a
+ * collection refuses an `ensure` past its gene budget and says so, and the
+ * violin and feature panels stay one figure per gene, which is the reader's
+ * choice to make and their scroll to pay.
+ */
+export const MAX_GENES = 100
 
 /* ---------------- what a row is called ---------------- */
 
