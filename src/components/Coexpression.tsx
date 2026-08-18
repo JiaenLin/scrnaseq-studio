@@ -3,8 +3,8 @@ import type { CellType } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  cellAxis, compositeOn, corrDense, corrPlan, poolAxis, profilesOn, rankCorr,
-  pseudobulkOn, scopeMask, standardise, withinSet,
+  cellAxis, compositeOn, corrDense, corrPlan, groupAxis, poolAxis, profilesOn,
+  pseudobulkOn, rankCorr, scopeMask, standardise, withinSet,
   type Axis, type CorrResult, type CorrRow, type SetShape,
 } from '../lib/correlate.ts'
 import { parseGeneList, rankGenes } from '../lib/genes.ts'
@@ -31,11 +31,12 @@ const MAX_SEED = 500
 
 type SeedKind = 'gene' | 'set'
 /** Which axis the correlation is taken over. */
-type Over = 'cell' | 'pool' | 'bulk'
+type Over = 'cell' | 'pool' | 'group' | 'bulk'
 
 const OVER_LABEL: Record<Over, string> = {
   cell: 'Per cell',
   pool: 'Metacells',
+  group: 'Cell type × group',
   bulk: 'Pseudobulk',
 }
 
@@ -64,6 +65,8 @@ export default function Coexpression(p: CoexprProps) {
   const [text, setText] = useState('')
   const [over, setOver] = useState<Over>('pool')
   const [pools, setPools] = useState(256)
+  /** Which levels the aggregate columns are cut on. */
+  const [by, setBy] = useState<'cond' | 'sample'>('cond')
   const [ct, setCt] = useState<string>('')
   const [cond, setCond] = useState<string>('')
   const [minPctPc, setMinPctPc] = useState(10)
@@ -98,10 +101,13 @@ export default function Coexpression(p: CoexprProps) {
 
   const axis: Axis | null = useMemo(() => {
     if (mode === 'bulk') return null
-    return mode === 'pool'
-      ? poolAxis(emb.xy, keep, d.cells.length, pools)
-      : cellAxis(keep, d.cells.length)
-  }, [mode, emb, keep, d.cells.length, pools])
+    if (mode === 'pool') return poolAxis(emb.xy, keep, d.cells.length, pools)
+    if (mode === 'group') {
+      return groupAxis(d.cells, keep,
+        by === 'cond' ? d.conds : d.samples.map(x => x.id), by, types.length)
+    }
+    return cellAxis(keep, d.cells.length)
+  }, [mode, emb, keep, d.cells, d.conds, d.samples, by, types.length, pools])
 
   /* ---------------- the pseudobulk axis, when that is what is asked ---------------- */
 
@@ -144,7 +150,8 @@ export default function Coexpression(p: CoexprProps) {
   // filter an answer that is already in hand.
   const axisKey = mode === 'bulk'
     ? `bulk|${bulk?.cols.length ?? 0}|${ti}|${cond}`
-    : `${mode}|${mode === 'pool' ? `${emb.key}|${pools}` : ''}|${ti}|${cond}|${nScope}`
+    : `${mode}|${mode === 'pool' ? `${emb.key}|${pools}` : ''}`
+      + `|${mode === 'group' ? by : ''}|${ti}|${cond}|${nScope}`
   const seedKey = `${seedGenes.join(',')}|${axisKey}`
 
   useEffect(() => {
@@ -238,6 +245,11 @@ export default function Coexpression(p: CoexprProps) {
     ? seedGenes[0] ?? ''
     : `${seedGenes.length} gene${seedGenes.length === 1 ? '' : 's'}`
   const scopeText = `${ct || 'every cell type'}${cond ? ` · ${cond}` : ''}`
+  /** What one observation on this axis is, for every sentence that names it. */
+  const unit = mode === 'bulk' ? 'pseudobulk columns'
+    : mode === 'group' ? `cell type × ${by === 'cond' ? 'group' : 'sample'} columns`
+    : mode === 'pool' ? 'metacells' : 'cells'
+  const nObs = mode === 'bulk' ? bulk?.cols.length ?? 0 : axis?.n ?? 0
 
   return (
     <>
@@ -301,15 +313,28 @@ export default function Coexpression(p: CoexprProps) {
                 title: 'Neighbouring cells averaged into equal-sized pools — the default, because it is what makes r mean what it looks like it means' },
               { k: 'cell', label: OVER_LABEL.cell,
                 title: 'Every cell its own observation. Dominated by shared zeros on a sparse matrix' },
+              { k: 'group', label: OVER_LABEL.group,
+                title: 'One column per populated cell type × level, averaged from the cells — needs no counts table, so it works on any object' },
               { k: 'bulk', label: OVER_LABEL.bulk,
                 title: hasBulk
-                  ? 'Across the sample × cell type columns of the pseudobulk table'
-                  : 'This object carries no raw counts, so it has no pseudobulk table' },
+                  ? 'Across the sample × cell type columns of the exporter\u2019s pseudobulk table — summed RAW counts, which Cell type × group is not'
+                  : 'This object carries no pseudobulk table: either it was exported without raw counts, or it is a collection too large to hold one. Cell type × group answers the same question from the cells themselves' },
             ]} />
           {mode === 'pool' && (
             <>
               <div className="gsep h-6" />
               <Chips label="Pools" value={pools} options={[128, 256, 512]} onChange={setPools} />
+            </>
+          )}
+          {mode === 'group' && (
+            <>
+              <div className="gsep h-6" />
+              <Seg<'cond' | 'sample'> value={by} onChange={setBy}
+                options={[
+                  { k: 'cond', label: 'by group', title: 'One column per cell type × group' },
+                  { k: 'sample', label: 'by sample',
+                    title: 'One column per cell type × sample — more columns, and the closest this gets to replicates' },
+                ]} />
             </>
           )}
           <div className="gsep h-6" />
@@ -371,11 +396,13 @@ export default function Coexpression(p: CoexprProps) {
             {kind === 'gene' ? 'Search a gene above to correlate against.'
               : 'Paste a signature above, or send one over from Gene sets.'}
           </div>
-        ) : mode === 'bulk' && (bulk?.cols.length ?? 0) < 3 ? (
+        ) : (mode === 'bulk' || mode === 'group') && nObs < 3 ? (
           <div className="empty mt-4">
-            This scope has {bulk?.cols.length ?? 0} pseudobulk column
-            {bulk?.cols.length === 1 ? '' : 's'} — too few to correlate over. Widen the
-            scope, or correlate over metacells instead.
+            This scope leaves {nObs} {unit} — too few to correlate over. A correlation
+            over two points is +1 or −1 whatever the data says.
+            {mode === 'group' && by === 'cond' && d.samples.length > d.conds.length
+              && ' Cutting the columns by sample instead would give more of them.'}
+            {' '}Widening the scope, or correlating over metacells, also works.
           </div>
         ) : building ? (
           <div className="empty mt-4">Reading the seed…</div>
@@ -408,11 +435,10 @@ export default function Coexpression(p: CoexprProps) {
         ) : (
           <>
             <p className="sub mt-3">
-              {fmt(table.tested)} genes ranked over{' '}
-              <b>{mode === 'bulk'
-                ? `${bulk?.cols.length} pseudobulk columns`
-                : `${fmt(axis?.n ?? 0)} ${axis?.pooled ? 'metacells' : 'cells'}`}</b>
-              {' '}in {scopeText}.
+              {fmt(table.tested)} genes ranked over <b>{fmt(nObs)} {unit}</b> in {scopeText}
+              {mode === 'group' && axis
+                ? `, averaged from ${fmt(axis.nCells)} cells`
+                : ''}.
             </p>
             <CorrBars up={table.up} down={table.down} />
             <div className="mt-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
@@ -427,13 +453,18 @@ export default function Coexpression(p: CoexprProps) {
                   [row.gene, row.r.toFixed(4), row.pct.toFixed(4), row.member ? 'yes' : 'no']))} />
             </div>
             <p className="mt-3 tx-micro" style={{ color: 'var(--ink-3)' }}>
-              <b>No p-value, deliberately.</b> With {fmt(mode === 'bulk'
-                ? bulk?.cols.length ?? 0 : axis?.n ?? 0)} observations a correlation of almost
-              any size clears any threshold, and cells from one animal are not independent
-              draws — the same reason the studio separates Wilcoxon from pseudobulk. Rank by
-              r, and read the detection rate beside it.
+              <b>No p-value, deliberately.</b> With {fmt(nObs)} observations a correlation of
+              almost any size clears any threshold, and cells from one animal are not
+              independent draws — the same reason the studio separates Wilcoxon from
+              pseudobulk. Rank by r, and read the detection rate beside it.
               {mode === 'cell' && ' Per cell, two sparsely detected genes also agree wherever'
                 + ' they are both absent; metacells are the answer to that.'}
+              {mode === 'group' && ' These columns average values that are already'
+                + ' log-normalised, which is a mean of logs — not the log of a mean that'
+                + " summing raw counts would give. It answers the same question as the"
+                + " exporter's pseudobulk table and is not the same quantity, which is why"
+                + ' the two are separate modes. A column built from fewer than ten cells is'
+                + ' dropped rather than drawn.'}
               {mode === 'pool' && ' Metacells are pooled on the '
                 + `${emb.key} embedding, which is a 2-D projection — neighbours there are`
                 + ' close to, but not the same as, neighbours in expression space.'}

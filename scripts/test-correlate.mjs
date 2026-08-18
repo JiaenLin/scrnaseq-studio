@@ -12,8 +12,8 @@
 //     correlations, which is the identity that lets one pass stand in for many
 
 import {
-  cellAxis, composite, corrDense, corrPlan, moments, poolAxis, pseudobulkOn,
-  rankCorr, standardise, withinSet,
+  cellAxis, composite, corrDense, corrPlan, groupAxis, moments, poolAxis,
+  pseudobulkOn, rankCorr, standardise, withinSet,
 } from '../src/lib/correlate.ts'
 
 let failed = 0
@@ -322,6 +322,46 @@ console.log('\nTHE DENSE PATH AGREES WITH THE SPARSE ONE')
   check('and one under the floor is not ranked', Number.isFinite(out.r[3]), false)
 }
 
+console.log('\nCELL TYPE x LEVEL COLUMNS, BUILT FROM THE CELLS')
+{
+  // Three cell types, two groups, and one combination deliberately too small
+  // to be a column.
+  const cells = []
+  const push = (t, cond, s, n) => { for (let i = 0; i < n; i++) cells.push({ t, cond, s }) }
+  push(0, 'ctrl', 'S1', 40); push(0, 'treat', 'S2', 30)
+  push(1, 'ctrl', 'S1', 25); push(1, 'treat', 'S2', 25)
+  push(2, 'ctrl', 'S1', 20); push(2, 'treat', 'S2', 4) // 4 cells: not a column
+  const keep = new Uint8Array(cells.length).fill(1)
+
+  const a = groupAxis(cells, keep, ['ctrl', 'treat'], 'cond', 3)
+  check('one column per populated cell type x group, above the floor', a.n, 5)
+  check('the sizes are the cells that went into them', [...a.size], [40, 30, 25, 25, 20])
+  check('and the four-cell combination contributed no column',
+    a.nCells, cells.length - 4)
+  check('a dropped column leaves its cells out of scope entirely', (() => {
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i].t === 2 && cells[i].cond === 'treat' && a.of[i] !== -1) return false
+    }
+    return true
+  })(), true)
+  check('it is a pooled axis, so the plan takes the dense path', a.pooled, true)
+
+  // By sample rather than by group: same cells, a different question.
+  const b = groupAxis(cells, keep, ['S1', 'S2'], 'sample', 3)
+  check('by sample gives its own columns', b.n, 5)
+
+  // The scope still applies: one cell type collapses the product to its own row.
+  const only1 = new Uint8Array(cells.length)
+  cells.forEach((c, i) => { if (c.t === 1) only1[i] = 1 })
+  const narrow = groupAxis(cells, only1, ['ctrl', 'treat'], 'cond', 3)
+  check('scoped to one cell type there are only that type\'s columns', narrow.n, 2)
+
+  // And the floor is a floor, not a suggestion.
+  const strict = groupAxis(cells, keep, ['ctrl', 'treat'], 'cond', 3, 26)
+  check('raising the cell floor drops more columns', strict.n, 2)
+  check('every surviving column clears it', Math.min(...strict.size) >= 26, true)
+}
+
 console.log('\nTHE PSEUDOBULK AXIS')
 {
   // The one path no demo object can exercise — the built-in objects carry no
@@ -387,7 +427,8 @@ console.log('\nTHE PSEUDOBULK AXIS')
   for (let g = 0; g < 3; g++) deep[g * 6 + 3] *= 50
   const scaled = pseudobulkOn({ genes, columns, counts: deep }, samples, 'T', null)
   const before = rowOf(0)
-  const after = Array.from({ length: nCols }, (_v, k) => scaled.values[0 * nCols + k])
+  // Gene A's row starts at 0, so its column k is simply values[k].
+  const after = Array.from({ length: nCols }, (_v, k) => scaled.values[k])
   check('multiplying one column through leaves the profile alone',
     after.map(v => +v.toFixed(6)), before.map(v => +v.toFixed(6)))
 }

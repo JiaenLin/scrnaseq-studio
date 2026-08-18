@@ -137,6 +137,73 @@ export function poolAxis(
   return { of, size, n: k, nCells: cells.length, pooled: true }
 }
 
+/**
+ * Cells aggregated into one column per cell type x level — the axis that needs
+ * no counts table.
+ *
+ * This is what most people mean by "correlate over pseudobulk", and unlike the
+ * real pseudobulk path it is available on every object: the columns are built
+ * from the expression the studio already reads, by bucketing cells, so nothing
+ * has to have been exported for it and nothing has to be held as a dense table.
+ * On an atlas that is the difference between having the analysis and not —
+ * collection-source.ts drops the exporter's pseudobulk past 12 M values, so the
+ * objects large enough to want this are exactly the ones that never had it.
+ *
+ * It is NOT the same quantity, and the interface must not call it pseudobulk.
+ * Real pseudobulk sums raw counts and normalises afterwards; this averages
+ * values that are already log-normalised, which is a mean of logs rather than a
+ * log of means. Both are defensible summaries of a population and they are not
+ * interchangeable, so they are two modes under two names.
+ *
+ * A column built from a handful of cells is noise wearing a column's clothes,
+ * so `minCells` drops it — the same floor, and the same reasoning, as the cell
+ * floor pseudobulk DE applies before it will build a column at all.
+ */
+export function groupAxis(
+  cells: readonly { t: number; cond: string; s: string }[],
+  keep: ArrayLike<number>,
+  levels: readonly string[],
+  by: 'cond' | 'sample',
+  nTypes: number,
+  minCells = 10,
+): Axis {
+  const at = new Map(levels.map((l, i) => [l, i]))
+  const width = Math.max(1, levels.length)
+  const raw = new Int32Array(cells.length).fill(-1)
+  const count = new Int32Array(nTypes * width)
+  for (let i = 0; i < cells.length; i++) {
+    if (!keep[i]) continue
+    const c = cells[i]
+    const li = at.get(by === 'cond' ? c.cond : c.s)
+    if (li === undefined || c.t < 0 || c.t >= nTypes) continue
+    const k = c.t * width + li
+    raw[i] = k
+    count[k]++
+  }
+  // Compacted, so the axis holds only the combinations this object actually
+  // has. A cell type x group product is mostly empty on a real annotation —
+  // 133 clusters against 20 groups is 2 660 slots and nothing like that many
+  // populations — and empty columns would be a column of zeros correlating
+  // with every other column of zeros.
+  const slot = new Int32Array(nTypes * width).fill(-1)
+  const size: number[] = []
+  for (let k = 0; k < slot.length; k++) {
+    if (count[k] < minCells) continue
+    slot[k] = size.length
+    size.push(count[k])
+  }
+  const of = new Int32Array(cells.length).fill(-1)
+  let nCells = 0
+  for (let i = 0; i < cells.length; i++) {
+    if (raw[i] < 0) continue
+    const b = slot[raw[i]]
+    if (b < 0) continue
+    of[i] = b
+    nCells++
+  }
+  return { of, size: Int32Array.from(size), n: size.length, nCells, pooled: true }
+}
+
 /* ---------------- the seed, and what a set does to itself ---------------- */
 
 /** Mean and standard deviation of a vector, over its whole length. */

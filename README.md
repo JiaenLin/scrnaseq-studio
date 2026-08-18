@@ -62,7 +62,7 @@ with no worker and no progress card.
 | **Enrichment** | hypergeometric over-representation on the DEG list — direction, set-size range, ranking and collections all adjustable, including a **Metabolic** collection — 2,610 human / 2,360 mouse sets on its own ids, chosen by reading all 15,646 pathway and ontology term names rather than matching them; click a term for its member genes with their rank among every tested gene |
 | **Gene expression** | gene search (one gene or a pasted list of up to 100), as a violin panel, a **Seurat dot plot** — clusterable and transposable — or a **Seurat feature plot** |
 | **Gene sets** | per-cell module score (`AddModuleScore` / `score_genes`) for an MSigDB set, a derived collection or your own gene list, on the embedding and per identity, with clickable member genes and a per-gene heatmap that can be z-scored or left on the object's own scale |
-| **Co-expression** | Pearson r of every gene against a seed — one gene, or a signature — over single cells, metacells or pseudobulk columns; both ends of the ranking, a detection floor, CSV export. A set is correlated with itself first and its members signed, so opposing arms add to the signature instead of cancelling in its mean |
+| **Co-expression** | Pearson r of every gene against a seed — one gene, or a signature — over metacells, single cells, **cell type × group** columns built from the cells, or the exporter's pseudobulk table; both ends of the ranking, a detection floor, CSV export. A set is correlated with itself first and its members signed, so opposing arms add to the signature instead of cancelling in its mean |
 | **Methods** | continuous prose with superscript citations, cutoffs and design read from the object |
 
 ## The decisions worth knowing about

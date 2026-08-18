@@ -417,12 +417,27 @@ silence. On a deliberately mixed seed (five quiescence markers, five proliferati
 card reports 61% coherence with 5 of 10 inverted, and returns Mcm5/Pcna/Ccnd1 on one side and
 Hes1/Hes5/Notch1/Cdkn1a/Cdkn1b on the other.
 
-Three axes are offered because they answer three questions. **Metacells** is the default.
+Four axes are offered because they answer four questions. **Metacells** is the default.
 **Per cell** is the unpooled version, offered because it is what a reader expects to find and
-kept honest by the caption. **Pseudobulk** correlates across the sample × cell-type columns the
-bundle already carries — no dropout, and the columns *are* the replicates, but a design with
-eight animals and nine types has 72 of them, and it answers co-variation across samples rather
-than co-expression across cells. It is disabled, with the reason, on an object with no counts.
+kept honest by the caption.
+
+**Cell type × group** builds one column per populated cell type × level, averaged from the
+cells themselves. This is what most people mean by "correlate over pseudobulk", and unlike the
+mode of that name it is available on every object: the columns come from the expression the
+studio already reads, so nothing has to have been exported for it and nothing has to be held as
+a dense table. That distinction is not academic — `collection-source.ts` drops the exporter's
+pseudobulk past 12 M values, so the objects large enough to want the analysis are exactly the
+ones that never had it, and the mode was disabled on essentially everything. Columns can be cut
+by group or by sample; one built from fewer than ten cells is dropped rather than drawn, the
+same floor pseudobulk DE applies. Scoped to a single cell type the product collapses — nine
+types × two groups is eighteen columns, one type × two groups is two — and the card says so and
+names the way out rather than drawing a correlation over two points.
+
+**Pseudobulk** is the exporter's own table: summed RAW counts per sample × cell type. It stays
+a separate mode and a separate name, because it is not the same quantity — summing counts and
+normalising afterwards is a log of means, where averaging the studio's values is a mean of logs.
+Both are defensible summaries of a population and they are not interchangeable, so the interface
+refuses to put them under one label.
 
 ## 3. Interface
 
@@ -480,7 +495,7 @@ test selector because single-cell has two defensible answers where bulk had one.
 | **Composition** | per-sample stacked proportions + per-cell-type dot plot with sample points |
 | **Markers** | ranked one-vs-rest table + dot plot (mean expression × % detected). Cluster renaming lives here, and names propagate to every other tab and to Methods |
 | **DEG table · Volcano · Enrichment** | as `rnaseq-studio`, for the selected cell type, under a **Test** segmented control — Wilcoxon per cell (default) or pseudobulk DESeq2 (only above 3 samples per group). Dimmed entirely on a single-condition object |
-| **Co-expression** | a seed (one gene, or a signature sent over from Gene sets) correlated against every gene, over metacells, single cells or pseudobulk columns; both ends ranked, with the set's own coherence reported beside the score |
+| **Co-expression** | a seed (one gene, or a signature sent over from Gene sets) correlated against every gene, over metacells, single cells, cell type × group columns or the exporter's pseudobulk; both ends ranked, with the set's own coherence reported beside the score |
 | **Gene expression** | gene search with exact-match-first ranking, one gene or up to 100 pasted; **Group by** across cell types / groups / their product; **Plot** as violin panel (independent y per facet, selectable columns, relative-to-control, detection bars) or **Seurat dot plot** (size = % expressing, colour = average expression, scaling switchable, axes clusterable and swappable) |
 | **Methods** | continuous prose, superscript numbered citations, one reference per tool, cutoffs read from the object |
 
