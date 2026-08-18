@@ -195,6 +195,17 @@ uniformly pale. That is the most misread property of this figure, so scaling is 
 explicit switch with the consequence stated under the plot in both positions, rather
 than a silent default.
 
+Genes on x is Seurat's orientation and it is right for the handful of genes this tab
+was first built for. It is the wrong one for a marker panel, and the panel is now
+allowed to be one: the list takes **up to 100 genes**, at which point genes on x is a
+plate 3 176 units wide with every name rotated, against 540 × 2 046 the other way
+round — a figure you scroll rather than a figure wider than any page. So the axes are
+swappable, which is also how pheatmap, ComplexHeatmap and scanpy's `dotplot` draw the
+same data. Only the layout changes: one function maps a plate square to a
+(identity, gene) pair, and the dendrograms are named for the quantity they order
+rather than for the side of the plate they were on, so both follow their own axis
+across the swap.
+
 ### 2.5 Figure palettes are a product feature, not a default
 
 A figure that has to be recoloured by hand before submission is a figure the studio
@@ -260,6 +271,38 @@ Two charts, and the form of each is doing work:
 
 ---
 
+### 2.9 A metabolic collection, because MSigDB does not publish one
+
+Over-representation is corrected across everything tested. A reader asking whether a
+contrast is metabolic has, in MSigDB, no way to ask only that: the metabolic pathways
+are real and well curated, and they are scattered across KEGG, Reactome, WikiPathways,
+Hallmark and PID with signalling, disease and development beside them. Testing the
+default library to find out about glycolysis spends the correction on nine thousand
+terms nobody asked about.
+
+So `scripts/derive-metabolic.mjs` packs those pathways as a collection of its own —
+502 sets for human, 335 for mouse — and the studio offers it beside the databases it
+came from. Three constraints make that safe to do:
+
+- **Nothing is invented or edited.** A set here IS the parent's set: same systematic
+  id, same members, same readable name. `scripts/test-sets.mjs` checks every id and
+  every member against a parent, so an edit cannot pass.
+- **Both on is not two tests of one pathway.** `indexFor` folds a set id once however
+  many enabled collections carry it. The overlap is therefore free, and the worst case
+  of switching this on beside its parents is that it adds nothing — which is correct,
+  because it has nothing to add. What it is FOR is what it lets you switch off.
+- **The selection rule is stated, because it is a name match and not a category.**
+  MSigDB ships no machine-readable metabolic flag, so the rule is a vocabulary of
+  metabolism applied to the systematic name — written out rather than reduced to
+  "METABOL", because glycolysis, the TCA cycle, oxidative phosphorylation, the pentose
+  phosphate pathway and beta-oxidation are all metabolism and none of them says so.
+  Three names the vocabulary catches that are not metabolism (purinergic signalling,
+  nucleotide excision repair, nucleotide binding) are excluded by hand.
+
+GO:BP is deliberately not a source. "Metabolic process" in GO covers protein turnover
+and mRNA decay as readily as intermediary metabolism, and a collection that mixes
+those is not the boundary this one exists to draw.
+
 ## 3. Interface
 
 ### 3.1 The global bar — set once, applies everywhere
@@ -281,6 +324,22 @@ control/compare selectors at all, because offering a comparison that cannot exis
 is how a user ends up reading a number that means nothing. The status chip always
 names the test in force and why it is the one available.
 
+Two view settings sit at the far end of the bar, on the same reasoning as the
+selection: they move every figure in the studio, so a control living on one tab would
+be a setting you change in one place and walk somewhere else to see. **Figure style**
+is the palette and the expression ramp. **Group order** is the order the group levels
+are drawn in — the object's own by default, because a categorical order is usually a
+design and sorting it would destroy that, and one click back to it from anywhere.
+
+Reordering is a view of the object and must never become an edit of it, so it is one
+rewrite of one array: `Dataset.conds`. Every figure that splits by group reads its
+levels from there, so all of them move together and none of them needed changing. It
+is safe as a permutation because a group is identified by NAME everywhere below the
+Source — `group(ti, cond)` takes the name, each cell carries the name, the pseudobulk
+design reads it off the sample — so no cell can change group when a level changes
+place. `scripts/test-order.mjs` asserts exactly that: same cells, same means, same
+pooled selections, before and after.
+
 ### 3.2 Tabs
 
 ```
@@ -300,7 +359,7 @@ test selector because single-cell has two defensible answers where bulk had one.
 | **Composition** | per-sample stacked proportions + per-cell-type dot plot with sample points |
 | **Markers** | ranked one-vs-rest table + dot plot (mean expression × % detected). Cluster renaming lives here, and names propagate to every other tab and to Methods |
 | **DEG table · Volcano · Enrichment** | as `rnaseq-studio`, for the selected cell type, under a **Test** segmented control — Wilcoxon per cell (default) or pseudobulk DESeq2 (only above 3 samples per group). Dimmed entirely on a single-condition object |
-| **Gene expression** | gene search with exact-match-first ranking; **Group by** across cell types / groups / their product; **Plot** as violin panel (independent y per facet, selectable columns, relative-to-control, detection bars) or **Seurat dot plot** (size = % expressing, colour = average expression, scaling switchable) |
+| **Gene expression** | gene search with exact-match-first ranking, one gene or up to 100 pasted; **Group by** across cell types / groups / their product; **Plot** as violin panel (independent y per facet, selectable columns, relative-to-control, detection bars) or **Seurat dot plot** (size = % expressing, colour = average expression, scaling switchable, axes clusterable and swappable) |
 | **Methods** | continuous prose, superscript numbered citations, one reference per tool, cutoffs read from the object |
 
 ### 3.3 Carried over without change

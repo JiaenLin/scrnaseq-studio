@@ -59,9 +59,9 @@ with no worker and no progress card.
 | **Markers** | one-vs-rest dot plot, and cluster renaming that propagates everywhere including Methods |
 | **DEG table** | sortable, filterable, significant-only, with a signed **Combined** ranking column and CSV export; click a row to open that gene |
 | **Volcano** | adjustable cutoffs, up/down counts, hover to read a point, click to open the gene, PNG export |
-| **Enrichment** | hypergeometric over-representation on the DEG list — direction, set-size range, ranking and collections all adjustable; click a term for its member genes with their rank among every tested gene |
-| **Gene expression** | gene search (one gene or a pasted list), as a violin panel, a **Seurat dot plot** or a **Seurat feature plot** |
-| **Gene sets** | per-cell module score (`AddModuleScore` / `score_genes`) for a built-in signature or your own gene list, on the embedding and per identity, with clickable member genes |
+| **Enrichment** | hypergeometric over-representation on the DEG list — direction, set-size range, ranking and collections all adjustable, including a **Metabolic** collection that is the metabolic pathways of KEGG, Reactome, WikiPathways, Hallmark and PID under their own ids; click a term for its member genes with their rank among every tested gene |
+| **Gene expression** | gene search (one gene or a pasted list of up to 100), as a violin panel, a **Seurat dot plot** — clusterable and transposable — or a **Seurat feature plot** |
+| **Gene sets** | per-cell module score (`AddModuleScore` / `score_genes`) for an MSigDB set, a derived collection or your own gene list, on the embedding and per identity, with clickable member genes and a per-gene heatmap that can be z-scored or left on the object's own scale |
 | **Methods** | continuous prose with superscript citations, cutoffs and design read from the object |
 
 ## The decisions worth knowing about
@@ -73,6 +73,15 @@ Pseudobulk → DESeq2 is offered as an alternative and only above three samples 
 is defensible. When both are available each result names the other's count, because the larger
 number is not the better one: per-cell testing is for exploring, pseudobulk is for a claim that has
 to survive a new animal.
+
+**The groups are drawn in the order the file wrote them, until you say otherwise.** A
+categorical order in an object is usually a design — `0 h, 6 h, 24 h, 72 h`, `young_chow,
+young_hfd, old_chow, old_hfd` — so sorting it would destroy information, and it is the default
+everywhere. It is also not always the order a figure wants, so **Group order** in the top bar
+moves a level and every figure that splits by group follows at once: the split embedding, the
+composition bars, the violins, the dot plot, the feature panels, the gene-set heatmap. Nothing is
+recomputed and no cell moves — a group is identified by name everywhere below the figures, and
+Control and Compare are chosen by name too, so they do not move with it.
 
 **Two cutoffs, because there are two scales.** `|log₂FC| > 1` is a bulk convention that does not
 transfer — single-cell values are log-normalized before testing, so effect sizes are compressed and
@@ -143,8 +152,6 @@ What remains:
       format is what lifts the ceiling, not the engine.
 - [ ] Opening a `.h5ad` or `.rds` directly, without the conversion step (h5wasm and webR —
       see [DESIGN.md](DESIGN.md) §1.1–1.2)
-- [ ] MSigDB import; the studio currently ships 18 sets across GO:BP, KEGG, Hallmark and
-      curated signatures, because an `.h5ad` carries none the way a bulk result bundle does
 
 Three built-in demo objects are also available — a replicated 4 v 4 cohort, a time course with
 one sample per point, and a wild-type-only reference. They exist because an interface built only
