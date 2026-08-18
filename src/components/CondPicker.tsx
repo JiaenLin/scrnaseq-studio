@@ -15,8 +15,19 @@ import Popover from './Popover.tsx'
  * always names every level it is standing for, and the count is never hidden
  * behind a "3 selected".
  */
-export default function CondPicker({ label, all, value, other, onChange }: {
+export default function CondPicker({ label, lead, all, value, other, onChange }: {
   label: string
+  /**
+   * What to DRAW in front of the button, when that is not the label.
+   *
+   * The pair reads as one thing — a contrast — so the second one is led by
+   * "vs" rather than by a second uppercase noun. That is 45px of a row whose
+   * labels were costing more than its values, and it says what the pair is
+   * for: `CONTROL [aged_control] VS [aged_hfd]`. `label` stays as written for
+   * the accessible name and the menu's heading, because "vs groups" is not
+   * something to hand a screen reader.
+   */
+  lead?: string
   /** Every condition the object carries, in the object's own order. */
   all: string[]
   value: string[]
@@ -42,8 +53,14 @@ export default function CondPicker({ label, all, value, other, onChange }: {
   const text = value.join(' + ') || '—'
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <span className="glabel flex-none">{label}</span>
+    // `flex-1` on the wrapper, not only on the button inside it. Without it
+    // this group is sized to its own content, so when the row runs out of room
+    // the leftover space goes to whichever control asked for the most — the
+    // cell-type select, which had a 220px appetite — and the pickers were left
+    // on their floor while it kept 146. The three controls that hold a NAME now
+    // share what is left equally.
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <span className="glabel flex-none">{lead ?? label}</span>
       <button
         ref={trigger}
         className="sel min-w-0 flex-1 text-left"
@@ -51,8 +68,13 @@ export default function CondPicker({ label, all, value, other, onChange }: {
         // and at 230 px that truncated to an ellipsis on the one control whose
         // whole job is to say which groups are being compared. It grows with
         // what it holds instead of being clipped to a fixed width.
-        // Shrinks to 78 before the row scrolls; the tooltip carries the rest.
-        style={{ minWidth: 78, maxWidth: 420 }}
+        //
+        // The floor is 112, not 78. 78 fits "Quiescent" and nothing an object
+        // actually carries: `aged_control` came back as "aged_c…", and two
+        // groups that differ after the sixth character — which is what a
+        // factorial design looks like — were the same six characters twice.
+        // Below 112 the row scrolls instead, which at least keeps the name.
+        style={{ minWidth: 112, maxWidth: 420 }}
         aria-haspopup="listbox"
         aria-expanded={open}
         title={value.length > 1 ? `${value.length} groups pooled: ${text}` : text}

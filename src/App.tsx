@@ -484,6 +484,17 @@ export default function App() {
   // A blocked tab shows an explanation, not a view, so nothing above it is a
   // parameter of anything.
   const needs = blocked ? NOTHING : needsOf(tab)
+  /**
+   * The gene-set library, only where a gene set is on screen.
+   *
+   * Differential expression is three views of one pass and only the third
+   * tests against the library, so on the table and the volcano this select
+   * changed nothing — while costing 161px of a row that was truncating the
+   * group names to "aged_c…" to make room for it. The CHOICE still lives in
+   * App, so switching to Enrichment finds whatever was set on the Gene sets
+   * tab; only the control comes and goes.
+   */
+  const showLib = needs.library && (tab !== 'de' || deView === 'enrich')
 
   // The embedding selector belongs where cells are actually drawn on it, and
   // nowhere else — over a violin panel or a DEG table it would be a control with
@@ -633,9 +644,16 @@ export default function App() {
               */}
             <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto py-2">
             {needs.ct && (
-              <label className="flex min-w-0 items-center gap-1.5">
+              // `flex-1`, and a floor. Sized to its own content this claimed
+              // 146px of a squeezed row while the group pickers sat on their
+              // minimum — the widest appetite winning is not the same as the
+              // most important control winning. The three controls that hold a
+              // NAME now share what is left, and none of them goes below a
+              // width a name can be read at.
+              <label className="flex min-w-0 flex-1 items-center gap-1.5">
                 <span className="glabel flex-none">Cell type</span>
-                <select className="sel min-w-0 flex-1" style={{ maxWidth: 220 }} title={ct}
+                <select className="sel min-w-0 flex-1" style={{ minWidth: 120, maxWidth: 260 }}
+                  title={ct}
                   value={ct} onChange={e => setCt(e.target.value)}>
                   {types.map(x => <option key={x.key}>{x.name}</option>)}
                 </select>
@@ -653,7 +671,7 @@ export default function App() {
                 </label>
               </>
             )}
-            {needs.library && (
+            {showLib && (
               <>
                 {(needs.ct || showEmb) && <div className="gsep" />}
                 <label className="flex flex-none items-center gap-1.5">
@@ -676,10 +694,13 @@ export default function App() {
             )}
             {needs.contrast && d.multi && (
               <>
-                {(needs.ct || showEmb || needs.library) && <div className="gsep" />}
+                {(needs.ct || showEmb || showLib) && <div className="gsep" />}
+                {/* One contrast, drawn as one: CONTROL [a] VS [b]. Two
+                    uppercase nouns read as two unrelated pickers and cost 63px
+                    that the names themselves needed. */}
                 <CondPicker label="Control" all={d.conds} value={ctrl} other={cs}
                   onChange={setCtrl} />
-                <CondPicker label="Compare" all={d.conds} value={cs} other={ctrl}
+                <CondPicker label="Compare" lead="vs" all={d.conds} value={cs} other={ctrl}
                   onChange={setCs} />
                 {/* The action belongs at the end of the decision it completes:
                     cell type, control, compare, run. */}
