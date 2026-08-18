@@ -13,6 +13,7 @@
 // so a round trip changes no digit of any number.
 
 import type { MatrixPlan } from './part-scan.ts'
+import type { CorrResult, CorrSpec } from './correlate.ts'
 import type { AveragesSpec, ScoreSpec } from './score.ts'
 import type { DEResult, MarkersSpec, RawResult, WilcoxSpec } from './stats.ts'
 
@@ -22,6 +23,7 @@ export type Job =
   | ({ kind: 'wilcox' } & WilcoxSpec)
   | ({ kind: 'averages' } & AveragesSpec)
   | ({ kind: 'score' } & ScoreSpec)
+  | ({ kind: 'correlate' } & CorrSpec)
 
 /** A DE table, column by column. Parallel arrays, in final ranked order. */
 export interface Table {
@@ -50,6 +52,16 @@ export type JobResult =
   | { kind: 'wilcox'; table: Table }
   | { kind: 'averages'; avg: Float64Array }
   | { kind: 'score'; scores: Float32Array }
+  /**
+   * r and the detection rate, both by GENE INDEX.
+   *
+   * Two full-length arrays rather than a ranked table, unlike the DE kinds.
+   * Ranking a correlation is a display decision — which end, how many rows,
+   * whether the seed's own members are shown — and every one of those changes
+   * without the numbers changing. Shipping the whole vector means a reader can
+   * move the cut without re-reading four minutes of file.
+   */
+  | { kind: 'correlate'; r: Float64Array; pct: Float64Array }
 
 /** What a view gets back, per job kind. */
 export interface ResultOf {
@@ -59,6 +71,8 @@ export interface ResultOf {
   averages: Float64Array
   /** Module score per cell, in dataset order. */
   score: Float32Array
+  /** Correlation with the seed, and detection rate, per gene index. */
+  correlate: CorrResult
 }
 
 export function encodeTable(r: RawResult): Table {

@@ -18,6 +18,7 @@ import { Differential, type StatsProps } from './components/Stats.tsx'
 import Enrichment from './components/Enrichment.tsx'
 import GeneExpression from './components/GeneExpression.tsx'
 import GeneSets from './components/GeneSets.tsx'
+import Coexpression from './components/Coexpression.tsx'
 import Methods from './components/Methods.tsx'
 import ViewBoundary from './components/Boundary.tsx'
 import ViewMenu from './components/ViewMenu.tsx'
@@ -48,6 +49,7 @@ const GROUPS: { name: string; tabs: [TabId, string][] }[] = [
     tabs: [
       ['markers', 'Markers'], ['de', 'Differential expression'],
       ['expr', 'Gene expression'], ['sets', 'Gene sets'],
+      ['coexpr', 'Co-expression'],
     ],
   },
   { name: '', tabs: [['methods', 'Methods']] },
@@ -223,6 +225,16 @@ export default function App() {
   // Which gene list the reader has asked to score, joined. Here rather than in
   // the tab so it survives a trip to Markers, like every other gate.
   const [scoreRan, setScoreRan] = useState<string | null>(null)
+  /**
+   * The co-expression seed, and its gate.
+   *
+   * Here rather than in the tab for two reasons. A trip to Markers must not
+   * lose a signature somebody pasted, like every other gate in this app — and
+   * the Gene sets card hands a whole MSigDB set over to it, which it cannot do
+   * to state that lives inside the tab it is sending to.
+   */
+  const [coexprSeed, setCoexprSeed] = useState<string[]>([])
+  const [coexprRan, setCoexprRan] = useState<string | null>(null)
 
   /**
    * Which organism's gene sets to use, and which collections of them.
@@ -335,6 +347,8 @@ export default function App() {
     setMarkersGo(!next.lazy)
     setMarkersWant(new Set())
     setScoreRan(null)
+    setCoexprSeed([])
+    setCoexprRan(null)
     const det = detectSpecies(next.names.display, next.names.other)
     setSpecies(det.species)
     setDetected(det)
@@ -501,7 +515,8 @@ export default function App() {
   // no visible effect. The CHOICE still lives here, so it survives the trip
   // through those tabs; only the select comes and goes.
   const drawsCells = !blocked
-    && (tab === 'cells' || tab === 'sets' || (tab === 'expr' && plot === 'feature'))
+    && (tab === 'cells' || tab === 'sets' || tab === 'coexpr'
+      || (tab === 'expr' && plot === 'feature'))
   // One entry is not a choice, so an object with a single embedding shows no
   // control at all rather than a menu that cannot change anything.
   const showEmb = drawsCells && src.embeddings.length > 1
@@ -832,9 +847,14 @@ export default function App() {
                 onGenes={applyGenes} onPlot={setPlot} onGroupBy={setGroupBy} onCols={setCols}
                 onRelative={setRelative} onDotScale={setDotScale} onRamp={setRampKey}
                 onHidden={setHiddenTypes} onClip={setFeatureClip} onBorders={setCellBorders} />
+            ) : tab === 'coexpr' ? (
+              <Coexpression src={src} types={types} emb={emb} onPickGene={pickGene}
+                seed={coexprSeed} onSeed={setCoexprSeed}
+                ran={coexprRan} onRan={setCoexprRan} />
             ) : tab === 'sets' ? (
               <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
                 onPickGene={pickGene}
+                onCorrelate={genes => { setCoexprSeed(genes); setCoexprRan(null); setTab('coexpr') }}
                 lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
                     customSets={customSets} onCustomSets={setCustomSets}
                 detected={detected}

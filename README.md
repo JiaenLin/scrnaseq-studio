@@ -62,6 +62,7 @@ with no worker and no progress card.
 | **Enrichment** | hypergeometric over-representation on the DEG list — direction, set-size range, ranking and collections all adjustable, including a **Metabolic** collection — 2,610 human / 2,360 mouse sets on its own ids, chosen by reading all 15,646 pathway and ontology term names rather than matching them; click a term for its member genes with their rank among every tested gene |
 | **Gene expression** | gene search (one gene or a pasted list of up to 100), as a violin panel, a **Seurat dot plot** — clusterable and transposable — or a **Seurat feature plot** |
 | **Gene sets** | per-cell module score (`AddModuleScore` / `score_genes`) for an MSigDB set, a derived collection or your own gene list, on the embedding and per identity, with clickable member genes and a per-gene heatmap that can be z-scored or left on the object's own scale |
+| **Co-expression** | Pearson r of every gene against a seed — one gene, or a signature — over single cells, metacells or pseudobulk columns; both ends of the ranking, a detection floor, CSV export. A set is correlated with itself first and its members signed, so opposing arms add to the signature instead of cancelling in its mean |
 | **Methods** | continuous prose with superscript citations, cutoffs and design read from the object |
 
 ## The decisions worth knowing about
@@ -82,6 +83,17 @@ moves a level and every figure that splits by group follows at once: the split e
 composition bars, the violins, the dot plot, the feature panels, the gene-set heatmap. Nothing is
 recomputed and no cell moves — a group is identified by name everywhere below the figures, and
 Control and Compare are chosen by name too, so they do not move with it.
+
+**A correlation across cells is three traps, and the defaults step around all three.** Pearson
+r on a matrix that is ~1% dense is mostly a statement about shared absence, so a gene detected in
+under 10% of the cells in scope is not ranked and cells are pooled into equal-sized **metacells**
+before correlating. With tens of thousands of observations any r is "significant" and cells from
+one animal are not independent draws, so the table reports r and the detection rate and **no
+p-value at all**. And a signature seeded as the mean of its members cancels — a pathway holds
+arms that move in opposite directions — so the set is correlated with itself first and each
+member standardised and signed by the leading eigenvector before they are combined. Because the
+members are standardised, that one composite correlation *is* the weighted mean of their own
+independent correlations; how much of the set runs one way is reported with the result.
 
 **Two cutoffs, because there are two scales.** `|log₂FC| > 1` is a bulk convention that does not
 transfer — single-cell values are log-normalized before testing, so effect sizes are compressed and

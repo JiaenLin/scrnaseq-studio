@@ -1,0 +1,664 @@
+// Co-expression: which genes move with a gene, or with a signature.
+//
+// One pass over the matrix, the same shape as markers and the module score —
+// for every gene, accumulate three sums against a seed and throw the values
+// away. What makes this file worth reading is not the arithmetic; it is the
+// three ways the obvious version of this analysis lies.
+//
+// 1. SHARED ZEROS. A Pearson correlation across cells on a matrix that is ~1 %
+//    dense is mostly a statement about absence: two genes detected in 8 % of
+//    cells agree in the other 92 % for no biological reason at all, and come
+//    out strongly correlated. Two answers here, and both are on by default: a
+//    detection floor, so a gene nobody expresses is never ranked; and pooling,
+//    which averages neighbouring cells into metacells and is what makes r mean
+//    what a reader thinks it means.
+//
+// 2. n IS NOT THE SAMPLE SIZE. With 292 495 cells, r = 0.01 has a p around
+//    1e-5. Every gene in the object is "significant" and the ranking is
+//    unaffected by the p, so this returns r and the detection rate and no
+//    p-value at all. Cells from one animal are not independent draws — the same
+//    argument the studio already makes for Wilcoxon versus pseudobulk — and a
+//    column of 1e-300 next to r = 0.02 would be a number that looks like
+//    evidence and is not.
+//
+// 3. A SET IS NOT ITS MEAN. Averaging a signature's members to make one seed is
+//    the version everybody writes first, and it cancels: a pathway holds
+//    activators and repressors, the mean is dominated by whichever members are
+//    most abundant, and two members that genuinely move in opposite directions
+//    subtract. So the set is correlated WITH ITSELF first — see `withinSet` —
+//    every member is standardised and given the sign of the leading eigenvector,
+//    and only then are they combined.
+//
+//    The identity that makes that affordable: with each member standardised to
+//    unit norm, r(g, m) = <ĝ, ẑ_m>, so a weighted mean of the members' own
+//    independent correlations is
+//
+//        Σ_m w_m s_m r(g, m) = <ĝ, Σ_m w_m s_m ẑ_m>
+//
+//    which is the correlation of g against ONE composite vector, up to its
+//    norm. Correlating each member separately and combining afterwards, and
+//    correlating once against the signed composite, are the same number. This
+//    file does the second and reports it as the first, because the first is
+//    what it means and the second is what fits in one pass.
+
+import type { Conds, NonZeroWalk, Source } from './source.ts'
+
+/* ---------------- the axis a correlation is taken over ---------------- */
+
+/**
+ * Which bucket each cell belongs to, and how big each bucket is.
+ *
+ * One structure for all three modes, because the arithmetic below does not care
+ * which it is looking at:
+ *
+ *   per cell    one bucket per cell in scope, every size 1
+ *   pooled      one bucket per metacell, sizes in the tens
+ *   pseudobulk  one bucket per (sample x cell type) column — built elsewhere,
+ *               from the counts table the bundle already carries
+ *
+ * `of[cell]` is -1 for a cell outside the scope, which is how "this cell type
+ * only" and "this group only" are expressed. Nothing downstream needs to know
+ * why a cell was excluded.
+ */
+export interface Axis {
+  of: Int32Array
+  size: Int32Array
+  n: number
+  /** Cells that landed in some bucket — the denominator of a detection rate. */
+  nCells: number
+  /** True when any bucket holds more than one cell. */
+  pooled: boolean
+}
+
+/** Every cell of the scope in its own bucket: the per-cell axis. */
+export function cellAxis(keep: ArrayLike<number>, nCells: number): Axis {
+  const of = new Int32Array(nCells).fill(-1)
+  let n = 0
+  for (let i = 0; i < nCells; i++) if (keep[i]) of[i] = n++
+  return { of, size: new Int32Array(n).fill(1), n, nCells: n, pooled: false }
+}
+
+/**
+ * Metacells: the scope's cells split into `want` pools of equal size.
+ *
+ * By repeated median cuts of the embedding, alternating axis — a balanced k-d
+ * tree taken to `want` leaves. Two properties matter and a uniform grid has
+ * neither: every pool holds the same number of cells, so no pool is a single
+ * cell pretending to be a metacell; and pools are spatially contiguous, so
+ * averaging them removes dropout noise without averaging away the local
+ * structure that the correlation is supposed to find.
+ *
+ * The embedding is the only geometry a bundle carries, and it is a 2-D
+ * projection — neighbours in a UMAP are not exactly neighbours in expression
+ * space. That is a real approximation and the card says so. It is still much
+ * closer to the truth than correlating raw counts across single cells, which is
+ * the alternative it replaces.
+ *
+ * `want` is rounded down to a power of two, because that is what a binary split
+ * produces; asking for 300 gives 256. Deterministic: no randomness, so the same
+ * object and the same scope give the same pools every time.
+ */
+export function poolAxis(
+  xy: Float32Array, keep: ArrayLike<number>, nCells: number, want: number,
+): Axis {
+  const cells: number[] = []
+  for (let i = 0; i < nCells; i++) if (keep[i]) cells.push(i)
+  const of = new Int32Array(nCells).fill(-1)
+  if (!cells.length) return { of, size: new Int32Array(0), n: 0, nCells: 0, pooled: true }
+
+  // Never more pools than there are cells to fill them, and never a pool of
+  // one — a metacell of a single cell is the per-cell mode wearing a hat.
+  const MIN_PER_POOL = 3
+  const cap = Math.max(1, Math.floor(cells.length / MIN_PER_POOL))
+  let depth = 0
+  while ((1 << (depth + 1)) <= Math.min(want, cap)) depth++
+  const k = 1 << depth
+
+  // Each level splits every current block at its median on one axis. Sorting
+  // the block rather than a full quickselect: the blocks halve every level, so
+  // the total is O(n log n) with a small constant, and it is far easier to
+  // check than a hand-rolled selection.
+  let blocks: number[][] = [cells]
+  for (let level = 0; level < depth; level++) {
+    const axis = level % 2
+    const next: number[][] = []
+    for (const b of blocks) {
+      b.sort((p, q) => xy[2 * p + axis] - xy[2 * q + axis])
+      const half = b.length >> 1
+      next.push(b.slice(0, half), b.slice(half))
+    }
+    blocks = next
+  }
+  const size = new Int32Array(k)
+  blocks.forEach((b, bi) => {
+    size[bi] = b.length
+    for (const c of b) of[c] = bi
+  })
+  return { of, size, n: k, nCells: cells.length, pooled: true }
+}
+
+/* ---------------- the seed, and what a set does to itself ---------------- */
+
+/** Mean and standard deviation of a vector, over its whole length. */
+export function moments(v: ArrayLike<number>): { mean: number; sd: number } {
+  const n = v.length
+  if (!n) return { mean: 0, sd: 0 }
+  let s = 0
+  for (let i = 0; i < n; i++) s += v[i]
+  const mean = s / n
+  let ss = 0
+  for (let i = 0; i < n; i++) ss += (v[i] - mean) ** 2
+  return { mean, sd: Math.sqrt(ss / n) }
+}
+
+/**
+ * A vector centred and scaled to unit norm, or null when it does not vary.
+ *
+ * Null rather than a vector of zeros: a gene with the same value in every
+ * bucket has no correlation with anything, and saying so is different from
+ * saying its correlation is zero.
+ */
+export function standardise(v: ArrayLike<number>): Float64Array | null {
+  const { mean, sd } = moments(v)
+  if (!(sd > 1e-12)) return null
+  const out = new Float64Array(v.length)
+  // Unit NORM, not unit variance: then a dot product of two of these is exactly
+  // their Pearson correlation, which is what every formula below relies on.
+  const scale = 1 / (sd * Math.sqrt(v.length))
+  for (let i = 0; i < v.length; i++) out[i] = (v[i] - mean) * scale
+  return out
+}
+
+export interface SetShape {
+  /** The members that vary enough to be used, by index into what was asked. */
+  used: number[]
+  /** +1 or -1 per used member: which way it runs against the set's own axis. */
+  sign: Float64Array
+  /** |loading| per used member — how strongly it belongs. */
+  weight: Float64Array
+  /** Fraction of the members' variance the leading direction explains. */
+  coherence: number
+  /** How many used members run against the majority. */
+  flipped: number
+  /** Mean correlation between members, after signing. Near 1 is one programme. */
+  meanR: number
+}
+
+/**
+ * What a gene set looks like to itself, before it is used as a seed.
+ *
+ * The leading eigenvector of the members' correlation matrix, by power
+ * iteration — WGCNA's module eigengene, computed the cheap way because the
+ * matrix is at most a few hundred square. Its signs say which members run with
+ * the set's dominant direction and which run against it; its magnitudes say how
+ * strongly each belongs.
+ *
+ * This is the step that stops a set from cancelling itself, and it is also a
+ * result in its own right: `coherence` near 1 with no flipped members is one
+ * programme, and 0.3 with a third of the members flipped is two programmes that
+ * somebody has written down as one set. The card reports both, because a
+ * combined score over an incoherent set is a number the reader should not trust
+ * without being told.
+ *
+ * Deterministic: the iteration starts from a fixed vector, not a random one, and
+ * the sign convention is fixed by making the largest loading positive — so the
+ * same set always gives the same signs rather than the same partition with
+ * everything inverted.
+ */
+export function withinSet(members: (Float64Array | null)[]): SetShape {
+  const used: number[] = []
+  const vecs: Float64Array[] = []
+  members.forEach((v, i) => { if (v) { used.push(i); vecs.push(v) } })
+  const m = vecs.length
+  const sign = new Float64Array(m).fill(1)
+  const weight = new Float64Array(m).fill(1)
+  if (m === 0) return { used, sign, weight, coherence: 0, flipped: 0, meanR: 0 }
+  if (m === 1) return { used, sign, weight, coherence: 1, flipped: 0, meanR: 1 }
+
+  // The correlation matrix. Each vector is already unit-norm and centred, so a
+  // dot product IS the correlation and there is nothing else to divide by.
+  const C: Float64Array[] = []
+  for (let i = 0; i < m; i++) {
+    const row = new Float64Array(m)
+    for (let j = 0; j < m; j++) {
+      if (j < i) { row[j] = C[j][i]; continue }
+      let s = 0
+      const a = vecs[i], b = vecs[j]
+      for (let k = 0; k < a.length; k++) s += a[k] * b[k]
+      row[j] = s
+    }
+    C.push(row)
+  }
+
+  // Power iteration. Fifty passes over a matrix this size is microseconds, and
+  // it converges long before that on anything with a dominant direction.
+  let v = new Float64Array(m).fill(1 / Math.sqrt(m))
+  let lambda = 0
+  for (let it = 0; it < 50; it++) {
+    const next = new Float64Array(m)
+    for (let i = 0; i < m; i++) {
+      let s = 0
+      const row = C[i]
+      for (let j = 0; j < m; j++) s += row[j] * v[j]
+      next[i] = s
+    }
+    let norm = 0
+    for (let i = 0; i < m; i++) norm += next[i] * next[i]
+    norm = Math.sqrt(norm)
+    if (!(norm > 1e-12)) break
+    for (let i = 0; i < m; i++) next[i] /= norm
+    lambda = norm
+    v = next
+  }
+  // A fixed sign convention, so "flipped" names a minority rather than
+  // depending on which way the iteration happened to settle.
+  let big = 0
+  for (let i = 1; i < m; i++) if (Math.abs(v[i]) > Math.abs(v[big])) big = i
+  const flip = v[big] < 0 ? -1 : 1
+  let flipped = 0
+  for (let i = 0; i < m; i++) {
+    const load = v[i] * flip
+    sign[i] = load < 0 ? -1 : 1
+    weight[i] = Math.abs(load)
+    if (load < 0) flipped++
+  }
+
+  // The mean off-diagonal correlation after signing: what the set looks like
+  // once its members have been turned the same way round.
+  let sum = 0, pairs = 0
+  for (let i = 0; i < m; i++) {
+    for (let j = i + 1; j < m; j++) { sum += C[i][j] * sign[i] * sign[j]; pairs++ }
+  }
+  return {
+    used, sign, weight,
+    // The eigenvalue of a correlation matrix runs 0..m, so this is the share of
+    // the members' total variance the leading direction accounts for.
+    coherence: Math.min(1, Math.max(0, lambda / m)),
+    flipped,
+    meanR: pairs ? sum / pairs : 1,
+  }
+}
+
+/**
+ * The set as one vector: every member standardised, signed, and weighted.
+ *
+ * This is the seed a correlation runs against, and by the identity at the top
+ * of this file, correlating against it is the same as correlating against each
+ * member separately and taking the weighted mean. Members that do not vary are
+ * already gone — `withinSet` dropped them.
+ */
+export function composite(
+  members: (Float64Array | null)[], shape: SetShape,
+): Float64Array | null {
+  const first = members.find(v => v) ?? null
+  if (!first) return null
+  const out = new Float64Array(first.length)
+  shape.used.forEach((mi, i) => {
+    const v = members[mi]
+    if (!v) return
+    const w = shape.sign[i] * shape.weight[i]
+    for (let k = 0; k < out.length; k++) out[k] += w * v[k]
+  })
+  return standardise(out)
+}
+
+/* ---------------- the pass ---------------- */
+
+/**
+ * Everything the worker needs to correlate every gene against one seed.
+ *
+ * Structured-cloneable by construction, like every other job: typed arrays and
+ * numbers. The seed is already reduced to the axis — one value per bucket — so
+ * the worker never has to know whether it is looking at cells, metacells or
+ * pseudobulk columns.
+ */
+export interface CorrSpec {
+  bucket: Int32Array
+  size: Int32Array
+  nBuckets: number
+  /** The seed's value per bucket. Standardised on the page; see `standardise`. */
+  seed: Float64Array
+  /** Cells that are in scope at all — the denominator of the detection rate. */
+  nScope: number
+  /** A gene detected in fewer than this fraction of them is not ranked. */
+  minPct: number
+  nGenes: number
+  pooled: boolean
+}
+
+export interface CorrResult {
+  /** Pearson r per gene index. NaN for a gene that was not ranked. */
+  r: Float64Array
+  /** Fraction of the scope's cells with a non-zero value, per gene index. */
+  pct: Float64Array
+}
+
+/**
+ * The accumulation, per gene, in one pass.
+ *
+ * Two paths, and the difference is whether a bucket holds one cell or many.
+ * Per cell the three sums come straight off the non-zeros and nothing is
+ * materialised — which matters, because materialising a 292 495-long vector per
+ * gene across 31 053 genes is the whole matrix, one gene at a time. Pooled, the
+ * bucket means are needed before anything can be summed, so a dense array as
+ * long as the number of POOLS is filled and cleared per gene; at 256 pools that
+ * is 256 writes against a gene's worth of non-zeros.
+ *
+ * A gene absent from a bucket contributes a zero mean, not a missing value: it
+ * was measured there and it was not detected, which is a number.
+ */
+export function corrPlan(spec: CorrSpec) {
+  const r = new Float64Array(spec.nGenes).fill(NaN)
+  const pct = new Float64Array(spec.nGenes)
+  const { bucket, seed, size, nBuckets, pooled } = spec
+  const acc = pooled ? new Float64Array(nBuckets) : null
+  const floor = Math.max(0, Math.min(1, spec.minPct)) * spec.nScope
+
+  // The seed's own sums, once. It does not change between genes.
+  let sSum = 0, sSq = 0
+  for (let b = 0; b < nBuckets; b++) { sSum += seed[b]; sSq += seed[b] * seed[b] }
+  const sVar = nBuckets * sSq - sSum * sSum
+
+  return {
+    visit: (gene: number, each: NonZeroWalk) => {
+      let hit = 0
+      let gSum = 0, gSq = 0, sg = 0
+      if (acc) {
+        each((cell, value) => {
+          const b = bucket[cell]
+          if (b < 0) return
+          acc[b] += value
+          hit++
+        })
+        for (let b = 0; b < nBuckets; b++) {
+          const mean = acc[b] / size[b]
+          gSum += mean
+          gSq += mean * mean
+          sg += seed[b] * mean
+          acc[b] = 0
+        }
+      } else {
+        each((cell, value) => {
+          const b = bucket[cell]
+          if (b < 0) return
+          hit++
+          gSum += value
+          gSq += value * value
+          sg += seed[b] * value
+        })
+      }
+      pct[gene] = spec.nScope ? hit / spec.nScope : 0
+      // Ranked only if it clears the floor. NaN, not zero — "not tested" and
+      // "tested and uncorrelated" are different answers and the table shows
+      // only the first kind of row.
+      if (hit < floor) return
+      const gVar = nBuckets * gSq - gSum * gSum
+      if (!(gVar > 1e-12) || !(sVar > 1e-12)) return
+      r[gene] = (nBuckets * sg - sSum * gSum) / Math.sqrt(gVar * sVar)
+    },
+    done: (): CorrResult => ({ r, pct }),
+  }
+}
+
+/**
+ * The same correlation over a dense matrix that is already in memory.
+ *
+ * The pseudobulk path: `counts[gene * nCols + col]`, summed per (sample x cell
+ * type) column by the exporter. No dropout to fight — a column is thousands of
+ * cells added up — but few columns, so a correlation over them is a statement
+ * about co-variation ACROSS SAMPLES AND TYPES rather than co-expression across
+ * cells. Different question, honestly a better-powered one, and the card names
+ * which is on screen.
+ *
+ * Counts are log-transformed first, and per column rather than raw: a column is
+ * a sum over however many cells that sample contributed, so raw counts
+ * correlate through library size before they correlate through biology.
+ */
+export function corrDense(
+  values: Float64Array, nGenes: number, nCols: number, seed: Float64Array,
+  detected: Float64Array, minPct: number,
+): CorrResult {
+  const r = new Float64Array(nGenes).fill(NaN)
+  let sSum = 0, sSq = 0
+  for (let c = 0; c < nCols; c++) { sSum += seed[c]; sSq += seed[c] * seed[c] }
+  const sVar = nCols * sSq - sSum * sSum
+  for (let g = 0; g < nGenes; g++) {
+    if (detected[g] < minPct) continue
+    let gSum = 0, gSq = 0, sg = 0
+    for (let c = 0; c < nCols; c++) {
+      const v = values[g * nCols + c]
+      gSum += v
+      gSq += v * v
+      sg += seed[c] * v
+    }
+    const gVar = nCols * gSq - gSum * gSum
+    if (!(gVar > 1e-12) || !(sVar > 1e-12)) continue
+    r[g] = (nCols * sg - sSum * gSum) / Math.sqrt(gVar * sVar)
+  }
+  return { r, pct: detected }
+}
+
+/* ---------------- building the seed off the object ---------------- */
+
+/**
+ * The scope, as a mask over every cell.
+ *
+ * A cell type, a group, both, or neither. Expressed as a mask rather than a
+ * list because that is what the axes want, and because "which cells" is the
+ * only thing the rest of this file needs to know about a scope.
+ */
+export function scopeMask(src: Source, ti: number | null, cond: Conds): Uint8Array {
+  const cells = src.d.cells
+  const keep = new Uint8Array(cells.length)
+  const set = cond != null && typeof cond !== 'string' ? new Set(cond) : null
+  for (let i = 0; i < cells.length; i++) {
+    const c = cells[i]
+    if (ti !== null && c.t !== ti) continue
+    if (set ? !set.has(c.cond) : cond && c.cond !== cond) continue
+    keep[i] = 1
+  }
+  return keep
+}
+
+/**
+ * Each gene's profile over the axis, standardised.
+ *
+ * Streamed through `withGenes`, so a set larger than the object will hold in
+ * memory is read a window at a time — and only the REDUCED profile is kept, one
+ * value per bucket rather than one per cell. That is the whole reason this is
+ * safe to call for a two-hundred-gene signature: at 256 pools a profile is 2 kB,
+ * where the per-cell version would be 2.3 MB and two hundred of them would be
+ * most of a gigabyte.
+ *
+ * Null for a gene that does not vary across the axis, which `withinSet` then
+ * drops — a gene detected nowhere has no direction to contribute.
+ */
+export async function profilesOn(
+  src: Source, axis: Axis, genes: readonly string[],
+): Promise<(Float64Array | null)[]> {
+  const out: (Float64Array | null)[] = genes.map(() => null)
+  const sums = genes.map(() => new Float64Array(axis.n))
+  await src.withGenes(genes, (win, at) => {
+    for (let k = 0; k < win.length; k++) {
+      const acc = sums[at[k]]
+      src.forEachNonZero(win[k], (cell, value) => {
+        const b = axis.of[cell]
+        if (b >= 0) acc[b] += value
+      })
+    }
+  })
+  sums.forEach((acc, i) => {
+    for (let b = 0; b < axis.n; b++) acc[b] /= axis.size[b]
+    out[i] = standardise(acc)
+  })
+  return out
+}
+
+/**
+ * The signed composite over an axis too large to hold every member on.
+ *
+ * The per-cell case. Two streamed passes rather than one, because standardising
+ * a member needs its mean and spread before anything can be added up, and
+ * holding every member's per-cell vector to get them is the allocation this
+ * exists to avoid. Two passes over a few hundred genes is nothing against the
+ * pass over all 31 053 that follows.
+ *
+ * `shape` comes from the POOLED profiles, always — which is deliberate and not
+ * a shortcut. Deciding which way a member runs from its per-cell correlations
+ * would be deciding it from mostly shared zeros, which is the first thing this
+ * file says not to do. Coherence is judged where dropout has been averaged out;
+ * the composite is then built wherever the reader asked for it.
+ */
+export async function compositeOn(
+  src: Source, axis: Axis, genes: readonly string[], shape: SetShape,
+): Promise<Float64Array | null> {
+  const w = new Float64Array(genes.length)
+  shape.used.forEach((mi, i) => { w[mi] = shape.sign[i] * shape.weight[i] })
+
+  const sum = new Float64Array(genes.length)
+  const sq = new Float64Array(genes.length)
+  await src.withGenes(genes, (win, at) => {
+    for (let k = 0; k < win.length; k++) {
+      const g = at[k]
+      if (!w[g]) continue
+      let s = 0, q = 0
+      src.forEachNonZero(win[k], (cell, value) => {
+        if (axis.of[cell] < 0) return
+        s += value
+        q += value * value
+      })
+      sum[g] = s
+      sq[g] = q
+    }
+  })
+
+  const n = axis.n
+  if (!n) return null
+  const out = new Float64Array(n)
+  await src.withGenes(genes, (win, at) => {
+    for (let k = 0; k < win.length; k++) {
+      const g = at[k]
+      if (!w[g]) continue
+      const mean = sum[g] / n
+      const varr = sq[g] / n - mean * mean
+      if (!(varr > 1e-24)) continue
+      const scale = w[g] / (Math.sqrt(varr) * Math.sqrt(n))
+      // Every bucket starts at -mean*scale and the non-zeros add to it, which
+      // is the same sum as (x - mean) * scale without walking the zeros.
+      const base = -mean * scale
+      for (let b = 0; b < n; b++) out[b] += base
+      src.forEachNonZero(win[k], (cell, value) => {
+        const b = axis.of[cell]
+        if (b >= 0) out[b] += value * scale
+      })
+    }
+  })
+  return standardise(out)
+}
+
+/**
+ * The pseudobulk axis: the sample x cell type columns the bundle already holds.
+ *
+ * No dropout to fight — a column is thousands of cells added up — and no
+ * question about independence either, because the columns ARE the replicates.
+ * What it buys in honesty it pays for in width: a design with eight animals and
+ * nine cell types has 72 columns, and a correlation over 72 observations is a
+ * different and much weaker instrument than one over 34 367. It is also a
+ * different QUESTION — co-variation across samples and types, not co-expression
+ * across cells — and the card says which is on screen.
+ *
+ * Counts are normalised per column before anything is correlated. A column is a
+ * sum over however many cells that sample contributed, so raw counts correlate
+ * through library size first and through biology second; every gene would come
+ * back correlated with every other.
+ */
+export function pseudobulkOn(
+  pb: { genes: string[]; columns: { sample: string; cluster: string }[]; counts: Int32Array },
+  samples: readonly { id: string; cond: string }[],
+  cluster: string | null,
+  cond: string | null,
+): {
+  cols: number[]
+  values: Float64Array | null
+  detected: Float64Array | null
+  at: Map<string, number>
+} {
+  const condOf = new Map(samples.map(s => [s.id, s.cond]))
+  const cols: number[] = []
+  pb.columns.forEach((c, i) => {
+    if (cluster !== null && c.cluster !== cluster) return
+    if (cond && condOf.get(c.sample) !== cond) return
+    cols.push(i)
+  })
+  const at = new Map(pb.genes.map((g, i) => [g, i]))
+  // Under three columns there is no correlation to speak of — r over two points
+  // is 1 or -1 whatever the data says.
+  if (cols.length < 3) return { cols, values: null, detected: null, at }
+
+  const nAll = pb.columns.length
+  const nGenes = pb.genes.length
+  const total = new Float64Array(cols.length)
+  for (let k = 0; k < cols.length; k++) {
+    let s = 0
+    for (let g = 0; g < nGenes; g++) s += pb.counts[g * nAll + cols[k]]
+    total[k] = s || 1
+  }
+  const values = new Float64Array(nGenes * cols.length)
+  const detected = new Float64Array(nGenes)
+  for (let g = 0; g < nGenes; g++) {
+    let hit = 0
+    for (let k = 0; k < cols.length; k++) {
+      const c = pb.counts[g * nAll + cols[k]]
+      if (c > 0) hit++
+      values[g * cols.length + k] = Math.log1p((c / total[k]) * 1e4)
+    }
+    detected[g] = hit / cols.length
+  }
+  return { cols, values, detected, at }
+}
+
+/* ---------------- reading the answer ---------------- */
+
+export interface CorrRow {
+  gene: string
+  r: number
+  pct: number
+  /** True when this gene is one of the seed set's own members. */
+  member: boolean
+}
+
+/**
+ * The ranked table, both ends of it.
+ *
+ * Both ends, always: a co-expression table that shows only the positive side is
+ * half an answer, and the anti-correlated genes are usually the more
+ * interesting half — they are what the programme turns off. The seed itself is
+ * dropped, because r = 1 with yourself is not a finding; a SET's members are
+ * kept and marked, because whether the members come back at the top is how a
+ * reader checks that the composite is describing the set it was built from.
+ */
+export function rankCorr(
+  result: CorrResult, genes: readonly string[], opts: {
+    seedGenes: ReadonlySet<string>
+    /** Drop the seed's own members from the table entirely. */
+    hideMembers?: boolean
+    top: number
+  },
+): { up: CorrRow[]; down: CorrRow[]; tested: number } {
+  const rows: CorrRow[] = []
+  let tested = 0
+  for (let g = 0; g < genes.length; g++) {
+    const v = result.r[g]
+    if (!Number.isFinite(v)) continue
+    tested++
+    const member = opts.seedGenes.has(genes[g])
+    if (member && opts.hideMembers) continue
+    rows.push({ gene: genes[g], r: v, pct: result.pct[g], member })
+  }
+  const byR = [...rows].sort((a, b) => b.r - a.r || a.gene.localeCompare(b.gene))
+  return {
+    up: byR.slice(0, opts.top),
+    down: byR.slice(Math.max(0, byR.length - opts.top)).reverse(),
+    tested,
+  }
+}

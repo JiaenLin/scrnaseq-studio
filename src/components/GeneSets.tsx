@@ -34,7 +34,8 @@ import Progress, { Failed } from './Progress.tsx'
 const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
 export default function GeneSets({
-  src, types, ct, emb, palKey, rampKey, onPickGene, lib, species, sources, onSources, customSets, onCustomSets,
+  src, types, ct, emb, palKey, rampKey, onPickGene, onCorrelate,
+  lib, species, sources, onSources, customSets, onCustomSets,
   detected, scoreRan, onScoreRan,
 }: {
   src: Source
@@ -45,6 +46,15 @@ export default function GeneSets({
   palKey: PaletteKey
   rampKey: RampKey
   onPickGene: (g: string) => void
+  /**
+   * Send this set's genes to Co-expression as a seed.
+   *
+   * The bridge exists so the MSigDB picker does not have to be built twice. A
+   * module score says how strongly each CELL expresses a signature; a
+   * correlation says which OTHER genes move with it, which is the question
+   * people ask immediately afterwards and had nowhere to ask.
+   */
+  onCorrelate: (genes: string[]) => void
   lib: LibraryState
   species: Species
   sources: string[]
@@ -463,9 +473,15 @@ export default function GeneSets({
                     onClick={() => onPickGene(g)}>{g}</button>
                 ))}
               </div>
-              <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
-                Click a gene to see whether it carries the score on its own.
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <p className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+                  Click a gene to see whether it carries the score on its own.
+                </p>
+                <button className="btn btn-sm" onClick={() => onCorrelate(used)}
+                  title="Find the genes that move with this signature, and against it">
+                  Correlate with this set →
+                </button>
+              </div>
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2">

@@ -24,6 +24,7 @@ import {
   type FromWorker, type Job, type JobResult, type ToWorker,
 } from './jobs.ts'
 import { scanMatrix, type MatrixPlan } from './part-scan.ts'
+import { corrPlan } from './correlate.ts'
 import { averagesPlan, scoreAccumPlan } from './score.ts'
 import { markersPlan, wilcoxPlan } from './stats.ts'
 
@@ -118,6 +119,7 @@ const PHASE: Record<Job['kind'], string> = {
   wilcox: 'testing every gene',
   averages: 'expression bins',
   score: 'module score',
+  correlate: 'correlating every gene',
 }
 
 async function run(id: number, job: Job): Promise<void> {
@@ -138,6 +140,12 @@ async function run(id: number, job: Job): Promise<void> {
     await scanMatrix(file, plan, p.visit, report, gone)
     if (gone()) return
     result = { kind: 'score', scores: p.done() }
+  } else if (job.kind === 'correlate') {
+    const p = corrPlan(job)
+    await scanMatrix(file, plan, p.visit, report, gone)
+    if (gone()) return
+    const out = p.done()
+    result = { kind: 'correlate', r: out.r, pct: out.pct }
   } else if (job.kind === 'markers') {
     const p = markersPlan(job)
     if (p.empty) {
@@ -176,5 +184,6 @@ function resultBuffers(r: JobResult): Transferable[] {
     case 'wilcox': return tableBuffers(r.table) as Transferable[]
     case 'averages': return [r.avg.buffer as Transferable]
     case 'score': return [r.scores.buffer as Transferable]
+    case 'correlate': return [r.r.buffer as Transferable, r.pct.buffer as Transferable]
   }
 }

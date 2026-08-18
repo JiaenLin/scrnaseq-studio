@@ -188,6 +188,9 @@ function deliver(genes: readonly string[], r: JobResult): ResultOf[Job['kind']] 
     case 'wilcox': return decodeTable(genes, r.table)
     case 'averages': return r.avg
     case 'score': return r.scores
+    // Already by gene index, like the two per-cell kinds — the names are the
+    // page's business and it has them.
+    case 'correlate': return { r: r.r, pct: r.pct }
   }
 }
 
@@ -198,6 +201,11 @@ function jobBuffers(job: Job): Transferable[] {
     case 'wilcox': return [job.lab.buffer as Transferable]
     case 'averages': return []
     case 'score': return [job.weight.buffer as Transferable]
+    case 'correlate': return [
+      job.bucket.buffer as Transferable,
+      job.size.buffer as Transferable,
+      job.seed.buffer as Transferable,
+    ]
   }
 }
 

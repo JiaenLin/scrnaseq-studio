@@ -367,6 +367,63 @@ deliberately left out are written down too, prefixed `!`, so the build can tell 
 has looked at this yet" from "somebody looked and said no", and so the second is arguable
 in a diff instead of invisible.
 
+### 2.10 Co-expression, and the three ways it lies
+
+"Which genes move with this one" needs no statistics beyond a correlation, and it is one pass
+over the matrix: for every gene, accumulate three sums against a seed and throw the values
+away — the same shape as markers and the module score, so it is a fifth job kind in the same
+worker. What the design is actually about is the three ways the obvious version misleads.
+
+**Shared zeros.** A Pearson correlation across cells on a ~1% dense matrix is largely a
+statement about absence: two genes detected in 8% of cells agree in the other 92% for no
+biological reason. Two defences, both on by default. A **detection floor** — a gene under 10%
+of the cells in scope is not ranked, Seurat's `min.pct` doing the same job it does for markers —
+and **metacells**, the scope's cells split into equal-sized pools by repeated median cuts of the
+embedding, a balanced k-d tree taken to `k` leaves. Equal-sized, so no pool is one cell wearing
+a hat; spatially contiguous, so averaging removes dropout without averaging away the local
+structure the correlation is meant to find. On the demo the difference is visible and is the
+argument: the aNSC module against `Ascl1` reads r ≈ 0.998 over metacells and 0.849 per cell, and
+the per-cell number is the attenuated one.
+
+**n is not the sample size.** With 292 495 cells, r = 0.01 carries p ≈ 1e-5. Every gene is
+"significant", the ranking is unmoved by the p, and cells from one animal are not independent
+draws — the argument this studio already makes for Wilcoxon against pseudobulk. So the result
+carries r and the detection rate and **no p-value**. A column of 1e-300 beside r = 0.02 would be
+a number that looks like evidence and is not.
+
+**A set is not its mean.** Seeding with the average of a signature's members is what everyone
+writes first, and it cancels: a pathway holds activators and repressors, and the mean is
+dominated by whichever members are most abundant. So the set is correlated **with itself** first;
+each member is standardised, and signed by the leading eigenvector of the member correlation
+matrix — WGCNA's module eigengene, by power iteration because the matrix is at most a few
+hundred square. Only then are they combined.
+
+The identity that makes that affordable is worth writing down. With each member standardised to
+unit norm, r(g, m) = ⟨ĝ, ẑ_m⟩, so a weighted mean of the members' own independent correlations is
+
+    Σ_m w_m s_m r(g, m) = ⟨ĝ, Σ_m w_m s_m ẑ_m⟩
+
+— the correlation of g against **one** composite vector, up to its norm. Correlating each member
+separately and combining afterwards, and correlating once against the signed composite, are the
+same number; `scripts/test-correlate.mjs` asserts that the two orderings are identical and that
+their ratio is one constant across genes. One pass therefore reports what |set| passes would
+have said.
+
+Coherence is reported with the result, not hidden: what share of the members' variance runs one
+way, how many were inverted, and the mean pairwise r after signing. Two programmes written down
+as one set is a common and legitimate finding — a pathway with an arm that goes the other way —
+and the honest response is to say so and let the reader split it, rather than average it into
+silence. On a deliberately mixed seed (five quiescence markers, five proliferation markers) the
+card reports 61% coherence with 5 of 10 inverted, and returns Mcm5/Pcna/Ccnd1 on one side and
+Hes1/Hes5/Notch1/Cdkn1a/Cdkn1b on the other.
+
+Three axes are offered because they answer three questions. **Metacells** is the default.
+**Per cell** is the unpooled version, offered because it is what a reader expects to find and
+kept honest by the caption. **Pseudobulk** correlates across the sample × cell-type columns the
+bundle already carries — no dropout, and the columns *are* the replicates, but a design with
+eight animals and nine types has 72 of them, and it answers co-variation across samples rather
+than co-expression across cells. It is disabled, with the reason, on an object with no counts.
+
 ## 3. Interface
 
 ### 3.1 The global bar — set once, applies everywhere
@@ -423,6 +480,7 @@ test selector because single-cell has two defensible answers where bulk had one.
 | **Composition** | per-sample stacked proportions + per-cell-type dot plot with sample points |
 | **Markers** | ranked one-vs-rest table + dot plot (mean expression × % detected). Cluster renaming lives here, and names propagate to every other tab and to Methods |
 | **DEG table · Volcano · Enrichment** | as `rnaseq-studio`, for the selected cell type, under a **Test** segmented control — Wilcoxon per cell (default) or pseudobulk DESeq2 (only above 3 samples per group). Dimmed entirely on a single-condition object |
+| **Co-expression** | a seed (one gene, or a signature sent over from Gene sets) correlated against every gene, over metacells, single cells or pseudobulk columns; both ends ranked, with the set's own coherence reported beside the score |
 | **Gene expression** | gene search with exact-match-first ranking, one gene or up to 100 pasted; **Group by** across cell types / groups / their product; **Plot** as violin panel (independent y per facet, selectable columns, relative-to-control, detection bars) or **Seurat dot plot** (size = % expressing, colour = average expression, scaling switchable, axes clusterable and swappable) |
 | **Methods** | continuous prose, superscript numbered citations, one reference per tool, cutoffs read from the object |
 

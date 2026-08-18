@@ -117,7 +117,7 @@ export type ColorBy = 'type' | 'cond' | 'sample' | 'mito'
 
 export type TabId =
   | 'overview' | 'cells' | 'composition'
-  | 'markers' | 'de' | 'expr' | 'sets'
+  | 'markers' | 'de' | 'expr' | 'sets' | 'coexpr'
   | 'methods'
 
 /**

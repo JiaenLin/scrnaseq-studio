@@ -224,6 +224,32 @@ export default function Methods({
               those.
             </p>
             <p className="mb-0 mt-3">
+              <b>A co-expression r carries no p-value, on purpose.</b> Correlation is taken
+              across observations, and with tens of thousands of cells almost any r clears
+              any threshold — while cells from one animal are not independent draws, the same
+              reason this studio separates the per-cell test from pseudobulk. So the table
+              ranks by r and shows the detection rate beside it. Two further cautions are
+              built into the defaults rather than left to the reader: a gene detected in
+              under 10% of the cells in scope is not ranked at all, because on a matrix this
+              sparse two rarely-detected genes agree wherever they are both absent; and cells
+              are pooled into equal-sized metacells before correlating, which is what makes r
+              mean what it appears to mean. Pooling is on the embedding, a 2-D projection, and
+              that approximation is stated on the card.
+            </p>
+            <p className="mb-0 mt-3">
+              <b>A signature is signed before it is combined.</b> Seeding a correlation with
+              the mean of a set&rsquo;s members cancels: a pathway holds members that move in
+              opposite directions, and the mean is dominated by whichever are most abundant.
+              So the set is first correlated with itself, each member is standardised and
+              given the sign of the leading eigenvector of that matrix — WGCNA&rsquo;s module
+              eigengene — and the members are combined only then. Because each member is
+              standardised, the correlation against that composite <em>is</em> the weighted
+              mean of the members&rsquo; own independent correlations, so one pass reports what
+              testing every member separately would have said. How much of the set runs one
+              way is reported with the result, since a combined score over a set that is
+              really two programmes is a number to read with care.
+            </p>
+            <p className="mb-0 mt-3">
               <b>What this text will not say.</b> It names no normalization, variable-gene count,
               component count or clustering resolution, because a bundle carries none of them; it
               claims no doublet removal, ambient-RNA correction or batch correction it did not
