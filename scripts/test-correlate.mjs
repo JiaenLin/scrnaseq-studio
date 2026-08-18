@@ -12,8 +12,8 @@
 //     correlations, which is the identity that lets one pass stand in for many
 
 import {
-  cellAxis, composite, corrDense, corrPlan, groupAxis, moments, poolAxis,
-  pseudobulkOn, rankCorr, standardise, withinSet,
+  cellAxis, composite, constraintOf, corrDense, corrPlan, groupAxis, moments,
+  poolAxis, pseudobulkOn, rankCorr, standardise, withinSet,
 } from '../src/lib/correlate.ts'
 
 let failed = 0
@@ -137,7 +137,7 @@ console.log('\nPOOLS ARE EQUAL, CONTIGUOUS AND STABLE')
   }
   const keep = new Uint8Array(nCells).fill(1)
   const a = poolAxis(xy, keep, nCells, 16)
-  check('a power of two pools', a.n, 16)
+  check('exactly as many pools as were asked for', a.n, 16)
   check('every cell landed in one', a.of.every(v => v >= 0), true)
   check('the pools are equal sized', [...new Set(a.size)], [25])
   check('and they account for every cell', a.size.reduce((s, v) => s + v, 0), nCells)
@@ -156,12 +156,124 @@ console.log('\nPOOLS ARE EQUAL, CONTIGUOUS AND STABLE')
     return true
   })(), true)
 
+  // Any count, not only powers of two — which is what lets a budget be shared
+  // out among constraint groups without every group rounding down.
+  check('an odd count is honoured exactly', poolAxis(xy, keep, nCells, 10).n, 10)
+  check('and the pools are still near-equal', (() => {
+    const p = poolAxis(xy, keep, nCells, 10)
+    return Math.max(...p.size) - Math.min(...p.size) <= 1
+  })(), true)
+
   // Asking for more pools than the cells can fill is capped, not obeyed.
   const small = new Uint8Array(nCells)
   for (let i = 0; i < 20; i++) small[i] = 1
   const tiny = poolAxis(xy, small, nCells, 512)
-  check('pools never fall below three cells', Math.min(...tiny.size) >= 3, true)
-  check('a scope of 20 cells gives at most 4 pools', tiny.n <= 4, true)
+  check('pools never fall below the ten-cell floor', Math.min(...tiny.size) >= 10, true)
+  check('20 cells fill two pools of ten, not more', tiny.n, 2)
+}
+
+console.log('\nA METACELL MAY NOT SPAN TWO POPULATIONS')
+{
+  // hdWGCNA's group.by, and the artefact it removes: two cell types that sit
+  // next to each other on a UMAP would otherwise share metacells, and the
+  // "co-expression" that produces is two populations, not one programme.
+  const nCells = 300
+  const xy = new Float32Array(nCells * 2)
+  const cells = []
+  for (let i = 0; i < nCells; i++) {
+    // Three interleaved populations occupying the SAME region of the
+    // embedding, so nothing but the constraint can keep them apart.
+    const t = i % 3
+    cells.push({ t, s: i < 150 ? 'S1' : 'S2' })
+    xy[2 * i] = (i % 10) + t * 0.01
+    xy[2 * i + 1] = Math.floor(i / 10)
+  }
+  const keep = new Uint8Array(nCells).fill(1)
+  const samples = [{ id: 'S1' }, { id: 'S2' }]
+
+  const free = poolAxis(xy, keep, nCells, 12, null)
+  const mixed = (() => {
+    const seen = new Map()
+    for (let i = 0; i < nCells; i++) {
+      const b = free.of[i]
+      if (b < 0) continue
+      const was = seen.get(b)
+      if (was === undefined) seen.set(b, cells[i].t)
+      else if (was !== cells[i].t) return true
+    }
+    return false
+  })()
+  check('unconstrained, a pool does span two cell types', mixed, true)
+
+  const byType = poolAxis(xy, keep, nCells, 12, constraintOf(cells, samples, 'type'))
+  const pure = (get) => {
+    const seen = new Map()
+    for (let i = 0; i < nCells; i++) {
+      const b = byType.of[i]
+      if (b < 0) continue
+      const was = seen.get(b)
+      if (was === undefined) seen.set(b, get(cells[i]))
+      else if (was !== get(cells[i])) return false
+    }
+    return true
+  }
+  check('constrained by cell type, no pool spans two', pure(c => c.t), true)
+  check('every cell still landed somewhere', byType.nCells, nCells)
+
+  const both = poolAxis(xy, keep, nCells, 12, constraintOf(cells, samples, 'type-sample'))
+  const spans = (axis, get) => {
+    const seen = new Map()
+    for (let i = 0; i < nCells; i++) {
+      const b = axis.of[i]
+      if (b < 0) continue
+      const was = seen.get(b)
+      if (was === undefined) seen.set(b, get(cells[i]))
+      else if (was !== get(cells[i])) return true
+    }
+    return false
+  }
+  check('constrained by cell type x sample, no pool spans a type',
+    spans(both, c => c.t), false)
+  check('and none spans a sample', spans(both, c => c.s), false)
+
+  // The budget is shared out in proportion, not split evenly between groups.
+  const lop = []
+  const lopXy = new Float32Array(400 * 2)
+  for (let i = 0; i < 400; i++) {
+    lop.push({ t: i < 300 ? 0 : 1, s: 'S1' })
+    lopXy[2 * i] = i % 20
+    lopXy[2 * i + 1] = Math.floor(i / 20)
+  }
+  const lopKeep = new Uint8Array(400).fill(1)
+  const share = poolAxis(lopXy, lopKeep, 400, 20, constraintOf(lop, [{ id: 'S1' }], 'type'))
+  const perType = [0, 0]
+  const seenPool = new Set()
+  for (let i = 0; i < 400; i++) {
+    const b = share.of[i]
+    if (b < 0 || seenPool.has(b)) continue
+    seenPool.add(b)
+    perType[lop[i].t]++
+  }
+  check('a group with three times the cells gets about three times the pools',
+    Math.abs(perType[0] / perType[1] - 3) < 0.6, true)
+
+  // A group too small to fill a pool is dropped, and says so through nCells.
+  const dust = []
+  const dustXy = new Float32Array(104 * 2)
+  for (let i = 0; i < 104; i++) {
+    dust.push({ t: i < 100 ? 0 : 1, s: 'S1' })
+    dustXy[2 * i] = i % 10
+    dustXy[2 * i + 1] = Math.floor(i / 10)
+  }
+  const dustKeep = new Uint8Array(104).fill(1)
+  const dropped = poolAxis(dustXy, dustKeep, 104, 8, constraintOf(dust, [{ id: 'S1' }], 'type'))
+  check('a group of four cells makes no metacell', dropped.nCells, 100)
+  check('and its cells are out of scope, not folded into a neighbour', (() => {
+    for (let i = 100; i < 104; i++) if (dropped.of[i] !== -1) return false
+    return true
+  })(), true)
+
+  check('no constraint at all is the old behaviour', constraintOf(cells, samples, 'none'), null)
 }
 
 console.log('\nPOOLING IS A CORRELATION OVER POOL MEANS')

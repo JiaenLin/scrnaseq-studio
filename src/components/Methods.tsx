@@ -232,9 +232,12 @@ export default function Methods({
               built into the defaults rather than left to the reader: a gene detected in
               under 10% of the cells in scope is not ranked at all, because on a matrix this
               sparse two rarely-detected genes agree wherever they are both absent; and cells
-              are pooled into equal-sized metacells before correlating, which is what makes r
-              mean what it appears to mean. Pooling is on the embedding, a 2-D projection, and
-              that approximation is stated on the card.
+              are pooled into near-equal metacells before correlating, which is what makes r
+              mean what it appears to mean. The pooling follows hdWGCNA: no metacell spans two
+              cell types or two samples, so a pool cannot be two populations that happen to sit
+              near each other, and none is built from fewer than ten cells. Pooling is on the
+              embedding — a 2-D projection, where hdWGCNA uses a reduced space with many more
+              components — and that approximation is stated on the card.
             </p>
             <p className="mb-0 mt-3">
               <b>A signature is signed before it is combined.</b> Seeding a correlation with

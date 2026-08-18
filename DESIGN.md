@@ -378,12 +378,32 @@ worker. What the design is actually about is the three ways the obvious version 
 statement about absence: two genes detected in 8% of cells agree in the other 92% for no
 biological reason. Two defences, both on by default. A **detection floor** — a gene under 10%
 of the cells in scope is not ranked, Seurat's `min.pct` doing the same job it does for markers —
-and **metacells**, the scope's cells split into equal-sized pools by repeated median cuts of the
-embedding, a balanced k-d tree taken to `k` leaves. Equal-sized, so no pool is one cell wearing
-a hat; spatially contiguous, so averaging removes dropout without averaging away the local
-structure the correlation is meant to find. On the demo the difference is visible and is the
-argument: the aNSC module against `Ascl1` reads r ≈ 0.998 over metacells and 0.849 per cell, and
-the per-cell number is the attenuated one.
+and **metacells**, the scope's cells split into near-equal pools by repeated proportional median
+cuts of the embedding. Equal-sized, so no pool is one cell wearing a hat; spatially contiguous,
+so averaging removes dropout without averaging away the local structure the correlation is meant
+to find. On the demo the difference is visible and is the argument: the aNSC module against
+`Ascl1` reads r ≈ 0.998 over metacells and 0.849 per cell, and the per-cell number is the
+attenuated one.
+
+The construction follows **hdWGCNA** (Morabito et al., *Cell Reports Methods* 2023), which is
+where metacells-for-co-expression comes from, and it follows it in the part that matters most:
+a metacell may not span two cell types or two samples. That is hdWGCNA's `group.by`, and without
+it two populations that happen to sit next to each other in the embedding share pools and the
+"co-expression" that results is two populations rather than one programme — while pooling across
+animals quietly averages away the replicates a later claim rests on. The pool budget is shared
+out among the groups in proportion to their size, which is why the cutting is proportional rather
+than binary: twenty groups each rounding down to a power of two is a systematic shortfall in the
+one quantity this mode exists to have enough of. A group too small to build a metacell from —
+under ten cells, the same floor pseudobulk DE applies — is dropped rather than allowed to stand
+as a metacell of four, and the card reports how many cells that cost.
+
+Two things it does **not** follow. hdWGCNA builds metacells by KNN in a reduced space with many
+components; a bundle carries only 2-D embeddings, so neighbours here are close to, but not the
+same as, neighbours in expression space. And hdWGCNA's reason for metacells is to then construct
+a network — soft-thresholded adjacency, topological overlap, dynamic tree cut — which this does
+not do. What the studio has is the supervised half: given a gene or a signature, rank every gene
+against it. When the seed is a set, that ranking *is* hdWGCNA's **kME**, since the seed is the
+module eigengene and kME is defined as a gene's correlation with it.
 
 **n is not the sample size.** With 292 495 cells, r = 0.01 carries p ≈ 1e-5. Every gene is
 "significant", the ranking is unmoved by the p, and cells from one animal are not independent

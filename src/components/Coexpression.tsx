@@ -3,9 +3,9 @@ import type { CellType } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  cellAxis, compositeOn, corrDense, corrPlan, groupAxis, poolAxis, profilesOn,
-  pseudobulkOn, rankCorr, scopeMask, standardise, withinSet,
-  type Axis, type CorrResult, type CorrRow, type SetShape,
+  cellAxis, compositeOn, constraintOf, corrDense, corrPlan, groupAxis, poolAxis,
+  profilesOn, pseudobulkOn, rankCorr, scopeMask, standardise, withinSet,
+  type Axis, type CorrResult, type CorrRow, type SetShape, type Within,
 } from '../lib/correlate.ts'
 import { parseGeneList, rankGenes } from '../lib/genes.ts'
 import { fmt, pctTxt } from '../lib/chart.ts'
@@ -67,6 +67,15 @@ export default function Coexpression(p: CoexprProps) {
   const [pools, setPools] = useState(256)
   /** Which levels the aggregate columns are cut on. */
   const [by, setBy] = useState<'cond' | 'sample'>('cond')
+  /**
+   * What a metacell may not span — hdWGCNA's `group.by`.
+   *
+   * Cell type x sample by default, which is the constraint that method
+   * applies and the one that removes a whole class of artefact: a pool
+   * averaging two populations is a profile of neither, and one averaging two
+   * animals has quietly pooled the replicates a later claim rests on.
+   */
+  const [within, setWithin] = useState<Within>('type-sample')
   const [ct, setCt] = useState<string>('')
   const [cond, setCond] = useState<string>('')
   const [minPctPc, setMinPctPc] = useState(10)
@@ -101,13 +110,16 @@ export default function Coexpression(p: CoexprProps) {
 
   const axis: Axis | null = useMemo(() => {
     if (mode === 'bulk') return null
-    if (mode === 'pool') return poolAxis(emb.xy, keep, d.cells.length, pools)
+    if (mode === 'pool') {
+      return poolAxis(emb.xy, keep, d.cells.length, pools,
+        constraintOf(d.cells, d.samples, within))
+    }
     if (mode === 'group') {
       return groupAxis(d.cells, keep,
         by === 'cond' ? d.conds : d.samples.map(x => x.id), by, types.length)
     }
     return cellAxis(keep, d.cells.length)
-  }, [mode, emb, keep, d.cells, d.conds, d.samples, by, types.length, pools])
+  }, [mode, emb, keep, d.cells, d.conds, d.samples, by, within, types.length, pools])
 
   /* ---------------- the pseudobulk axis, when that is what is asked ---------------- */
 
@@ -150,7 +162,7 @@ export default function Coexpression(p: CoexprProps) {
   // filter an answer that is already in hand.
   const axisKey = mode === 'bulk'
     ? `bulk|${bulk?.cols.length ?? 0}|${ti}|${cond}`
-    : `${mode}|${mode === 'pool' ? `${emb.key}|${pools}` : ''}`
+    : `${mode}|${mode === 'pool' ? `${emb.key}|${pools}|${within}` : ''}`
       + `|${mode === 'group' ? by : ''}|${ti}|${cond}|${nScope}`
   const seedKey = `${seedGenes.join(',')}|${axisKey}`
 
@@ -323,7 +335,27 @@ export default function Coexpression(p: CoexprProps) {
           {mode === 'pool' && (
             <>
               <div className="gsep h-6" />
-              <Chips label="Pools" value={pools} options={[128, 256, 512]} onChange={setPools} />
+              {/* Each label wraps with the control it names. Loose in the flex
+                  they wrap independently, and at 1280 "never spanning" ended
+                  one line while the buttons it labels began the next. */}
+              <span className="flex items-center gap-2">
+                <Chips label="Pools" value={pools} options={[128, 256, 512]} onChange={setPools} />
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="glabel" title="A metacell may not span these — hdWGCNA's group.by">
+                  never spanning
+                </span>
+                <Seg<Within> value={within} onChange={setWithin}
+                  options={[
+                    { k: 'type-sample', label: 'type × sample',
+                      title: 'No metacell averages two cell types or two samples' },
+                    { k: 'type', label: 'cell type',
+                      title: 'No metacell averages two cell types' },
+                    { k: 'none', label: 'nothing',
+                      title: 'Pool purely by position on the embedding' },
+                  ]}
+                  disabled={k => k === 'type-sample' && d.samples.length < 2} />
+              </span>
             </>
           )}
           {mode === 'group' && (
@@ -436,9 +468,17 @@ export default function Coexpression(p: CoexprProps) {
           <>
             <p className="sub mt-3">
               {fmt(table.tested)} genes ranked over <b>{fmt(nObs)} {unit}</b> in {scopeText}
-              {mode === 'group' && axis
+              {(mode === 'group' || mode === 'pool') && axis
                 ? `, averaged from ${fmt(axis.nCells)} cells`
+                : ''}
+              {mode === 'pool' && within !== 'none'
+                ? `, none spanning two ${within === 'type-sample'
+                  ? 'cell types or two samples' : 'cell types'}`
                 : ''}.
+              {mode === 'pool' && axis && axis.nCells < nScope && (
+                <> {fmt(nScope - axis.nCells)} cells sat in a group too small to build a
+                  metacell from and are not in the correlation.</>
+              )}
             </p>
             <CorrBars up={table.up} down={table.down} />
             <div className="mt-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
@@ -467,7 +507,10 @@ export default function Coexpression(p: CoexprProps) {
                 + ' dropped rather than drawn.'}
               {mode === 'pool' && ' Metacells are pooled on the '
                 + `${emb.key} embedding, which is a 2-D projection — neighbours there are`
-                + ' close to, but not the same as, neighbours in expression space.'}
+                + ' close to, but not the same as, neighbours in expression space.'
+                + ' hdWGCNA builds its metacells the same way but in a reduced space with'
+                + ' many more components, which a bundle does not carry; the constraint'
+                + ' above is its group.by, and a metacell holds at least ten cells.'}
             </p>
           </>
         )}

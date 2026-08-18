@@ -86,8 +86,10 @@ Control and Compare are chosen by name too, so they do not move with it.
 
 **A correlation across cells is three traps, and the defaults step around all three.** Pearson
 r on a matrix that is ~1% dense is mostly a statement about shared absence, so a gene detected in
-under 10% of the cells in scope is not ranked and cells are pooled into equal-sized **metacells**
-before correlating. With tens of thousands of observations any r is "significant" and cells from
+under 10% of the cells in scope is not ranked and cells are pooled into near-equal **metacells**
+before correlating — following hdWGCNA, including the part that matters: no metacell spans two
+cell types or two samples, so a pool cannot be two populations that merely sit near each other in
+the embedding. With tens of thousands of observations any r is "significant" and cells from
 one animal are not independent draws, so the table reports r and the detection rate and **no
 p-value at all**. And a signature seeded as the mean of its members cancels — a pathway holds
 arms that move in opposite directions — so the set is correlated with itself first and each

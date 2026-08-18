@@ -79,62 +79,150 @@ export function cellAxis(keep: ArrayLike<number>, nCells: number): Axis {
 }
 
 /**
- * Metacells: the scope's cells split into `want` pools of equal size.
+ * Split one block of cells into exactly `k` spatially contiguous, equal parts.
  *
- * By repeated median cuts of the embedding, alternating axis — a balanced k-d
- * tree taken to `want` leaves. Two properties matter and a uniform grid has
- * neither: every pool holds the same number of cells, so no pool is a single
- * cell pretending to be a metacell; and pools are spatially contiguous, so
- * averaging them removes dropout noise without averaging away the local
- * structure that the correlation is supposed to find.
+ * Repeated median cuts, but cutting proportionally rather than in half: a block
+ * that owes 5 pools is cut into 2 and 3 at the point two fifths of the way
+ * along, not into 2 and 2 with one thrown away. The earlier version halved and
+ * so could only ever produce a power of two — asking for 300 gave 256, which
+ * was tolerable when there was one block and is not once every cell type x
+ * sample is its own block: twenty blocks each rounding down is a systematic
+ * shortfall in the number of metacells, in the mode whose whole purpose is to
+ * have enough of them.
+ *
+ * The cut is on whichever axis the block is WIDER on, rather than alternating.
+ * Alternating is the textbook k-d tree and it is the wrong rule for a block
+ * that is long and thin, which a single cell type in a single animal usually
+ * is — it would cut across the short axis half the time and produce slivers.
+ */
+function splitInto(cells: number[], k: number, xy: Float32Array): number[][] {
+  if (k <= 1 || cells.length < 2) return [cells]
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
+  for (const c of cells) {
+    const x = xy[2 * c], y = xy[2 * c + 1]
+    if (x < x0) x0 = x
+    if (x > x1) x1 = x
+    if (y < y0) y0 = y
+    if (y > y1) y1 = y
+  }
+  const axis = (x1 - x0) >= (y1 - y0) ? 0 : 1
+  const sorted = [...cells].sort((p, q) => xy[2 * p + axis] - xy[2 * q + axis])
+  const k1 = k >> 1
+  const cut = Math.max(1, Math.min(sorted.length - 1, Math.round((sorted.length * k1) / k)))
+  return [
+    ...splitInto(sorted.slice(0, cut), k1, xy),
+    ...splitInto(sorted.slice(cut), k - k1, xy),
+  ]
+}
+
+/** A cell may never share a metacell with a cell of another group. */
+export type Within = 'none' | 'type' | 'type-sample'
+
+/**
+ * Which cells may be pooled together, as one id per cell.
+ *
+ * hdWGCNA's `group.by`, and the reason it exists: a metacell that averages two
+ * cell types is a profile of neither, and one that averages two animals has
+ * quietly pooled the replicates that a later claim depends on. Constraining the
+ * pooling costs nothing and removes a whole class of artefact — a "co-expression"
+ * that is really two populations sitting next to each other on a UMAP.
+ */
+export function constraintOf(
+  cells: readonly { t: number; s: string }[],
+  samples: readonly { id: string }[],
+  within: Within,
+): Int32Array | null {
+  if (within === 'none') return null
+  const at = new Map(samples.map((s, i) => [s.id, i]))
+  const width = Math.max(1, samples.length)
+  const out = new Int32Array(cells.length)
+  for (let i = 0; i < cells.length; i++) {
+    const c = cells[i]
+    out[i] = within === 'type' ? c.t : c.t * width + (at.get(c.s) ?? 0)
+  }
+  return out
+}
+
+/**
+ * Metacells: the scope's cells split into about `want` pools of equal size.
+ *
+ * By repeated proportional median cuts of the embedding — see `splitInto`. Two
+ * properties matter and a uniform grid has neither: pools hold about the same
+ * number of cells, so no pool is a single cell pretending to be a metacell; and
+ * pools are spatially contiguous, so averaging them removes dropout noise
+ * without averaging away the local structure the correlation is supposed to
+ * find.
+ *
+ * `groups` constrains which cells may share a pool — hdWGCNA's `group.by`. With
+ * it, the pool budget is shared out in proportion to each group's size, and a
+ * group too small to fill even one pool is dropped from the scope rather than
+ * being allowed to stand as a metacell built from four cells. Cells that fall
+ * out this way are not silently absorbed: `nCells` counts what was actually
+ * used, and the card reports it against the scope.
  *
  * The embedding is the only geometry a bundle carries, and it is a 2-D
- * projection — neighbours in a UMAP are not exactly neighbours in expression
- * space. That is a real approximation and the card says so. It is still much
- * closer to the truth than correlating raw counts across single cells, which is
- * the alternative it replaces.
+ * projection — hdWGCNA builds its metacells by KNN in a reduced space with many
+ * more components. That is a real approximation and the card says so. It is
+ * still much closer to the truth than correlating across single cells.
  *
- * `want` is rounded down to a power of two, because that is what a binary split
- * produces; asking for 300 gives 256. Deterministic: no randomness, so the same
- * object and the same scope give the same pools every time.
+ * Deterministic: no randomness anywhere, so the same object and scope give the
+ * same pools every time.
  */
 export function poolAxis(
   xy: Float32Array, keep: ArrayLike<number>, nCells: number, want: number,
+  groups: Int32Array | null = null,
 ): Axis {
-  const cells: number[] = []
-  for (let i = 0; i < nCells; i++) if (keep[i]) cells.push(i)
-  const of = new Int32Array(nCells).fill(-1)
-  if (!cells.length) return { of, size: new Int32Array(0), n: 0, nCells: 0, pooled: true }
+  /**
+   * The fewest cells a metacell may be built from.
+   *
+   * Ten, which is the cell floor the studio already applies before it will
+   * build a pseudobulk column — the same judgement about the same question, so
+   * it is the same number. It was three, which is defensible for one big
+   * unconstrained pool budget and is not once the budget is shared among cell
+   * type x sample groups: a rare population in one animal would have produced
+   * metacells of three cells, which is not pooling, it is the per-cell mode
+   * with a longer name and a claim attached.
+   *
+   * hdWGCNA aggregates about twenty-five nearest neighbours per metacell, so
+   * ten is still permissive — it is a floor, not a target. What sets the actual
+   * size is the pool budget against the scope.
+   */
+  const MIN_PER_POOL = 10
 
-  // Never more pools than there are cells to fill them, and never a pool of
-  // one — a metacell of a single cell is the per-cell mode wearing a hat.
-  const MIN_PER_POOL = 3
-  const cap = Math.max(1, Math.floor(cells.length / MIN_PER_POOL))
-  let depth = 0
-  while ((1 << (depth + 1)) <= Math.min(want, cap)) depth++
-  const k = 1 << depth
-
-  // Each level splits every current block at its median on one axis. Sorting
-  // the block rather than a full quickselect: the blocks halve every level, so
-  // the total is O(n log n) with a small constant, and it is far easier to
-  // check than a hand-rolled selection.
-  let blocks: number[][] = [cells]
-  for (let level = 0; level < depth; level++) {
-    const axis = level % 2
-    const next: number[][] = []
-    for (const b of blocks) {
-      b.sort((p, q) => xy[2 * p + axis] - xy[2 * q + axis])
-      const half = b.length >> 1
-      next.push(b.slice(0, half), b.slice(half))
-    }
-    blocks = next
+  const byGroup = new Map<number, number[]>()
+  let total = 0
+  for (let i = 0; i < nCells; i++) {
+    if (!keep[i]) continue
+    const g = groups ? groups[i] : 0
+    let list = byGroup.get(g)
+    if (!list) { list = []; byGroup.set(g, list) }
+    list.push(i)
+    total++
   }
-  const size = new Int32Array(k)
-  blocks.forEach((b, bi) => {
-    size[bi] = b.length
-    for (const c of b) of[c] = bi
-  })
-  return { of, size, n: k, nCells: cells.length, pooled: true }
+  const of = new Int32Array(nCells).fill(-1)
+  if (!total) return { of, size: new Int32Array(0), n: 0, nCells: 0, pooled: true }
+
+  // In a stable order, so the pool numbering does not depend on Map insertion
+  // order — which depends on cell order, which is not something a figure should
+  // be able to notice.
+  const ids = [...byGroup.keys()].sort((a, b) => a - b)
+  const size: number[] = []
+  let used = 0
+  for (const id of ids) {
+    const cells = byGroup.get(id)!
+    const room = Math.floor(cells.length / MIN_PER_POOL)
+    if (room < 1) continue
+    // Proportional share of the budget, and never more than the cells can fill.
+    const share = Math.max(1, Math.min(room, Math.round((want * cells.length) / total)))
+    for (const block of splitInto(cells, share, xy)) {
+      if (!block.length) continue
+      const b = size.length
+      size.push(block.length)
+      for (const c of block) of[c] = b
+      used += block.length
+    }
+  }
+  return { of, size: Int32Array.from(size), n: size.length, nCells: used, pooled: true }
 }
 
 /**
