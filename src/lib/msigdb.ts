@@ -50,14 +50,16 @@ export interface ManifestSource {
    */
   projected?: boolean
   /**
-   * The collections this one was subset from, when it is not a database of its
-   * own — Metabolic, which scripts/derive-metabolic.mjs takes out of the
-   * curated pathway collections by name.
+   * The collections this one was assembled from, when it is not a database of
+   * its own — Metabolic, which scripts/derive-metabolic.mjs selects out of the
+   * pathway collections and GO by name.
    *
-   * Carried so the interface can say where a set came from rather than let a
-   * derived collection sit in the row looking like a separate source of
-   * evidence. The sets keep their parents' systematic ids, so a term found
-   * here is the parent's term and `indexFor` folds it once even with both on.
+   * Carried because the interface has two things to say about such a
+   * collection that it cannot say about KEGG. Where its sets came from, so a
+   * hit reads as the pathway it is rather than as a second independent line of
+   * evidence. And what it costs: the sets carry their OWN ids so that enabling
+   * it always adds them, which means a pathway also present in an enabled
+   * parent is tested twice and corrected across twice.
    */
   derived?: string[]
 }
@@ -230,14 +232,13 @@ export function indexFor(collections: Collection[], background: string[]): SetIn
     for (const s of c.sets) {
       // One id, one test.
       //
-      // No two MSigDB collections shared an id while every collection was a
-      // separate database, so this was not a case that could arise. It arises
-      // now: Metabolic is a SUBSET of the curated pathway collections and
-      // keeps their ids, so a reader with both it and Reactome on would
-      // otherwise have REACTOME_GLYCOLYSIS tested twice — two rows in the
-      // table, and two of the tests Benjamini–Hochberg corrects across, for
-      // one pathway. A custom GMT that repeats an MSigDB set is the same
-      // situation from the other direction.
+      // No two MSigDB collections share an id — every one of them is a
+      // separate database, and the Metabolic library carries its own prefixed
+      // ids precisely so that it is a collection rather than a fold of
+      // others. What this guards is the case a reader can create: a custom GMT
+      // repeating an MSigDB set, which would otherwise put HALLMARK_GLYCOLYSIS
+      // in the table twice and into the Benjamini–Hochberg correction twice,
+      // for one pathway.
       //
       // The first enabled collection carrying the id wins, so the source
       // column names where it was read from and the members are that

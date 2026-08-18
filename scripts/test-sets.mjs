@@ -154,62 +154,123 @@ console.log('\nEVERY COLLECTION MSIGDB HAS, NOT A SELECTION OF THEM')
   check('every collection the manifest offers has a file', missing, [])
 }
 
-console.log('\nTHE DERIVED METABOLIC COLLECTION IS ITS PARENTS, NOT A NEW DATABASE')
+console.log('\nTHE METABOLIC LIBRARY IS A COLLECTION, NOT A FOLD OF THE OTHERS')
 {
   // What this pins: Metabolic exists so a reader can test metabolism without
-  // spending the correction on nine thousand terms they did not ask about. That
-  // only works if it is the SAME sets — same systematic ids, same members —
-  // because a copy under a new id would be tested twice whenever a parent is
-  // also on, and could not be cited as the pathway it came from.
+  // spending the correction on fifteen thousand terms they did not ask about,
+  // AND so that enabling it beside a full default library does something. The
+  // first version kept its parents' ids, which meant indexFor folded every one
+  // of its sets away whenever a parent was on — a collection that did nothing
+  // until you switched four others off. Its own ids are what fixed that, and
+  // they are what these checks are about.
   const man = JSON.parse(readFileSync('public/genesets/manifest.json', 'utf8'))
-  for (const [sp, nSets] of [['human', 502], ['mouse', 335]]) {
+  for (const [sp, nSets] of [['human', 1533], ['mouse', 1391]]) {
     const entry = man.species[sp].sources.find(c => c.source === 'Metabolic')
     check(`${sp} offers Metabolic`, entry?.nSets, nSets)
-    check(`${sp} Metabolic names its parents`, entry.derived.length > 1, true)
-    // Off, because every one of its sets is already in a collection that is on
-    // — switching it on alone changes nothing, and what it is for is what it
-    // lets you switch off.
+    check(`${sp} Metabolic names what it was assembled from`, entry.derived.length > 1, true)
     check(`${sp} Metabolic is off by default`, entry.on, false)
+    // Ontology terms are the half that makes it worth enabling next to a full
+    // library: without GO it carries nothing the pathway collections lack.
+    check(`${sp} Metabolic draws on GO as well as the pathway databases`,
+      entry.derived.includes('GO:BP'), true)
 
     const derived = collection(entry.file)
     check(`${sp} Metabolic parses to the count the manifest claims`,
       derived.sets.length, nSets)
 
-    // Every id, and every member, has to be findable in a parent.
+    // Its own namespace. This is the whole property: no id here may collide
+    // with any id in any collection this species ships, or indexFor folds it
+    // away exactly as it used to.
+    const native = new Set()
+    for (const c of man.species[sp].sources) {
+      if (c.source === 'Metabolic') continue
+      for (const s2 of collection(c.file).sets) native.add(s2.id)
+    }
+    const collide = derived.sets.filter(s2 => native.has(s2.id)).map(s2 => s2.id)
+    check(`${sp} no Metabolic id collides with a shipped collection`, collide, [])
+    check(`${sp} every Metabolic id is prefixed`,
+      derived.sets.every(s2 => s2.id.startsWith('METABOLIC_')), true)
+
+    // Prefixed, but the parent is still recoverable and the members are still
+    // the parent's — an assembled collection may not quietly become a
+    // different set under a name that looks like a citation.
     const parents = entry.derived.map(name =>
       collection(man.species[sp].sources.find(c => c.source === name).file))
     const byId = new Map()
     for (const c of parents) {
-      for (const s of c.sets) {
-        if (!byId.has(s.id)) byId.set(s.id, new Set(Array.from(s.genes, i => c.symbols[i])))
+      for (const s2 of c.sets) {
+        if (!byId.has(s2.id)) byId.set(s2.id, new Set(Array.from(s2.genes, i => c.symbols[i])))
       }
     }
-    const orphan = derived.sets.filter(s => !byId.has(s.id)).map(s => s.id)
-    check(`${sp} every Metabolic set is one of its parents' sets`, orphan, [])
-    const edited = derived.sets.filter(s => {
-      const want = byId.get(s.id)
-      const got = Array.from(s.genes, i => derived.symbols[i])
+    const orphan = derived.sets.filter(s2 => !byId.has(s2.id.slice(10))).map(s2 => s2.id)
+    check(`${sp} dropping the prefix names a real set in a parent`, orphan, [])
+    const edited = derived.sets.filter(s2 => {
+      const want = byId.get(s2.id.slice(10))
+      const got = Array.from(s2.genes, i => derived.symbols[i])
       return !want || want.size !== got.length || got.some(g => !want.has(g))
-    }).map(s => s.id)
-    check(`${sp} and carries its parent's members unchanged`, edited, [])
+    }).map(s2 => s2.id)
+    check(`${sp} and carries that set's members unchanged`, edited, [])
 
-    // The selection is by name, so the names have to be metabolic. A spot check
-    // of what must be in, and of what must not.
-    for (const id of ['HALLMARK_GLYCOLYSIS', 'HALLMARK_OXIDATIVE_PHOSPHORYLATION',
-      'HALLMARK_FATTY_ACID_METABOLISM']) {
-      check(`${sp} Metabolic contains ${id}`, derived.sets.some(s => s.id === id), true)
+    // Three databases call a set "Glycolysis". Merged into one collection the
+    // source column says "Metabolic" for all of them, so the origin has to be
+    // in the NAME or the results table has identical rows telling a reader
+    // nothing.
+    const names = derived.sets.map(s2 => s2.name)
+    check(`${sp} every set name carries its origin`,
+      names.every(n => /\([^)]+\)$/.test(n)), true)
+    check(`${sp} and the names are therefore unique`,
+      new Set(names).size, names.length)
+
+    // A spot check of what must be in, and of what the ontology guard keeps out.
+    for (const id of ['METABOLIC_HALLMARK_GLYCOLYSIS',
+      'METABOLIC_HALLMARK_OXIDATIVE_PHOSPHORYLATION',
+      'METABOLIC_HALLMARK_FATTY_ACID_METABOLISM']) {
+      check(`${sp} Metabolic contains ${id}`, derived.sets.some(s2 => s2.id === id), true)
     }
     check(`${sp} Metabolic excludes signalling that merely contains a metabolite`,
-      derived.sets.some(s => /PURINERGIC|NUCLEOTIDE_EXCISION_REPAIR/.test(s.id)), false)
+      derived.sets.some(s2 => /PURINERGIC|NUCLEOTIDE_EXCISION_REPAIR/.test(s2.id)), false)
+    // GO calls protein turnover, mRNA decay and tRNA processing metabolic
+    // processes. They are, in GO's sense, and they are not what this
+    // collection is for. Named individually, and checked to be CANDIDATES
+    // first — asserting the absence of something that was never in the input
+    // proves nothing about the guard.
+    const turnover = ['GOBP_PROTEIN_CATABOLIC_PROCESS', 'GOBP_MRNA_CATABOLIC_PROCESS',
+      'GOBP_TRNA_METABOLIC_PROCESS']
+    const bp = collection(man.species[sp].sources.find(c => c.source === 'GO:BP').file)
+    check(`${sp} GO:BP does carry the turnover terms`,
+      turnover.filter(id => bp.sets.some(s2 => s2.id === id)), turnover)
+    check(`${sp} and Metabolic excludes every one of them`,
+      turnover.filter(id => derived.sets.some(s2 => s2.id === 'METABOLIC_' + id)), [])
+    // The guard is on the WORD, not the substring: proteinogenic amino acid
+    // biosynthesis is amino acid metabolism and has to survive it.
+    check(`${sp} while proteinogenic amino acid biosynthesis survives`,
+      derived.sets.some(s2 => s2.id === 'METABOLIC_GOBP_PROTEINOGENIC_AMINO_ACID_BIOSYNTHETIC_PROCESS'),
+      true)
   }
 
-  // The point of keeping the ids: both on is not two tests of one pathway.
+  // The property the ids buy: enabling it beside a parent adds its sets rather
+  // than folding into it. Both versions of glycolysis survive, under different
+  // sources, which is also what makes the double-testing warning on the card
+  // a true statement rather than a precaution.
   const both = ['mouse.hallmark.gs', 'mouse.metabolic.gs'].map(collection)
   const idx = indexFor(both, GENES)
-  check('a set in two enabled collections is folded once',
-    idx.sets.length, new Set(idx.sets.map(s => s.id)).size)
-  check('and the parent collection is the one that names it',
-    idx.sets.filter(s => s.id.startsWith('HALLMARK_')).every(s => s.source === 'Hallmark'), true)
+  const glyc = idx.sets.filter(s2 =>
+    s2.id === 'HALLMARK_GLYCOLYSIS' || s2.id === 'METABOLIC_HALLMARK_GLYCOLYSIS')
+  check('Hallmark glycolysis survives beside the Metabolic library',
+    glyc.map(s2 => s2.source).sort(), ['Hallmark', 'Metabolic'])
+  check('and every id in the folded index is still unique',
+    idx.sets.length, new Set(idx.sets.map(s2 => s2.id)).size)
+
+  // The fold itself still works, for the case a reader can actually create:
+  // a GMT of their own repeating a set MSigDB already ships.
+  {
+    const mine = { species: 'mouse', source: 'My sets', release: 'your file',
+      symbols: both[0].symbols,
+      sets: [both[0].sets[0]] }
+    const folded = indexFor([both[0], mine], GENES)
+    check('a custom GMT repeating an MSigDB id is tested once',
+      folded.sets.filter(s2 => s2.id === both[0].sets[0].id).length, 1)
+  }
 }
 
 console.log('\nTHE MSIGDB ASSETS')

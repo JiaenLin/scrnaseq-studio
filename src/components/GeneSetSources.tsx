@@ -134,7 +134,7 @@ export default function GeneSetSources({
             key={s.source} className="chip" aria-pressed={sources.includes(s.source)}
             title={`${s.nSets.toLocaleString()} sets · ${(s.bytes / 1e6).toFixed(2)} MB`
               + (s.projected ? ' · human sets mapped through orthologs, not a mouse annotation' : '')
-              + (s.derived ? ` · the metabolic pathways of ${s.derived.join(', ')}, under their own ids` : '')
+              + (s.derived ? ` · assembled from ${s.derived.join(', ')}` : '')
               + (sources.includes(s.source) ? '' : ' — not downloaded yet')}
             onClick={() => toggle(s.source)}
           >
@@ -198,25 +198,39 @@ export default function GeneSetSources({
       )}
 
       {/*
-        A derived collection says what it is a subset OF.
+        An assembled collection says what it was assembled FROM, and what
+        having it on beside those costs.
 
-        Without it "Metabolic" sits in that row looking like a database beside
-        KEGG and Reactome, which would make a term found in it read as a second,
-        independent line of evidence for the same pathway. It is the same sets:
-        same systematic ids, same members, chosen out of those collections by
-        name. What it is FOR is the sentence after — turning its parents off is
-        the whole point, because over-representation is corrected across
-        everything tested and 9 000 sets spend that correction on terms nobody
-        asked about.
+        Without the first sentence "Metabolic" sits in that row looking like a
+        database beside KEGG and Reactome, and a hit in it reads as a second,
+        independent line of evidence for a pathway one of them already carries.
+        Without the second, the reader is not told that the overlap is now
+        tested twice — which is the price of the collection being a collection
+        rather than a fold of the others, and not a price to charge silently.
       */}
-      {chosen.filter(s => s.derived?.length).map(s => (
-        <p key={s.source} className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
-          <b>{s.source}</b> is the metabolic pathways of {s.derived!.join(', ')}, under their own
-          MSigDB ids — so a set in both is tested once, and switching those collections off
-          leaves a test of metabolism alone, corrected across {s.nSets.toLocaleString()} sets
-          instead of {avail.filter(x => x.on).reduce((a, x) => a + x.nSets, 0).toLocaleString()}.
-        </p>
-      ))}
+      {chosen.filter(s => s.derived?.length).map(s => {
+        // Only the parents actually switched on can be double-tested. A parent
+        // that is off contributes nothing to overlap with, so naming it here
+        // would be a warning about a thing that is not happening.
+        const overlapping = s.derived!.filter(name => sources.includes(name))
+        return (
+          <p key={s.source} className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+            <b>{s.source}</b> is a metabolic library assembled from{' '}
+            {s.derived!.join(', ')} — {s.nSets.toLocaleString()} sets under their own ids, so
+            they are tested whatever else is enabled.
+            {overlapping.length > 0 && (
+              <>
+                {' '}
+                <span style={{ color: 'var(--warn)' }}>
+                  {overlapping.join(', ')} {overlapping.length === 1 ? 'is' : 'are'} on as well,
+                  so a term in both is tested twice and corrected across twice.
+                </span>{' '}
+                Switch {overlapping.length === 1 ? 'it' : 'them'} off to test metabolism alone.
+              </>
+            )}
+          </p>
+        )
+      })}
 
       {chosen.some(s => s.projected) && (
         <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>

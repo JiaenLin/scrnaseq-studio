@@ -271,37 +271,65 @@ Two charts, and the form of each is doing work:
 
 ---
 
-### 2.9 A metabolic collection, because MSigDB does not publish one
+### 2.9 A metabolic library, because MSigDB does not publish one
 
 Over-representation is corrected across everything tested. A reader asking whether a
 contrast is metabolic has, in MSigDB, no way to ask only that: the metabolic pathways
-are real and well curated, and they are scattered across KEGG, Reactome, WikiPathways,
-Hallmark and PID with signalling, disease and development beside them. Testing the
-default library to find out about glycolysis spends the correction on nine thousand
-terms nobody asked about.
+and the metabolic ontology terms are real and well curated, and they are scattered
+across KEGG, Reactome, WikiPathways, Hallmark, PID and GO:BP with signalling, disease,
+development, protein turnover and mRNA decay beside them. Testing the default library
+to find out about glycolysis spends the correction on nine thousand terms nobody asked
+about.
 
-So `scripts/derive-metabolic.mjs` packs those pathways as a collection of its own —
-502 sets for human, 335 for mouse — and the studio offers it beside the databases it
-came from. Three constraints make that safe to do:
+So `scripts/derive-metabolic.mjs` assembles one — **1 533 sets for human, 1 391 for
+mouse**, 181 and 178 kB, offered beside the databases it drew on and off by default.
 
-- **Nothing is invented or edited.** A set here IS the parent's set: same systematic
-  id, same members, same readable name. `scripts/test-sets.mjs` checks every id and
-  every member against a parent, so an edit cannot pass.
-- **Both on is not two tests of one pathway.** `indexFor` folds a set id once however
-  many enabled collections carry it. The overlap is therefore free, and the worst case
-  of switching this on beside its parents is that it adds nothing — which is correct,
-  because it has nothing to add. What it is FOR is what it lets you switch off.
-- **The selection rule is stated, because it is a name match and not a category.**
-  MSigDB ships no machine-readable metabolic flag, so the rule is a vocabulary of
-  metabolism applied to the systematic name — written out rather than reduced to
-  "METABOL", because glycolysis, the TCA cycle, oxidative phosphorylation, the pentose
-  phosphate pathway and beta-oxidation are all metabolism and none of them says so.
-  Three names the vocabulary catches that are not metabolism (purinergic signalling,
-  nucleotide excision repair, nucleotide binding) are excluded by hand.
+The first version of this file was a **subset** that kept its parents' systematic ids,
+so that a set present in two enabled collections would be folded and tested once. That
+was correct arithmetic and the wrong product: the parent collections are on by default,
+so `indexFor` folded every one of its sets away and switching the collection on changed
+nothing a reader could see. A collection that does nothing until you switch four others
+off is not a collection beside the others, it is a mode. It is independent now, and
+independent means two things, both of which cost something:
 
-GO:BP is deliberately not a source. "Metabolic process" in GO covers protein turnover
-and mRNA decay as readily as intermediary metabolism, and a collection that mixes
-those is not the boundary this one exists to draw.
+- **Its own ids.** Every set is `METABOLIC_` + the id it was assembled from, so no fold
+  can remove it and every hit is reported under Metabolic whatever else is enabled. The
+  price is that a pathway also present in an *enabled* parent is now tested twice and
+  enters the Benjamini–Hochberg correction twice. That is stated on the card, in the
+  warning colour, naming the parents actually on and offering the fix — switch them off
+  and the test is metabolism alone. The parent id is recoverable by dropping the prefix,
+  so a hit is still citable as the pathway it is, and `scripts/test-sets.mjs` checks
+  that dropping the prefix names a real set in a parent and that its members are that
+  set's, unchanged.
+- **Its own content.** GO:BP and GO:MF are sources here, not only the curated pathway
+  collections, so the library carries 1 031 metabolic terms no pathway database has —
+  which is what makes it worth enabling *next to* a full default library rather than
+  instead of one.
+
+Merged into one collection, Hallmark's "Glycolysis", Reactome's and WikiPathways' are
+three different sets whose source column now reads "Metabolic" for all three. So the
+origin goes in the **name** — `Glycolysis (Hallmark)`, `Glycolysis (Reactome)` —
+because three identical rows in a results table tell a reader nothing. The test asserts
+the names are unique for exactly that reason.
+
+The selection is by NAME, and that is a real limit, stated rather than hidden: MSigDB
+ships no machine-readable metabolic flag. What makes it defensible is that **the rule
+differs by the kind of source**. A pathway database has already decided that a pathway
+is a pathway, so a KEGG entry called "X metabolism" needs no guard. An ontology has
+not — it classifies everything — so the same vocabulary there is guarded against
+macromolecule turnover, and GO:MF is additionally required to name an enzyme, because a
+molecular function is metabolic only when it is a reaction. Without that gate the
+vocabulary returns 99 MF terms dominated by "phospholipid binding" and "guanyl
+nucleotide exchange factor activity"; with it, 19, all of them a metabolic enzyme.
+
+Two details of the guards are worth recording because they were found by the tests
+rather than by reading. `PROTEIN` is matched on the word and not the substring, so
+lipoprotein and apolipoprotein metabolism survive while protein catabolism does not —
+and so does *proteinogenic* amino acid biosynthesis, which a substring match would have
+thrown away. And `MITOCHONDRI` is deliberately absent from the vocabulary: it reads as
+a metabolic word and would carry in mitochondrial translation and mitochondrial DNA
+replication, where the respiratory terms are already caught by `ELECTRON_TRANSPORT`,
+`CELLULAR_RESPIRATION` and `ATP_SYNTHESIS`, which say what they mean.
 
 ## 3. Interface
 
