@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, ColorBy, DEView, GroupBy, Method, PlotKind, TabId } from './types.ts'
 import { parseBundle } from './lib/bundle.ts'
 import { readCollectionIndex } from './lib/collection.ts'
@@ -6,6 +6,7 @@ import { openCollection } from './lib/collection-source.ts'
 import { bundleSource, condKey, demoSource, type Source } from './lib/source.ts'
 import { condLabel, designFor, sameOrOverlapping, thresholdFor } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
+import { withCondOrder } from './lib/order.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
 import CondPicker from './components/CondPicker.tsx'
 import Landing from './components/Landing.tsx'
@@ -20,6 +21,7 @@ import GeneSets from './components/GeneSets.tsx'
 import Methods from './components/Methods.tsx'
 import ViewBoundary from './components/Boundary.tsx'
 import ViewMenu from './components/ViewMenu.tsx'
+import GroupOrder from './components/GroupOrder.tsx'
 import { detectSpecies, type Detection, type Species } from './lib/species.ts'
 import { defaultSources, useGeneSets } from './lib/genesets.ts'
 import type { Collection } from './lib/msigdb.ts'
@@ -157,7 +159,21 @@ function needsOf(tab: TabId): Needs {
 }
 
 export default function App() {
-  const [src, setSrc] = useState<Source | null>(null)
+  const [opened, setOpened] = useState<Source | null>(null)
+  /**
+   * The order the reader wants the groups drawn in, by name.
+   *
+   * Empty means the object's own order, which is what every figure has always
+   * used and what it goes back to. Held here rather than in the Source for the
+   * same reason cluster names are: the Source stays exactly what the file said,
+   * and this is a user's view of it.
+   */
+  const [condOrder, setCondOrder] = useState<string[]>([])
+  // One rewrite of `d.conds` — see lib/order.ts. Memoised so an unchanged order
+  // hands back the identical Source and Dataset, which is what the caches keyed
+  // on them require.
+  const src = useMemo(
+    () => (opened ? withCondOrder(opened, condOrder) : null), [opened, condOrder])
   const [openError, setOpenError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [openNote, setOpenNote] = useState<string | null>(null)
@@ -283,7 +299,7 @@ export default function App() {
   }, [lib.manifest, species, srcs.length])
 
   function adopt(next: Source) {
-    setSrc(next)
+    setOpened(next)
     setTypes(next.types.map(t => ({ ...t })))
     setCt(next.types[0]?.name ?? '')
     setCtrl([next.d.conds[0]])
@@ -327,6 +343,9 @@ export default function App() {
     // to be. Carrying the previous object's choice across would be worse — the
     // collections differ by species and mouse has no KEGG.
     setSrcs([])
+    // The next object's levels are its own; an order named for the last one's
+    // would place whichever of them happen to share a name and leave the rest.
+    setCondOrder([])
   }
 
   const openDemo = (key: string) => {
@@ -518,7 +537,7 @@ export default function App() {
               className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[--r-sm] border-0 tx-micro font-bold"
               style={{ background: 'var(--ink)', color: 'var(--surface)' }}
               title="Close this object and open another"
-              onClick={() => setSrc(null)}
+              onClick={() => setOpened(null)}
             >sc</button>
             <span className="flex-none tx-small" style={{ color: 'var(--ink-3)' }}>
               scRNA-seq Studio
@@ -694,6 +713,13 @@ export default function App() {
                   <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
                   {chip.text}
                 </span>
+              )}
+              {/* Only where there is an order to change: one group has no
+                  arrangement, and a menu that cannot do anything is worse than
+                  no menu. */}
+              {d.conds.length > 1 && (
+                <GroupOrder conds={d.conds} custom={condOrder.length > 0} palKey={palKey}
+                  onChange={setCondOrder} onReset={() => setCondOrder([])} />
               )}
               <ViewMenu palKey={palKey} rampKey={rampKey} onPal={setPalKey} onRamp={setRampKey} />
             </span>
