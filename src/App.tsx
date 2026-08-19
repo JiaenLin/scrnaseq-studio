@@ -21,6 +21,7 @@ import { Differential, type StatsProps } from './components/Stats.tsx'
 import Enrichment from './components/Enrichment.tsx'
 import GeneExpression from './components/GeneExpression.tsx'
 import GeneSets from './components/GeneSets.tsx'
+import ScoreMany from './components/ScoreMany.tsx'
 import Coexpression from './components/Coexpression.tsx'
 import Methods from './components/Methods.tsx'
 import ViewBoundary from './components/Boundary.tsx'
@@ -245,6 +246,8 @@ export default function App() {
   // Which gene list the reader has asked to score, joined. Here rather than in
   // the tab so it survives a trip to Markers, like every other gate.
   const [scoreRan, setScoreRan] = useState<string | null>(null)
+  /** The go-ahead for the several-sets-at-once pass, held for the same reason. */
+  const [manyRan, setManyRan] = useState<string | null>(null)
   /**
    * The co-expression seed, and its gate.
    *
@@ -383,6 +386,7 @@ export default function App() {
     setMarkersGo(!next.lazy)
     setMarkersWant(new Set())
     setScoreRan(null)
+    setManyRan(null)
     setCoexprSeed([])
     setCoexprRan(null)
     const det = detectSpecies(next.names.display, next.names.other)
@@ -890,6 +894,7 @@ export default function App() {
                 seed={coexprSeed} onSeed={setCoexprSeed}
                 ran={coexprRan} onRan={setCoexprRan} />
             ) : tab === 'sets' ? (
+              <>
               <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
                 onPickGene={pickGene}
                 onCorrelate={genes => { setCoexprSeed(genes); setCoexprRan(null); setTab('coexpr') }}
@@ -897,6 +902,9 @@ export default function App() {
                     customSets={customSets} onCustomSets={setCustomSets}
                 detected={detected}
                 scoreRan={scoreRan} onScoreRan={setScoreRan} />
+              <ScoreMany src={src} types={types} ct={ct} palKey={palKey}
+                lib={lib} ran={manyRan} onRan={setManyRan} />
+              </>
             ) : (
               <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
                 padjMax={padjMax} lfcMin={lfcMin} gates={gates}

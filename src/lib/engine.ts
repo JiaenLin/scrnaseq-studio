@@ -191,6 +191,7 @@ function deliver(genes: readonly string[], r: JobResult): ResultOf[Job['kind']] 
     // Already by gene index, like the two per-cell kinds — the names are the
     // page's business and it has them.
     case 'correlate': return { r: r.r, pct: r.pct }
+    case 'scoreMany': return { scores: r.scores, nSets: r.nSets }
   }
 }
 
@@ -205,6 +206,11 @@ function jobBuffers(job: Job): Transferable[] {
       job.bucket.buffer as Transferable,
       job.size.buffer as Transferable,
       job.seed.buffer as Transferable,
+    ]
+    case 'scoreMany': return [
+      job.ptr.buffer as Transferable,
+      job.set.buffer as Transferable,
+      job.w.buffer as Transferable,
     ]
   }
 }

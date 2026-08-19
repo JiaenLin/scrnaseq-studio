@@ -25,7 +25,7 @@ import {
 } from './jobs.ts'
 import { scanMatrix, type MatrixPlan } from './part-scan.ts'
 import { corrPlan } from './correlate.ts'
-import { averagesPlan, scoreAccumPlan } from './score.ts'
+import { averagesPlan, scoreAccumPlan, scoreManyAccumPlan } from './score.ts'
 import { markersPlan, wilcoxPlan } from './stats.ts'
 
 const post = (m: FromWorker, transfer: Transferable[] = []) =>
@@ -120,6 +120,7 @@ const PHASE: Record<Job['kind'], string> = {
   averages: 'expression bins',
   score: 'module score',
   correlate: 'correlating every gene',
+  scoreMany: 'module scores',
 }
 
 async function run(id: number, job: Job): Promise<void> {
@@ -140,6 +141,11 @@ async function run(id: number, job: Job): Promise<void> {
     await scanMatrix(file, plan, p.visit, report, gone)
     if (gone()) return
     result = { kind: 'score', scores: p.done() }
+  } else if (job.kind === 'scoreMany') {
+    const p = scoreManyAccumPlan(job)
+    await scanMatrix(file, plan, p.visit, report, gone)
+    if (gone()) return
+    result = { kind: 'scoreMany', scores: p.done(), nSets: job.nSets }
   } else if (job.kind === 'correlate') {
     const p = corrPlan(job)
     await scanMatrix(file, plan, p.visit, report, gone)
@@ -185,5 +191,6 @@ function resultBuffers(r: JobResult): Transferable[] {
     case 'averages': return [r.avg.buffer as Transferable]
     case 'score': return [r.scores.buffer as Transferable]
     case 'correlate': return [r.r.buffer as Transferable, r.pct.buffer as Transferable]
+    case 'scoreMany': return [r.scores.buffer as Transferable]
   }
 }

@@ -14,7 +14,7 @@
 
 import type { MatrixPlan } from './part-scan.ts'
 import type { CorrResult, CorrSpec } from './correlate.ts'
-import type { AveragesSpec, ScoreSpec } from './score.ts'
+import type { AveragesSpec, ScoreManySpec, ScoreSpec } from './score.ts'
 import type { DEResult, MarkersSpec, RawResult, WilcoxSpec } from './stats.ts'
 
 /** A question for the worker. The engine takes ownership of the typed arrays. */
@@ -24,6 +24,7 @@ export type Job =
   | ({ kind: 'averages' } & AveragesSpec)
   | ({ kind: 'score' } & ScoreSpec)
   | ({ kind: 'correlate' } & CorrSpec)
+  | ({ kind: 'scoreMany' } & ScoreManySpec)
 
 /** A DE table, column by column. Parallel arrays, in final ranked order. */
 export interface Table {
@@ -62,6 +63,8 @@ export type JobResult =
    * move the cut without re-reading four minutes of file.
    */
   | { kind: 'correlate'; r: Float64Array; pct: Float64Array }
+  /** Scores for several sets at once: set `s`, cell `i` at `s * nCells + i`. */
+  | { kind: 'scoreMany'; scores: Float32Array; nSets: number }
 
 /** What a view gets back, per job kind. */
 export interface ResultOf {
@@ -73,6 +76,8 @@ export interface ResultOf {
   score: Float32Array
   /** Correlation with the seed, and detection rate, per gene index. */
   correlate: CorrResult
+  /** One row per set, laid end to end over the cells. */
+  scoreMany: { scores: Float32Array; nSets: number }
 }
 
 export function encodeTable(r: RawResult): Table {

@@ -298,6 +298,39 @@ Two charts, and the form of each is doing work:
 
 ---
 
+### 2.8a Several signatures, one pass
+
+A module score is a weighted walk over the genes that carry a weight, and nothing about
+that walk is specific to one signature — so scoring seven sets one at a time reads the
+matrix seven times for no reason. On an object held in memory that is a wasted second; on
+a 5.8 GB collection it is seven passes of several minutes each, which decides whether the
+comparison gets made at all. Somebody who has just pasted seven pathways wants all seven.
+
+So the weights are held gene-major and sparse — a CSR over genes, each entry naming a SET
+and the weight it gives that gene — and one walk accumulates every signature at once. Gene
+major because the pass is gene major: one lookup per gene, then one walk over its cells
+adding to however many sets weight it, which for a real signature is one or two. A dense
+`nSets × nGenes` matrix holds the same information and would make the inner loop
+proportional to the number of sets rather than to the number of sets that contain the gene.
+
+What is shared is the pass, **not the statistics**. `scoreManyPlan` runs the ordinary
+`scorePlan` per set, so every signature keeps its own control genes, matched to its own
+expression levels; sharing one control set across seven would be faster still and would
+score every one of them against the wrong baseline. `scripts/test-sets.mjs` holds the two
+paths to **bit-for-bit** equality rather than to closeness — the same genes are folded in
+the same order with the same weights, so anything but an exact match would mean the shared
+pass had changed one of the answers.
+
+The figure is signatures down the side, populations along the bottom, on a diverging scale
+centred on zero — a module score is signed and its zero means "no higher than genes of
+comparable abundance", so a scale whose neutral sits anywhere else misreports which way a
+population went. On the demo the five SVZ programmes land where they should: quiescence
+highest in qNSC, activation in aNSC, proliferation in TAP, each negative in the others.
+
+Capped at thirty sets. Not a limit on the pass, which is one walk whatever the number, but
+on the two things that do grow — one Float32 per set per cell (thirty across the atlas is
+35 MB) and a figure that stops being readable long before that.
+
 ### 2.9 A metabolic library, because MSigDB does not publish one
 
 Over-representation is corrected across everything tested. A reader asking whether a

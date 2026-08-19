@@ -246,6 +246,100 @@ export interface ScoreSpec {
 }
 
 /**
+ * Several signatures, scored in ONE pass over the matrix.
+ *
+ * A module score is a weighted walk over the genes that carry a weight, and
+ * nothing about that walk is specific to one signature — so scoring seven sets
+ * one at a time reads the file seven times for no reason. On an object held in
+ * memory that is a wasted second; on a 5.8 GB collection it is seven passes of
+ * several minutes each, which is the difference between the analysis being
+ * available and not.
+ *
+ * The weights are held gene-major and sparse, as a CSR over genes: `ptr[g]` to
+ * `ptr[g+1]` are the entries for gene g, each naming a SET and the weight it
+ * gives that gene. Gene-major because the pass is gene-major — one lookup per
+ * gene, then one walk over its cells adding to however many sets weight it,
+ * which for a real signature is one or two. A dense nSets x nGenes matrix would
+ * be the same information at 30 x 31 053 doubles and would make the inner loop
+ * proportional to the number of SETS rather than to the number of sets that
+ * actually contain the gene.
+ */
+export interface ScoreManySpec {
+  /** Offsets into `set`/`w`, length nGenes + 1. */
+  ptr: Int32Array
+  /** Which set each entry belongs to. */
+  set: Int32Array
+  /** The weight that gene carries in that set. Never 0. */
+  w: Float64Array
+  nSets: number
+  nCells: number
+  nGenes: number
+}
+
+/** Scores for several sets: set `s`, cell `i` is at `s * nCells + i`. */
+export function scoreManyAccumPlan(spec: ScoreManySpec) {
+  const scores = new Float32Array(spec.nSets * spec.nCells)
+  const { ptr, set, w, nCells } = spec
+  return {
+    visit: (gene: number, each: NonZeroWalk) => {
+      const from = ptr[gene], to = ptr[gene + 1]
+      if (from === to) return
+      each((cell, value) => {
+        for (let k = from; k < to; k++) scores[set[k] * nCells + cell] += value * w[k]
+      })
+    },
+    done: (): Float32Array => scores,
+  }
+}
+
+/**
+ * The weights for several signatures, folded into one gene-major structure.
+ *
+ * Each set keeps its OWN control genes — `scorePlan` is run per set, unchanged
+ * — because the control set is matched to that signature's expression levels
+ * and sharing one across seven signatures would score every one of them against
+ * the wrong baseline. What is shared is the pass, not the statistics.
+ */
+export function scoreManyPlan(
+  src: Source, sets: readonly string[][], avg: Float64Array, opts: ScoreOpts,
+): ScoreManySpec {
+  const nGenes = src.genes.length
+  const per = sets.map(used => scorePlan(src, used, avg, opts))
+  // Counted first so the arrays are allocated once at the right size.
+  const counts = new Int32Array(nGenes)
+  for (const p of per) {
+    for (const g of p.order) if (p.weight[g] !== 0) counts[g]++
+  }
+  const ptr = new Int32Array(nGenes + 1)
+  for (let g = 0; g < nGenes; g++) ptr[g + 1] = ptr[g] + counts[g]
+  const total = ptr[nGenes]
+  const set = new Int32Array(total)
+  const w = new Float64Array(total)
+  const at = ptr.slice(0, nGenes)
+  per.forEach((p, si) => {
+    for (const g of p.order) {
+      const val = p.weight[g]
+      if (val === 0) continue
+      const k = at[g]++
+      set[k] = si
+      w[k] = val
+    }
+  })
+  return { ptr, set, w, nSets: sets.length, nCells: src.d.cells.length, nGenes }
+}
+
+/** The same, in memory, for an object that needs no worker. */
+export function scoreManyInline(src: Source, spec: ScoreManySpec): Float32Array {
+  const plan = scoreManyAccumPlan(spec)
+  const genes = src.genes
+  for (let g = 0; g < genes.length; g++) {
+    if (spec.ptr[g] === spec.ptr[g + 1]) continue
+    plan.visit(g, cb => src.forEachNonZero(genes[g], cb))
+  }
+  return plan.done()
+}
+
+/**
  * Fold every weighted gene into the per-cell score, one gene at a time.
  *
  * Used by the streaming path and by the worker, which is the point: the file is

@@ -19,7 +19,8 @@ const DEFS = MOUSE.flatMap(c => c.sets.map(s => ({
   genes: Array.from(s.genes, i => c.symbols[i]),
 })))
 import {
-  geneAveragesSync, moduleScore, resolve, SCORE_DEFAULTS, scoreAccumPlan, scorePlan, summarise,
+  geneAveragesSync, moduleScore, resolve, SCORE_DEFAULTS, scoreAccumPlan, scoreInline,
+  scoreManyInline, scoreManyPlan, scorePlan, summarise,
 } from '../src/lib/score.ts'
 import { GENES } from '../src/lib/demo.ts'
 import { demoSource } from '../src/lib/source.ts'
@@ -643,6 +644,48 @@ console.log('\nMODULE SCORE')
 console.log('\nSUMMARIES')
 check('an empty selection summarises to zeros', summarise(new Float32Array([1, 2, 3]), []).n, 0)
 near('median of a known vector', summarise(new Float32Array([1, 2, 3, 4, 5]), [0, 1, 2, 3, 4]).med, 3)
+
+console.log('\nSEVERAL SIGNATURES, ONE PASS')
+{
+  const demo = demoSource('cohort')
+  // What this pins: scoring seven sets must read the matrix once, and the
+  // numbers must be the ones seven separate passes would have produced. Each
+  // set keeps its OWN control genes — the control is matched to that
+  // signature's expression levels, and sharing one across seven would score
+  // every one of them against the wrong baseline — so what is shared is the
+  // pass, not the statistics.
+  const avg = geneAveragesSync(demo)
+  const many = [
+    ['Ascl1', 'Egfr', 'Ccnd2', 'Mcm2', 'Sox2'],
+    ['Gfap', 'Aqp4', 'Id3', 'Hopx', 'Thbs4'],
+    ['Mki67', 'Top2a', 'Cenpf', 'Ube2c', 'Ccnb1'],
+  ]
+  const spec = scoreManyPlan(demo, many, avg, SCORE_DEFAULTS)
+  check('one column per set', spec.nSets, many.length)
+  check('the weights are gene-major and sparse', spec.ptr.length, demo.genes.length + 1)
+  check('and every entry names a real set',
+    Array.from(spec.set).every(v => v >= 0 && v < many.length), true)
+
+  const all = scoreManyInline(demo, spec)
+  const n = demo.d.cells.length
+  check('one score per set per cell', all.length, many.length * n)
+  let worst = 0
+  many.forEach((used, si) => {
+    const one = scoreInline(demo, scorePlan(demo, used, avg, SCORE_DEFAULTS))
+    for (let i = 0; i < n; i++) worst = Math.max(worst, Math.abs(one[i] - all[si * n + i]))
+  })
+  // Bit for bit, not merely close: the same genes are folded in the same order
+  // with the same weights, so anything but zero would mean the shared pass had
+  // changed one of the answers.
+  check('all-at-once equals one-at-a-time exactly', worst, 0)
+
+  // A gene in two of the sets must contribute to both, not to whichever came last.
+  const shared = scoreManyPlan(demo, [['Ascl1', 'Egfr'], ['Ascl1', 'Gfap']], avg, SCORE_DEFAULTS)
+  const gi = demo.genes.indexOf('Ascl1')
+  const sets = Array.from(shared.set.slice(shared.ptr[gi], shared.ptr[gi + 1]))
+  check('a gene shared by two sets carries a weight in both',
+    [...new Set(sets)].sort(), [0, 1])
+}
 
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll gene-set tests passed\n')
 process.exit(failed ? 1 : 0)
