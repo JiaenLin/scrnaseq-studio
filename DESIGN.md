@@ -117,6 +117,33 @@ pseudobulk is for a claim that has to survive a new animal. On a one-sample-per-
 design the Methods text states plainly that the p-values describe variation between
 cells, not between animals — the study is not blocked, it is described accurately.
 
+### 2.1a The gates are a control, not a constant
+
+`FindMarkers` does not test every gene. Seurat applies two gates first —
+`logfc.threshold` 0.25 and `min.pct` 0.1 — and a gene failing either is dropped without
+being tested at all. They are speed pre-filters: skipping the rank sum is most of what
+they buy, and the genes they drop are ones no test would have called.
+
+They were constants here, and that made them the one filter in the studio nobody could
+see or move. An object with twenty thousand genes returns four thousand rows, the table
+pages honestly through those four thousand, and it still reads as a truncated table —
+reported as exactly that. So two things changed. The count is stated under the table, with
+both gate names, because a number that surprises a reader needs its reason next to it and
+not in Methods. And the gates themselves are now inputs, with **Test every gene** setting
+both to zero.
+
+Two consequences, both stated on the card rather than used as reasons to withhold the
+control. It is slower, because the gates were the speed. And Bonferroni is applied across
+however many genes were tested, so testing twenty thousand instead of four makes the
+correction five times harsher — a gene significant at Seurat's defaults can stop being
+significant when you widen the gates, which is a real property of the correction and not a
+bug.
+
+The gates are part of the QUESTION, so they are in the pass's cache key and in the Run
+gate: widening one on a streamed object re-arms Run rather than silently starting a
+four-minute pass on a keystroke. Methods reads the gates in force, so a reader who has
+widened them does not get a paragraph describing Seurat's defaults.
+
 ### 2.2 Two thresholds, because there are two scales
 
 `|log₂FC| > 1` is a **bulk convention that does not transfer**. Seurat's `avg_log2FC`

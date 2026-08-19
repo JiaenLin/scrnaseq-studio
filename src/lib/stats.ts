@@ -22,6 +22,31 @@ export const MIN_REPS_PB = 4
 export const LFC_GATE = 0.25
 /** Seurat's min.pct. */
 export const PCT_GATE = 0.1
+
+/**
+ * The two gates a gene must clear before it is TESTED at all.
+ *
+ * Seurat's `logfc.threshold` and `min.pct`, and its defaults, because the point
+ * of matching them is that a reader can reproduce this in `FindMarkers` and get
+ * the same rows. They were constants, which made them the one filter in the
+ * studio nobody could see or move: an object with twenty thousand genes returns
+ * four thousand rows and the other sixteen thousand were never tested, which is
+ * correct behaviour and reads as a truncated table.
+ *
+ * Zero on both tests every gene the object measures. That is slower — the gates
+ * are a speed pre-filter and skipping the rank sum is most of what they buy —
+ * and it makes the Bonferroni correction harsher, since it is applied across
+ * however many genes were tested. Both are consequences worth stating rather
+ * than reasons to withhold the control.
+ */
+export interface Gates {
+  /** Fraction of cells that must detect the gene, on at least one side. */
+  pct: number
+  /** Smallest |log2 fold change| worth testing. */
+  lfc: number
+}
+
+export const SEURAT_GATES: Gates = { pct: PCT_GATE, lfc: LFC_GATE }
 /**
  * Seurat's min.cells.group: a side smaller than this is not tested at all.
  *
@@ -220,6 +245,7 @@ function labels(nCells: number, a: Int32Array, b: Int32Array): Int8Array {
  */
 function testGene(
   gene: number, each: NonZeroWalk, lab: Int8Array, n1: number, n2: number,
+  gates: Gates = SEURAT_GATES,
 ): RawRow | null {
   const xs: number[] = []
   const gs: number[] = []
@@ -235,9 +261,11 @@ function testGene(
 
   const pct1 = d1 / n1
   const pct2 = d2 / n2
-  if (pct1 < PCT_GATE && pct2 < PCT_GATE) return null
+  if (pct1 < gates.pct && pct2 < gates.pct) return null
   const lfc = Math.log2(s1 / n1 + 1) - Math.log2(s2 / n2 + 1)
-  if (!Number.isFinite(lfc) || Math.abs(lfc) < LFC_GATE) return null
+  // `< gates.lfc` rather than `<= `, so a gate of 0 keeps a gene whose fold
+  // change is exactly zero — which is what "test everything" has to mean.
+  if (!Number.isFinite(lfc) || Math.abs(lfc) < gates.lfc) return null
 
   const { p, nlp } = rankSumSparseFull(xs, gs, n1 - d1, n2 - d2)
   return { gene, lfc, p, padj: 1, fdr: 1, nlp, pct1, pct2 }
@@ -361,6 +389,11 @@ export interface WilcoxSpec {
   n1: number
   n2: number
   nGenes: number
+  /**
+   * The pre-test gates. Optional so an older caller — and every test written
+   * against the old shape — still means Seurat's defaults.
+   */
+  gates?: Gates
 }
 
 export interface MarkersSpec {
@@ -416,7 +449,9 @@ export const condLabel = (side: Conds): string =>
  * number below this are the same test on a different partition, so a comparison
  * of two single levels is byte-for-byte what it was before sets existed.
  */
-export function wilcoxSpec(src: Source, ti: number, ctrl: Conds, cs: Conds): WilcoxSpec {
+export function wilcoxSpec(
+  src: Source, ti: number, ctrl: Conds, cs: Conds, gates: Gates = SEURAT_GATES,
+): WilcoxSpec {
   // `a` is the "1" side: pct.1, and the numerator of the fold change.
   const a = src.group(ti, cs)
   const b = src.group(ti, ctrl)
@@ -425,6 +460,7 @@ export function wilcoxSpec(src: Source, ti: number, ctrl: Conds, cs: Conds): Wil
     n1: a.length,
     n2: b.length,
     nGenes: src.genes.length,
+    gates,
   }
 }
 
@@ -460,21 +496,24 @@ export function markersSpec(
  */
 export function wilcoxPlan(spec: WilcoxSpec) {
   const { lab, n1, n2 } = spec
+  const gates = spec.gates ?? SEURAT_GATES
   const rows: RawRow[] = []
   return {
     empty: n1 < MIN_CELLS_GROUP || n2 < MIN_CELLS_GROUP,
     n0: n2,
     n1,
     visit: (gene: number, each: NonZeroWalk) => {
-      const r = testGene(gene, each, lab, n1, n2)
+      const r = testGene(gene, each, lab, n1, n2, gates)
       if (r) rows.push(r)
     },
     done: (): RawResult => ({ rows: finish(rows, spec.nGenes), n0: n2, n1 }),
   }
 }
 
-export function deWilcox(src: Source, ti: number, ctrl: Conds, cs: Conds): DEResult {
-  const plan = wilcoxPlan(wilcoxSpec(src, ti, ctrl, cs))
+export function deWilcox(
+  src: Source, ti: number, ctrl: Conds, cs: Conds, gates: Gates = SEURAT_GATES,
+): DEResult {
+  const plan = wilcoxPlan(wilcoxSpec(src, ti, ctrl, cs, gates))
   if (plan.empty || !src.scanSync((gi, each) => plan.visit(gi, each))) {
     return { rows: [], n0: plan.n0, n1: plan.n1 }
   }

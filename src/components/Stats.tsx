@@ -3,7 +3,8 @@ import type { CellType, DERow, DEView, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
   condLabel, deWilcox, designFor, inConds, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP,
-  MIN_REPS_PB, PCT_GATE, pseudobulkColumns, sameOrOverlapping, wilcoxSpec, type DEResult,
+  MIN_REPS_PB, pseudobulkColumns, sameOrOverlapping, SEURAT_GATES, wilcoxSpec,
+  type DEResult, type Gates,
 } from '../lib/stats.ts'
 import { useJob } from '../lib/compute.ts'
 import Progress, { Failed } from './Progress.tsx'
@@ -32,6 +33,13 @@ export interface StatsProps {
   /** Significance cutoffs, held at app level so every tab and Methods agree. */
   padjMax: number
   lfcMin: number
+  /**
+   * The gates a gene must clear to be TESTED — Seurat's min.pct and
+   * logfc.threshold. Not a cutoff: these decide what the pass looks at, where
+   * padjMax and lfcMin decide what a finished answer is called significant.
+   */
+  gates: Gates
+  onGates: (g: Gates) => void
   onMethod: (m: Method) => void
   onRun: () => void
   onPadj: (v: number) => void
@@ -68,17 +76,21 @@ const contrastLabel = (p: StatsProps) =>
  * already in hand or still running where it was left.
  */
 function useDE(p: StatsProps) {
+  const g = p.gates
   return useJob<'wilcox'>(
-    p.src, 'de', `de|${p.ti}|${condKey(p.ctrl)}|${condKey(p.cs)}`,
+    // The gates are part of the QUESTION, not a filter over the answer: a gene
+    // they exclude was never tested, so changing them is a different pass and
+    // has to be a different key.
+    p.src, 'de', `de|${p.ti}|${condKey(p.ctrl)}|${condKey(p.cs)}|${g.pct}|${g.lfc}`,
     // `computed` is the reader's go-ahead for THIS contrast. Without it every
     // click in the group pickers started a whole-transcriptome pass — and with
     // sets, choosing four levels a side is seven clicks and seven passes, six
     // of them cancelled a moment after they began.
     p.method === 'wilcox' && !sameOrOverlapping(p.ctrl, p.cs) && p.computed,
-    () => deWilcox(p.src, p.ti, p.ctrl, p.cs),
+    () => deWilcox(p.src, p.ti, p.ctrl, p.cs, g),
     // A fresh spec every time: the engine transfers these arrays rather than
     // copying them, so a reused one would arrive detached.
-    () => ({ kind: 'wilcox', ...wilcoxSpec(p.src, p.ti, p.ctrl, p.cs) }),
+    () => ({ kind: 'wilcox', ...wilcoxSpec(p.src, p.ti, p.ctrl, p.cs, g) }),
   )
 }
 
@@ -112,7 +124,7 @@ function MethodBar(p: StatsProps) {
         </div>
         <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
           {p.method === 'wilcox'
-            ? `logfc.threshold ${LFC_GATE} · min.pct ${PCT_GATE} · Bonferroni`
+            ? `logfc.threshold ${p.gates.lfc} · min.pct ${p.gates.pct} · Bonferroni`
             : `≥ ${MIN_CELLS} cells per sample · summed raw counts · test them in DESeq2`}
         </span>
       </div>
@@ -157,15 +169,65 @@ export function ThresholdBar(p: StatsProps) {
       </label>
       <button
         className="btn btn-quiet ml-auto"
-        title="Back to the default for the selected test"
+        title="Back to the defaults for the selected test"
         onClick={() => {
           p.onPadj(0.05)
           p.onLfc(p.method === 'wilcox' ? LFC_GATE : 1)
+          p.onGates(SEURAT_GATES)
         }}
       >Reset</button>
+
+      {/**
+        * The gates, under a rule of their own.
+        *
+        * A different KIND of control from the two sliders above, and the row
+        * break says so: those decide what a finished answer is called
+        * significant, and can be dragged over a result already in hand. These
+        * decide what the test looks at, so a gene they exclude has no row at
+        * all — moving one is a new question and re-arms Run.
+        */}
+      {p.method === 'wilcox' && (
+        <>
+          <div className="basis-full" />
+          <span className="glabel" title="Seurat's own pre-test filters — a gene that fails either is never tested">
+            tested at all
+          </span>
+          <label className="flex items-center gap-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
+            <span className="mono tx-micro">min.pct</span>
+            <input
+              className="inp w-16" type="number" min={0} max={1} step={0.05}
+              aria-label="Minimum detection rate to test a gene"
+              value={p.gates.pct}
+              onChange={e => p.onGates({ ...p.gates, pct: clamp01(+e.target.value) })} />
+          </label>
+          <label className="flex items-center gap-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
+            <span className="mono tx-micro">logfc.threshold</span>
+            <input
+              className="inp w-16" type="number" min={0} max={5} step={0.05}
+              aria-label="Minimum absolute log2 fold change to test a gene"
+              value={p.gates.lfc}
+              onChange={e => p.onGates({ ...p.gates, lfc: Math.max(0, +e.target.value || 0) })} />
+          </label>
+          <button
+            className="chip"
+            aria-pressed={p.gates.pct === 0 && p.gates.lfc === 0}
+            title="Both gates to zero: every gene the object measures is tested, which is slower and makes the Bonferroni correction harsher"
+            onClick={() => p.onGates(
+              p.gates.pct === 0 && p.gates.lfc === 0 ? SEURAT_GATES : { pct: 0, lfc: 0 })}
+          >Test every gene</button>
+          <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+            {p.gates.pct === 0 && p.gates.lfc === 0
+              ? 'every measured gene is tested — slower, and Bonferroni is applied across all of them'
+              : "Seurat's defaults, so these rows are what FindMarkers would give"}
+          </span>
+        </>
+      )}
     </div>
   )
 }
+
+/** A detection rate is a fraction; a typed 5 is a typo, not a request. */
+const clamp01 = (v: number) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0))
 
 /** Results, or the reason there are none — never a substitute number. */
 function gate(p: StatsProps, de: DEResult | null): React.ReactNode {

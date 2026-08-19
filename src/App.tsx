@@ -4,7 +4,9 @@ import { parseBundle } from './lib/bundle.ts'
 import { readCollectionIndex } from './lib/collection.ts'
 import { openCollection } from './lib/collection-source.ts'
 import { bundleSource, condKey, demoSource, type Source } from './lib/source.ts'
-import { condLabel, designFor, sameOrOverlapping, thresholdFor } from './lib/stats.ts'
+import {
+  condLabel, designFor, sameOrOverlapping, SEURAT_GATES, thresholdFor, type Gates,
+} from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
 import { withCondOrder } from './lib/order.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
@@ -201,6 +203,14 @@ export default function App() {
   const [method, setMethod] = useState<Method>('wilcox')
   const [padjMax, setPadjMax] = useState(0.05)
   const [lfcMin, setLfcMin] = useState(thresholdFor('wilcox').lfc)
+  /**
+   * Seurat's pre-test gates, at app level like the cutoffs beside them.
+   *
+   * Methods names them, the DEG table's footer counts against them and the
+   * pass is keyed on them, so one place has to hold them or the three would
+   * describe different tests.
+   */
+  const [gates, setGates] = useState<Gates>(SEURAT_GATES)
 
   // Which 2D embedding every view draws on. ONE choice for the whole studio: a
   // per-tab setting would let Cells show a UMAP while the feature plot beside it
@@ -336,6 +346,7 @@ export default function App() {
     setMethod('wilcox')
     setPadjMax(0.05)
     setLfcMin(thresholdFor('wilcox').lfc)
+    setGates(SEURAT_GATES)
     setGroupBy('type')
     setPlot('violin')
     // Cell types are held by index, so carrying them across objects would hide
@@ -482,16 +493,17 @@ export default function App() {
   // An object in memory answers instantly, so it is always armed: a Run button
   // in front of a result that is already there is a button that does nothing
   // visible, and readers learn to press it without reading it.
-  const deKey = `${ti}|${condKey(ctrl)}|${condKey(cs)}`
+  const deKey = `${ti}|${condKey(ctrl)}|${condKey(cs)}|${gates.pct}|${gates.lfc}`
   const armed = !src.lazy || deRan === deKey
 
   const statsProps: StatsProps = {
-    src, t, ti, ctrl, cs, method, padjMax, lfcMin,
+    src, t, ti, ctrl, cs, method, padjMax, lfcMin, gates,
     running: false, computed: armed,
     onMethod: changeMethod,
     onRun: () => setDeRan(deKey),
     onPadj: setPadjMax,
     onLfc: setLfcMin,
+    onGates: setGates,
     onPickGene: pickGene,
   }
 
@@ -878,7 +890,7 @@ export default function App() {
                 scoreRan={scoreRan} onScoreRan={setScoreRan} />
             ) : (
               <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
-                padjMax={padjMax} lfcMin={lfcMin}
+                padjMax={padjMax} lfcMin={lfcMin} gates={gates}
                 lib={species && lib.manifest?.species[species]
                   ? { release: lib.manifest.species[species].release,
                     taxon: lib.manifest.species[species].taxon }

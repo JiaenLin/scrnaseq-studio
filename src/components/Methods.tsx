@@ -1,7 +1,7 @@
 import type { CellType, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  condLabel, designFor, LFC_GATE, MIN_CELLS, PCT_GATE } from '../lib/stats.ts'
+  condLabel, designFor, MIN_CELLS, type Gates } from '../lib/stats.ts'
 import { Card, Mono } from './Ui.tsx'
 
 /**
@@ -48,7 +48,7 @@ const refFor = (text: string, table: [RegExp, RefKey][]): RefKey | null =>
   table.find(([re]) => re.test(text))?.[1] ?? null
 
 export default function Methods({
-  src, types, ti, ctrl, cs, method, padjMax, lfcMin, lib,
+  src, types, ti, ctrl, cs, method, padjMax, lfcMin, gates, lib,
 }: {
   src: Source
   types: CellType[]
@@ -59,6 +59,12 @@ export default function Methods({
   /** The cutoffs actually in force, so the prose can never drift from the figures. */
   padjMax: number
   lfcMin: number
+  /**
+   * And the gates in force, for the same reason — a reader who has widened
+   * them has run a different test, and the paragraph that names Seurat's
+   * defaults would be describing an analysis nobody performed.
+   */
+  gates: Gates
   /**
    * Which MSigDB is loaded, so the prose names the release rather than a
    * version somebody typed into it once. Null before it arrives.
@@ -124,7 +130,7 @@ export default function Methods({
   ) : wil ? (
     <>Differential expression between {condLabel(cs)} and {condLabel(ctrl)} within {ct} was tested with a Wilcoxon
     rank-sum test across cells{cite('seurat')}, restricted to genes with an absolute log₂ fold
-    change of at least {LFC_GATE} detected in at least {(PCT_GATE * 100).toFixed(0)}% of cells in
+    change of at least {gates.lfc} detected in at least {(gates.pct * 100).toFixed(0)}% of cells in
     either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an
     adjusted p below {padjMax} and an absolute log₂ fold change of at least {lfcMin} were considered
     differentially expressed.{' '}

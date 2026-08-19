@@ -57,7 +57,7 @@ with no worker and no progress card.
 | **Cells** | UMAP on canvas, coloured by cluster, group, sample, QC metric or gene, split by group on one shared axis range |
 | **Composition** | horizontal 100% stacked bars per sample, plus a per-cell-type bar panel with every animal drawn on top |
 | **Markers** | one-vs-rest dot plot, and cluster renaming that propagates everywhere including Methods |
-| **DEG table** | sortable, filterable, significant-only, with a signed **Combined** ranking column and CSV export; click a row to open that gene |
+| **DEG table** | sortable, filterable, significant-only, with a signed **Combined** ranking column and CSV export; click a row to open that gene. Says how many of the object's genes were **tested**, and Seurat's two pre-test gates (`min.pct`, `logfc.threshold`) are controls — **Test every gene** sets both to zero |
 | **Volcano** | adjustable cutoffs, up/down counts, hover to read a point, click to open the gene, PNG export |
 | **Enrichment** | hypergeometric over-representation on the DEG list — direction, set-size range, ranking and collections all adjustable, including a **Metabolic** collection — 2,610 human / 2,360 mouse sets on its own ids, chosen by reading all 15,646 pathway and ontology term names rather than matching them; click a term for its member genes with their rank among every tested gene; **paste your own sets** in whatever you keep them in — a Python or R dict, JSON, a GMT, `Name: gene, gene` lines — and see what was understood before adding them |
 | **Gene expression** | gene search (one gene or a pasted list of up to 100), as a violin panel, a **Seurat dot plot** — clusterable and transposable — or a **Seurat feature plot** |
