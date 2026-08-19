@@ -3,8 +3,8 @@ import type { CellType, DERow, DEView, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
   condLabel, deWilcox, designFor, inConds, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP,
-  MIN_REPS_PB, pseudobulkColumns, sameOrOverlapping, SEURAT_GATES, wilcoxSpec,
-  type DEResult, type Gates,
+  MIN_REPS_PB, PCT_GATE, pseudobulkColumns, sameOrOverlapping, SEURAT_GATES, wilcoxSpec,
+  type DEResult, type Gates, type SigBasis,
 } from '../lib/stats.ts'
 import { useJob } from '../lib/compute.ts'
 import Progress, { Failed } from './Progress.tsx'
@@ -40,6 +40,9 @@ export interface StatsProps {
    */
   gates: Gates
   onGates: (g: Gates) => void
+  /** Which correction the cutoff cuts on — Bonferroni saturates, so this is a choice. */
+  sigBasis: SigBasis
+  onSigBasis: (b: SigBasis) => void
   onMethod: (m: Method) => void
   onRun: () => void
   onPadj: (v: number) => void
@@ -143,12 +146,26 @@ function MethodBar(p: StatsProps) {
  * numbers, so moving a slider here can never leave one of them describing a
  * different experiment.
  */
-export function ThresholdBar(p: StatsProps) {
+export function ThresholdBar(p: StatsProps & { nTested: number }) {
   const negLog = -Math.log10(Math.max(p.padjMax, 1e-300))
+  const seurat = p.gates.pct === PCT_GATE && p.gates.lfc === LFC_GATE
+  const [openGates, setOpenGates] = useState(false)
+
+  /**
+   * Where Bonferroni stops being able to tell rows apart.
+   *
+   * padj is min(1, p x nTested), so every gene with p above 1/nTested is
+   * pinned to exactly 1 and no cutoff above that admits a single extra row.
+   * The slider still moves; the answer cannot. Saying so is the difference
+   * between a control that looks broken and one whose limit is stated.
+   */
+  const ceiling = p.nTested > 0 ? 1 / p.nTested : 0
+  const inert = p.sigBasis === 'padj' && p.padjMax > ceiling && p.nTested > 0
+
   return (
     <div className="panel mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
       <label className="flex items-center gap-2 tx-small" style={{ color: 'var(--ink-2)' }}>
-        <span className="glabel">padj ≤</span>
+        <span className="glabel">{p.sigBasis === 'fdr' ? 'FDR ≤' : 'padj ≤'}</span>
         <input
           type="range" min={0} max={10} step={0.1} value={Math.min(negLog, 10)}
           aria-label="Adjusted p-value threshold"
@@ -167,6 +184,19 @@ export function ThresholdBar(p: StatsProps) {
         />
         <span className="mono w-8 tx-micro">{p.lfcMin.toFixed(2)}</span>
       </label>
+      {/* Which column the cutoff is read off. Bonferroni saturates at 1/n, so
+          on a modest gene list the slider above is inert over most of its
+          travel; BH does not, and the table has carried the column all along. */}
+      <label className="flex items-center gap-1.5">
+        <span className="glabel">cut on</span>
+        <Seg<SigBasis>
+          value={p.sigBasis} onChange={p.onSigBasis}
+          options={[
+            { k: 'padj', label: 'Bonferroni', title: 'padj — severe, and pinned to 1 for every gene with p above 1/n' },
+            { k: 'fdr', label: 'FDR', title: 'Benjamini–Hochberg — what the slider can actually move' },
+          ]}
+        />
+      </label>
       <button
         className="btn btn-quiet ml-auto"
         title="Back to the defaults for the selected test"
@@ -174,53 +204,78 @@ export function ThresholdBar(p: StatsProps) {
           p.onPadj(0.05)
           p.onLfc(p.method === 'wilcox' ? LFC_GATE : 1)
           p.onGates(SEURAT_GATES)
+          p.onSigBasis('padj')
         }}
       >Reset</button>
 
+      {inert && (
+        <p className="basis-full tx-micro" style={{ color: 'var(--warn)' }}>
+          Bonferroni over {fmt(p.nTested)} tested genes pins every gene with p above{' '}
+          {ceiling.toExponential(1)} to exactly 1, so no cutoff above that admits another
+          row — moving the slider here cannot change the count. Cut on <b>FDR</b> for a
+          threshold that does something, or read the −log₁₀ padj column, which still
+          separates them.
+        </p>
+      )}
+
       {/**
-        * The gates, under a rule of their own.
+        * The gates, folded away.
         *
-        * A different KIND of control from the two sliders above, and the row
-        * break says so: those decide what a finished answer is called
-        * significant, and can be dragged over a result already in hand. These
-        * decide what the test looks at, so a gene they exclude has no row at
-        * all — moving one is a new question and re-arms Run.
+        * They decide what is TESTED, so changing one is a new pass — and left
+        * open beside two sliders that are free to drag, a stray click re-armed
+        * Run on a four-minute computation. Reported as exactly that. Closed by
+        * default, and the summary line says what is in force so this is never
+        * hidden state: a reader who has widened them sees it without opening
+        * anything.
         */}
       {p.method === 'wilcox' && (
-        <>
-          <div className="basis-full" />
-          <span className="glabel" title="Seurat's own pre-test filters — a gene that fails either is never tested">
-            tested at all
-          </span>
-          <label className="flex items-center gap-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
-            <span className="mono tx-micro">min.pct</span>
-            <input
-              className="inp w-16" type="number" min={0} max={1} step={0.05}
-              aria-label="Minimum detection rate to test a gene"
-              value={p.gates.pct}
-              onChange={e => p.onGates({ ...p.gates, pct: clamp01(+e.target.value) })} />
-          </label>
-          <label className="flex items-center gap-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
-            <span className="mono tx-micro">logfc.threshold</span>
-            <input
-              className="inp w-16" type="number" min={0} max={5} step={0.05}
-              aria-label="Minimum absolute log2 fold change to test a gene"
-              value={p.gates.lfc}
-              onChange={e => p.onGates({ ...p.gates, lfc: Math.max(0, +e.target.value || 0) })} />
-          </label>
-          <button
-            className="chip"
-            aria-pressed={p.gates.pct === 0 && p.gates.lfc === 0}
-            title="Both gates to zero: every gene the object measures is tested, which is slower and makes the Bonferroni correction harsher"
-            onClick={() => p.onGates(
-              p.gates.pct === 0 && p.gates.lfc === 0 ? SEURAT_GATES : { pct: 0, lfc: 0 })}
-          >Test every gene</button>
-          <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-            {p.gates.pct === 0 && p.gates.lfc === 0
-              ? 'every measured gene is tested — slower, and Bonferroni is applied across all of them'
-              : "Seurat's defaults, so these rows are what FindMarkers would give"}
-          </span>
-        </>
+        <div className="basis-full">
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="chip" aria-expanded={openGates}
+              onClick={() => setOpenGates(v => !v)}
+              title="Seurat's own pre-test filters — a gene that fails either is never tested">
+              {openGates ? '▾' : '▸'} What gets tested
+            </button>
+            <span className="tx-micro" style={{ color: seurat ? 'var(--ink-3)' : 'var(--warn)' }}>
+              {seurat
+                ? `Seurat's defaults — min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
+                : `min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
+                  + ' — not Seurat\'s defaults, and changing these re-runs the test'}
+            </span>
+          </div>
+          {openGates && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <label className="flex items-center gap-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
+                <span className="mono tx-micro">min.pct</span>
+                <input
+                  className="inp w-16" type="number" min={0} max={1} step={0.05}
+                  aria-label="Minimum detection rate to test a gene"
+                  value={p.gates.pct}
+                  onChange={e => p.onGates({ ...p.gates, pct: clamp01(+e.target.value) })} />
+              </label>
+              <label className="flex items-center gap-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
+                <span className="mono tx-micro">logfc.threshold</span>
+                <input
+                  className="inp w-16" type="number" min={0} max={5} step={0.05}
+                  aria-label="Minimum absolute log2 fold change to test a gene"
+                  value={p.gates.lfc}
+                  onChange={e => p.onGates({ ...p.gates, lfc: Math.max(0, +e.target.value || 0) })} />
+              </label>
+              <button
+                className="chip"
+                aria-pressed={p.gates.pct === 0 && p.gates.lfc === 0}
+                title="Both gates to zero: every gene the object measures is tested"
+                onClick={() => p.onGates(
+                  p.gates.pct === 0 && p.gates.lfc === 0 ? SEURAT_GATES : { pct: 0, lfc: 0 })}
+              >Test every gene</button>
+              <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+                These decide what the test looks at, so a gene they exclude has no row at
+                all — and changing one runs the test again. Widening them also makes the
+                correction harsher, since it is applied across however many genes were tested.
+              </span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -423,7 +478,7 @@ export function Differential(p: StatsProps & {
       {blocked ?? (failed ? <Failed error={failed} onRetry={retry} what="This contrast" />
         : pass ? <Progress pass={pass} title={testing(p)} /> : de && (
         <>
-          <ThresholdBar {...p} />
+          <ThresholdBar {...p} nTested={de.rows.length} />
           {p.view === 'table' ? <DEGTable {...p} de={de} />
             : p.view === 'volcano' ? <Volcano {...p} de={de} />
             : p.enrichment(de.rows)}
@@ -436,7 +491,7 @@ export function Differential(p: StatsProps & {
 function DEGTable(p: StatsProps & { de: DEResult }) {
   const { rows, n0, n1 } = p.de
   const wil = p.method === 'wilcox'
-  const th = { padj: p.padjMax, lfc: p.lfcMin }
+  const th = { padj: p.padjMax, lfc: p.lfcMin, basis: p.sigBasis }
   const up = rows.filter(r => isSig(r, th) && r.lfc > 0).length
   const dn = rows.filter(r => isSig(r, th) && r.lfc < 0).length
 
@@ -453,7 +508,7 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
       </p>
 
       <DEGTableBody
-        rows={rows} wilcox={wil} nGenes={p.src.genes.length}
+        rows={rows} wilcox={wil} nGenes={p.src.genes.length} sigBasis={p.sigBasis}
         ctrl={condLabel(p.ctrl)} cs={condLabel(p.cs)} label={contrastLabel(p)}
         padjMax={p.padjMax} lfcMin={p.lfcMin} onPickGene={p.onPickGene}
       />
@@ -515,7 +570,7 @@ function Volcano(p: StatsProps & { de: DEResult }) {
       r,
       x: X(r.lfc),
       y: Y(r.nlp),
-      sig: isSig(r, { padj: p.padjMax, lfc: p.lfcMin }),
+      sig: isSig(r, { padj: p.padjMax, lfc: p.lfcMin, basis: p.sigBasis }),
     })),
     // X and Y are pure functions of maxX/maxY, which derive from rows.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -5,7 +5,8 @@ import { readCollectionIndex } from './lib/collection.ts'
 import { openCollection } from './lib/collection-source.ts'
 import { bundleSource, condKey, demoSource, type Source } from './lib/source.ts'
 import {
-  condLabel, designFor, sameOrOverlapping, SEURAT_GATES, thresholdFor, type Gates,
+  condLabel, designFor, sameOrOverlapping, SEURAT_GATES, thresholdFor,
+  type Gates, type SigBasis,
 } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
 import { withCondOrder } from './lib/order.ts'
@@ -211,6 +212,12 @@ export default function App() {
    * describe different tests.
    */
   const [gates, setGates] = useState<Gates>(SEURAT_GATES)
+  /**
+   * Which correction the cutoff cuts on. Bonferroni, as it always did — but
+   * now a choice, because Bonferroni saturates and the slider is inert above
+   * 1/nTested. See SigBasis in lib/stats.ts.
+   */
+  const [sigBasis, setSigBasis] = useState<SigBasis>('padj')
 
   // Which 2D embedding every view draws on. ONE choice for the whole studio: a
   // per-tab setting would let Cells show a UMAP while the feature plot beside it
@@ -347,6 +354,7 @@ export default function App() {
     setPadjMax(0.05)
     setLfcMin(thresholdFor('wilcox').lfc)
     setGates(SEURAT_GATES)
+    setSigBasis('padj')
     setGroupBy('type')
     setPlot('violin')
     // Cell types are held by index, so carrying them across objects would hide
@@ -497,13 +505,14 @@ export default function App() {
   const armed = !src.lazy || deRan === deKey
 
   const statsProps: StatsProps = {
-    src, t, ti, ctrl, cs, method, padjMax, lfcMin, gates,
+    src, t, ti, ctrl, cs, method, padjMax, lfcMin, gates, sigBasis,
     running: false, computed: armed,
     onMethod: changeMethod,
     onRun: () => setDeRan(deKey),
     onPadj: setPadjMax,
     onLfc: setLfcMin,
     onGates: setGates,
+    onSigBasis: setSigBasis,
     onPickGene: pickGene,
   }
 
@@ -856,7 +865,7 @@ export default function App() {
             ) : tab === 'de' ? (
               <Differential {...statsProps} view={deView} onView={setDeView}
                 enrichment={rows => (
-                  <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
+                  <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin, basis: sigBasis }}
                     ctrl={ctrl} cs={cs} background={src.genes}
                     lib={lib} species={species ?? 'human'} sources={chosenSrcs} onSources={setSrcs}
                     customSets={customSets} onCustomSets={setCustomSets}

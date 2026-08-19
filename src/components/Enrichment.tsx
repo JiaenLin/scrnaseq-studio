@@ -18,7 +18,7 @@ import { oraIndexed, type ORAResult } from '../lib/ora.ts'
 import GeneSetSources from './GeneSetSources.tsx'
 import { maxOf, minOf, niceStep, sci } from '../lib/chart.ts'
 import {
-  condLabel, combinedScore } from '../lib/stats.ts'
+  combinedScore, condLabel, isSig, type Threshold } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { MARK_EDGE } from '../lib/figure-ink.ts'
 import { ColorBar } from './svg-parts.tsx'
@@ -44,7 +44,8 @@ export default function Enrichment({
   rows: DERow[]
   /** Every gene the object measures — the population the list was drawn from. */
   background: string[]
-  threshold: { padj: number; lfc: number }
+  /** The cutoff in force, including which correction it cuts on. */
+  threshold: Threshold
   ctrl: string[]
   cs: string[]
   label: string
@@ -93,7 +94,7 @@ export default function Enrichment({
   const [termId, setTermId] = useState('')
 
   const query = useMemo(() => rows
-    .filter(r => r.padj < threshold.padj && Math.abs(r.lfc) >= threshold.lfc)
+    .filter(r => isSig(r, threshold))
     .filter(r => dir === 'both' || (dir === 'up' ? r.lfc > 0 : r.lfc < 0))
     .map(r => r.gene), [rows, threshold, dir])
 

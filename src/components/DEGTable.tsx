@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DERow } from '../types.ts'
 import {
-  condLabel, combinedScore } from '../lib/stats.ts'
+  combinedScore, condLabel, isSig, type SigBasis } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt } from '../lib/chart.ts'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
@@ -52,7 +52,7 @@ const cellVal = (r: DERow, k: SortKey): number | string | null => {
 }
 
 export default function DEGTable({
-  rows, wilcox, nGenes, ctrl, cs, label, padjMax, lfcMin, onPickGene,
+  rows, wilcox, nGenes, ctrl, cs, label, padjMax, lfcMin, sigBasis, onPickGene,
 }: {
   rows: DERow[]
   wilcox: boolean
@@ -63,6 +63,8 @@ export default function DEGTable({
   label: string
   padjMax: number
   lfcMin: number
+  /** Which correction "significant" is read off. */
+  sigBasis: SigBasis
   onPickGene: (g: string) => void
 }) {
   const [q, setQ] = useState('')
@@ -83,7 +85,7 @@ export default function DEGTable({
     const query = q.trim().toUpperCase()
     let out = rows
     if (query) out = out.filter(r => r.gene.toUpperCase().includes(query))
-    if (sigOnly) out = out.filter(r => r.padj < padjMax && Math.abs(r.lfc) >= lfcMin)
+    if (sigOnly) out = out.filter(r => isSig(r, { padj: padjMax, lfc: lfcMin, basis: sigBasis }))
     const dir = asc ? 1 : -1
     return [...out].sort((a, b) => {
       const av = cellVal(a, sort), bv = cellVal(b, sort)
@@ -92,7 +94,7 @@ export default function DEGTable({
       if (typeof av === 'string') return dir * av.localeCompare(bv as string)
       return dir * ((av as number) - (bv as number))
     })
-  }, [rows, q, sigOnly, sort, asc, padjMax, lfcMin])
+  }, [rows, q, sigOnly, sort, asc, padjMax, lfcMin, sigBasis])
 
   const clickSort = (k: SortKey) => {
     if (k === sort) setAsc(!asc)

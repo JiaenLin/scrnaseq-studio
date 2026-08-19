@@ -155,10 +155,37 @@ export const nlpFromZ = (z: number): number =>
 export const thresholdFor = (method: Method) =>
   method === 'wilcox' ? { padj: 0.05, lfc: LFC_GATE } : { padj: 0.05, lfc: 1 }
 
-export const isSig = (r: DERow, th: { padj: number; lfc: number }) =>
-  r.padj < th.padj && Math.abs(r.lfc) >= th.lfc
+/**
+ * Which correction the significance cutoff cuts on.
+ *
+ * Bonferroni saturates, and that is not a detail — it is why the padj slider
+ * looked broken. padj is min(1, p x nTested), so EVERY gene with p above
+ * 1/nTested lands on exactly 1.0 and `padj < threshold` can never admit it.
+ * Over 649 tested genes that ceiling is 0.0015: cutoffs of 0.05 and 0.25 select
+ * an identical set, and no movement of the slider above 0.0015 can change one
+ * row. Reported as "the DEG number did not move — might have a hidden filter",
+ * which is a fair reading of a control that cannot do anything.
+ *
+ * Benjamini-Hochberg does not saturate that way, and the table has carried the
+ * column all along. So the cutoff can cut on either, and the interface says
+ * which — rather than offering a slider that is inert over most of its travel.
+ */
+export type SigBasis = 'padj' | 'fdr'
 
-export const sigCount = (rows: DERow[], th: { padj: number; lfc: number }) =>
+export interface Threshold {
+  padj: number
+  lfc: number
+  /** Bonferroni when absent, which is what every existing caller meant. */
+  basis?: SigBasis
+}
+
+export const sigOf = (r: DERow, basis?: SigBasis): number =>
+  (basis === 'fdr' ? r.fdr ?? 1 : r.padj)
+
+export const isSig = (r: DERow, th: Threshold) =>
+  sigOf(r, th.basis) < th.padj && Math.abs(r.lfc) >= th.lfc
+
+export const sigCount = (rows: DERow[], th: Threshold) =>
   rows.reduce((n, r) => n + (isSig(r, th) ? 1 : 0), 0)
 
 export interface DEResult {
