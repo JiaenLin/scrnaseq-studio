@@ -256,8 +256,16 @@ console.log('\nDIRECTION AND ORDERING')
   const rows = deWilcox(cohort, ti(cohort, 'aNSC'), 'Quiescent', 'Reactivated').rows
   const byGene = Object.fromEntries(rows.map(r => [r.gene, r.lfc]))
   check('Ascl1 is higher in the reactivated arm', byGene.Ascl1 > 0, true)
+  // Over the TESTED rows. Since the effect-size gate started keeping the genes
+  // it skips rather than dropping them, a contrast also returns rows with no p
+  // at all, and those sort to the end — see finish().
+  const tested = rows.filter(r => Number.isFinite(r.p))
   check('rows are sorted by adjusted p',
-    rows.every((r, i) => i === 0 || rows[i - 1].padj <= r.padj), true)
+    tested.every((r, i) => i === 0 || tested[i - 1].padj <= r.padj), true)
+  check('and the untested rows are all at the end',
+    rows.findIndex(r => !Number.isFinite(r.p)) === -1
+      || rows.slice(rows.findIndex(r => !Number.isFinite(r.p)))
+        .every(r => !Number.isFinite(r.p)), true)
   check('reversing the contrast flips every sign',
     deWilcox(cohort, ti(cohort, 'aNSC'), 'Reactivated', 'Quiescent').rows
       .find(r => r.gene === 'Ascl1').lfc < 0, true)
@@ -434,7 +442,18 @@ console.log('\nTHE FDR COLUMN IS A REAL BH STEP-UP')
   const src = demoSource('cohort')
   const ti = src.clusters.indexOf('qNSC')
   const de = deWilcox(src, ti, 'Quiescent', 'Reactivated')
-  const rows = de.rows
+  // Tested rows only: BH adjusts p-values, and a gene the effect-size gate kept
+  // but never tested has none. It is in de.rows with its fold change and its
+  // detection rates, and it takes no part in the correction — which is the
+  // property being checked here, since letting a NaN into the step-up would
+  // drag the running minimum over every row after it.
+  const rows = de.rows.filter(r => Number.isFinite(r.p))
+  check('the contrast also returns genes it did not test',
+    de.rows.length > rows.length, true)
+  check('and each of those has a fold change and no p',
+    de.rows.filter(r => !Number.isFinite(r.p))
+      .every(r => Number.isFinite(r.lfc) && !Number.isFinite(r.padj)
+        && !Number.isFinite(r.fdr) && r.pct1 >= 0 && r.pct2 >= 0), true)
 
   // The reference: ascending p, q = p*m/rank, cumulative minimum from the top.
   const ref = [...rows].sort((a, b) => a.p - b.p)

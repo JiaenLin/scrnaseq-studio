@@ -44,6 +44,19 @@ export interface Gates {
   pct: number
   /** Smallest |log2 fold change| worth testing. */
   lfc: number
+  /**
+   * Keep the genes the effect-size gate skips, untested, rather than dropping
+   * them.
+   *
+   * Set by the DE path and nowhere else. A contrast table is read by somebody
+   * asking "what changed", and a fold change of 0.2 is an answer to that — so
+   * lowering the display cutoff has to reveal rows already in hand rather than
+   * start the pass again. A marker table is read by somebody asking "what marks
+   * this cluster", where the same rows are twenty thousand lines of noise, and
+   * `markersPlan` — the fast path the reference `deMarkers` is checked against —
+   * does not produce them. Keeping those two in step is what the flag is for.
+   */
+  carry?: boolean
 }
 
 export const SEURAT_GATES: Gates = { pct: PCT_GATE, lfc: LFC_GATE }
@@ -288,11 +301,32 @@ function testGene(
 
   const pct1 = d1 / n1
   const pct2 = d2 / n2
+  // Detected in almost nobody on either side: there is nothing to compare, and
+  // this one really is a drop. Seurat's min.pct.
   if (pct1 < gates.pct && pct2 < gates.pct) return null
   const lfc = Math.log2(s1 / n1 + 1) - Math.log2(s2 / n2 + 1)
-  // `< gates.lfc` rather than `<= `, so a gate of 0 keeps a gene whose fold
-  // change is exactly zero — which is what "test everything" has to mean.
-  if (!Number.isFinite(lfc) || Math.abs(lfc) < gates.lfc) return null
+  if (!Number.isFinite(lfc)) return null
+
+  /**
+   * Under the effect-size gate: SEEN, not tested.
+   *
+   * The row is kept with its fold change and its detection rates, and its p is
+   * NaN. That is not a compromise, it is what the gate actually is: `logfc.
+   * threshold` exists to skip the RANK SUM, which is the expensive half — the
+   * sums above are already computed by the time it is checked, and throwing
+   * them away was costing the reader the one thing they wanted.
+   *
+   * It is the answer to "lowering the threshold should not need a re-run".
+   * Every gene that clears min.pct is now in the table whatever the gate, so
+   * moving the cutoff reveals rows that are already in hand; only a p-value
+   * needs the pass run again, and the card offers that separately.
+   *
+   * `< gates.lfc` rather than `<=`, so a gate of 0 tests a gene whose fold
+   * change is exactly zero — which is what "test everything" has to mean.
+   */
+  if (Math.abs(lfc) < gates.lfc) {
+    return gates.carry ? { gene, lfc, p: NaN, padj: NaN, fdr: NaN, nlp: NaN, pct1, pct2 } : null
+  }
 
   const { p, nlp } = rankSumSparseFull(xs, gs, n1 - d1, n2 - d2)
   return { gene, lfc, p, padj: 1, fdr: 1, nlp, pct1, pct2 }
@@ -384,7 +418,11 @@ function finish(rows: RawRow[], nTested: number): RawRow[] {
    * rather than rows.length, because genes dropped by the effect-size
    * pre-filter were still tested.
    */
-  const byP = [...rows].sort((a, b) => b.nlp - a.nlp)
+  // Only the rows that were actually tested take part in the correction. An
+  // untested row has no p to adjust, and letting NaN into the step-up would
+  // drag the running minimum over every row after it.
+  const tested = rows.filter(r => Number.isFinite(r.p))
+  const byP = [...tested].sort((a, b) => b.nlp - a.nlp)
   let prev = 1
   for (let i = byP.length - 1; i >= 0; i--) {
     prev = Math.min(prev, (byP[i].p * nTested) / (i + 1))
@@ -392,11 +430,15 @@ function finish(rows: RawRow[], nTested: number): RawRow[] {
   }
 
   // Only now: Bonferroni, and the display clamp that made the key unusable.
-  for (const r of rows) {
+  for (const r of tested) {
     r.padj = Math.min(1, r.p * nTested)
     r.nlp = Math.max(0, r.nlp - shift)
   }
-  rows.sort((x, y) => y.nlp - x.nlp || Math.abs(y.lfc) - Math.abs(x.lfc))
+  // Untested rows sort to the end rather than wherever NaN happens to land, and
+  // are ordered among themselves by effect size — which is the only number they
+  // have, and the one somebody lowering the cutoff is looking at.
+  const key = (r: RawRow) => (Number.isFinite(r.nlp) ? r.nlp : -Infinity)
+  rows.sort((x, y) => key(y) - key(x) || Math.abs(y.lfc) - Math.abs(x.lfc))
   return rows
 }
 
@@ -487,7 +529,11 @@ export function wilcoxSpec(
     n1: a.length,
     n2: b.length,
     nGenes: src.genes.length,
-    gates,
+    // Every contrast carries them; see Gates#carry. Forced here rather than
+    // asked of the caller so that the page and the worker cannot be handed
+    // specs that differ in it — the two would then disagree about how many rows
+    // a contrast has, and only on a collection.
+    gates: { ...gates, carry: true },
   }
 }
 

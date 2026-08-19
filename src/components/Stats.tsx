@@ -224,14 +224,15 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
         */}
       {p.method === 'wilcox' && p.lfcMin < p.gates.lfc && (
         <p className="basis-full flex flex-wrap items-center gap-2 tx-micro"
-          style={{ color: 'var(--warn)' }}>
+          style={{ color: 'var(--ink-3)' }}>
           <span>
-            No gene below <b>{p.gates.lfc}</b> log₂ was tested, so this cutoff cannot reach
-            them — Seurat&rsquo;s <span className="mono">logfc.threshold</span> drops them
-            before the rank sum runs.
+            Genes under <b>{p.gates.lfc}</b> log₂ are in the table with their fold change
+            and detection rates, and with no p — Seurat&rsquo;s{' '}
+            <span className="mono">logfc.threshold</span> skips the rank sum for them, so
+            this cutoff lists them but cannot call them significant.
           </span>
           <button className="btn btn-sm"
-            title="Lower the gate so those genes are tested. This runs the test again."
+            title="Run the rank sum on them as well. This runs the test again."
             onClick={() => p.onGates({ ...p.gates, lfc: 0 })}
           >Test them too</button>
         </p>
@@ -507,7 +508,11 @@ export function Differential(p: StatsProps & {
       {blocked ?? (failed ? <Failed error={failed} onRetry={retry} what="This contrast" />
         : pass ? <Progress pass={pass} title={testing(p)} /> : de && (
         <>
-          <ThresholdBar {...p} nTested={de.rows.length} />
+          {/* nGenes, not de.rows.length. `finish` multiplies by spec.nGenes —
+              every gene the object measures, tested or not — so the ceiling the
+              bar warns about is 1/nGenes, and reading the tested count here
+              understated it by whatever the gates removed. */}
+          <ThresholdBar {...p} nTested={p.src.genes.length} />
           {p.view === 'table' ? <DEGTable {...p} de={de} />
             : p.view === 'volcano' ? <Volcano {...p} de={de} />
             : p.enrichment(de.rows)}
@@ -561,7 +566,17 @@ function Volcano(p: StatsProps & { de: DEResult }) {
   const [pinned, setPinned] = useState<string[]>([])
   const [nLabels, setNLabels] = useState(12)
   const de = p.de
-  const rows = useMemo(() => de.rows, [de])
+  /**
+   * The tested genes only.
+   *
+   * A volcano's y IS the significance, so a gene the effect-size gate kept but
+   * did not test has no position on it — its p is NaN, and one NaN coordinate
+   * takes the axis extent, the path data and with it the whole figure. The
+   * table is where those genes are read; here they are absent, and the count
+   * under the figure says so.
+   */
+  const rows = useMemo(() => de.rows.filter(r => Number.isFinite(r.nlp)), [de])
+  const untested = de.rows.length - rows.length
 
   // PB carries the x-axis title and, below it, the key. That key used to sit in
   // an HTML row underneath the figure, so an exported volcano arrived with three
@@ -859,6 +874,11 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           under a plot whose dashed lines are the only thing needing a caption. */}
       <figcaption className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
         Dashed lines are the cutoffs above.
+        {untested > 0 && (
+          <> {fmt(untested)} more genes are in the table with a fold change and no p —
+            under the effect-size gate, so the rank sum was skipped and they have no
+            height to be drawn at.</>
+        )}
       </figcaption>
     </>
   )

@@ -528,13 +528,19 @@ console.log('\nTHE ORA BACKGROUND IS NOT THE FILTERED LIST')
   const th = thresholdFor('wilcox')
   const de = deWilcox(src, ti, 'Quiescent', 'Reactivated')
   const sig = de.rows.filter(r => isSig(r, th)).map(r => r.gene)
+  // The genes the rank sum actually ran on. deWilcox now RETURNS the genes its
+  // effect-size gate skipped as well, untested, so that lowering the display
+  // cutoff needs no second pass — which narrows the trap below without closing
+  // it, since those rows are still not the object's gene list. This is the set
+  // the buggy background was built from, and the one to pin it with.
+  const ran = de.rows.filter(r => Number.isFinite(r.p)).map(r => r.gene)
 
-  check('deWilcox returns fewer rows than the object measures',
-    de.rows.length < src.genes.length, true)
+  check('deWilcox tests fewer genes than the object measures',
+    ran.length < src.genes.length, true)
   check('and nearly all of them are significant, which is the trap',
-    sig.length / de.rows.length > 0.9, true)
+    sig.length / ran.length > 0.9, true)
 
-  const filtered = indexFor(MOUSE, de.rows.map(r => r.gene))
+  const filtered = indexFor(MOUSE, ran)
   const measured = indexFor(MOUSE, src.genes)
   check('the filtered background is far smaller than the measured one',
     filtered.N < measured.N / 2, true)

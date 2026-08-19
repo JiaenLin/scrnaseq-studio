@@ -184,6 +184,11 @@ export default function Enrichment({
   // can see that rather than infer it.
   const ranked = useMemo(() => {
     const scored = rows
+      // Tested genes only, as the sentence above says. A gene the effect-size
+      // gate kept but did not test has a NaN p, `?? 0` does not catch a NaN, and
+      // a comparator returning NaN leaves the ranking in whatever order the
+      // sort happened to stop at — for every row, not only those.
+      .filter(r => Number.isFinite(r.nlp))
       .map(r => ({ gene: r.gene, comb: combinedScore(r.lfc, r.nlp) ?? 0, r }))
       .sort((a, b) => Math.abs(b.comb) - Math.abs(a.comb))
     return new Map(scored.map((x, i) => [x.gene, { ...x, rank: i + 1 }]))

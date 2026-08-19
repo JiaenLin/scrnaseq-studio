@@ -22,14 +22,30 @@ type SortKey = 'gene' | 'mean' | 'pct1' | 'pct2' | 'lfc' | 'combined' | 'p' | 'p
  */
 const PAGE = 500
 
+/** A number the row does not have. See `cellVal`. */
+const no = (x: number | null | undefined) =>
+  (x === null || x === undefined || !Number.isFinite(x) ? null : x)
+
+/**
+ * A p-value cell, or an em dash where the gene has no p.
+ *
+ * Deliberately not "1" or "n.s.": an untested gene is not a gene the test
+ * failed to call, and a table that prints a number there is telling the reader
+ * something nobody measured.
+ */
+const num = (x: number | null | undefined, fmt1: (v: number) => string) =>
+  (x === null || x === undefined || !Number.isFinite(x)
+    ? <span title="Not tested — under the effect-size gate below.">—</span>
+    : fmt1(x))
+
 const cellVal = (r: DERow, k: SortKey): number | string | null => {
   switch (k) {
     case 'gene': return r.gene
-    case 'combined': return combinedScore(r.lfc, r.nlp)
+    case 'combined': return no(combinedScore(r.lfc, r.nlp))
     case 'mean': return r.mean ?? null
     case 'pct1': return r.pct1 ?? null
     case 'pct2': return r.pct2 ?? null
-    case 'nlp': return r.nlp
+    case 'nlp': return no(r.nlp)
     // Ascending −nlp is ascending p, and ascending adjusted p, exactly — they
     // are the same monotone function of the same z. The difference is that it
     // still separates the rows whose p has underflowed to one shared floor,
@@ -44,9 +60,14 @@ const cellVal = (r: DERow, k: SortKey): number | string | null => {
     // descending. A reader sorting to find the WEAKEST hits was handed the
     // smallest fold changes instead. nlp stays as the tiebreak, where it does
     // separate rows whose p has bottomed out at the double's floor.
-    case 'p': return r.p
-    case 'padj': return r.padj
-    case 'fdr': return r.fdr ?? 1
+    // NaN rather than a number on every one of these, for a gene the
+    // effect-size gate left untested: it has a fold change and detection rates
+    // and no p at all. Returned as null so the comparator below parks it at the
+    // end of every sort instead of wherever NaN happens to fall — a sort on p
+    // must not interleave rows that have one with rows that do not.
+    case 'p': return no(r.p)
+    case 'padj': return no(r.padj)
+    case 'fdr': return r.fdr === undefined ? 1 : no(r.fdr)
     default: return r[k]
   }
 }
@@ -68,6 +89,11 @@ export default function DEGTable({
   onPickGene: (g: string) => void
 }) {
   const [q, setQ] = useState('')
+  // Tested, as against listed. Since the effect-size gate started keeping the
+  // genes it skips rather than dropping them, `rows.length` is what the object
+  // measures above min.pct and this is what the rank sum actually ran on — the
+  // Bonferroni denominator's sibling, and what the footer means by "tested".
+  const nRan = useMemo(() => rows.reduce((n, r) => n + (Number.isFinite(r.p) ? 1 : 0), 0), [rows])
   const [sigOnly, setSigOnly] = useState(false)
   // Descending −log₁₀ padj, which is the same order ascending padj gave — the
   // same monotone function of the same z — but the arrow now sits over the
@@ -89,7 +115,9 @@ export default function DEGTable({
     const dir = asc ? 1 : -1
     return [...out].sort((a, b) => {
       const av = cellVal(a, sort), bv = cellVal(b, sort)
-      if (av === null) return 1
+      // Last either way, rather than dir * something: ascending p is "weakest
+      // first", and an untested gene is not the weakest, it is unmeasured.
+      if (av === null) return bv === null ? 0 : 1
       if (bv === null) return -1
       if (typeof av === 'string') return dir * av.localeCompare(bv as string)
       return dir * ((av as number) - (bv as number))
@@ -191,13 +219,13 @@ export default function DEGTable({
                 <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--up)' : 'var(--down)' }}>
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
-                <td className="num mono tx-micro">{combinedScore(r.lfc, r.nlp)?.toFixed(1) ?? '—'}</td>
-                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{pTxt(r.p)}</td>
-                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{pTxt(r.padj)}</td>
+                <td className="num mono tx-micro">{num(combinedScore(r.lfc, r.nlp), v => v.toFixed(1))}</td>
+                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{num(r.p, pTxt)}</td>
+                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{num(r.padj, pTxt)}</td>
                 <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>
-                  {r.fdr === undefined ? '—' : pTxt(r.fdr)}
+                  {num(r.fdr, pTxt)}
                 </td>
-                <td className="num mono tx-micro font-semibold">{nlpTxt(r.nlp)}</td>
+                <td className="num mono tx-micro font-semibold">{num(r.nlp, nlpTxt)}</td>
                 <td className="whitespace-nowrap">{r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`}</td>
               </tr>
             ))}
@@ -242,14 +270,25 @@ export default function DEGTable({
         *
         * It was written down in Methods and nowhere near the table it explains.
         */}
-      {wilcox && nGenes > rows.length && (
+      {wilcox && nGenes > nRan && (
         <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
-          <b>{fmt(rows.length)} of {fmt(nGenes)} genes were tested.</b> Seurat's own gates
-          run before the rank sum: a gene detected in under 10% of the cells on both sides
-          (<span className="mono">min.pct</span>), or changing by less than 0.25 log₂
-          (<span className="mono">logfc.threshold</span>), is left out rather than tested.
-          They are speed filters, not findings — the genes they drop are the ones no test
-          would have called anyway.
+          <b>{fmt(nRan)} of {fmt(nGenes)} genes were tested.</b> Seurat's own gates run
+          before the rank sum. A gene detected in under 10% of the cells on both sides
+          (<span className="mono">min.pct</span>) is dropped: with almost no cells
+          expressing it on either side there is nothing to compare.{' '}
+          {rows.length > nRan ? (
+            <>
+              A gene changing by less than the effect-size gate
+              (<span className="mono">logfc.threshold</span>) is <b>kept but not tested</b> —
+              the {fmt(rows.length - nRan)} rows showing “—” are those. Their fold change
+              and detection rates are real and were computed either way; only the rank sum,
+              which is the slow half, was skipped. Lower the gate under{' '}
+              <i>What gets tested</i> to give them p-values too.
+            </>
+          ) : (
+            <>The effect-size gate (<span className="mono">logfc.threshold</span>) is at 0,
+              so every gene that cleared <span className="mono">min.pct</span> was tested.</>
+          )}
         </p>
       )}
     </>
