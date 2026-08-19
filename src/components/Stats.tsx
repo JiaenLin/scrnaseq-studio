@@ -147,6 +147,10 @@ function MethodBar(p: StatsProps) {
  * different experiment.
  */
 export function ThresholdBar(p: StatsProps & { nTested: number }) {
+  // `nTested` is the Bonferroni DENOMINATOR — spec.nGenes, every gene the object
+  // measures — and not the number of genes the rank sum ran on. finish() has
+  // always multiplied by the former; the two are only equal when both gates are
+  // at zero.
   const negLog = -Math.log10(Math.max(p.padjMax, 1e-300))
   const seurat = p.gates.pct === PCT_GATE && p.gates.lfc === LFC_GATE
   const [openGates, setOpenGates] = useState(false)
@@ -240,7 +244,8 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
 
       {inert && (
         <p className="basis-full tx-micro" style={{ color: 'var(--warn)' }}>
-          Bonferroni over {fmt(p.nTested)} tested genes pins every gene with p above{' '}
+          Bonferroni over the {fmt(p.nTested)} genes this object measures pins every gene
+          with p above{' '}
           {ceiling.toExponential(1)} to exactly 1, so no cutoff above that admits another
           row — moving the slider here cannot change the count. Cut on <b>FDR</b> for a
           threshold that does something, or read the −log₁₀ padj column, which still

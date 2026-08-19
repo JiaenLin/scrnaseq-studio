@@ -803,7 +803,8 @@ export default function App() {
                 <GroupOrder conds={d.conds} custom={condOrder.length > 0} palKey={palKey}
                   onChange={setCondOrder} onReset={() => setCondOrder([])} />
               )}
-              <ViewMenu palKey={palKey} rampKey={rampKey} onPal={setPalKey} onRamp={setRampKey} />
+              <ViewMenu palKey={palKey} rampKey={rampKey} rampDiv={rampDiv}
+                onPal={setPalKey} onRamp={setRampKey} onRampDiv={setRampDiv} />
             </span>
           </div>
         </div>
@@ -900,13 +901,14 @@ export default function App() {
             ) : tab === 'sets' ? (
               <>
               <GeneSets src={src} types={types} emb={emb} palKey={palKey} rampKey={rampKey}
+                rampDiv={rampDiv}
                 onPickGene={pickGene}
                 onCorrelate={genes => { setCoexprSeed(genes); setCoexprRan(null); setTab('coexpr') }}
                 lib={lib} species={species ?? 'human'} sources={chosenSrcs} onSources={setSrcs}
                     customSets={customSets} onCustomSets={setCustomSets}
                 detected={detected}
                 scoreRan={scoreRan} onScoreRan={setScoreRan} />
-              <ScoreMany src={src} types={types} palKey={palKey}
+              <ScoreMany src={src} types={types} palKey={palKey} rampDiv={rampDiv}
                 lib={lib} ran={manyRan} onRan={setManyRan} />
               </>
             ) : (

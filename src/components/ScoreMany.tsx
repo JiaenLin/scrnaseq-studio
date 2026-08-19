@@ -4,7 +4,7 @@ import type { Source } from '../lib/source.ts'
 import { scoreColumns, zByRow, type Column } from '../lib/columns.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
 import { AXIS_INK } from '../lib/figure-ink.ts'
-import { rampColor, type PaletteKey } from '../lib/palette.ts'
+import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { ColorBar } from './svg-parts.tsx'
 import type { LibraryState } from '../lib/genesets.ts'
 import {
@@ -46,11 +46,13 @@ const MAX_SETS = 30
  * baseline. scripts/test-sets.mjs holds the two paths to bit-for-bit equality.
  */
 export default function ScoreMany({
-  src, types, palKey, lib, ran, onRan,
+  src, types, palKey, rampDiv, lib, ran, onRan,
 }: {
   src: Source
   types: CellType[]
   palKey: PaletteKey
+  /** The reader's diverging scale. A module score is signed; see ScoreGrid. */
+  rampDiv: RampKey
   lib: LibraryState
   /** The reader's go-ahead for this selection, joined. */
   ran: string | null
@@ -281,11 +283,14 @@ export default function ScoreMany({
             hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
             palKey={palKey} label="Columns in this figure" />
           <Figure name="module_scores" className="mt-1">
-            {/* Always diverging, never the reader's sequential ramp: a module
-                score is signed and its zero means something — a scale whose
-                neutral sits anywhere else misreports which way a population
-                went. */}
-            <ScoreGrid rows={chosen.map(c => c.name)} cols={cols} mean={grid} scale={scale} />
+            {/* The reader's DIVERGING scale, never their sequential one: a
+                module score is signed and its zero means something, so a scale
+                whose neutral sits anywhere else misreports which way a
+                population went. Which diverging scale is still theirs to pick —
+                this was pinned to blue-white-red, which is the right default
+                and was the only option. */}
+            <ScoreGrid rows={chosen.map(c => c.name)} cols={cols} mean={grid} scale={scale}
+              ramp={rampDiv} />
           </Figure>
           <div className="mt-2 flex items-center justify-end">
             <CsvButton onClick={() => downloadCsv(
@@ -310,11 +315,12 @@ export default function ScoreMany({
 }
 
 /** Signatures down the side, populations along the bottom. */
-function ScoreGrid({ rows, cols, mean, scale }: {
+function ScoreGrid({ rows, cols, mean, scale, ramp }: {
   rows: string[]
   cols: Column[]
   mean: Float64Array
   scale: boolean
+  ramp: RampKey
 }) {
   const cw = 34, rh = 18, PT = 12, PR = 20, BAR_H = 58
   const PL = Math.max(90, widestW(rows, 10.5, false) + 14)
@@ -336,7 +342,7 @@ function ScoreGrid({ rows, cols, mean, scale }: {
         role="img" aria-label={`Mean module score of ${rows.length} signatures across ${cols.length} populations`}>
         {rows.map((r, si) => cols.map((col, k) => (
           <rect key={`${si}-${k}`} x={PL + k * cw} y={PT + si * rh} width={cw} height={rh}
-            fill={rampColor((mean[si * cols.length + k] - lo) / (hi - lo), 'rdbu')}>
+            fill={rampColor((mean[si * cols.length + k] - lo) / (hi - lo), ramp)}>
             <title>
               {r} in {col.full} — {scale ? 'z ' : ''}{mean[si * cols.length + k].toFixed(3)}
               {' · '}{col.cells.length.toLocaleString()} cells
@@ -357,7 +363,7 @@ function ScoreGrid({ rows, cols, mean, scale }: {
               style={{ fontSize: 9 }}>{lab}</text>
           )
         })}
-        <ColorBar cx={W / 2} y={H - BAR_H + 22} w={170} h={10} ramp="rdbu"
+        <ColorBar cx={W / 2} y={H - BAR_H + 22} w={170} h={10} ramp={ramp}
           lo={lo} hi={hi} id="scoremany"
           title={scale ? 'z-score, along each signature' : 'mean module score'}
           breaks={scale ? [-2.5, 0, 2.5] : undefined} />

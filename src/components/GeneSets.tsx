@@ -37,7 +37,7 @@ import Progress, { Failed } from './Progress.tsx'
 const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
 export default function GeneSets({
-  src, types, emb, palKey, rampKey, onPickGene, onCorrelate,
+  src, types, emb, palKey, rampKey, rampDiv, onPickGene, onCorrelate,
   lib, species, sources, onSources, customSets, onCustomSets,
   detected, scoreRan, onScoreRan,
 }: {
@@ -47,6 +47,8 @@ export default function GeneSets({
   emb: Embedding
   palKey: PaletteKey
   rampKey: RampKey
+  /** The reader's scale for signed quantities — here, the per-gene z-scores. */
+  rampDiv: RampKey
   onPickGene: (g: string) => void
   /**
    * Send this set's genes to Co-expression as a seed.
@@ -553,7 +555,7 @@ export default function GeneSets({
                 <SetHeatmap
                   src={src} genes={used} d={d} types={types} groupBy={heatBy} palKey={palKey}
                   keepT={heatKeepT} keepC={heatKeepC}
-                  rampDiv="rdbu" rampSeq={rampKey} scale={heatScale} flip={heatFlip}
+                  rampDiv={rampDiv} rampSeq={rampKey} scale={heatScale} flip={heatFlip}
                   cluster={heatCluster}
                 />
               </Figure>
