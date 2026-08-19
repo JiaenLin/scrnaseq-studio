@@ -101,16 +101,32 @@ export default function GeneSetSources({
   const wrongSpecies = detected
     && detected.species !== species
     && (detected.from === 'accession' || (detected.from === 'symbols' && detected.support > 0.8))
+  /**
+   * The last collection standing, which may not be switched off.
+   *
+   * Never all off: the card below would have nothing to test against and the
+   * only way back would be this row, which is easy to scroll past.
+   *
+   * A collection of the reader's OWN counts as one standing. It did not, and
+   * that made the guard wrong in exactly the case it should have relaxed for:
+   * somebody who has just pasted their own sets and wants to test against
+   * those alone found the last MSigDB chip refusing to turn off, with no
+   * explanation — the click simply did nothing. Their sets were right there,
+   * and the library would not have been empty.
+   */
+  const lastStanding = (name: string) =>
+    sources.length === 1 && sources[0] === name && customSets.length === 0
+
   const toggle = (name: string) => {
     const on = sources.includes(name)
-    // Never all off: the card below would have nothing to test against and the
-    // only way back would be this row, which is easy to scroll past.
-    if (on && sources.length === 1) return
+    if (on && lastStanding(name)) return
     onSources(on ? sources.filter(s => s !== name) : [...sources, name])
   }
 
   const chosen = avail.filter(s => sources.includes(s.source))
   const nSets = chosen.reduce((a, s) => a + s.nSets, 0)
+  /** Sets the reader brought. Always on — they are not downloaded, they are given. */
+  const mine = customSets.reduce((a, c) => a + c.sets.length, 0)
 
   return (
     <div className="panel mb-3">
@@ -119,7 +135,13 @@ export default function GeneSetSources({
         {avail.map(s => (
           <button
             key={s.source} className="chip" aria-pressed={sources.includes(s.source)}
-            title={`${s.nSets.toLocaleString()} sets · ${(s.bytes / 1e6).toFixed(2)} MB`
+            // Says no rather than doing nothing. A chip that silently ignores
+            // the click is indistinguishable from one that is broken, which is
+            // how the guard above was reported.
+            disabled={lastStanding(s.source)}
+            title={lastStanding(s.source)
+              ? 'The only collection left — turn another on, or add your own, before turning this off'
+              : `${s.nSets.toLocaleString()} sets · ${(s.bytes / 1e6).toFixed(2)} MB`
               + (s.projected ? ' · human sets mapped through orthologs, not a mouse annotation' : '')
               + (s.derived ? ` · assembled from ${s.derived.join(', ')}` : '')
               + (sources.includes(s.source) ? '' : ' — not downloaded yet')}
@@ -178,7 +200,17 @@ export default function GeneSetSources({
           : lib.loading
             ? `Loading ${lib.total - lib.done} of ${lib.total} collection${lib.total === 1 ? '' : 's'}…`
             : !chosen.length
-              ? 'No collection selected.'
+              ? (customSets.length
+                // "No collection selected" was counting MSigDB and nothing
+                // else, so a reader who had turned every MSigDB collection off
+                // in order to test against their OWN sets was told there was
+                // nothing selected while their sets sat enabled beside the
+                // sentence.
+                ? <>Your own sets only — <b>{mine.toLocaleString()}</b> set
+                    {mine === 1 ? '' : 's'} in {customSets.length} collection
+                    {customSets.length === 1 ? '' : 's'}. No MSigDB collection is on,
+                    so nothing else is tested or corrected across.</>
+                : 'No collection selected.')
               : index
                 ? <>
                     MSigDB {index.release} · {nSets.toLocaleString()} sets, of which{' '}
@@ -186,7 +218,8 @@ export default function GeneSetSources({
                     tested. Those are the ones tested, and the ones corrected across.
                   </>
                 : <>MSigDB · {nSets.toLocaleString()} sets in {chosen.length} collection
-                    {chosen.length === 1 ? '' : 's'}.</>}
+                    {chosen.length === 1 ? '' : 's'}
+                    {mine > 0 && <>, and {mine.toLocaleString()} of your own</>}.</>}
       </p>
 
       {covered !== null && (

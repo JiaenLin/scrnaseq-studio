@@ -57,6 +57,9 @@ const GROUPS: { name: string; tabs: [TabId, string][] }[] = [
 
 const TABS: [TabId, string][] = GROUPS.flatMap(g => g.tabs)
 
+/** No collections chosen. One array, so the library hook sees a stable value. */
+const NO_SOURCES: string[] = []
+
 /** A tab's own word for itself, so the boundary names what broke as the user does. */
 const LABEL = new Map(TABS.map(([id, label]) => [id, label]))
 
@@ -250,9 +253,22 @@ export default function App() {
   // library before `adopt` had a chance to say otherwise — the effect below
   // fires on the initial value, not on the eventual one.
   const [species, setSpecies] = useState<Species | null>(null)
-  const changeSpecies = (next: Species) => { setSpecies(next); setSrcs([]) }
+  const changeSpecies = (next: Species) => { setSpecies(next); setSrcs(null) }
   const [detected, setDetected] = useState<Detection | null>(null)
-  const [srcs, setSrcs] = useState<string[]>([])
+  /**
+   * null until the reader (or the manifest's defaults) has chosen.
+   *
+   * A sentinel, not an empty list, because the two states are different and
+   * treating them alike was a bug: the effect below fills in the species
+   * defaults whenever nothing is chosen, and "nothing is chosen" was `[]`.
+   * Once a reader could reach `[]` deliberately — by adding their own
+   * collection and turning every MSigDB one off, which is the whole point of
+   * adding your own — the effect put all the defaults straight back, on the
+   * very next render. Empty on purpose is now a state this can hold.
+   */
+  const [srcs, setSrcs] = useState<string[] | null>(null)
+  /** One frozen empty list, so a not-yet-chosen library is referentially stable. */
+  const chosenSrcs = srcs ?? NO_SOURCES
 
   // Bumped by the error boundary's Try again, and part of its key, so that one
   // click both rebuilds the view from current state and gives it a boundary that
@@ -299,16 +315,17 @@ export default function App() {
    * restored from storage is a claim about provenance it cannot support.
    */
   const [customSets, setCustomSets] = useState<Collection[]>([])
-  const lib = useGeneSets(species, srcs, customSets)
+  const lib = useGeneSets(species, chosenSrcs, customSets)
 
   // The species' own defaults, once the manifest says what it has. Written only
   // when nothing is chosen, so this cannot fight a reader who has just turned a
   // collection off.
   useEffect(() => {
-    if (!lib.manifest || !species || srcs.length) return
-    const d = defaultSources(lib.manifest, species)
-    if (d.length) setSrcs(d)
-  }, [lib.manifest, species, srcs.length])
+    if (!lib.manifest || !species || srcs !== null) return
+    // Set even when the species offers no defaults, so this settles rather
+    // than re-deciding on every render.
+    setSrcs(defaultSources(lib.manifest, species))
+  }, [lib.manifest, species, srcs])
 
   function adopt(next: Source) {
     setOpened(next)
@@ -356,7 +373,7 @@ export default function App() {
     // and the effect below fills them in for whichever species this turns out
     // to be. Carrying the previous object's choice across would be worse — the
     // collections differ by species and mouse has no KEGG.
-    setSrcs([])
+    setSrcs(null)
     // The next object's levels are its own; an order named for the last one's
     // would place whichever of them happen to share a name and leave the rest.
     setCondOrder([])
@@ -829,7 +846,7 @@ export default function App() {
                 enrichment={rows => (
                   <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin }}
                     ctrl={ctrl} cs={cs} background={src.genes}
-                    lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
+                    lib={lib} species={species ?? 'human'} sources={chosenSrcs} onSources={setSrcs}
                     customSets={customSets} onCustomSets={setCustomSets}
                     // condLabel, not the raw arrays — those join on a comma, so
                     // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
@@ -855,7 +872,7 @@ export default function App() {
               <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
                 onPickGene={pickGene}
                 onCorrelate={genes => { setCoexprSeed(genes); setCoexprRan(null); setTab('coexpr') }}
-                lib={lib} species={species ?? 'human'} sources={srcs} onSources={setSrcs}
+                lib={lib} species={species ?? 'human'} sources={chosenSrcs} onSources={setSrcs}
                     customSets={customSets} onCustomSets={setCustomSets}
                 detected={detected}
                 scoreRan={scoreRan} onScoreRan={setScoreRan} />
