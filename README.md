@@ -65,74 +65,47 @@ with no worker and no progress card.
 | **Co-expression** | Pearson r of every gene against a seed — one gene, or a signature — over metacells, single cells, **cell type × group** columns built from the cells, or the exporter's pseudobulk table; both ends of the ranking, a detection floor, CSV export. A set is correlated with itself first and its members signed, so opposing arms add to the signature instead of cancelling in its mean |
 | **Methods** | continuous prose with superscript citations, cutoffs and design read from the object |
 
-## The decisions worth knowing about
+## Behaviour
 
-**Most single-cell experiments have no replicates, so nothing blocks on them.** The default test is
-the one Seurat's `FindMarkers` and Scanpy's `rank_genes_groups` run — a Wilcoxon rank-sum test
-across cells, with Seurat's own gates (`logfc.threshold` 0.25, `min.pct` 0.1, Bonferroni).
-Pseudobulk → DESeq2 is offered as an alternative and only above three samples per group, where it
-is defensible. When both are available each result names the other's count, because the larger
-number is not the better one: per-cell testing is for exploring, pseudobulk is for a claim that has
-to survive a new animal.
+**Testing.** The default is a Wilcoxon rank-sum test across cells with Seurat's gates
+(`logfc.threshold` 0.25, `min.pct` 0.1, Bonferroni) — the same test `FindMarkers` and
+`rank_genes_groups` run. Pseudobulk → DESeq2 is offered above three samples per group. Where both
+are available, each result names the other's count.
 
-**The groups are drawn in the order the file wrote them, until you say otherwise.** A
-categorical order in an object is usually a design — `0 h, 6 h, 24 h, 72 h`, `young_chow,
-young_hfd, old_chow, old_hfd` — so sorting it would destroy information, and it is the default
-everywhere. It is also not always the order a figure wants, so **Group order** in the top bar
-moves a level and every figure that splits by group follows at once: the split embedding, the
-composition bars, the violins, the dot plot, the feature panels, the gene-set heatmap. Nothing is
-recomputed and no cell moves — a group is identified by name everywhere below the figures, and
-Control and Compare are chosen by name too, so they do not move with it.
+**Two cutoffs, one source.** The per-cell test reports at Seurat's `logfc.threshold`; pseudobulk,
+which runs on summed raw counts, keeps the bulk `|log₂FC| > 1`. One function feeds the headline
+count, the table, the volcano's dashed lines and the Methods sentence, so they cannot disagree.
+padj and |log₂FC| live at app level rather than per tab, and switching test resets them.
 
-**A correlation across cells is three traps, and the defaults step around all three.** Pearson
-r on a matrix that is ~1% dense is mostly a statement about shared absence, so a gene detected in
-under 10% of the cells in scope is not ranked and cells are pooled into near-equal **metacells**
-before correlating — following hdWGCNA, including the part that matters: no metacell spans two
-cell types or two samples, so a pool cannot be two populations that merely sit near each other in
-the embedding. With tens of thousands of observations any r is "significant" and cells from
-one animal are not independent draws, so the table reports r and the detection rate and **no
-p-value at all**. And a signature seeded as the mean of its members cancels — a pathway holds
-arms that move in opposite directions — so the set is correlated with itself first and each
-member standardised and signed by the leading eigenvector before they are combined. Because the
-members are standardised, that one composite correlation *is* the weighted mean of their own
-independent correlations; how much of the set runs one way is reported with the result.
+**Group order.** Groups are drawn in the order the file wrote them — a categorical order in an
+object is usually a design. **Group order** in the top bar moves a level and every figure that
+splits by group follows at once, with nothing recomputed and no cell moved. Control and Compare
+are chosen by name, so they do not move with it.
 
-**Two cutoffs, because there are two scales.** `|log₂FC| > 1` is a bulk convention that does not
-transfer — single-cell values are log-normalized before testing, so effect sizes are compressed and
-a cutoff of 1 discards almost everything real. The per-cell test reports at Seurat's
-`logfc.threshold`; pseudobulk, which runs on summed raw counts, keeps the bulk cutoff. One function
-feeds the headline count, the table, the volcano's dashed lines and the Methods sentence, so they
-cannot disagree.
+**Correlation.** Genes detected in under 10% of cells in scope are not ranked, and cells are
+pooled into near-equal metacells before correlating, following hdWGCNA — no metacell spans two
+cell types or two samples. The table reports r and the detection rate and no p-value. A signature
+is correlated with itself first and each member standardised and signed by the leading
+eigenvector, so opposing arms add rather than cancel; how much of the set runs one way is reported
+with the result.
 
-**The object may have no comparison at all.** A single-condition file gets no control/compare
-selectors and the contrast tabs stay empty rather than inventing a pair. A time course keeps its
-groups in the object's own categorical order — 0 h first, 72 h last, never alphabetical.
+**Enrichment background** is the genes the object measured, not the genome, and the header states
+its size.
 
-**Nothing is shown that has not been computed.** No substitute contrast, no stale numbers, and a
-Methods generator that will not claim doublet removal, ambient-RNA correction or a batch correction
-it did not find in the file.
+**Module scores** subtract a control set drawn from matched expression bins, which is what makes
+zero a meaningful reference.
 
-**Enrichment tests against your object, not the genome.** The background is the genes the object
-actually measured. Scoring against genes the assay could not detect inflates every enrichment it
-produces, and the header states the background size so the number is checkable.
+**Single-condition files** get no control/compare selectors and the contrast tabs stay empty.
+Nothing is shown that has not been computed: no substitute contrast, and a Methods generator that
+will not claim doublet removal, ambient correction or batch correction it did not find in the file.
 
-**Module scores subtract a matched control set.** The naive "mean expression of the signature" is
-dominated by how abundant its genes happen to be — a ribosomal signature scores high in every cell
-and means nothing. Subtracting a control set drawn from the same expression bins is what makes zero
-a meaningful reference.
+**Export.** Every figure has a PNG button and every table a CSV button. Figures are hand-drawn SVG
+whose colours are CSS custom properties; export inlines the computed style first.
 
-**One set of cutoffs, shared by every tab.** padj and |log₂FC| live at app level, not per tab, so the
-table, the volcano's dashed lines, the enrichment input list and the Methods sentence all read the
-same two numbers. Moving a slider cannot leave one of them describing a different experiment — and
-switching test resets them, because the two tests are on different scales.
+**Every gene is a link.** A row in the DEG table, a point in the volcano, a member gene of an
+enriched term or a gene in a scored signature opens in **Gene expression**.
 
-**Everything is exportable.** Every figure has a PNG button and every table a CSV button. The
-figures are hand-drawn SVG whose colours are CSS custom properties, so export inlines the computed
-style first; without that a serialized `<svg>` has no document to resolve `var(--ink)` against and
-comes out black on black.
-
-**Every gene is a link.** Click a row in the DEG table, a point in the volcano, a member gene of an
-enriched term, or a gene in a scored signature, and it opens in **Gene expression**.
+📄 **[Why these defaults](DESIGN.md#why-the-defaults-are-what-they-are)**
 
 ## Figure palettes
 
