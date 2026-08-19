@@ -459,6 +459,41 @@ normalising afterwards is a log of means, where averaging the studio's values is
 Both are defensible summaries of a population and they are not interchangeable, so the interface
 refuses to put them under one label.
 
+### 2.11 Your own gene sets, in whatever you keep them in
+
+The studio could take a GMT and nothing else, behind a control labelled "Add a GMT…". That is
+the Broad's interchange format and almost nobody's working format: what a person has in front of
+them is the dict they built the analysis with, in a notebook, one keystroke from the clipboard.
+Asking them to convert it first is asking them to write a script in order to use a studio whose
+premise is not having to.
+
+So the control is a **text box**, and `parseSets` meets the input where it is — a Python dict
+with a variable name in front of it, an R `list(x = c(...))`, JSON in three shapes, a GMT, an
+Excel paste, `Name: gene, gene` lines, or a bare column of symbols for one set. Reading a file
+still exists, inside the same dialog, and goes through the same parser: a file is only a paste
+that arrived differently.
+
+Two decisions carry the design.
+
+**A scan, not a parser.** Strict JSON is tried first and costs nothing when it fails; everything
+after it is tolerant by construction. A `JSON.parse` rejects a trailing comma, and a Python
+literal is not JSON at all — somebody pasting out of their own notebook must not be told their
+input is malformed because of a comma their language allows. The consequence is that the reader
+can only ever get *fewer* sets than they meant, never a thrown error on syntax.
+
+**Which makes the panel underneath the actual feature.** Every set found, how many of its genes
+this object measures, and which ones it does not — before anything is added. A silent parse is
+the failure mode of every paste box ever built: it reads three of your twelve sets and reports
+success. This says what it understood while the input is still one edit away from right, and on
+an object that cannot answer for the sets at all it says that too, which is the more common
+disappointment — a mouse signature pasted onto a human object matches nothing, and the reason is
+capitalisation.
+
+One rule worth recording because it could have gone either way: a repeated set name **replaces**.
+`JSON.parse` resolves a duplicated key to the last one before the parser is ever called, and
+Python and R resolve their own literals the same way, so first-wins on the text paths would have
+meant one input giving two answers depending on whether it happened to be strict JSON.
+
 ## 3. Interface
 
 ### 3.1 The global bar — set once, applies everywhere

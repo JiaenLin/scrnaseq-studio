@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { LibraryState, SetIndex } from '../lib/genesets.ts'
-import { parseGmt, type Collection } from '../lib/msigdb.ts'
+import { type Collection } from '../lib/msigdb.ts'
+import SetEditor from './SetEditor.tsx'
 import type { Detection, Species } from '../lib/species.ts'
 
 /**
@@ -43,9 +44,10 @@ export default function GeneSetSources({
 }) {
   const avail = lib.manifest?.species[species]?.sources ?? []
   const [gmtError, setGmtError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
 
   /**
-   * A GMT the reader supplies.
+   * Gene sets the reader supplies.
    *
    * The one thing this studio could not do with gene sets: a lab with its own
    * signatures had to either find them in MSigDB or go elsewhere. Pasting them
@@ -53,27 +55,12 @@ export default function GeneSetSources({
    * strongly each CELL expresses the signature, not whether a DE list is
    * enriched for it.
    *
-   * Read in the page, never uploaded, like every other file this studio opens.
+   * Reading, parsing and showing what was understood all live in SetEditor now.
+   * They were here as a file-input handler that could only take a GMT and could
+   * only report a failure after the fact, which is the shape this control had
+   * to lose: the parse is live, and what it found is on screen before anything
+   * is added.
    */
-  const readGmt = async (files: FileList | null) => {
-    if (!files?.length) return
-    setGmtError(null)
-    const added: Collection[] = []
-    for (const f of Array.from(files)) {
-      try {
-        const name = f.name.replace(/\.(gmt|txt|tsv)$/i, '') || 'My sets'
-        added.push(parseGmt(await f.text(), name))
-      } catch (e) {
-        setGmtError(`${f.name}: ${e instanceof Error ? e.message : String(e)}`)
-      }
-    }
-    // Same name replaces rather than duplicates, so re-reading an edited file
-    // does not leave the old version enabled beside the new one.
-    if (added.length) {
-      const names = new Set(added.map(c => c.source))
-      onCustomSets([...customSets.filter(c => !names.has(c.source)), ...added])
-    }
-  }
 
   /**
    * How much of this object any enabled set covers.
@@ -159,14 +146,27 @@ export default function GeneSetSources({
           </button>
         ))}
 
-        <label className="btn btn-quiet cursor-pointer">
-          Add a GMT…
-          <input
-            type="file" accept=".gmt,.txt,.tsv" multiple className="sr-only"
-            onChange={e => { void readGmt(e.target.files); e.target.value = '' }}
-          />
-        </label>
+        {/* A button, not a file picker.
+            "Add a GMT…" asked the reader to go and produce a file in a format
+            they do not work in — nobody keeps their signatures as
+            tab-separated triples, they keep them as the dict they built the
+            analysis with. The editor takes that dict, and reading a file is
+            still offered inside it. */}
+        <button className="btn btn-quiet" onClick={() => setEditing(true)}>
+          Add your own…
+        </button>
       </div>
+
+      <SetEditor
+        open={editing} background={background}
+        onClose={() => setEditing(false)}
+        onAdd={c => {
+          setGmtError(null)
+          // Same name replaces rather than duplicates, so editing a set and
+          // adding it again does not leave the old version enabled beside it.
+          onCustomSets([...customSets.filter(x => x.source !== c.source), c])
+        }}
+      />
 
       {gmtError && (
         <p className="note note-warn mt-2 tx-small">{gmtError}</p>
