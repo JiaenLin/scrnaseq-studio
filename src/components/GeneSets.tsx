@@ -3,6 +3,7 @@ import type { CellType, Dataset, GroupBy } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf, maxOfAll } from '../lib/chart.ts'
+import { scoreColumns, type Column } from '../lib/columns.ts'
 import { drawLabels } from '../lib/canvas-label.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
 import { dendroLines, orderRows } from '../lib/cluster.ts'
@@ -11,7 +12,6 @@ import type { LibraryState } from '../lib/genesets.ts'
 import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
 import GeneSetSources from './GeneSetSources.tsx'
-import { parseGeneList } from '../lib/genes.ts'
 import {
   averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
 } from '../lib/score.ts'
@@ -70,8 +70,6 @@ export default function GeneSets({
   const GENES = src.genes
   const [setId, setSetId] = useState('')
   const [find, setFind] = useState('')
-  const [custom, setCustom] = useState('')
-  const [useCustom, setUseCustom] = useState(false)
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
   const [heat, setHeat] = useState(false)
   const [heatCluster, setHeatCluster] = useState(true)
@@ -200,15 +198,22 @@ export default function GeneSets({
     }
   }
 
-  const requested = useMemo(() => {
-    // Resolved here and only here — the picker above carries names, not members.
-    if (!useCustom) return chosen ? membersOf(chosen.ci, chosen.si) : []
-    // Parsed once. It was parsed twice — the whole gene list, per keystroke.
-    // Either naming: on an accession-indexed object a pasted list of symbols
-    // resolves, and so does a pasted list of accessions.
-    const { found, missing } = parseGeneList(custom, GENES, src.names)
-    return found.concat(missing)
-  }, [useCustom, custom, chosen, membersOf, GENES, src.names])
+  /**
+   * The chosen set's members, resolved here and only here — the picker carries
+   * names, not members.
+   *
+   * There used to be a second mode beside this one, "My own genes", a textarea
+   * that scored a pasted list without it ever becoming a collection. It is gone
+   * because "Add your own…" replaced the thing it was working around: a pasted
+   * list is a collection now, it appears in this picker beside MSigDB's, it can
+   * be enabled and disabled, and it is testable in Enrichment as well as
+   * scorable here. Two ways in for the same gene list, one of which produced
+   * something the rest of the studio could not see, was a fork with nothing on
+   * the other side of it.
+   */
+  const requested = useMemo(
+    () => (chosen ? membersOf(chosen.ci, chosen.si) : []),
+    [chosen, membersOf])
 
   const { used, missing } = useMemo(() => resolve(src, requested), [src, requested])
 
@@ -268,15 +273,23 @@ export default function GeneSets({
   // which is before the pass has reported anything.
   const waiting = armed && src.remote !== null && used.length > 0 && scores === null
 
-  const name = useCustom
-    ? `Custom set (${used.length} gene${used.length === 1 ? '' : 's'})`
-    : chosen?.name ?? ''
+  const name = chosen?.name ?? ''
 
+  /**
+   * The populations the score is broken down by.
+   *
+   * `scoreColumns`, not `identities` — see lib/columns.ts. With identities,
+   * "Across groups" meant the groups WITHIN whichever cell type was selected in
+   * the bar at the top of the page: a violin panel that reads as this
+   * signature's response across the experiment was one cell type's cells, and
+   * nothing on the figure said so. A module score across groups is a question
+   * about the object, and the cell type is not a parameter of it.
+   */
   const ids = useMemo(
-    () => identities(d, types, groupBy, ct, palKey), [d, types, groupBy, ct, palKey])
+    () => scoreColumns(d, types, groupBy, palKey, null, null), [d, types, groupBy, palKey])
+  const perId = useMemo(() => ids.map(c => c.cells), [ids])
   const heatIds = useMemo(
     () => identities(d, types, heatBy, ct, palKey), [d, types, heatBy, ct, palKey])
-  const perId = useCellsByIdentity(d, ids, types.length, groupBy)
   // Not while the pass is running: the table it feeds is not on screen, and
   // summarising 292 495 zeroes to draw nothing is work the user waits through.
   const stats = useMemo(
@@ -295,50 +308,30 @@ export default function GeneSets({
         sub={<>Seurat&rsquo;s <Mono>AddModuleScore</Mono>: the set&rsquo;s mean, minus a control
           set matched on expression level.</>}
       >
-        {!useCustom && (
-          <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources} customSets={customSets} onCustomSets={onCustomSets}
-            background={GENES} detected={detected} />
-        )}
+        <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
+          customSets={customSets} onCustomSets={onCustomSets}
+          background={GENES} detected={detected} />
 
         <div className="flex flex-wrap items-center gap-2">
-          <Seg<'lib' | 'own'>
-            value={useCustom ? 'own' : 'lib'}
-            onChange={k => setUseCustom(k === 'own')}
-            options={[{ k: 'lib', label: 'MSigDB' }, { k: 'own', label: 'My own genes' }]}
+          <input
+            className="inp w-[380px]" value={find}
+            placeholder={lib.loading ? 'loading MSigDB…'
+              : `search ${allSets.length.toLocaleString()} sets — cell cycle, notch…`}
+            aria-label="Search gene sets"
+            disabled={lib.loading}
+            role="combobox" aria-expanded={hits.length > 0} aria-controls="geneset-hits"
+            aria-activedescendant={hits[cursor] ? `gs-${hits[cursor].id}` : undefined}
+            autoComplete="off"
+            onKeyDown={onSearchKey}
+            onChange={e => setFind(e.target.value)}
           />
-          {!useCustom ? (
-            <input
-              className="inp w-[380px]" value={find}
-              placeholder={lib.loading ? 'loading MSigDB…'
-                : `search ${allSets.length.toLocaleString()} sets — cell cycle, notch…`}
-              aria-label="Search gene sets"
-              disabled={lib.loading}
-              role="combobox" aria-expanded={hits.length > 0} aria-controls="geneset-hits"
-              aria-activedescendant={hits[cursor] ? `gs-${hits[cursor].id}` : undefined}
-              autoComplete="off"
-              onKeyDown={onSearchKey}
-              onChange={e => setFind(e.target.value)}
-            />
-          ) : (
-            <>
-              <input
-                className="inp mono w-[380px]" value={custom} placeholder="Ascl1, Egfr, Mki67, Ccnd2…"
-                aria-label="Custom gene set"
-                onChange={e => setCustom(e.target.value)}
-              />
-              <button className="btn btn-quiet"
-                onClick={() => setCustom(membersOf(0, 0).slice(0, 12).join(', '))}
-                disabled={!allSets.length}>Load example</button>
-              <button className="btn btn-quiet" onClick={() => setCustom('')}>Clear</button>
-            </>
-          )}
         </div>
 
         {/* The matches, as a list rather than a dropdown: at 20 454 sets the
             names are what the reader is choosing between, and a <select> shows
             one at a time. Capped at forty — narrowing the search is the way to
             find something, not scrolling. */}
-        {!useCustom && !lib.loading && (
+        {!lib.loading && (
           <div ref={listRef} id="geneset-hits" role="listbox" aria-label="Matching gene sets"
             className="panel mt-2 max-h-[210px] overflow-y-auto">
             {hits.length === 0 ? (
@@ -385,16 +378,13 @@ export default function GeneSets({
         {failed ? (
           <Failed error={failed} onRetry={retry} what="The module score" />
         ) : waiting ? (
-          <Progress pass={pass ?? STARTING} title={useCustom
-            ? `Scoring ${requested.length} gene${requested.length === 1 ? '' : 's'} across every cell`
-            : `Scoring ${name} across every cell`} />
+          <Progress pass={pass ?? STARTING} title={`Scoring ${name} across every cell`} />
         ) : used.length === 0 ? (
           <div className="empty mt-4">
-            {useCustom && !custom.trim()
-              ? 'Paste a gene list to score.'
-              : !useCustom && !chosen
-                ? 'Pick a set above to score it.'
-                : 'None of these genes are measured in this object, so there is nothing to score.'}
+            {!chosen
+              ? 'Pick a set above to score it. Your own sets appear here too — add them with '
+                + '"Add your own…".'
+              : 'None of these genes are measured in this object, so there is nothing to score.'}
           </div>
         ) : !armed ? (
           /* Chosen, not yet asked for. Browsing a list of 13 604 names is not
@@ -568,43 +558,6 @@ export default function GeneSets({
       )}
     </>
   )
-}
-
-/**
- * Which cells belong to each row of the identity axis, in ONE pass.
- *
- * The obvious way to write this is a filter of every cell per identity, and it
- * was written that way. On the atlas that is 133 identities × 292 495 cells =
- * 38.9 million property reads, twice per render, on the main thread — the
- * figures took seconds to appear after a score that had cost nothing extra to
- * compute. One pass with a lookup gives the same lists, in the same order, for
- * 292 495 reads.
- */
-function useCellsByIdentity(
-  d: Dataset, ids: ReturnType<typeof identities>, nTypes: number, groupBy: GroupBy,
-): number[][] {
-  return useMemo(() => {
-    const nC = d.conds.length
-    const condAt = new Map(d.conds.map((c, i) => [c, i]))
-    // Across cell types the group is ignored, so the key is the cluster alone;
-    // otherwise it is the (cluster, group) pair flattened into one number.
-    const width = groupBy === 'type' ? 1 : nC
-    const slot = new Int32Array(nTypes * width).fill(-1)
-    ids.forEach((id, k) => {
-      const s = id.ti * width + (groupBy === 'type' ? 0 : condAt.get(id.cond) ?? -1)
-      if (id.ti >= 0 && id.ti < nTypes && s >= 0 && s < slot.length) slot[s] = k
-    })
-    const out: number[][] = ids.map(() => [])
-    for (let i = 0; i < d.cells.length; i++) {
-      const c = d.cells[i]
-      if (c.t < 0 || c.t >= nTypes) continue
-      const ci = groupBy === 'type' ? 0 : condAt.get(c.cond) ?? -1
-      if (ci < 0) continue
-      const k = slot[c.t * width + ci]
-      if (k >= 0) out[k].push(i)
-    }
-    return out
-  }, [d, ids, nTypes, groupBy])
 }
 
 function ScoreMap({ d, types, xy, scores, rampKey }: {
@@ -1076,7 +1029,7 @@ function SetHeatmap({
 
 function ScoreViolins({ scores, ids, perId, groupBy }: {
   scores: Float32Array
-  ids: ReturnType<typeof identities>
+  ids: Column[]
   perId: number[][]
   groupBy: GroupBy
 }) {

@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import type { CellType, GroupBy } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { identities } from '../lib/chart.ts'
+import { scoreColumns, zByRow, type Column } from '../lib/columns.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
 import { AXIS_INK } from '../lib/figure-ink.ts'
 import { rampColor, type PaletteKey } from '../lib/palette.ts'
@@ -13,6 +13,7 @@ import {
 import { downloadCsv } from '../lib/download.ts'
 import { useJob } from '../lib/compute.ts'
 import { Card, Seg } from './Ui.tsx'
+import ColumnFilter from './ColumnFilter.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import Progress, { Failed } from './Progress.tsx'
 
@@ -45,11 +46,10 @@ const MAX_SETS = 30
  * baseline. scripts/test-sets.mjs holds the two paths to bit-for-bit equality.
  */
 export default function ScoreMany({
-  src, types, ct, palKey, lib, ran, onRan,
+  src, types, palKey, lib, ran, onRan,
 }: {
   src: Source
   types: CellType[]
-  ct: string
   palKey: PaletteKey
   lib: LibraryState
   /** The reader's go-ahead for this selection, joined. */
@@ -60,6 +60,18 @@ export default function ScoreMany({
   const [picked, setPicked] = useState<string[]>([])
   const [find, setFind] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('type')
+  const [hideT, setHideT] = useState<Set<number>>(new Set())
+  const [hideC, setHideC] = useState<Set<string>>(new Set())
+  /**
+   * z-score each signature across the columns shown.
+   *
+   * Off by default: the raw mean is the number AddModuleScore produces and its
+   * zero means something. On, every row says where THAT signature is highest
+   * rather than how large it is — which is the only way to compare a signature
+   * of eight abundant genes against one of forty rare ones, and those are the
+   * two rows a reader most wants to put side by side.
+   */
+  const [scale, setScale] = useState(false)
   const query = useDeferredValue(find)
 
   /** Every set on offer, names only — the members are read when one is chosen. */
@@ -137,48 +149,44 @@ export default function ScoreMany({
   const retry = binFailed ? binRetry : scoreRetry
   const waiting = enabled && src.remote !== null && out === null
 
-  const ids = useMemo(
-    () => identities(d, types, groupBy, ct, palKey), [d, types, groupBy, ct, palKey])
-
   /**
-   * The mean score of each set in each identity.
+   * The columns, and the cells in each.
    *
-   * One walk over the cells per set, rather than a filter per identity per set:
-   * on the atlas the second is 133 identities x 292 495 cells x however many
-   * sets, which is the figure taking seconds to appear after a pass that cost
-   * nothing extra.
+   * `scoreColumns`, not `identities` — see lib/columns.ts. The difference is
+   * the reported bug: with identities, "across groups" meant the groups WITHIN
+   * whichever cell type was selected in the bar at the top of the page, so a
+   * figure that reads as "this signature across the whole experiment" was one
+   * cell type's cells and nothing said so. Here a column carries its own cells,
+   * which is what lets a group pool every cell type.
    */
+  // The filter records what is HIDDEN; the columns want what is KEPT. Null
+  // rather than a full set when nothing is hidden, so the common case allocates
+  // nothing and `scoreColumns` can skip the membership test entirely.
+  const keepT = useMemo(
+    () => (hideT.size ? new Set(types.map((_t, i) => i).filter(i => !hideT.has(i))) : null),
+    [types, hideT])
+  const keepC = useMemo(
+    () => (hideC.size ? new Set(d.conds.filter(c => !hideC.has(c))) : null),
+    [d.conds, hideC])
+  const cols = useMemo(
+    () => scoreColumns(d, types, groupBy, palKey, keepT, keepC),
+    [d, types, groupBy, palKey, keepT, keepC])
+
+  /** The mean score of each signature in each column, in one walk. */
   const grid = useMemo(() => {
-    if (!out || !chosen.length) return null
-    const nC = d.conds.length
-    const condAt = new Map(d.conds.map((c, i) => [c, i]))
-    const width = groupBy === 'type' ? 1 : nC
-    const slot = new Int32Array(types.length * width).fill(-1)
-    ids.forEach((id, k) => {
-      const s = id.ti * width + (groupBy === 'type' ? 0 : condAt.get(id.cond) ?? -1)
-      if (id.ti >= 0 && id.ti < types.length && s >= 0 && s < slot.length) slot[s] = k
-    })
+    if (!out || !chosen.length || !cols.length) return null
     const n = d.cells.length
-    const sum = new Float64Array(chosen.length * ids.length)
-    const size = new Int32Array(ids.length)
-    for (let i = 0; i < n; i++) {
-      const c = d.cells[i]
-      if (c.t < 0 || c.t >= types.length) continue
-      const ci = groupBy === 'type' ? 0 : condAt.get(c.cond) ?? -1
-      if (ci < 0) continue
-      const k = slot[c.t * width + ci]
-      if (k < 0) continue
-      size[k]++
-      for (let s = 0; s < chosen.length; s++) sum[s * ids.length + k] += out.scores[s * n + i]
-    }
-    const mean = new Float64Array(chosen.length * ids.length)
-    for (let s = 0; s < chosen.length; s++) {
-      for (let k = 0; k < ids.length; k++) {
-        mean[s * ids.length + k] = size[k] ? sum[s * ids.length + k] / size[k] : 0
+    const raw = new Float64Array(chosen.length * cols.length)
+    cols.forEach((col, k) => {
+      for (let s = 0; s < chosen.length; s++) {
+        let sum = 0
+        const base = s * n
+        for (const i of col.cells) sum += out.scores[base + i]
+        raw[s * cols.length + k] = sum / col.cells.length
       }
-    }
-    return { mean, size }
-  }, [out, chosen, ids, d, types.length, groupBy])
+    })
+    return scale ? zByRow(raw, chosen.length, cols.length) : raw
+  }, [out, chosen, cols, d.cells.length, scale])
 
   const modes: { k: GroupBy; label: string }[] = [
     { k: 'type', label: 'Across cell types' },
@@ -263,25 +271,35 @@ export default function ScoreMany({
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="glabel">Group by</span>
             <Seg<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
+            <div className="gsep h-6" />
+            <button className="chip" aria-pressed={scale} onClick={() => setScale(!scale)}
+              title="z-score each signature across the columns shown, so a small signature and a large one can be compared">
+              Scale each signature
+            </button>
           </div>
+          <ColumnFilter types={types} conds={d.conds} groupBy={groupBy}
+            hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
+            palKey={palKey} label="Columns in this figure" />
           <Figure name="module_scores" className="mt-1">
             {/* Always diverging, never the reader's sequential ramp: a module
                 score is signed and its zero means something — a scale whose
                 neutral sits anywhere else misreports which way a population
                 went. */}
-            <ScoreGrid rows={chosen.map(c => c.name)} ids={ids} mean={grid.mean}
-              groupBy={groupBy} />
+            <ScoreGrid rows={chosen.map(c => c.name)} cols={cols} mean={grid} scale={scale} />
           </Figure>
           <div className="mt-2 flex items-center justify-end">
             <CsvButton onClick={() => downloadCsv(
-              'module_scores',
-              ['set', ...ids.map(i => i.full)],
+              scale ? 'module_scores_scaled' : 'module_scores',
+              ['set', ...cols.map(c => c.full)],
               chosen.map((c, s) => [c.name,
-                ...ids.map((_i, k) => grid.mean[s * ids.length + k].toFixed(4))]))} />
+                ...cols.map((_c, k) => grid[s * cols.length + k].toFixed(4))]))} />
           </div>
           <p className="sub mt-2">
-            Colour is the mean score of that signature in that population. Zero is the
-            reference: no higher than genes of comparable abundance.
+            {scale
+              ? <>Colour is <b>z-scored along each signature</b> — where that signature is
+                  highest, not how large it is.</>
+              : <>Colour is the mean score of that signature in that population. Zero is the
+                  reference: no higher than genes of comparable abundance.</>}
           </p>
         </>
       ) : (
@@ -292,17 +310,17 @@ export default function ScoreMany({
 }
 
 /** Signatures down the side, populations along the bottom. */
-function ScoreGrid({ rows, ids, mean, groupBy }: {
+function ScoreGrid({ rows, cols, mean, scale }: {
   rows: string[]
-  ids: ReturnType<typeof identities>
+  cols: Column[]
   mean: Float64Array
-  groupBy: GroupBy
+  scale: boolean
 }) {
   const cw = 34, rh = 18, PT = 12, PR = 20, BAR_H = 58
   const PL = Math.max(90, widestW(rows, 10.5, false) + 14)
-  const labels = ids.map(i => (groupBy === 'both' ? i.full : i.label))
+  const labels = cols.map(c => c.label)
   const ax = axisTicks(labels, { band: cw, leftAnchor: PL + cw / 2, px: 9, startAt: 10, upright: 24 })
-  const W = PL + ids.length * cw + PR
+  const W = PL + cols.length * cw + PR
   const plotB = PT + rows.length * rh
   const H = plotB + ax.bottom + BAR_H
 
@@ -315,11 +333,14 @@ function ScoreGrid({ rows, ids, mean, groupBy }: {
   return (
     <div className="mt-2 overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ maxWidth: '100%' }}
-        role="img" aria-label={`Mean module score of ${rows.length} signatures across ${ids.length} populations`}>
-        {rows.map((r, si) => ids.map((id, k) => (
+        role="img" aria-label={`Mean module score of ${rows.length} signatures across ${cols.length} populations`}>
+        {rows.map((r, si) => cols.map((col, k) => (
           <rect key={`${si}-${k}`} x={PL + k * cw} y={PT + si * rh} width={cw} height={rh}
-            fill={rampColor((mean[si * ids.length + k] - lo) / (hi - lo), 'rdbu')}>
-            <title>{r} in {id.full} — {mean[si * ids.length + k].toFixed(3)}</title>
+            fill={rampColor((mean[si * cols.length + k] - lo) / (hi - lo), 'rdbu')}>
+            <title>
+              {r} in {col.full} — {scale ? 'z ' : ''}{mean[si * cols.length + k].toFixed(3)}
+              {' · '}{col.cells.length.toLocaleString()} cells
+            </title>
           </rect>
         )))}
         {rows.map((r, si) => (
@@ -337,7 +358,9 @@ function ScoreGrid({ rows, ids, mean, groupBy }: {
           )
         })}
         <ColorBar cx={W / 2} y={H - BAR_H + 22} w={170} h={10} ramp="rdbu"
-          lo={lo} hi={hi} id="scoremany" title="mean module score" />
+          lo={lo} hi={hi} id="scoremany"
+          title={scale ? 'z-score, along each signature' : 'mean module score'}
+          breaks={scale ? [-2.5, 0, 2.5] : undefined} />
       </svg>
     </div>
   )

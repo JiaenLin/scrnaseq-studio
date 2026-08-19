@@ -331,6 +331,40 @@ Capped at thirty sets. Not a limit on the pass, which is one walk whatever the n
 on the two things that do grow — one Float32 per set per cell (thirty across the atlas is
 35 MB) and a figure that stops being readable long before that.
 
+### 2.8b "Across groups" is a question about the object, not about one cell type
+
+`identities()` in chart.ts answers "which rows does the GENE tab draw", and there "across
+groups" legitimately means *within the cell type selected beside the figure* — a violin
+panel is showing one population's response to a treatment, and the cell type is a parameter
+of it.
+
+A module score across groups is a different question, and it was being answered with the
+same function. "How does this signature move between aged_HFD and aged_chow" is asked of
+the whole object; answering it for whichever cell type happened to be selected in a bar at
+the top of the page produced a figure that reads as the first question and is the second,
+with nothing on it saying so. Reported as a bug, and it was one.
+
+`lib/columns.ts` is the fix. A column there carries its own CELLS rather than a
+(cell type, group) pair — which is what lets a group pool every cell type, something no
+pair can express, since `src.group(ti, cond)` has no "all types" to pass. Across groups on
+the demo now covers 14 920 + 19 447 = every cell, where before it covered one cluster's.
+
+Two things came with it. Both gene-set cards take the same **column filter** the per-gene
+heatmap already had, filtering cell types and groups on two axes rather than over their
+product — 133 clusters against 20 groups is 2 660 toggles, which is not a control. And the
+several-signature grid can **z-score along each row**, because a signature of eight abundant
+genes and one of forty rare ones cannot be compared on a shared absolute scale; scaled, a
+row says where that signature is highest rather than how large it is. Scaled after
+filtering, so removing a population changes the scale — the same rule the per-gene heatmap
+follows.
+
+One thing went away rather than being fixed: the single-set card's "My own genes" textarea,
+a second way in that scored a pasted list without it ever becoming a collection. "Add your
+own…" replaced the problem it was working around — a pasted list is a collection now, it
+sits in the picker beside MSigDB's, it can be switched on and off, and it is testable in
+Enrichment as well as scorable here. Two doors for one gene list, one of which produced
+something the rest of the studio could not see, was a fork with nothing on the other side.
+
 ### 2.9 A metabolic library, because MSigDB does not publish one
 
 Over-representation is corrected across everything tested. A reader asking whether a

@@ -902,7 +902,7 @@ export default function App() {
                     customSets={customSets} onCustomSets={setCustomSets}
                 detected={detected}
                 scoreRan={scoreRan} onScoreRan={setScoreRan} />
-              <ScoreMany src={src} types={types} ct={ct} palKey={palKey}
+              <ScoreMany src={src} types={types} palKey={palKey}
                 lib={lib} ran={manyRan} onRan={setManyRan} />
               </>
             ) : (
