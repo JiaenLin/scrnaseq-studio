@@ -358,6 +358,23 @@ row says where that signature is highest rather than how large it is. Scaled aft
 filtering, so removing a population changes the scale — the same rule the per-gene heatmap
 follows.
 
+The per-gene heatmap goes through it too, and gained something from the move. It used to
+read `src.mean(gene, ti, cond)`, which *needs* a cell type to ask about — that is why its
+"across groups" was one cluster's cells, and why it re-read the matrix every time somebody
+switched grouping. It now reads once at the **finest partition** the object has, one part
+per populated cell type × group, and keeps sums and counts rather than means. Every column
+any grouping can draw is a union of those parts, so regrouping and re-filtering are
+arithmetic on numbers already in hand: no pass over the file, ever, after the first.
+
+Sums and counts, never means, because a mean is not additive. The mean over a union is the
+sum of the parts' sums over the sum of their sizes; averaging the parts' means instead
+would weight a part of forty cells the same as one of four thousand — which on a real
+annotation, where cell type × group is wildly unbalanced, is not a rounding difference.
+
+With no figure on the tab reading it any more, the shared **Cell type** selector is gone
+from the bar above it. A control nothing reads is how "across groups" came to mean "across
+the groups of one cluster" in the first place.
+
 One thing went away rather than being fixed: the single-set card's "My own genes" textarea,
 a second way in that scored a pasted list without it ever becoming a collection. "Add your
 own…" replaced the problem it was working around — a pasted list is a collection now, it

@@ -2,8 +2,11 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, Dataset, GroupBy } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
-import { axisRange, clusterCentroids, density, embedExtent, identities, quantiles, minOf, maxOf, maxOfAll } from '../lib/chart.ts'
-import { scoreColumns, type Column } from '../lib/columns.ts'
+import { axisRange, clusterCentroids, density, embedExtent, quantiles, minOf, maxOf } from '../lib/chart.ts'
+import {
+  aggregateColumns, finePartition, scoreColumns, zByRow, type Column,
+} from '../lib/columns.ts'
+import ColumnFilter from './ColumnFilter.tsx'
 import { drawLabels } from '../lib/canvas-label.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
 import { dendroLines, orderRows } from '../lib/cluster.ts'
@@ -17,7 +20,7 @@ import {
 } from '../lib/score.ts'
 import { AXIS_INK, LABEL_INK } from '../lib/figure-ink.ts'
 import { drawColorBar } from '../lib/feature-plot.ts'
-import { pal, rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { Card, Mono, Seg } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
@@ -34,13 +37,12 @@ import Progress, { Failed } from './Progress.tsx'
 const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
 export default function GeneSets({
-  src, types, ct, emb, palKey, rampKey, onPickGene, onCorrelate,
+  src, types, emb, palKey, rampKey, onPickGene, onCorrelate,
   lib, species, sources, onSources, customSets, onCustomSets,
   detected, scoreRan, onScoreRan,
 }: {
   src: Source
   types: CellType[]
-  ct: string
   /** Which of the object's embeddings to draw the score on. */
   emb: Embedding
   palKey: PaletteKey
@@ -288,8 +290,13 @@ export default function GeneSets({
   const ids = useMemo(
     () => scoreColumns(d, types, groupBy, palKey, null, null), [d, types, groupBy, palKey])
   const perId = useMemo(() => ids.map(c => c.cells), [ids])
-  const heatIds = useMemo(
-    () => identities(d, types, heatBy, ct, palKey), [d, types, heatBy, ct, palKey])
+  // The filter records what is HIDDEN; the columns want what is KEPT.
+  const heatKeepT = useMemo(
+    () => (hideT.size ? new Set(types.map((_t, i) => i).filter(i => !hideT.has(i))) : null),
+    [types, hideT])
+  const heatKeepC = useMemo(
+    () => (hideC.size ? new Set(d.conds.filter(c => !hideC.has(c))) : null),
+    [d.conds, hideC])
   // Not while the pass is running: the table it feeds is not on screen, and
   // summarising 292 495 zeroes to draw nothing is work the user waits through.
   const stats = useMemo(
@@ -539,15 +546,13 @@ export default function GeneSets({
           </div>
           {heat && (
             <>
-              <HeatFilter
-                types={types} conds={d.conds} groupBy={heatBy}
+              <ColumnFilter types={types} conds={d.conds} groupBy={heatBy}
                 hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
-                palKey={palKey}
-              />
+                palKey={palKey} label="Columns in this heatmap" />
               <Figure name={`set_genes_${slug(name)}`} className="mt-1">
                 <SetHeatmap
-                  src={src} genes={used} ids={heatIds} groupBy={heatBy}
-                  keep={i => !hideT.has(heatIds[i].ti) && !hideC.has(heatIds[i].cond ?? '')}
+                  src={src} genes={used} d={d} types={types} groupBy={heatBy} palKey={palKey}
+                  keepT={heatKeepT} keepC={heatKeepC}
                   rampDiv="rdbu" rampSeq={rampKey} scale={heatScale} flip={heatFlip}
                   cluster={heatCluster}
                 />
@@ -632,136 +637,18 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
 /** Height of the colour-bar strip, in the same 640-wide units as the drawing. */
 const BAR_U = 46
 
-/**
- * Which cell types and which groups the heatmap draws.
- *
- * Two axes rather than one list of identities. Grouped by cell type × group the
- * identities are the PRODUCT — 133 clusters against 20 groups is 2 660 toggles,
- * which is not a control, it is a second figure to read. Filtering the two
- * axes separately is both smaller and what the reader is actually asking:
- * "these four populations, in these two conditions".
- *
- * Hiding is by name and by cluster index, so it survives regrouping: turn a
- * group off, switch from cell type to cell type × group, and it is still off.
- */
-function HeatFilter({ types, conds, groupBy, hideT, hideC, onHideT, onHideC, palKey }: {
-  types: CellType[]
-  conds: string[]
-  groupBy: GroupBy
-  hideT: Set<number>
-  hideC: Set<string>
-  onHideT: (next: Set<number>) => void
-  onHideC: (next: Set<string>) => void
-  palKey: PaletteKey
-}) {
-  const [open, setOpen] = useState(false)
-  const showTypes = groupBy !== 'cond'
-  const showConds = groupBy !== 'type' && conds.length > 1
-
-  const toggleT = (ti: number) => {
-    const next = new Set(hideT)
-    if (!next.delete(ti)) next.add(ti)
-    // Never all of them: the figure would have no columns and the only way back
-    // would be this control, which is easy to scroll past.
-    if (next.size >= types.length) return
-    onHideT(next)
-  }
-  const toggleC = (c: string) => {
-    const next = new Set(hideC)
-    if (!next.delete(c)) next.add(c)
-    if (next.size >= conds.length) return
-    onHideC(next)
-  }
-
-  const nT = types.length - hideT.size
-  const nC = conds.length - hideC.size
-  const some = hideT.size > 0 || hideC.size > 0
-
-  return (
-    <div className="mt-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <button className="chip" aria-expanded={open} onClick={() => setOpen(v => !v)}>
-          {open ? '▾' : '▸'} Columns in this heatmap
-        </button>
-        <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-          {showTypes && `${nT} of ${types.length} cell type${types.length === 1 ? '' : 's'}`}
-          {showTypes && showConds && ' · '}
-          {showConds && `${nC} of ${conds.length} groups`}
-        </span>
-        {some && (
-          <button className="btn btn-quiet"
-            onClick={() => { onHideT(new Set()); onHideC(new Set()) }}>Show all</button>
-        )}
-      </div>
-      {open && (
-        <div className="panel mt-2">
-          {showTypes && (
-            <>
-              <div className="glabel mb-1.5">Cell types</div>
-              <div className="grid gap-1"
-                style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))' }}>
-                {types.map((t, ti) => {
-                  const on = !hideT.has(ti)
-                  return (
-                    <button key={t.key} onClick={() => toggleT(ti)} aria-pressed={on}
-                      className="type-toggle flex items-center gap-1.5 rounded-[--r-md] px-2 py-1 text-left"
-                      style={{ opacity: on ? 1 : 0.45 }}>
-                      <i className="sw flex-none" style={{ background: pal(ti, palKey) }} />
-                      <span className="min-w-0 flex-1 tx-micro">{t.name}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </>
-          )}
-          {showConds && (
-            <>
-              <div className={`glabel mb-1.5 ${showTypes ? 'mt-3' : ''}`}>Groups</div>
-              <div className="flex flex-wrap gap-1.5">
-                {conds.map(c => (
-                  <button key={c} className="chip" aria-pressed={!hideC.has(c)}
-                    onClick={() => toggleC(c)}>{c}</button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * The set's genes, one row each, across the identities.
- *
- * A module score answers "how strongly does this cell express the signature as
- * a whole", which is one number and hides everything about how it got there: a
- * set can score high because two of its fifty genes are enormous, and the score
- * alone cannot tell that from fifty genes moving together. This is the figure
- * that can — it is what people go to pheatmap for after running AddModuleScore.
- *
- * Z-scored down each gene's own row, like Seurat's DoHeatmap and pheatmap's
- * `scale = "row"`. Without it the figure is a map of which genes are abundant,
- * which is a property of the gene and not of the contrast; with it every row
- * says where THAT gene is highest, which is the comparison the rows are for.
- */
 function SetHeatmap({
-  src, genes, ids, keep, groupBy, rampDiv, rampSeq, scale, flip, cluster,
+  src, genes, d, types, groupBy, palKey, keepT, keepC, rampDiv, rampSeq, scale, flip, cluster,
 }: {
   src: Source
   genes: string[]
-  /** Every identity, whether drawn or not — see `keep`. */
-  ids: ReturnType<typeof identities>
-  /**
-   * Which of them to draw, by index into `ids`.
-   *
-   * The matrix is read over ALL of them and the columns are selected here,
-   * rather than re-reading the file whenever a cell type is switched off.
-   * Reading is the expensive half — on a streamed object it is a pass per
-   * window of genes — and it does not depend on which columns survive.
-   */
-  keep: (i: number) => boolean
+  d: Dataset
+  types: CellType[]
   groupBy: GroupBy
+  palKey: PaletteKey
+  /** The reader's filters, or null for everything. */
+  keepT: ReadonlySet<number> | null
+  keepC: ReadonlySet<string> | null
   /** The diverging scale, for z-scores. */
   rampDiv: RampKey
   /** The sequential scale, for raw means — a quantity with no second direction. */
@@ -775,42 +662,47 @@ function SetHeatmap({
   const cw = 34, rh = 15, PT = 12, PR = 20, BAR_H = 58
 
   /**
-   * The matrix, read a window at a time.
+   * The finest partition, and the matrix read against it.
    *
-   * This was a plain useMemo over `src.mean`, which reads the gene's vector
-   * synchronously — and on a streamed object a gene that has not been fetched
-   * reads as a column of zeros. So the figure drew every cell at the neutral
-   * colour: gene names down the side, identities along the bottom, and nothing
-   * in between. Reported as showing nothing, and it was showing zeros.
+   * Read at cell type x group and NEVER at the grouping on screen. Every column
+   * this figure can draw is a union of those parts, so regrouping and filtering
+   * are arithmetic on numbers already in hand rather than another pass over the
+   * file — which on a streamed object is a pass per window of genes, and used to
+   * happen every time somebody switched from "across cell types" to "across
+   * groups".
    *
-   * `ensure` is not the answer either: a collection holds a bounded number of
-   * gene vectors and a fifty-gene set can exceed it, which throws rather than
-   * silently returning some of them. `withGenes` is the shape this wants — the
-   * same one the marker dot plot uses — because a matrix is an accumulation,
-   * so each window's block can be written and the window let go.
+   * It is also what makes "across groups" mean what it says. The old read asked
+   * `src.mean(gene, ti, cond)`, which needs a cell type to ask about, so a group
+   * column was one cluster's cells with nothing saying so. A sum over parts has
+   * no such requirement: the group column is every part with that group in it.
    */
-  const [matrix, setMatrix] = useState<number[][] | null>(null)
+  const fine = useMemo(() => finePartition(d, types.length), [d, types.length])
+  const [sums, setSums] = useState<Float64Array[] | null>(null)
   const [readErr, setReadErr] = useState<string | null>(null)
   const [read, setRead] = useState(0)
 
   useEffect(() => {
     let live = true
-    setMatrix(null)
+    setSums(null)
     setReadErr(null)
     setRead(0)
-    if (!genes.length || !ids.length) { setMatrix([]); return }
+    if (!genes.length || !fine.n) { setSums([]); return }
 
-    const out = genes.map(() => new Array<number>(ids.length).fill(0))
+    const out = genes.map(() => new Float64Array(fine.n))
     const fill = (g: string, gi: number) => {
-      for (let ci = 0; ci < ids.length; ci++) {
-        out[gi][ci] = src.mean(g, ids[ci].ti, groupBy === 'type' ? null : ids[ci].cond)
-      }
+      const acc = out[gi]
+      // Sums, not means — a mean is not additive, and every column above is a
+      // union. See lib/columns.ts.
+      src.forEachNonZero(g, (cell, value) => {
+        const p = fine.of[cell]
+        if (p >= 0) acc[p] += value
+      })
     }
     // An object held in memory answers immediately; there is nothing to stream
     // and nothing to show a bar for.
     if (!src.lazy) {
       genes.forEach(fill)
-      setMatrix(out)
+      setSums(out)
       return
     }
     let done = 0
@@ -819,46 +711,49 @@ function SetHeatmap({
       done += win.length
       if (live) setRead(done)
     }).then(
-      () => { if (live) setMatrix(out) },
+      () => { if (live) setSums(out) },
       (e: unknown) => {
         if (live) setReadErr(e instanceof Error ? e.message : String(e))
       },
     )
     return () => { live = false }
-  }, [src, genes, ids, groupBy])
+  }, [src, genes, fine])
 
-  /** The columns actually drawn, as indices into `ids`. */
   const cols = useMemo(
-    () => ids.map((_id, i) => i).filter(keep), [ids, keep])
+    () => aggregateColumns(d, types, groupBy, palKey, keepT, keepC, fine),
+    [d, types, groupBy, palKey, keepT, keepC, fine])
 
   /**
    * What each square is worth: a z-score, or the mean as the object holds it.
    *
-   * Row-scaled, over the KEPT columns only. Scaling before filtering would be
-   * the wrong order: a z-score says where a gene is highest AMONG THE COLUMNS
-   * SHOWN, so dropping a cell type has to change the scale. Otherwise a reader
-   * who removes the one population a gene is high in still sees that gene's
-   * remaining columns pushed to the blue end by a mean that includes a column
-   * no longer on screen.
+   * Row-scaled over the KEPT columns only. Scaling before filtering would be the
+   * wrong order: a z-score says where a gene is highest AMONG THE COLUMNS SHOWN,
+   * so dropping a cell type has to change the scale. Otherwise a reader who
+   * removes the one population a gene is high in still sees that gene's
+   * remaining columns pushed to the blue end by a mean that includes a column no
+   * longer on screen.
    *
-   * A row with no variance stays at zero rather than dividing by it — a gene
-   * detected nowhere in the panel is not "average everywhere", and a NaN here
-   * would take the figure's geometry with it.
-   *
-   * Unscaled the rows are simply the means, kept on ONE scale across the whole
-   * plate: per-row it would be the scaling again under another name, and the
-   * question this mode exists to answer is which genes are abundant.
+   * Unscaled the rows are the means, kept on ONE scale across the whole plate:
+   * per-row would be the scaling again under another name, and the question this
+   * mode exists to answer is which genes are abundant.
    */
-  const v = useMemo(() => (matrix ?? []).map(full => {
-    const row = cols.map(ci => full[ci])
-    if (!scale) return row
-    const m = row.reduce((a, b) => a + b, 0) / (row.length || 1)
-    const sd = Math.sqrt(row.reduce((a, b) => a + (b - m) ** 2, 0) / (row.length || 1))
-    return sd > 1e-9 ? row.map(x => Math.max(-2.5, Math.min(2.5, (x - m) / sd))) : row.map(() => 0)
-  }), [matrix, cols, scale])
+  const v = useMemo(() => {
+    if (!sums || !cols.length) return null
+    const raw = new Float64Array(genes.length * cols.length)
+    for (let gi = 0; gi < genes.length; gi++) {
+      const acc = sums[gi]
+      if (!acc) continue
+      for (let k = 0; k < cols.length; k++) {
+        let s = 0
+        for (const p of cols[k].parts) s += acc[p]
+        raw[gi * cols.length + k] = cols[k].size ? s / cols[k].size : 0
+      }
+    }
+    return scale ? zByRow(raw, genes.length, cols.length) : raw
+  }, [sums, cols, genes.length, scale])
 
   /** The ends of the colour scale, and which scale it is. */
-  const [lo, hi] = scale ? [-2.5, 2.5] : [0, Math.max(maxOfAll(v), 0.01)]
+  const [lo, hi] = scale ? [-2.5, 2.5] : [0, Math.max(v ? maxOf(v) : 0, 0.01)]
   const span = hi - lo
   const ramp = scale ? rampDiv : rampSeq
 
@@ -866,14 +761,18 @@ function SetHeatmap({
   // survive and of whether the rows are scaled — so removing a cell type or
   // turning the scaling off re-clusters, rather than leaving a dendrogram that
   // describes an arrangement no longer on screen.
-  const geneTree = useMemo(() => (cluster ? orderRows(v) : null), [cluster, v])
+  const rows2 = useMemo(
+    () => (v ? genes.map((_g, gi) => Array.from(
+      { length: cols.length }, (_c, k) => v[gi * cols.length + k])) : []),
+    [v, genes, cols.length])
+  const geneTree = useMemo(() => (cluster ? orderRows(rows2) : null), [cluster, rows2])
   const idTree = useMemo(() => {
     if (!cluster || cols.length < 3) return null
-    return orderRows(cols.map((_c, ci) => v.map(row => row[ci])))
-  }, [cluster, v, cols])
+    // Transposed: a column is one population's profile across the set's genes.
+    return orderRows(Array.from({ length: cols.length }, (_c, k) => rows2.map(r => r[k])))
+  }, [cluster, rows2, cols.length])
 
   const geneAt = geneTree ? geneTree.order : genes.map((_g, i) => i)
-  // Positions within `cols`, so `cols[idAt[j]]` is the identity in column j.
   const idAt = idTree ? idTree.order : cols.map((_c, i) => i)
 
   /**
@@ -886,16 +785,9 @@ function SetHeatmap({
    */
   const vAt = flip ? idAt : geneAt
   const hAt = flip ? geneAt : idAt
-  const labelOf = {
-    gene: (i: number) => genes[i],
-    id: (j: number) => {
-      const id = ids[cols[j]]
-      return groupBy === 'both' ? id.full : id.label
-    },
-  }
-  const vLabels = vAt.map(i => (flip ? labelOf.id(i) : labelOf.gene(i)))
-  const hLabels = hAt.map(i => (flip ? labelOf.gene(i) : labelOf.id(i)))
-  /** The plate square at (row, column), as (gene, column-of-`cols`) indices. */
+  const vLabels = vAt.map(i => (flip ? cols[i].label : genes[i]))
+  const hLabels = hAt.map(i => (flip ? genes[i] : cols[i].label))
+  /** The plate square at (row, column), as (gene, column) indices. */
   const cellAt = (vi: number, hj: number): [number, number] =>
     (flip ? [hAt[hj], vAt[vi]] : [vAt[vi], hAt[hj]])
 
@@ -920,7 +812,7 @@ function SetHeatmap({
       </div>
     )
   }
-  if (!matrix) {
+  if (!sums) {
     // A determinate bar, because withGenes reports every window it finishes and
     // the total is known — the one thing worse than a wait is a wait with no
     // idea how long. This is why the figure looked broken rather than busy.
@@ -945,7 +837,7 @@ function SetHeatmap({
     )
   }
 
-  if (!cols.length) {
+  if (!cols.length || !v) {
     return (
       <div className="empty mt-2">Every column is switched off — turn one back on above.</div>
     )
@@ -954,23 +846,18 @@ function SetHeatmap({
   return (
     <div className="mt-2 overflow-x-auto">
       {/*
-        Drawn at its natural size, not stretched to the card.
-
-        `width="100%"` scales the viewBox to whatever width is available, so a
-        heatmap of four columns was blown up until each cell was a hundred
-        pixels across and the gene names were larger than the card's own
-        heading — the figure got LESS readable as it got simpler, which is
-        backwards. Every unit in the viewBox is now one CSS pixel up to the
-        width of the card, and `max-width: 100%` still shrinks it on a narrow
-        screen rather than forcing a scrollbar.
-
-        The scroller around it handles the other end: a hundred columns is
-        wider than the card and scrolls, at the same cell size as four.
+        Drawn at its natural size, not stretched to the card. `width="100%"`
+        scales the viewBox to whatever width is available, so a heatmap of four
+        columns was blown up until each cell was a hundred pixels across and the
+        gene names were larger than the card's own heading — the figure got LESS
+        readable as it got simpler, which is backwards. The scroller handles the
+        other end: a hundred columns is wider than the card and scrolls, at the
+        same cell size as four.
       */}
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
         style={{ maxWidth: '100%' }}
         role="img"
-        aria-label={`Expression of ${genes.length} set genes across ${cols.length} identities`}>
+        aria-label={`Expression of ${genes.length} set genes across ${cols.length} populations`}>
         {hTree && dendroLines(hTree, hAt.length * cw, treeT - 5).map((l, i) => (
           <line key={`c${i}`} x1={PL + l.x1} x2={PL + l.x2}
             y1={plotT - 3 - l.y1} y2={plotT - 3 - l.y2}
@@ -983,14 +870,15 @@ function SetHeatmap({
         ))}
 
         {vAt.map((_a, vi) => hAt.map((_b, hj) => {
-          const [gi, cj] = cellAt(vi, hj)
+          const [gi, k] = cellAt(vi, hj)
           return (
-            <rect key={`${gi}-${cols[cj]}`} x={PL + hj * cw} y={plotT + vi * rh}
+            <rect key={`${gi}-${k}`} x={PL + hj * cw} y={plotT + vi * rh}
               width={cw} height={rh}
-              fill={rampColor((v[gi][cj] - lo) / span, ramp)}>
+              fill={rampColor((v[gi * cols.length + k] - lo) / span, ramp)}>
               <title>
-                {genes[gi]} in {ids[cols[cj]].full} — {scale ? 'z ' : 'mean '}
-                {v[gi][cj].toFixed(2)}
+                {genes[gi]} in {cols[k].full} — {scale ? 'z ' : 'mean '}
+                {v[gi * cols.length + k].toFixed(2)}
+                {' · '}{cols[k].size.toLocaleString()} cells
               </title>
             </rect>
           )

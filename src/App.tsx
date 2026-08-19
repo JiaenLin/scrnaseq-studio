@@ -162,7 +162,11 @@ function needsOf(tab: TabId): Needs {
     // use it, and it is not a comparison — a Control / Compare pair over it read
     // as a claim that the panels below were showing that contrast.
     case 'expr': return NOTHING
-    case 'sets': return { ct: true, contrast: false, runs: false, library: true }
+    // No cell type. Every figure on this tab now covers the whole object and
+    // carries its own column filter — see lib/columns.ts — so a selector up
+    // here would be a control with nothing reading it, which is how "across
+    // groups" came to mean "across groups of one cluster" in the first place.
+    case 'sets': return { ct: false, contrast: false, runs: false, library: true }
     default: return NOTHING
   }
 }
@@ -895,7 +899,7 @@ export default function App() {
                 ran={coexprRan} onRan={setCoexprRan} />
             ) : tab === 'sets' ? (
               <>
-              <GeneSets src={src} types={types} ct={ct} emb={emb} palKey={palKey} rampKey={rampKey}
+              <GeneSets src={src} types={types} emb={emb} palKey={palKey} rampKey={rampKey}
                 onPickGene={pickGene}
                 onCorrelate={genes => { setCoexprSeed(genes); setCoexprRan(null); setTab('coexpr') }}
                 lib={lib} species={species ?? 'human'} sources={chosenSrcs} onSources={setSrcs}

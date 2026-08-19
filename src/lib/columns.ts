@@ -102,6 +102,128 @@ export function scoreColumns(
   return out.filter(c => c.cells.length > 0)
 }
 
+/* ---------------- reading once, regrouping for free ---------------- */
+
+/**
+ * The finest partition an object has: one part per populated cell type x group.
+ *
+ * Every column any of these figures can draw is a union of these parts — "this
+ * cell type" is its groups added up, "this group" is its cell types added up —
+ * so a figure that reads the matrix ONCE at this granularity can regroup and
+ * re-filter afterwards for nothing. That is the property the per-gene heatmap
+ * needs: reading is the expensive half (a pass per window of genes on a
+ * streamed object), and it must not depend on which columns survive a filter or
+ * on which grouping is on screen.
+ *
+ * Sums and counts, never means, because a mean is not additive: the mean over a
+ * union of parts is the sum of their sums over the sum of their sizes, and
+ * averaging the parts' means instead would weight a part of forty cells the
+ * same as one of four thousand.
+ */
+export interface Fine {
+  /** Cell -> part, or -1 where the object has no such combination. */
+  of: Int32Array
+  /** Cells in each part. */
+  size: Int32Array
+  /** Which cell type and group each part is. */
+  at: { ti: number; cond: string }[]
+  n: number
+}
+
+export function finePartition(d: Dataset, nTypes: number): Fine {
+  const condAt = new Map(d.conds.map((c, i) => [c, i]))
+  const width = Math.max(1, d.conds.length)
+  const slot = new Int32Array(nTypes * width).fill(-1)
+  const size: number[] = []
+  const at: { ti: number; cond: string }[] = []
+  const of = new Int32Array(d.cells.length).fill(-1)
+  for (let i = 0; i < d.cells.length; i++) {
+    const c = d.cells[i]
+    const ci = condAt.get(c.cond)
+    if (c.t < 0 || c.t >= nTypes || ci === undefined) continue
+    const k = c.t * width + ci
+    let p = slot[k]
+    if (p < 0) {
+      p = size.length
+      slot[k] = p
+      size.push(0)
+      at.push({ ti: c.t, cond: c.cond })
+    }
+    of[i] = p
+    size[p]++
+  }
+  return { of, size: Int32Array.from(size), at, n: size.length }
+}
+
+/** A drawn column, as the parts it is made of. */
+export interface AggColumn {
+  key: string
+  label: string
+  full: string
+  color: string
+  /** Indices into `Fine.at` — the parts this column sums. */
+  parts: number[]
+  /** Cells across those parts. */
+  size: number
+}
+
+/**
+ * The columns for one grouping and one pair of filters, as unions of parts.
+ *
+ * Built in the object's own order, and a column with no cells is dropped rather
+ * than drawn — a blank stripe reads as a score of zero, which is a claim, where
+ * the truth is that the object holds no cells of that combination.
+ */
+export function aggregateColumns(
+  d: Dataset,
+  types: CellType[],
+  mode: GroupBy,
+  palKey: PaletteKey,
+  keepT: ReadonlySet<number> | null,
+  keepC: ReadonlySet<string> | null,
+  fine: Fine,
+): AggColumn[] {
+  const okT = (t: number) => !keepT || keepT.has(t)
+  const okC = (c: string) => !keepC || keepC.has(c)
+  const out: AggColumn[] = []
+  const slot = new Map<string, number>()
+  const put = (key: string, make: () => Omit<AggColumn, 'parts' | 'size'>, part: number) => {
+    let i = slot.get(key)
+    if (i === undefined) {
+      i = out.length
+      slot.set(key, i)
+      out.push({ ...make(), parts: [], size: 0 })
+    }
+    out[i].parts.push(part)
+    out[i].size += fine.size[part]
+  }
+  // Walked in the object's order so the axis does not reshuffle when a filter
+  // changes: parts are created cell-major, which is not an order a reader knows.
+  const order = fine.at.map((_a, i) => i).sort((a, b) => {
+    const A = fine.at[a], B = fine.at[b]
+    return mode === 'cond'
+      ? d.conds.indexOf(A.cond) - d.conds.indexOf(B.cond) || A.ti - B.ti
+      : A.ti - B.ti || d.conds.indexOf(A.cond) - d.conds.indexOf(B.cond)
+  })
+  for (const p of order) {
+    const { ti, cond } = fine.at[p]
+    if (!okT(ti) || !okC(cond)) continue
+    const t = types[ti]
+    if (!t) continue
+    if (mode === 'type') put(t.key, () => ({ key: t.key, label: t.name, full: t.name, color: pal(ti, palKey) }), p)
+    else if (mode === 'cond') {
+      const ci = d.conds.indexOf(cond)
+      put(cond, () => ({ key: cond, label: cond, full: cond, color: pal(ci, palKey) }), p)
+    } else {
+      put(`${t.key}|${cond}`, () => ({
+        key: `${t.key}|${cond}`, label: `${t.name} · ${cond}`, full: `${t.name} · ${cond}`,
+        color: pal(ti, palKey),
+      }), p)
+    }
+  }
+  return out.filter(c => c.size > 0)
+}
+
 /**
  * Every row z-scored across the columns SHOWN.
  *
