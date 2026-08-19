@@ -72,6 +72,10 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
             </select>
             <span className="mt-1.5 block h-[15px] w-full rounded-[--r-sm]"
               style={{ background: rampCss(rampKey) }} />
+            <span className="mt-1 block tx-micro" style={{ color: 'var(--ink-3)' }}>
+              Any quantity that starts at zero — feature plots, the dot plot&rsquo;s
+              size, enrichment significance.
+            </span>
           </label>
           <label className="mt-3 block">
             <span className="glabel">Scaled &amp; signed</span>

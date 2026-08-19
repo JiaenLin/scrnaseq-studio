@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "typecheck": "tsc -b --force",
     "test": "node scripts/test-genes.mjs && node scripts/test-stats.mjs && node scripts/test-demo.mjs && node scripts/test-sets.mjs && node scripts/test-cluster.mjs && node scripts/test-engine.mjs && node scripts/test-bundle.mjs && node scripts/test-chunked.mjs && node scripts/test-collection.mjs && node scripts/test-collection-source.mjs && node scripts/test-dots.mjs && node scripts/test-composition.mjs && node scripts/test-cache.mjs && node scripts/test-order.mjs && node scripts/test-correlate.mjs && node scripts/test-parse-sets.mjs",
     "preview": "vite preview"
   },

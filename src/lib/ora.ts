@@ -336,3 +336,42 @@ export function oraIndexed(
     .map((r, i) => ({ ...r, padj: padj[i], nlpAdj: nlpAdj[i] }))
     .sort((a, b) => b.nlpAdj - a.nlpAdj || b.foldEnrichment - a.foldEnrichment)
 }
+
+/**
+ * The ends of the enrichment figure's colour scale, from the terms it draws.
+ *
+ * Two properties, and they pull in opposite directions:
+ *
+ *   - a page where terms differ must SHOW that they differ, so the domain fits
+ *     the terms on screen rather than every term tested. Fitting to the whole
+ *     result table put one term at -log10 padj 63 against fifteen below 12 and
+ *     rendered four orders of magnitude of real difference as one pale colour.
+ *   - a page where nothing is significant must not look significant, so a full
+ *     ramp is never stretched across noise.
+ *
+ * The CEILING carries the second one on its own: it never falls below 1.2x the
+ * 0.05 line, so a table of terms at padj 0.3 is measured against a scale that
+ * reaches past significance and every bar sits low on the ramp. The floor is
+ * then free to fit, which is what the first property needs.
+ *
+ * It used to be clamped as `min(CUT, ...)` — an expression that can never exceed
+ * CUT, so the floor was pinned to 1.30 whenever every term drawn was past 0.05,
+ * which on a real contrast is the normal case. Ten terms between -log10 padj 288
+ * and 312 then spanned 0.92 to 1.00 of the ramp: ten bars of the same dark red.
+ * This function exists because that is easy to write again and invisible until
+ * somebody looks at a figure and says the colour is not doing anything.
+ */
+export const ORA_CUT = -Math.log10(0.05)
+
+export function oraColorDomain(nlps: readonly number[]): { lo: number; hi: number } {
+  if (!nlps.length) return { lo: 0, hi: ORA_CUT * 1.2 }
+  let lo = Infinity
+  let hi = -Infinity
+  for (const v of nlps) {
+    if (!Number.isFinite(v)) continue
+    if (v < lo) lo = v
+    if (v > hi) hi = v
+  }
+  if (!Number.isFinite(lo)) return { lo: 0, hi: ORA_CUT * 1.2 }
+  return { lo, hi: Math.max(ORA_CUT * 1.2, hi) }
+}

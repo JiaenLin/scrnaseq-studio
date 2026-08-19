@@ -875,7 +875,7 @@ export default function App() {
               <Differential {...statsProps} view={deView} onView={setDeView}
                 enrichment={rows => (
                   <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin, basis: sigBasis }}
-                    ctrl={ctrl} cs={cs} background={src.genes}
+                    ctrl={ctrl} cs={cs} background={src.genes} rampKey={rampKey}
                     lib={lib} species={species ?? 'human'} sources={chosenSrcs} onSources={setSrcs}
                     customSets={customSets} onCustomSets={setCustomSets}
                     // condLabel, not the raw arrays — those join on a comma, so

@@ -14,9 +14,9 @@ import { wrapAll } from '../lib/labels.ts'
 type BarMetric = 'count' | 'ratio' | 'fold'
 import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
-import { oraIndexed, type ORAResult } from '../lib/ora.ts'
+import { ORA_CUT, oraColorDomain, oraIndexed, type ORAResult } from '../lib/ora.ts'
 import GeneSetSources from './GeneSetSources.tsx'
-import { maxOf, minOf, niceStep, sci } from '../lib/chart.ts'
+import { maxOf, niceStep, sci } from '../lib/chart.ts'
 import {
   combinedScore, condLabel, isSig, type Threshold } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
@@ -38,7 +38,7 @@ type Direction = 'both' | 'up' | 'down'
 const SMALL_LIBRARY = 200
 
 export default function Enrichment({
-  rows, threshold, ctrl, cs, label, onPickGene, background,
+  rows, threshold, ctrl, cs, label, rampKey, onPickGene, background,
   lib, species, sources, onSources, customSets, onCustomSets, detected,
 }: {
   rows: DERow[]
@@ -50,12 +50,11 @@ export default function Enrichment({
   cs: string[]
   label: string
   /**
-   * No rampKey. The one figure here encodes significance, which has no second
-   * direction and no natural zero, so its scale is fixed rather than inherited
-   * — see `sigRamp` below. The prop was taken and passed down, which is how a
-   * reader's choice of a diverging or blue-green ramp reached a quantity it
-   * does not describe.
+   * The sequential scale, for the significance the bars encode. Guaranteed
+   * sequential by Figure style, which is what makes inheriting it safe here —
+   * see `sigRamp` below.
    */
+  rampKey: RampKey
   onPickGene: (g: string) => void
   /** The MSigDB library, loading or loaded. */
   lib: LibraryState
@@ -298,7 +297,7 @@ export default function Enrichment({
             right={<CsvButton onClick={saveCsv} />}
           >
             <Bars results={shown} onPick={setTermId} selected={termId}
-              metric={metric} nQuery={nInBg} />
+              metric={metric} nQuery={nInBg} rampKey={rampKey} />
           </Figure>
           {/**
             * No results table.
@@ -430,12 +429,14 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
  * p-values do, and colour is the significance, on the studio's own ramp with a
  * colour bar to read it by.
  */
-function Bars({ results, onPick, selected, metric, nQuery }: {
+function Bars({ results, onPick, selected, metric, nQuery, rampKey }: {
   results: ORAResult[]; onPick: (id: string) => void; selected: string
   /** What the bar length means — see `value` below. */
   metric: BarMetric
   /** How many genes were tested, for the gene ratio. */
   nQuery: number
+  /** The reader's sequential scale — see `sigRamp` below. */
+  rampKey: RampKey
 }) {
   const gap = 5, PT = 8, PR = 74, AX = 44, BAR_H = 74
   const CHAR = 6.2
@@ -515,39 +516,46 @@ function Bars({ results, onPick, selected, metric, nQuery }: {
    * is four orders of magnitude of real difference rendered as one colour.
    *
    * clusterProfiler's answer is the one taken here — its scale_colour_gradient
-   * is fitted to the terms it draws, not to the whole result table. The floor
-   * still includes the 0.05 line, so a page where nothing is significant stays
-   * pale rather than stretching a full ramp across noise.
+   * is fitted to the terms it draws, not to the whole result table.
+   *
+   * The CEILING is what keeps a page where nothing is significant pale: it never
+   * drops below 1.2x the 0.05 line, so a table of terms at padj 0.3 is drawn
+   * against a scale that reaches past significance and every bar sits near the
+   * bottom of the ramp. That is the whole of the protection, and it is enough.
+   *
+   * The floor used to be clamped the same way — `min(CUT, ...)`, which can never
+   * exceed CUT and so pinned it to 1.30 whenever every term drawn was past 0.05.
+   * On a real contrast that is the normal case, and it cost exactly what fitting
+   * the domain was for: fifteen terms spanning −log₁₀ padj 30 to 60 were measured
+   * against a floor of 1.3, so they landed at 0.49–1.00 of the ramp and came out
+   * as fifteen bars of the same dark red. Reported. The label under the scale had
+   * a branch for "every term drawn is past 0.05" that the clamp made unreachable,
+   * which is the same bug written down twice.
    */
   /**
-   * Significance is SEQUENTIAL. A diverging ramp is the wrong shape for it.
+   * Significance is SEQUENTIAL, and now so is the ramp this inherits.
    *
-   * The bars inherit the studio's global ramp, which the reader may have set to
-   * a diverging one for expression — and a diverging scale has a meaningful
-   * midpoint, which significance does not have. Fitting the domain to the terms
-   * on screen then put the least significant of them at the blue end: a term at
-   * −log₁₀ padj = 10, which is p = 1e-10, was drawn in the colour every reader
-   * takes to mean "not significant". Reported, and it is the ramp rather than
-   * the domain that is wrong — the domain fix is what made it visible.
+   * This was pinned to red. The reason was sound at the time: the bars took the
+   * studio's one global ramp, a reader could set that to a DIVERGING scale for
+   * expression, and fitting the domain to the terms on screen then drew the
+   * least significant of them in blue — a term at −log₁₀ padj = 10, which is
+   * p = 1e-10, in the colour every reader takes to mean "not significant".
    *
-   * Fixed rather than inherited, and the first attempt at this was too narrow.
-   * Mapping only the DIVERGING choices to a sequential one still left `mako`,
-   * which is sequential and blue-green: at the same 26% it gives rgb(85,190,173),
-   * which reads exactly as badly. The property that matters is not "diverging"
-   * but "does the low end look like the absence of the thing", and the only
-   * reliable way to have that is to choose the scale here.
+   * What has changed is that there is no longer one global ramp. Figure style
+   * carries a sequential setting and a diverging one separately, and the
+   * sequential select offers only the sequential family — so the case this was
+   * defending against cannot be chosen any more. Every ramp that can arrive here
+   * runs pale to saturated, which is the property that actually mattered:
+   * "does the low end look like the absence of the thing".
    *
-   * clusterProfiler hardcodes its gradient for the same reason. The reader's
-   * ramp still applies everywhere the quantity genuinely has two directions or
-   * a natural zero — the dot plot's z-score, the per-gene heatmap, the feature
-   * plots — which is where choosing it means something.
+   * clusterProfiler hardcodes its gradient. That is a defensible default and it
+   * was a poor reason to make this the one figure in the studio a reader cannot
+   * restyle — reported, twice.
    */
-  const sigRamp: RampKey = 'red'
+  const sigRamp = rampKey
 
-  const shownNlp = results.map(nlp)
-  const CUT = -Math.log10(0.05)
-  const hi = Math.max(CUT * 1.2, maxOf(shownNlp))
-  const lo = Math.min(CUT, minOf(shownNlp))
+  const CUT = ORA_CUT
+  const { lo, hi } = oraColorDomain(results.map(nlp))
   const at = (r: ORAResult) => (hi > lo ? (nlp(r) - lo) / (hi - lo) : 1)
   const ticks = niceTicks(maxV, metric === 'count')
 

@@ -1,5 +1,7 @@
 // Enrichment and module-score regressions.
-import { bh, bhNlp, hyperTail, logHyperTail, runORA } from '../src/lib/ora.ts'
+import {
+  bh, bhNlp, hyperTail, logHyperTail, ORA_CUT, oraColorDomain, runORA,
+} from '../src/lib/ora.ts'
 import { indexFor, parse } from '../src/lib/msigdb.ts'
 import { readTerms } from './derive-metabolic.mjs'
 import { oraIndexed } from '../src/lib/ora.ts'
@@ -691,6 +693,52 @@ console.log('\nSEVERAL SIGNATURES, ONE PASS')
   const sets = Array.from(shared.set.slice(shared.ptr[gi], shared.ptr[gi + 1]))
   check('a gene shared by two sets carries a weight in both',
     [...new Set(sets)].sort(), [0, 1])
+}
+
+
+console.log('\nTHE ENRICHMENT COLOUR SCALE FITS WHAT IT DRAWS')
+{
+  // Both halves of oraColorDomain, and the regression that made the floor a
+  // function rather than a line inside a render.
+  const at = (nlps, v) => {
+    const { lo, hi } = oraColorDomain(nlps)
+    return hi > lo ? (v - lo) / (hi - lo) : 1
+  }
+  const spread = nlps => at(nlps, Math.max(...nlps)) - at(nlps, Math.min(...nlps))
+
+  // The case that was reported: every term drawn is far past 0.05 and they are
+  // close together. Clamping the floor to the 0.05 line put these at 0.92-1.00
+  // of the ramp — ten bars of one colour.
+  const huge = [312, 309, 306, 303, 300, 297, 295, 292, 290, 288]
+  check('terms that are all hugely significant still span the ramp',
+    spread(huge) > 0.99, true)
+  check('the floor is the smallest term drawn, not the 0.05 line',
+    oraColorDomain(huge).lo, 288)
+
+  // And the property the clamp was there for, which the CEILING carries alone.
+  const noise = [1.1, 0.9, 0.8, 0.7, 0.6, 0.55, 0.5, 0.45, 0.4, 0.3]
+  check('a page where nothing is significant stays off the dark end',
+    at(noise, Math.max(...noise)) < 0.7, true)
+  check('because the ceiling reaches past 0.05 whatever the terms do',
+    oraColorDomain(noise).hi > ORA_CUT, true)
+
+  // Fitted to the terms DRAWN, which is the other half of it: the figure passes
+  // only the terms on screen, so dropping an outlier off the end of the list has
+  // to give the rest the ramp back. Measured on the REST, since the full span is
+  // 1 by construction once the floor fits.
+  const all = [63, 12, 10, 8, 6, 4, 3, 2.5, 2, 1.8]
+  const rest = all.slice(1)
+  const restSpan = nlps => at(nlps, Math.max(...rest)) - at(nlps, Math.min(...rest))
+  check('an outlier on screen squeezes the rest into a fraction of the ramp',
+    restSpan(all) < 0.2, true)
+  check('and dropping it off the end gives them the whole of it',
+    restSpan(rest) > 0.99, true)
+
+  check('an empty figure has a usable domain',
+    oraColorDomain([]).hi > oraColorDomain([]).lo, true)
+  check('and a NaN does not take the domain with it',
+    Number.isFinite(oraColorDomain([NaN, 5, 9]).lo)
+      && oraColorDomain([NaN, 5, 9]).lo === 5, true)
 }
 
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll gene-set tests passed\n')
