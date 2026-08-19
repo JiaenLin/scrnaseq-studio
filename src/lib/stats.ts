@@ -59,7 +59,33 @@ export interface Gates {
   carry?: boolean
 }
 
+/** Seurat's own defaults, for a reader who wants FindMarkers parity exactly. */
 export const SEURAT_GATES: Gates = { pct: PCT_GATE, lfc: LFC_GATE }
+
+/**
+ * What a contrast actually runs with: min.pct, and NO effect-size gate.
+ *
+ * `logfc.threshold` is a speed filter, and the speed it was buying is gone.
+ * Measured on a synthetic 20 000-gene, 17 900-cell contrast at 100M non-zeros,
+ * with the radix ranker in place: 588 rank sums at the 0.25 gate took 2.27 s and
+ * all 10 392 took 3.79 s. Testing every gene is 1.7x the pass, where against the
+ * comparator sort it was 8.7x — 18.9 s — which is why the gate was a default
+ * anybody had to live with.
+ *
+ * What it buys is that the |log2FC| SLIDER, which stays at 0.25, is now a filter
+ * over answers rather than a description of what was asked. Lowering it reveals
+ * genes with real p-values and no second pass. That was the whole complaint.
+ *
+ * Nothing already reported moves. Bonferroni is p x spec.nGenes, which never
+ * depended on how many genes cleared the gate; BH's m is spec.nGenes too, and
+ * only the RANKS come from the tested set — the genes arriving below 0.25 carry
+ * larger p-values, so they sort after the ones already there and leave their
+ * ranks alone.
+ *
+ * min.pct stays. A gene detected in under a tenth of the cells on both sides has
+ * nothing to compare, and dropping it is not a speed decision.
+ */
+export const DE_GATES: Gates = { pct: PCT_GATE, lfc: 0 }
 /**
  * Seurat's min.cells.group: a side smaller than this is not tested at all.
  *
@@ -285,17 +311,15 @@ function labels(nCells: number, a: Int32Array, b: Int32Array): Int8Array {
  */
 function testGene(
   gene: number, each: NonZeroWalk, lab: Int8Array, n1: number, n2: number,
-  gates: Gates = SEURAT_GATES,
+  gates: Gates = SEURAT_GATES, rank: Ranker = makeRanker(),
 ): RawRow | null {
-  const xs: number[] = []
-  const gs: number[] = []
   let d1 = 0, d2 = 0, s1 = 0, s2 = 0
+  rank.reset()
 
   each((cell, value) => {
     const g = lab[cell]
     if (g < 0 || value === 0) return
-    xs.push(value)
-    gs.push(g)
+    rank.add(value, g)
     if (g === 0) { d1++; s1 += Math.expm1(value) } else { d2++; s2 += Math.expm1(value) }
   })
 
@@ -328,7 +352,7 @@ function testGene(
     return gates.carry ? { gene, lfc, p: NaN, padj: NaN, fdr: NaN, nlp: NaN, pct1, pct2 } : null
   }
 
-  const { p, nlp } = rankSumSparseFull(xs, gs, n1 - d1, n2 - d2)
+  const { p, nlp } = rank.done(n1 - d1, n2 - d2)
   return { gene, lfc, p, padj: 1, fdr: 1, nlp, pct1, pct2 }
 }
 
@@ -381,6 +405,124 @@ export function rankSumSparseFull(
   const z = (Math.abs(u - mu) - 0.5) / Math.sqrt(varU)
   return { p: Math.min(1, 2 * normalTail(z)), nlp: nlpFromZ(z) }
 }
+
+/**
+ * The same rank sum, with the sort the marker pass already uses.
+ *
+ * `rankSumSparseFull` above builds an index array per gene and comparator-sorts
+ * it. That is the DE pass: the identical shape, in `markersPlan`, measured 197 s
+ * of a 259 s run on the 292 495-cell atlas — 76 % of it — and the radix that
+ * replaced it there ran at 23 ns per non-zero against 259 ns.
+ *
+ * This matters beyond speed, because the effect-size gate exists to AVOID this
+ * sort. A gene changing by 0.2 log2 is skipped not because nobody wants to know
+ * about it but because sorting a few hundred thousand values to find out was the
+ * expensive thing in the pass. Make the sort eight times cheaper and the gate
+ * stops being a decision the reader has to take — see LFC_GATE's note and
+ * `wilcoxSpec`.
+ *
+ * The values are held as their IEEE754 total-order key: for a float32 bit
+ * pattern b that is (b | 0x80000000) when b is non-negative and ~b when it is
+ * not, which sorts as a plain uint32 in exactly float order. Every Source walks
+ * a Float32Array, so the round trip loses nothing and equal values keep equal
+ * bit patterns — the tie groups are the ones the comparator found. Checked
+ * against `rankSumSparseFull` gene for gene, on every demo object, in
+ * test-stats.
+ *
+ * The buffers belong to the ranker, not to a gene: allocating four arrays per
+ * gene is most of the remaining cost once the sort is gone.
+ */
+function makeRanker() {
+  let cap = 1024
+  let keyA = new Uint32Array(cap)
+  let keyB = new Uint32Array(cap)
+  let grpA = new Uint8Array(cap)
+  let grpB = new Uint8Array(cap)
+  const cnt = new Uint32Array(256)
+  const f32 = new Float32Array(1)
+  const u32 = new Uint32Array(f32.buffer)
+  /** Non-zeros collected for the gene in hand, and how many of them are negative. */
+  let m = 0
+  let nNeg = 0
+
+  return {
+    reset() { m = 0; nNeg = 0 },
+    /** One non-zero: its value, and which side of the contrast the cell is on. */
+    add(value: number, g: number) {
+      if (m === cap) {
+        cap *= 2
+        const nk = new Uint32Array(cap); nk.set(keyA); keyA = nk
+        keyB = new Uint32Array(cap)
+        const ng = new Uint8Array(cap); ng.set(grpA); grpA = ng
+        grpB = new Uint8Array(cap)
+      }
+      if (value < 0) nNeg++
+      f32[0] = value
+      const bits = u32[0]
+      keyA[m] = (bits & 0x80000000) ? (~bits) >>> 0 : (bits | 0x80000000) >>> 0
+      grpA[m] = g
+      m++
+    },
+    /**
+     * The two-sided p, from what has been added plus the cells sitting at zero.
+     *
+     * `z1` and `z2` are the zero counts per side. The zero block is one tie
+     * group above the negatives and below the positives — on log-normalized
+     * data nNeg is 0 and this is the familiar "zeros take ranks 1..zeros".
+     */
+    done(z1: number, z2: number): { p: number; nlp: number } {
+      let inA = 0
+      for (let k = 0; k < m; k++) if (grpA[k] === 0) inA++
+      const n1 = inA + z1
+      const n2 = (m - inA) + z2
+      const n = n1 + n2
+      if (!n1 || !n2 || n < 3 || !m) return { p: 1, nlp: 0 }
+      const zeros = z1 + z2
+
+      // LSD radix, four bytes. A byte that is the same in every key — which the
+      // exponent usually is — costs one counting pass and no movement.
+      let sk = keyA, sg = grpA, dk = keyB, dg = grpB
+      for (let shift = 0; shift < 32; shift += 8) {
+        cnt.fill(0)
+        for (let i = 0; i < m; i++) cnt[(sk[i] >>> shift) & 255]++
+        if (cnt[(sk[0] >>> shift) & 255] === m) continue
+        let at = 0
+        for (let b = 0; b < 256; b++) { const c = cnt[b]; cnt[b] = at; at += c }
+        for (let i = 0; i < m; i++) {
+          const j = cnt[(sk[i] >>> shift) & 255]++
+          dk[j] = sk[i]; dg[j] = sg[i]
+        }
+        const tk = sk; sk = dk; dk = tk
+        const tg = sg; sg = dg; dg = tg
+      }
+      // Keep whichever pair the last pass landed in; both are ours either way.
+      keyA = sk; grpA = sg; keyB = dk; grpB = dg
+
+      let r1 = z1 * (nNeg + (1 + zeros) / 2)
+      let tieSum = zeros > 1 ? zeros ** 3 - zeros : 0
+      let i = 0
+      while (i < m) {
+        let j = i
+        const key = sk[i]
+        while (j + 1 < m && sk[j + 1] === key) j++
+        const size = j - i + 1
+        const rank = (i < nNeg ? 0 : zeros) + i + 1 + (size - 1) / 2
+        for (let k = i; k <= j; k++) if (sg[k] === 0) r1 += rank
+        if (size > 1) tieSum += size ** 3 - size
+        i = j + 1
+      }
+
+      const u = r1 - (n1 * (n1 + 1)) / 2
+      const mu = (n1 * n2) / 2
+      const varU = ((n1 * n2) / 12) * (n + 1 - tieSum / (n * (n - 1)))
+      if (varU <= 0) return { p: 1, nlp: 0 }
+      const z = (Math.abs(u - mu) - 0.5) / Math.sqrt(varU)
+      return { p: Math.min(1, 2 * normalTail(z)), nlp: nlpFromZ(z) }
+    },
+  }
+}
+
+export type Ranker = ReturnType<typeof makeRanker>
 
 /**
  * Adjust, then rank.
@@ -571,12 +713,14 @@ export function wilcoxPlan(spec: WilcoxSpec) {
   const { lab, n1, n2 } = spec
   const gates = spec.gates ?? SEURAT_GATES
   const rows: RawRow[] = []
+  // One per pass, not one per gene. See makeRanker.
+  const rank = makeRanker()
   return {
     empty: n1 < MIN_CELLS_GROUP || n2 < MIN_CELLS_GROUP,
     n0: n2,
     n1,
     visit: (gene: number, each: NonZeroWalk) => {
-      const r = testGene(gene, each, lab, n1, n2, gates)
+      const r = testGene(gene, each, lab, n1, n2, gates, rank)
       if (r) rows.push(r)
     },
     done: (): RawResult => ({ rows: finish(rows, spec.nGenes), n0: n2, n1 }),

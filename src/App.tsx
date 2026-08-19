@@ -5,7 +5,7 @@ import { readCollectionIndex } from './lib/collection.ts'
 import { openCollection } from './lib/collection-source.ts'
 import { bundleSource, condKey, demoSource, type Source } from './lib/source.ts'
 import {
-  condLabel, designFor, sameOrOverlapping, SEURAT_GATES, thresholdFor,
+  condLabel, DE_GATES, designFor, sameOrOverlapping, thresholdFor,
   type Gates, type SigBasis,
 } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
@@ -216,7 +216,7 @@ export default function App() {
    * pass is keyed on them, so one place has to hold them or the three would
    * describe different tests.
    */
-  const [gates, setGates] = useState<Gates>(SEURAT_GATES)
+  const [gates, setGates] = useState<Gates>(DE_GATES)
   /**
    * Which correction the cutoff cuts on. Bonferroni, as it always did — but
    * now a choice, because Bonferroni saturates and the slider is inert above
@@ -360,7 +360,7 @@ export default function App() {
     setMethod('wilcox')
     setPadjMax(0.05)
     setLfcMin(thresholdFor('wilcox').lfc)
-    setGates(SEURAT_GATES)
+    setGates(DE_GATES)
     setSigBasis('padj')
     setGroupBy('type')
     setPlot('violin')

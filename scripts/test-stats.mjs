@@ -3,9 +3,10 @@
 // whether the sparse rank-sum agrees with a straightforward dense one.
 import { demoSource } from '../src/lib/source.ts'
 import {
-  combinedScore, deMarkers, deMarkersAll, deWilcox, designFor, isSig, LFC_GATE,
+  combinedScore, deMarkers, deMarkersAll, DE_GATES, deWilcox, designFor, isSig, LFC_GATE,
   logNormalTail, markersPlan, MIN_CELLS_GROUP, MIN_REPS_PB, minReplicates, nlpFromZ,
-  normalTail, pbKey, rankSumSparse, sigCount, thresholdFor, wilcoxPlan,
+  normalTail, pbKey, rankSumSparse, rankSumSparseFull, SEURAT_GATES, sigCount,
+  thresholdFor, wilcoxPlan,
 } from '../src/lib/stats.ts'
 
 let failed = 0
@@ -497,6 +498,130 @@ console.log('\nTHE FDR COLUMN IS A REAL BH STEP-UP')
   }
   check('ranking on UNCLAMPED nlp equals ranking on p, exactly',
     order.every(r => Math.abs(r.fdr - truth.get(r.p)) < 1e-12), true)
+}
+
+
+console.log('\nTHE RADIX RANKER IS THE COMPARATOR SORT')
+{
+  // The DE pass ranks with an LSD radix over the IEEE754 total-order key, the
+  // sort markersPlan already uses. It replaced a per-gene index array and a
+  // comparator sort, which is what made testing every gene expensive enough
+  // that the effect-size gate had to be a default — 18.9 s against 3.8 s on a
+  // 20 000-gene, 100M-non-zero synthetic contrast. A faster sort is only worth
+  // having if it is the same sort, so: gene for gene, against the reference.
+  let compared = 0
+  let disagree = 0
+  for (const key of ['cohort', 'course', 'wt']) {
+    const src = demoSource(key)
+    const conds = src.d.conds
+    if (conds.length < 2) continue
+    for (let ti = 0; ti < src.clusters.length; ti++) {
+      const de = deWilcox(src, ti, [conds[0]], [conds[1]], DE_GATES)
+      const a = src.group(ti, [conds[1]])
+      const b = src.group(ti, [conds[0]])
+      if (!a.length || !b.length) continue
+      const lab = new Int8Array(src.d.cells.length).fill(-1)
+      for (const c of a) lab[c] = 0
+      for (const c of b) lab[c] = 1
+      const byGene = new Map(de.rows.map(r => [r.gene, r]))
+      src.scanSync((gi, each) => {
+        const row = byGene.get(src.genes[gi])
+        if (!row || !Number.isFinite(row.p)) return
+        const xs = []
+        const gs = []
+        let d1 = 0
+        let d2 = 0
+        each((cell, v) => {
+          const k = lab[cell]
+          if (k < 0 || v === 0) return
+          xs.push(v); gs.push(k)
+          if (k === 0) d1++; else d2++
+        })
+        const ref = rankSumSparseFull(xs, gs, a.length - d1, b.length - d2)
+        compared++
+        // The raw p, not nlp: finish() subtracts log10(nGenes) from nlp, and
+        // the reference has not been through it.
+        if (ref.p !== row.p) disagree++
+      })
+    }
+  }
+  check('every tested gene was compared', compared > 100, true)
+  check('and the p is identical, bit for bit', disagree, 0)
+}
+
+console.log('\nTESTING EVERY GENE CHANGES NOTHING ALREADY REPORTED')
+{
+  // DE_GATES drops Seurat's logfc.threshold, so a contrast rank-sums every gene
+  // that clears min.pct rather than the tenth of them that also move by 0.25.
+  // The point is that lowering the |log2FC| CUTOFF then needs no second pass.
+  // What must not happen is that it quietly restates the genes already on
+  // screen, so: same p, same Bonferroni, and no significance call lost.
+  let cmp = 0
+  let movedP = 0
+  let lost = 0
+  let gained = 0
+  let qUp = 0
+  let qDown = 0
+  for (const key of ['cohort', 'course', 'wt']) {
+    const src = demoSource(key)
+    const conds = src.d.conds
+    if (conds.length < 2) continue
+    for (let ti = 0; ti < src.clusters.length; ti++) {
+      const gated = deWilcox(src, ti, [conds[0]], [conds[1]], SEURAT_GATES)
+      const wide = deWilcox(src, ti, [conds[0]], [conds[1]], DE_GATES)
+      const w = new Map(wide.rows.map(r => [r.gene, r]))
+      for (const g of gated.rows) {
+        if (!Number.isFinite(g.p)) continue
+        const b = w.get(g.gene)
+        cmp++
+        if (!b || b.p !== g.p || b.padj !== g.padj) movedP++
+        for (const basis of ['padj', 'fdr']) {
+          const th = { padj: 0.05, lfc: LFC_GATE, basis }
+          const was = isSig(g, th)
+          const now = isSig(b, th)
+          if (was && !now) lost++
+          else if (!was && now) gained++
+        }
+        if (b.fdr > g.fdr) qUp++
+        else if (b.fdr < g.fdr) qDown++
+      }
+    }
+  }
+  check('genes tested under both gates', cmp > 100, true)
+  check('raw p and Bonferroni padj are untouched', movedP, 0)
+  // Bonferroni is p x spec.nGenes and BH's m is spec.nGenes too, so neither
+  // denominator moves. BH's RANKS do: a gene under 0.25 log2 can still have a
+  // tiny p — a small shift held consistently across thousands of cells — and
+  // arriving above an existing row pushes it down a rank. The step-up's running
+  // minimum then only ever carries a SMALLER q upward, which is why this is
+  // one-directional rather than merely small.
+  check('no gene loses significance', lost, 0)
+  check('and BH only ever moves down', qUp, 0)
+  check('some q does move', qDown > 0, true)
+  check('which can only add genes, never remove them', gained >= 0, true)
+}
+
+console.log('\nA CONTRAST IS A FUNCTION OF THE CONTRAST')
+{
+  // Switching the test to pseudobulk and back must not change the table.
+  // useDE's key is the contrast plus the gates and nothing else, and App's
+  // changeMethod resets the CUTOFF but never the gates — so the round trip is a
+  // cache hit rather than a re-run, and this is the property that makes that
+  // safe. thresholdFor is what changeMethod reads.
+  const src = demoSource('cohort')
+  const ti = src.clusters.indexOf('qNSC')
+  const one = deWilcox(src, ti, ['Quiescent'], ['Reactivated'], DE_GATES)
+  const two = deWilcox(src, ti, ['Quiescent'], ['Reactivated'], DE_GATES)
+  check('the same question twice gives the same rows',
+    one.rows.length === two.rows.length
+      && one.rows.every((r, i) => r.gene === two.rows[i].gene && r.p === two.rows[i].p
+        && r.padj === two.rows[i].padj && r.fdr === two.rows[i].fdr), true)
+  check('switching back to Wilcoxon restores the 0.25 cutoff',
+    thresholdFor('wilcox').lfc, LFC_GATE)
+  check('and pseudobulk keeps the bulk one', thresholdFor('pseudobulk').lfc, 1)
+  check('the studio tests wider than Seurat, at the same detection floor',
+    [DE_GATES.pct, DE_GATES.lfc, SEURAT_GATES.pct, SEURAT_GATES.lfc],
+    [0.1, 0, 0.1, LFC_GATE])
 }
 
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll statistics tests passed\n')

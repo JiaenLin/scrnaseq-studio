@@ -3,7 +3,8 @@ import type { CellType, DERow, DEView, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
   condLabel, deWilcox, designFor, inConds, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP,
-  MIN_REPS_PB, PCT_GATE, pseudobulkColumns, sameOrOverlapping, SEURAT_GATES, wilcoxSpec,
+  DE_GATES, MIN_REPS_PB, PCT_GATE, pseudobulkColumns, sameOrOverlapping, SEURAT_GATES,
+  wilcoxSpec,
   type DEResult, type Gates, type SigBasis,
 } from '../lib/stats.ts'
 import { useJob } from '../lib/compute.ts'
@@ -127,7 +128,11 @@ function MethodBar(p: StatsProps) {
         </div>
         <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
           {p.method === 'wilcox'
-            ? `logfc.threshold ${p.gates.lfc} · min.pct ${p.gates.pct} · Bonferroni`
+            // The correction the CUTOFF uses, not a fixed word. Both columns are
+            // always computed; naming Bonferroni while the reader cuts on FDR
+            // describes a different table from the one on screen.
+            ? `logfc.threshold ${p.gates.lfc} · min.pct ${p.gates.pct}`
+              + ` · ${p.sigBasis === 'fdr' ? 'BH' : 'Bonferroni'}`
             : `≥ ${MIN_CELLS} cells per sample · summed raw counts · test them in DESeq2`}
         </span>
       </div>
@@ -153,6 +158,11 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
   // at zero.
   const negLog = -Math.log10(Math.max(p.padjMax, 1e-300))
   const seurat = p.gates.pct === PCT_GATE && p.gates.lfc === LFC_GATE
+  // The studio's own default: min.pct, and no effect-size gate. See DE_GATES —
+  // the sort that gate was avoiding is 5x cheaper than it was, so every gene is
+  // tested and the |log2FC| slider filters answers rather than deciding the
+  // question.
+  const wide = p.gates.pct === PCT_GATE && p.gates.lfc === 0
   const [openGates, setOpenGates] = useState(false)
 
   /**
@@ -207,7 +217,7 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
         onClick={() => {
           p.onPadj(0.05)
           p.onLfc(p.method === 'wilcox' ? LFC_GATE : 1)
-          p.onGates(SEURAT_GATES)
+          p.onGates(DE_GATES)
           p.onSigBasis('padj')
         }}
       >Reset</button>
@@ -271,11 +281,15 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
               title="Seurat's own pre-test filters — a gene that fails either is never tested">
               {openGates ? '▾' : '▸'} What gets tested
             </button>
-            <span className="tx-micro" style={{ color: seurat ? 'var(--ink-3)' : 'var(--warn)' }}>
-              {seurat
-                ? `Seurat's defaults — min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
-                : `min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
-                  + ' — not Seurat\'s defaults, and changing these re-runs the test'}
+            <span className="tx-micro"
+              style={{ color: wide || seurat ? 'var(--ink-3)' : 'var(--warn)' }}>
+              {wide
+                ? `min.pct ${p.gates.pct}, no logfc.threshold — every gene detected in`
+                  + ' a tenth of either side is tested, so the slider above filters answers'
+                : seurat
+                  ? `Seurat's defaults — min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
+                  : `min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
+                    + ' — changing these re-runs the test'}
             </span>
           </div>
           {openGates && (
@@ -301,12 +315,21 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
                 aria-pressed={p.gates.pct === 0 && p.gates.lfc === 0}
                 title="Both gates to zero: every gene the object measures is tested"
                 onClick={() => p.onGates(
-                  p.gates.pct === 0 && p.gates.lfc === 0 ? SEURAT_GATES : { pct: 0, lfc: 0 })}
+                  p.gates.pct === 0 && p.gates.lfc === 0 ? DE_GATES : { pct: 0, lfc: 0 })}
               >Test every gene</button>
+              <button
+                className="chip"
+                aria-pressed={seurat}
+                title="Seurat's own pre-test filters, for a table that reproduces FindMarkers row for row"
+                onClick={() => p.onGates(seurat ? DE_GATES : SEURAT_GATES)}
+              >Seurat&rsquo;s defaults</button>
               <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-                These decide what the test looks at, so a gene they exclude has no row at
-                all — and changing one runs the test again. Widening them also makes the
-                correction harsher, since it is applied across however many genes were tested.
+                These decide what the test looks at, and changing one runs it again. A gene
+                under <span className="mono">logfc.threshold</span> still gets a row, with
+                its fold change and no p; one under <span className="mono">min.pct</span>
+                {' '}gets none, because there is nothing to compare. Neither changes the
+                correction: Bonferroni multiplies by every gene the object measures, and
+                that is BH&rsquo;s <i>m</i> as well.
               </span>
             </div>
           )}
@@ -538,7 +561,8 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
     <>
       <h2 className="tx-title">{up + dn} differentially expressed genes</h2>
       <p className="sub">
-        {up} higher and {dn} lower in <b>{condLabel(p.cs)}</b>, at padj &lt; {p.padjMax} and
+        {up} higher and {dn} lower in <b>{condLabel(p.cs)}</b>, at{' '}
+        {p.sigBasis === 'fdr' ? 'FDR' : 'padj'} &lt; {p.padjMax} and
         |log₂FC| ≥ {p.lfcMin}.{' '}
         {/* Only one branch is reachable: the pseudobulk path returns the export
             card instead of a table, so nothing here was ever produced by
