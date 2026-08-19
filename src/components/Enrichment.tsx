@@ -28,6 +28,15 @@ import Figure, { CsvButton } from './Figure.tsx'
 
 type Direction = 'both' | 'up' | 'down'
 
+/**
+ * Below this many sets, a collection is somebody's own rather than a database.
+ *
+ * Only used to pick the default size floor. MSigDB's smallest shipped
+ * collection is 19 sets and its next is 50, so this does not separate them from
+ * each other — it separates a pasted handful from all of them.
+ */
+const SMALL_LIBRARY = 200
+
 export default function Enrichment({
   rows, threshold, ctrl, cs, label, onPickGene, background,
   lib, species, sources, onSources, customSets, onCustomSets, detected,
@@ -58,8 +67,27 @@ export default function Enrichment({
 }) {
   const [dir, setDir] = useState<Direction>('both')
   const [top, setTop] = useState(15)
-  const [minSize, setMinSize] = useState(10)
-  const [maxSize, setMaxSize] = useState(500)
+  /**
+   * The size window, and whether the reader has set it themselves.
+   *
+   * 10 is clusterProfiler's `minGSSize` and the right floor for MSigDB, where
+   * the KEGG MEDICUS modules are small by design and mostly noise. It is the
+   * wrong floor for a collection somebody pasted in: a hand-curated pathway is
+   * routinely seven to fifteen genes, and the window is applied to K — the
+   * members this OBJECT measures — so a twelve-gene set with nine measured is
+   * silently below it. Somebody who adds seven sets and finds one already gone
+   * has been failed by a default chosen for a different library.
+   *
+   * So the floor is derived from the library until the reader touches the
+   * field, after which it is theirs and nothing moves it.
+   */
+  const [size, setSize] = useState<{ min: number; max: number } | null>(null)
+  const smallLibrary = lib.collections.length > 0
+    && lib.collections.every(c => c.sets.length < SMALL_LIBRARY)
+  const minSize = size?.min ?? (smallLibrary ? 3 : 10)
+  const maxSize = size?.max ?? 500
+  const setMinSize = (v: number) => setSize({ min: v, max: maxSize })
+  const setMaxSize = (v: number) => setSize({ min: minSize, max: v })
   const [rankBy, setRankBy] = useState<'padj' | 'count'>('padj')
   const [metric, setMetric] = useState<BarMetric>('ratio')
   const [termId, setTermId] = useState('')
@@ -244,8 +272,14 @@ export default function Enrichment({
                   ? `${query.length} genes, but none of the ${inRange.of.toLocaleString()} sets `
                     + `fall between ${minSize} and ${maxSize} genes — so nothing was tested. `
                     + 'Widen the set size window above.'
-                  : `${query.length} genes against ${inRange.n.toLocaleString()} sets, and nothing `
-                    + 'reached significance. With a list this size that is a normal outcome, not an error.'}
+                  : nInBg === 0
+                    ? `None of the ${query.length} genes in this list is in any of the `
+                      + `${inRange.n.toLocaleString()} sets tested, so there is nothing to be `
+                      + 'enriched. On a small collection of your own that usually means the '
+                      + 'species or the capitalisation differs from this object — the set '
+                      + 'editor lists which genes it could not find.'
+                    : `${query.length} genes against ${inRange.n.toLocaleString()} sets, and nothing `
+                      + 'reached significance. With a list this size that is a normal outcome, not an error.'}
           </Empty>
         </div>
       ) : (
@@ -275,9 +309,26 @@ export default function Enrichment({
             * their statistics. That is the shape here now. Nothing is lost —
             * the CSV still carries every set, every column and every gene.
             */}
+          {/**
+            * The whole funnel, not just the last step of it.
+            *
+            * "Showing 2 of 2" was true and useless: it counted the display cap
+            * against the RESULTS, and the results are already what survived
+            * three filters. A reader who had added seven sets and could see two
+            * bars had no way to learn where the other five went — one fell
+            * below the size floor, and four were tested and contain no gene
+            * from this list, which ORA drops silently because a set with no
+            * overlap has nothing to report. That second step happens inside
+            * ora.ts and appeared nowhere on screen.
+            */}
           <p className="mono mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
-            Showing {shown.length} of {results.length} · fold = (k/n) ÷ (K/N) ·
-            click a bar for its member genes · the CSV has every set
+            {inRange.of.toLocaleString()} sets · {inRange.n.toLocaleString()} within{' '}
+            {minSize}&ndash;{maxSize} genes · {results.length.toLocaleString()} contain one of
+            the {nInBg.toLocaleString()} genes of this list that any set contains ·
+            showing {shown.length}
+          </p>
+          <p className="mono tx-micro" style={{ color: 'var(--ink-3)' }}>
+            fold = (k/n) ÷ (K/N) · click a bar for its member genes · the CSV has every set
           </p>
           {selected && (
             <TermDetail

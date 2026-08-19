@@ -391,7 +391,8 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
       </p>
 
       <DEGTableBody
-        rows={rows} wilcox={wil} ctrl={condLabel(p.ctrl)} cs={condLabel(p.cs)} label={contrastLabel(p)}
+        rows={rows} wilcox={wil} nGenes={p.src.genes.length}
+        ctrl={condLabel(p.ctrl)} cs={condLabel(p.cs)} label={contrastLabel(p)}
         padjMax={p.padjMax} lfcMin={p.lfcMin} onPickGene={p.onPickGene}
       />
     </>

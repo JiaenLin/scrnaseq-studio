@@ -51,9 +51,13 @@ const cellVal = (r: DERow, k: SortKey): number | string | null => {
   }
 }
 
-export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMin, onPickGene }: {
+export default function DEGTable({
+  rows, wilcox, nGenes, ctrl, cs, label, padjMax, lfcMin, onPickGene,
+}: {
   rows: DERow[]
   wilcox: boolean
+  /** Genes the object measures, so the table can say how many were tested. */
+  nGenes: number
   ctrl: string
   cs: string
   label: string
@@ -220,6 +224,32 @@ export default function DEGTable({ rows, wilcox, ctrl, cs, label, padjMax, lfcMi
           && <>Showing {fmt(limit)} of {fmt(view.length)}; the CSV has every row. </>}
         Click a row to open that gene, a header to sort.
       </p>
+
+      {/**
+        * How many genes were TESTED, which is not how many were measured.
+        *
+        * The table pages honestly — "Show all" is right there and the CSV is
+        * never truncated — and it still is not the full transcriptome, because
+        * the test never saw most of it. `deWilcox` applies Seurat's own two
+        * gates before the rank sum: a gene detected in under 10 % of both sides
+        * (`min.pct`), or moving less than 0.25 log₂ (`logfc.threshold`), is
+        * dropped without being tested. Those are speed pre-filters rather than
+        * claims, and they are the reason a reader who scrolls to the end of the
+        * table finds four thousand rows where their object has twenty thousand
+        * genes.
+        *
+        * It was written down in Methods and nowhere near the table it explains.
+        */}
+      {wilcox && nGenes > rows.length && (
+        <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+          <b>{fmt(rows.length)} of {fmt(nGenes)} genes were tested.</b> Seurat's own gates
+          run before the rank sum: a gene detected in under 10% of the cells on both sides
+          (<span className="mono">min.pct</span>), or changing by less than 0.25 log₂
+          (<span className="mono">logfc.threshold</span>), is left out rather than tested.
+          They are speed filters, not findings — the genes they drop are the ones no test
+          would have called anyway.
+        </p>
+      )}
     </>
   )
 }
