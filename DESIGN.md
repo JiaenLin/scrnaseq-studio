@@ -139,6 +139,19 @@ correction five times harsher — a gene significant at Seurat's defaults can st
 significant when you widen the gates, which is a real property of the correction and not a
 bug.
 
+There is a second inert control, and it is the one that gets reported. The |log₂FC| cutoff
+runs down to 0, but a gene below the GATE has no row to admit at any cutoff — and both
+default to 0.25, so the slider's whole travel below its own default is dead until somebody
+widens the gate. That is stated where it happens, with the one click that fixes it:
+*"No gene below 0.25 log₂ was tested… **Test them too**"*. Not done automatically, because
+widening the gate re-runs the test and a slider that silently starts a four-minute pass is
+the complaint immediately before this one.
+
+The default stays at Seurat's 0.25 rather than at 0, and that is a trade rather than an
+oversight: matching `FindMarkers` is what lets a reader reproduce these rows, which the
+whole DE design rests on. What changed is that the gate is no longer a wall — it is one
+click, and the click is offered at the moment the reader hits it.
+
 The gates are part of the QUESTION, so they are in the pass's cache key and in the Run
 gate: widening one on a streamed object re-arms Run rather than silently starting a
 four-minute pass on a keystroke. Methods reads the gates in force, so a reader who has

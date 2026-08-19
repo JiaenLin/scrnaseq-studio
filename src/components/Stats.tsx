@@ -208,6 +208,35 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
         }}
       >Reset</button>
 
+      {/**
+        * The other inert control, and the one that was reported.
+        *
+        * The |log2FC| cutoff runs to 0, but a gene below the GATE was never
+        * tested — it has no row to admit, at any cutoff. So dragging the slider
+        * under Seurat's logfc.threshold does nothing at all, and the reason is
+        * a number folded away in the panel below rather than the one the reader
+        * is dragging. Both default to 0.25, so the whole travel below the
+        * default is dead until somebody widens the gate.
+        *
+        * Stated where it happens, with the one click that fixes it. Not done
+        * automatically: widening the gate re-runs the test, and a slider that
+        * silently starts a four-minute pass is the complaint before this one.
+        */}
+      {p.method === 'wilcox' && p.lfcMin < p.gates.lfc && (
+        <p className="basis-full flex flex-wrap items-center gap-2 tx-micro"
+          style={{ color: 'var(--warn)' }}>
+          <span>
+            No gene below <b>{p.gates.lfc}</b> log₂ was tested, so this cutoff cannot reach
+            them — Seurat&rsquo;s <span className="mono">logfc.threshold</span> drops them
+            before the rank sum runs.
+          </span>
+          <button className="btn btn-sm"
+            title="Lower the gate so those genes are tested. This runs the test again."
+            onClick={() => p.onGates({ ...p.gates, lfc: 0 })}
+          >Test them too</button>
+        </p>
+      )}
+
       {inert && (
         <p className="basis-full tx-micro" style={{ color: 'var(--warn)' }}>
           Bonferroni over {fmt(p.nTested)} tested genes pins every gene with p above{' '}
