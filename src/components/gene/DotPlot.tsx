@@ -72,6 +72,34 @@ export default function DotPlot(
   }, [byRow, genes0, rows0, p.dotScale])
 
   /**
+   * What the colours are a picture OF, in the object's own units.
+   *
+   * A z-score is scale-free, and that is not a nuance — it is the whole of what
+   * this control does. Measured on the demo: means differing by 0.01, by 0.10
+   * and by 1.00 all produce a z running -1.34 to +1.34. Rpl13a across nine cell
+   * types spans 3.649 to 3.782, a 3.5% difference, and comes out as one
+   * saturated red dot against eight pale ones — beside a violin panel showing
+   * nine identical distributions, which is what it actually is.
+   *
+   * Neither figure is wrong and the caption already said the colour is a rank
+   * rather than a magnitude. It was not enough: the reader compared the two
+   * figures and concluded one of them was broken. So the magnitude is printed.
+   */
+  const spread = useMemo(() => {
+    if (!p.dotScale || !genes0.length || rows0.length < 2) return null
+    let widest = null as null | { gene: string; lo: number; hi: number }
+    let narrowest = null as null | { gene: string; lo: number; hi: number }
+    genes0.forEach((g, gi) => {
+      const col = rows0.map((_x, k) => byRow[k][gi])
+      const one = { gene: g, lo: Math.min(...col), hi: Math.max(...col) }
+      const w = one.hi - one.lo
+      if (!widest || w > widest.hi - widest.lo) widest = one
+      if (!narrowest || w < narrowest.hi - narrowest.lo) narrowest = one
+    })
+    return { widest, narrowest, one: genes0.length === 1 }
+  }, [byRow, genes0, rows0, p.dotScale])
+
+  /**
    * One tree per QUANTITY, not per axis.
    *
    * They used to be called rowTree and colTree, which was true only while the
@@ -310,7 +338,19 @@ export default function DotPlot(
           claim, not the argument, which is in Methods. */}
       <p className="sub mt-2.5">
         {p.dotScale
-          ? <>Colour is <b>z-scored per gene</b> — where a gene is highest, not how much of it.</>
+          ? <>Colour is <b>z-scored per gene</b> — where a gene is highest, not how much of it.
+            {spread?.widest && (
+              spread.one
+                ? <> Across these {rows0.length} rows the mean runs{' '}
+                  <b>{spread.widest.lo.toFixed(2)} to {spread.widest.hi.toFixed(2)}</b>; the
+                  colours fill the scale whatever that range is, so read them as an order and
+                  not as a size.</>
+                : <> The scale is filled for every gene whatever its range: the widest here is{' '}
+                  <i>{spread.widest.gene}</i> at {spread.widest.lo.toFixed(2)}–
+                  {spread.widest.hi.toFixed(2)}, the narrowest{' '}
+                  <i>{spread.narrowest!.gene}</i> at {spread.narrowest!.lo.toFixed(2)}–
+                  {spread.narrowest!.hi.toFixed(2)}. Turn scaling off to compare sizes.</>
+            )}</>
           : <>Colour is the raw mean, on one scale for every gene.</>}
       </p>
     </>

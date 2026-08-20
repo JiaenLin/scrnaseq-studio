@@ -46,6 +46,7 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
       </div>
       <div className="legend mt-3">
         <span>violin + box = per-cell distribution</span>
+        <span>solid tick = median · dashed = mean, which is what the dot plot colours</span>
         {points && <span>each dot is one cell, up to 300 per group</span>}
         <span>bar under the axis = fraction of cells detecting the gene</span>
       </div>
@@ -102,6 +103,23 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
     base = v.reduce((a, b) => a + b, 0) / v.length || 1
   }
   const scaled = series.map(v => v.map(x => x / base))
+  /**
+   * The mean per category, on the same scale the violins are drawn on.
+   *
+   * `src.mean`, not the mean of `series` — series is subsampled to 400 cells a
+   * violin, and this number exists to be compared against the dot plot, which
+   * uses every cell. A marker that was close but not equal would be worse than
+   * none.
+   *
+   * It is here because the box is the MEDIAN and quartiles, and the dot plot's
+   * colour is the mean. On zero-inflated data those disagree, and not only in
+   * size: measured across nine cell types on the demo, 3 of 72 genes put a
+   * different column top under the two statistics. Two figures of the same gene
+   * ranking the same groups differently, with nothing on either saying they
+   * were showing different things, reads as one of them being broken.
+   */
+  const means = cats.map(c =>
+    p.src.mean(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond) / base)
   // Every sampled cell in the panel, which on the atlas is 133 clusters × 20
   // groups × 400 — a spread of that many arguments is the RangeError that
   // unmounts the tab, so the extent is taken by loop. See maxOf in chart.ts.
@@ -168,6 +186,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
                   its tick and stays blank. */}
               {v.length > 0 && (
                 <Violin v={v} cx={cx} bw={bw} col={col} lo={lo} hi={hi} Y={Y}
+                  mean={means[i]}
                   pct={pcts[i]} gene={p.gene} yDet={H - PB + 3} points={p.points} />
               )}
               {tick.rotate ? (
@@ -209,7 +228,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
 }
 
 /** One category's distribution: outline, box, median, and the detection bar. */
-function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet, points }: {
+function Violin({ v, cx, bw, col, lo, hi, Y, mean, pct, gene, yDet, points }: {
   v: number[]
   cx: number
   bw: number
@@ -217,6 +236,8 @@ function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet, points }: {
   lo: number
   hi: number
   Y: (value: number) => number
+  /** The mean over EVERY cell — what the dot plot colours. See `means`. */
+  mean: number
   pct: number
   gene: string
   yDet: number
@@ -274,6 +295,19 @@ function Violin({ v, cx, bw, col, lo, hi, Y, pct, gene, yDet, points }: {
         strokeWidth={Math.max(2, Math.min(6, bw * 0.34))} />
       <line x1={cx - Math.min(8, bw * 0.4)} x2={cx + Math.min(8, bw * 0.4)}
         y1={Y(q.med)} y2={Y(q.med)} stroke={TICK_INK} strokeWidth={1.8} />
+      {/* The mean, dashed, so it cannot be mistaken for the median tick beside
+          it. This is the ONE number the dot plot draws, and without it here the
+          two figures share no statistic at all — which is how they came to look
+          like they disagreed. Dashed rather than another solid rule because on
+          a symmetric distribution the two land on top of each other, and the
+          reader has to be able to see that they did. */}
+      {Number.isFinite(mean) && mean >= lo && mean <= hi && (
+        <line x1={cx - Math.min(11, bw * 0.5)} x2={cx + Math.min(11, bw * 0.5)}
+          y1={Y(mean)} y2={Y(mean)} stroke={SUMMARY_INK} strokeWidth={1.4}
+          strokeDasharray="3 2">
+          <title>mean {mean.toFixed(2)}</title>
+        </line>
+      )}
       {/* Detection bar. Without it a gene with heavy dropout is just a spike
           at zero, with no way to tell "absent here" from "absent everywhere". */}
       <rect x={cx - bwid / 2} y={yDet} width={bwid} height={3.5} rx={1.75}

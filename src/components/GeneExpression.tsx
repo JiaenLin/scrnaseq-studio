@@ -468,7 +468,16 @@ function CellFilter({ p }: { p: GeneProps }) {
  * the controls and the figure on every single visit.
  */
 function describe(p: GeneProps, ctName: string) {
-  if (p.plot === 'dot') return 'Dot size is the fraction detected; colour is the mean.'
+  // "colour is the mean" was printed whatever the scaling, so with Scale each
+  // gene on this line and the caption under the same figure said two different
+  // things — one of them wrong. Reported as the dot plot and the violins
+  // disagreeing, which they were also doing for a second and better reason: the
+  // violin's box is the median and quartiles, and this is the mean.
+  if (p.plot === 'dot') {
+    return p.dotScale
+      ? 'Dot size is the fraction detected; colour is the mean, z-scored down each gene.'
+      : 'Dot size is the fraction detected; colour is the mean.'
+  }
   if (p.plot === 'feature')
     return `On the embedding, one panel per gene${
       p.groupBy !== 'type' && p.src.d.multi ? ", split by group on that gene's scale" : ''}.`
