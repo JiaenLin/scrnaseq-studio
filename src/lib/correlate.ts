@@ -467,6 +467,53 @@ export function composite(
  * the worker never has to know whether it is looking at cells, metacells or
  * pseudobulk columns.
  */
+/**
+ * How two profiles are compared.
+ *
+ * Pearson is the default and is what WGCNA and hdWGCNA use. Spearman is Pearson
+ * on the RANKS, which asks whether two genes move together monotonically rather
+ * than linearly — so one metacell where a gene is enormous cannot carry an r on
+ * its own, and a saturating relationship still reads as one. On log-normalised
+ * means over pools, which are skewed and have long right tails, that is often
+ * the more honest question.
+ *
+ * It is offered only where the axis is POOLED, and that is a property of the
+ * data rather than a limitation of the code: on the per-cell axis most values
+ * are exactly zero, so the ranks are one enormous tie block with a few hundred
+ * cells above it, and a rank correlation over that is a statement about the
+ * dropout pattern. corrPlan's per-cell branch also never materialises a gene's
+ * vector — it accumulates straight off the non-zeros, which is what makes a
+ * 292 495-cell object possible at all — and you cannot rank what you never hold.
+ */
+export type CorrMethod = 'pearson' | 'spearman'
+
+/**
+ * Ranks, smallest first, with tied values sharing their average rank.
+ *
+ * In place, over an array the caller owns. Average ranks rather than ordinal
+ * ones because ties here are not incidental: a gene absent from forty pools has
+ * forty identical zeros, and breaking that tie by bucket index would invent an
+ * ordering out of the order the pools happen to be numbered in.
+ */
+export function rankInPlace(v: Float64Array): Float64Array {
+  const n = v.length
+  const idx = new Int32Array(n)
+  for (let i = 0; i < n; i++) idx[i] = i
+  const order = Array.prototype.slice.call(idx).sort((a: number, b: number) => v[a] - v[b])
+  const out = new Float64Array(n)
+  let i = 0
+  while (i < n) {
+    let j = i
+    while (j + 1 < n && v[order[j + 1]] === v[order[i]]) j++
+    // Ranks are 1-based; the shared rank is the average of the block's.
+    const shared = (i + j) / 2 + 1
+    for (let k = i; k <= j; k++) out[order[k]] = shared
+    i = j + 1
+  }
+  v.set(out)
+  return v
+}
+
 export interface CorrSpec {
   bucket: Int32Array
   size: Int32Array
@@ -479,10 +526,12 @@ export interface CorrSpec {
   minPct: number
   nGenes: number
   pooled: boolean
+  /** Pearson unless asked otherwise; see CorrMethod. Absent means pearson. */
+  method?: CorrMethod
 }
 
 export interface CorrResult {
-  /** Pearson r per gene index. NaN for a gene that was not ranked. */
+  /** r per gene index, Pearson or Spearman. NaN for a gene that was not ranked. */
   r: Float64Array
   /** Fraction of the scope's cells with a non-zero value, per gene index. */
   pct: Float64Array
@@ -505,9 +554,18 @@ export interface CorrResult {
 export function corrPlan(spec: CorrSpec) {
   const r = new Float64Array(spec.nGenes).fill(NaN)
   const pct = new Float64Array(spec.nGenes)
-  const { bucket, seed, size, nBuckets, pooled } = spec
+  const { bucket, size, nBuckets, pooled } = spec
   const acc = pooled ? new Float64Array(nBuckets) : null
   const floor = Math.max(0, Math.min(1, spec.minPct)) * spec.nScope
+  // Spearman needs a gene's whole profile in hand to rank it, which only the
+  // pooled branch has. See CorrMethod — on the per-cell axis it would be a
+  // statement about the dropout pattern anyway.
+  const ranked = spec.method === 'spearman' && pooled
+  // Ranked here rather than by the caller, so the two halves of a Spearman
+  // cannot disagree about whether they were ranked. A copy, because the seed
+  // belongs to whoever passed it.
+  const seed = ranked ? rankInPlace(Float64Array.from(spec.seed)) : spec.seed
+  const gv = ranked ? new Float64Array(nBuckets) : null
 
   // The seed's own sums, once. It does not change between genes.
   let sSum = 0, sSq = 0
@@ -521,21 +579,37 @@ export function corrPlan(spec: CorrSpec) {
       if (acc) {
         each((cell, value) => {
           const b = bucket[cell]
-          if (b < 0) return
+          // A stored 0 is a zero, not a detection — the same guard testGene and
+          // markersPlan apply, and for the same reason: the matrix format can
+          // carry an explicit zero, and counting it would let a gene clear the
+          // detection floor on cells that never expressed it. It cannot move r
+          // either way, since adding zero to every sum is adding nothing.
+          if (b < 0 || value === 0) return
           acc[b] += value
           hit++
         })
-        for (let b = 0; b < nBuckets; b++) {
-          const mean = acc[b] / size[b]
-          gSum += mean
-          gSq += mean * mean
-          sg += seed[b] * mean
-          acc[b] = 0
+        if (gv) {
+          for (let b = 0; b < nBuckets; b++) { gv[b] = acc[b] / size[b]; acc[b] = 0 }
+          rankInPlace(gv)
+          for (let b = 0; b < nBuckets; b++) {
+            const x = gv[b]
+            gSum += x
+            gSq += x * x
+            sg += seed[b] * x
+          }
+        } else {
+          for (let b = 0; b < nBuckets; b++) {
+            const mean = acc[b] / size[b]
+            gSum += mean
+            gSq += mean * mean
+            sg += seed[b] * mean
+            acc[b] = 0
+          }
         }
       } else {
         each((cell, value) => {
           const b = bucket[cell]
-          if (b < 0) return
+          if (b < 0 || value === 0) return
           hit++
           gSum += value
           gSq += value * value
@@ -570,18 +644,27 @@ export function corrPlan(spec: CorrSpec) {
  * correlate through library size before they correlate through biology.
  */
 export function corrDense(
-  values: Float64Array, nGenes: number, nCols: number, seed: Float64Array,
-  detected: Float64Array, minPct: number,
+  values: Float64Array, nGenes: number, nCols: number, rawSeed: Float64Array,
+  detected: Float64Array, minPct: number, method: CorrMethod = 'pearson',
 ): CorrResult {
   const r = new Float64Array(nGenes).fill(NaN)
+  // Every column is a real observation here, so Spearman needs no special case
+  // — unlike the per-cell axis, this profile is always in hand.
+  const ranked = method === 'spearman'
+  const seed = ranked ? rankInPlace(Float64Array.from(rawSeed)) : rawSeed
+  const gv = ranked ? new Float64Array(nCols) : null
   let sSum = 0, sSq = 0
   for (let c = 0; c < nCols; c++) { sSum += seed[c]; sSq += seed[c] * seed[c] }
   const sVar = nCols * sSq - sSum * sSum
   for (let g = 0; g < nGenes; g++) {
     if (detected[g] < minPct) continue
     let gSum = 0, gSq = 0, sg = 0
+    if (gv) {
+      for (let c = 0; c < nCols; c++) gv[c] = values[g * nCols + c]
+      rankInPlace(gv)
+    }
     for (let c = 0; c < nCols; c++) {
-      const v = values[g * nCols + c]
+      const v = gv ? gv[c] : values[g * nCols + c]
       gSum += v
       gSq += v * v
       sg += seed[c] * v

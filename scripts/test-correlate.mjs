@@ -13,7 +13,7 @@
 
 import {
   cellAxis, composite, constraintOf, corrDense, corrPlan, groupAxis, moments,
-  poolAxis, pseudobulkOn, rankCorr, scopeMask, standardise, withinSet,
+  poolAxis, pseudobulkOn, rankCorr, rankInPlace, scopeMask, standardise, withinSet,
 } from '../src/lib/correlate.ts'
 import { demoSource } from '../src/lib/source.ts'
 
@@ -650,6 +650,100 @@ console.log('\nTHE SCOPE TAKES SEVERAL CELL TYPES AND SEVERAL GROUPS')
     pseudobulkOn(pb, samples, null, ['ctrl']).cols.length, columns.length / 2)
   check('a bare string still works, as it always did',
     pseudobulkOn(pb, samples, null, 'ctrl').cols.length, columns.length / 2)
+}
+
+
+console.log('\nSPEARMAN IS PEARSON ON THE RANKS')
+{
+  check('ranks are 1-based and ascending',
+    Array.from(rankInPlace(Float64Array.from([30, 10, 20]))), [3, 1, 2])
+  // Ties share their average rank. Not incidental here: a gene absent from
+  // forty pools has forty identical zeros, and breaking that tie by bucket
+  // index would invent an order out of how the pools happen to be numbered.
+  check('ties share the average rank',
+    Array.from(rankInPlace(Float64Array.from([5, 5, 5, 9]))), [2, 2, 2, 4])
+  check('a whole tie block averages to the middle',
+    Array.from(rankInPlace(Float64Array.from([0, 0, 0, 0]))), [2.5, 2.5, 2.5, 2.5])
+  check('negatives sort below zero',
+    Array.from(rankInPlace(Float64Array.from([0, -1, 1]))), [2, 1, 3])
+
+  const src = demoSource('cohort')
+  const keep = scopeMask(src, null, null)
+  const axis = poolAxis(src.embeddings[0].xy, keep, src.d.cells.length, 128,
+    constraintOf(src.d.cells, src.d.samples, 'type-sample'))
+  const profile = g => {
+    const acc = new Float64Array(axis.n)
+    src.forEachNonZero(g, (c, v) => { const b = axis.of[c]; if (b >= 0) acc[b] += v })
+    const out = new Float64Array(axis.n)
+    for (let b = 0; b < axis.n; b++) out[b] = acc[b] / axis.size[b]
+    return out
+  }
+  const run = method => {
+    const plan = corrPlan({
+      bucket: axis.of, size: axis.size, nBuckets: axis.n, seed: standardise(profile('Ascl1')),
+      nScope: axis.nCells, minPct: 0, nGenes: src.genes.length, pooled: axis.pooled, method,
+    })
+    src.scanSync(plan.visit)
+    return plan.done().r
+  }
+  const rP = run('pearson')
+  const rS = run('spearman')
+
+  // Against a reference Spearman computed the long way: rank both, then Pearson.
+  const pearsonOf = (a, b) => {
+    const n = a.length
+    let ma = 0, mb = 0
+    for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i] }
+    ma /= n; mb /= n
+    let sab = 0, saa = 0, sbb = 0
+    for (let i = 0; i < n; i++) {
+      const da = a[i] - ma, db = b[i] - mb
+      sab += da * db; saa += da * da; sbb += db * db
+    }
+    return saa > 1e-12 && sbb > 1e-12 ? sab / Math.sqrt(saa * sbb) : NaN
+  }
+  const seedRanks = rankInPlace(profile('Ascl1'))
+  let worst = 0
+  let compared = 0
+  src.genes.forEach((g, i) => {
+    if (Number.isNaN(rS[i])) return
+    const want = pearsonOf(rankInPlace(profile(g)), seedRanks)
+    if (Number.isNaN(want)) return
+    compared++
+    worst = Math.max(worst, Math.abs(rS[i] - want))
+  })
+  check('every gene was compared', compared > 50, true)
+  check('and equals rank-then-Pearson', worst < 1e-9, true)
+
+  // The seed correlates with itself at 1 either way — the sanity check that
+  // catches a seed ranked on one side of the comparison and not the other.
+  const self = src.genes.indexOf('Ascl1')
+  check('the seed against itself is 1 under Pearson', Math.abs(rP[self] - 1) < 1e-9, true)
+  check('and 1 under Spearman', Math.abs(rS[self] - 1) < 1e-9, true)
+  // Different answers, or the option would be decoration.
+  check('the two methods disagree somewhere',
+    src.genes.some((_g, i) => Number.isFinite(rP[i]) && Number.isFinite(rS[i])
+      && Math.abs(rP[i] - rS[i]) > 0.01), true)
+
+  // Per cell there is nothing to rank, and corrPlan must not pretend otherwise:
+  // it never materialises a gene's vector there, so asking for Spearman has to
+  // fall back rather than silently return a half-ranked correlation.
+  const cell = cellAxis(keep, src.d.cells.length)
+  const cellRun = method => {
+    const acc = new Float64Array(cell.n)
+    src.forEachNonZero('Ascl1', (c, v) => { const b = cell.of[c]; if (b >= 0) acc[b] += v })
+    const plan = corrPlan({
+      bucket: cell.of, size: cell.size, nBuckets: cell.n, seed: standardise(acc),
+      nScope: cell.nCells, minPct: 0, nGenes: src.genes.length, pooled: cell.pooled, method,
+    })
+    src.scanSync(plan.visit)
+    return plan.done().r
+  }
+  const cP = cellRun('pearson')
+  const cS = cellRun('spearman')
+  check('per cell, asking for Spearman gives the Pearson it can actually compute',
+    src.genes.every((_g, i) => (Number.isNaN(cP[i]) && Number.isNaN(cS[i]))
+      || Math.abs(cP[i] - cS[i]) < 1e-12), true)
 }
 
 console.log(failed ? `\n${failed} test(s) failed` : '\nAll co-expression tests passed')

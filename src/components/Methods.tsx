@@ -234,7 +234,15 @@ export default function Methods({
               those.
             </p>
             <p className="mb-0 mt-3">
-              <b>A co-expression r carries no p-value, on purpose.</b> Correlation is taken
+              <b>Co-expression r is Pearson by default, and carries no p-value on purpose.</b>{' '}
+              Pearson is what WGCNA and hdWGCNA use, and it is what the card computes unless
+              Spearman is chosen — which is the same correlation over the RANKS, so one extreme
+              metacell cannot carry an r on its own and a saturating relationship still reads
+              as one. Spearman is offered only where the observations are pooled: on the
+              per-cell axis most values are exactly zero, so the ranks are one enormous tie
+              block and the correlation would be describing the dropout pattern. Which of the
+              two produced a given table is named above it and in its CSV heading.
+              Correlation is taken
               across observations, and with tens of thousands of cells almost any r clears
               any threshold — while cells from one animal are not independent draws, the same
               reason this studio separates the per-cell test from pseudobulk. So the table

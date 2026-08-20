@@ -5,6 +5,7 @@ import type { Source } from '../lib/source.ts'
 import {
   cellAxis, compositeOn, constraintOf, corrDense, corrPlan, groupAxis, poolAxis,
   profilesOn, pseudobulkOn, rankCorr, scopeMask, standardise, withinSet,
+  type CorrMethod,
   type Axis, type CorrResult, type CorrRow, type SetShape, type Within,
 } from '../lib/correlate.ts'
 import { parseGeneList, rankGenes } from '../lib/genes.ts'
@@ -67,6 +68,11 @@ export default function Coexpression(p: CoexprProps) {
   const [text, setText] = useState('')
   const [over, setOver] = useState<Over>('pool')
   const [pools, setPools] = useState(256)
+  /**
+   * Pearson or Spearman. See CorrMethod for why the choice is only offered on a
+   * pooled axis — the per-cell one has nothing rankable in it.
+   */
+  const [method, setMethod] = useState<CorrMethod>('pearson')
   /** Which levels the aggregate columns are cut on. */
   const [by, setBy] = useState<'cond' | 'sample'>('cond')
   /**
@@ -121,6 +127,9 @@ export default function Coexpression(p: CoexprProps) {
     [conds, d.conds])
   const hasBulk = src.pseudobulk !== null
   const mode: Over = over === 'bulk' && !hasBulk ? 'pool' : over
+  // Per cell there is nothing to rank; the control says so and this makes it
+  // true rather than trusting the control to have been disabled.
+  const how: CorrMethod = mode === 'cell' ? 'pearson' : method
 
   const keep = useMemo(
     () => scopeMask(src, tis, scopeConds), [src, tis, scopeConds])
@@ -237,11 +246,16 @@ export default function Coexpression(p: CoexprProps) {
   const shape = current?.shape ?? null
   const building = seedGenes.length > 0 && current === null && seedErr === null
 
-  const key = `${seedKey}|${minPct}`
+  const key = `${seedKey}|${minPct}|${how}`
   const armed = !src.lazy || p.ran === key
   const ready = seedVec !== null
 
-  const inline = useMemo(() => ({ src, axis, seedVec, minPct, nScope }), [src, axis, seedVec, minPct, nScope])
+  // No nScope: runInline reads the axis for it, because the denominator of a
+  // detection rate is the cells that landed in a bucket rather than the cells
+  // the scope selected. Passing it here as well was a second, unread copy that
+  // read as though the inline path used a different one.
+  const inline = useMemo(
+    () => ({ src, axis, seedVec, minPct, how }), [src, axis, seedVec, minPct, how])
   const { value: scanned, pass, failed, retry } = useJob<'correlate'>(
     src, 'correlate', key, ready && armed && mode !== 'bulk',
     () => runInline(inline),
@@ -249,7 +263,7 @@ export default function Coexpression(p: CoexprProps) {
       kind: 'correlate',
       bucket: axis!.of.slice(), size: axis!.size.slice(), nBuckets: axis!.n,
       seed: seedVec!.slice(), nScope: axis!.nCells, minPct, nGenes: src.genes.length,
-      pooled: axis!.pooled,
+      pooled: axis!.pooled, method: how,
     }),
   )
 
@@ -257,8 +271,8 @@ export default function Coexpression(p: CoexprProps) {
     if (mode !== 'bulk' || !ready || !bulk?.values || !bulk.detected) return null
     const pb = src.pseudobulk!
     return corrDense(bulk.values, pb.genes.length, bulk.cols.length, seedVec!,
-      bulk.detected, minPct)
-  }, [mode, ready, bulk, seedVec, minPct, src.pseudobulk])
+      bulk.detected, minPct, how)
+  }, [mode, ready, bulk, seedVec, minPct, src.pseudobulk, how])
 
   const result: CorrResult | null = mode === 'bulk' ? bulkResult : scanned
   const names = mode === 'bulk' ? (src.pseudobulk?.genes ?? GENES) : GENES
@@ -293,8 +307,9 @@ export default function Coexpression(p: CoexprProps) {
       <Card
         eyebrow="Co-expression"
         title="Genes that move with a gene, or with a signature"
-        sub={<>Pearson r against every gene the object measures, over the axis chosen
-          below. Ranked by r — see the note under the table for why there is no p-value.</>}
+        sub={<>{how === 'spearman' ? 'Spearman' : 'Pearson'} r against every gene the object
+          measures, over the axis chosen below. Ranked by r — see the note under the table for
+          why there is no p-value.</>}
       >
         <div className="flex flex-wrap items-center gap-2">
           <Seg<SeedKind> value={kind} onChange={k => { setKind(k); p.onSeed([]) }}
@@ -395,6 +410,23 @@ export default function Coexpression(p: CoexprProps) {
             </>
           )}
           <div className="gsep h-6" />
+          <label className="flex items-center gap-1.5">
+            <span className="glabel">Rank by</span>
+            <Seg<CorrMethod>
+              value={how} onChange={setMethod}
+              disabled={k => k === 'spearman' && mode === 'cell'}
+              options={[
+                { k: 'pearson', label: 'Pearson',
+                  title: 'Linear co-variation — what WGCNA and hdWGCNA use' },
+                { k: 'spearman', label: 'Spearman',
+                  title: mode === 'cell'
+                    ? 'Not offered per cell: most values are exactly zero, so the ranks are'
+                      + ' one huge tie block and r would describe the dropout pattern'
+                    : 'Pearson on the ranks — monotone rather than linear, so one extreme'
+                      + ' pool cannot carry the correlation on its own' },
+              ]} />
+          </label>
+          <div className="gsep h-6" />
           {/* The same picker the contrast bar uses, for the same reason: this is
               a choice of which populations, and a `<select>` can only hold one.
               Empty reads "every cell type", which is both the default and the
@@ -414,8 +446,22 @@ export default function Coexpression(p: CoexprProps) {
           </span>
           <Seg<string> value={String(minPctPc)} onChange={v => setMinPctPc(Number(v))}
             options={[{ k: '5', label: '5%' }, { k: '10', label: '10%' }, { k: '25', label: '25%' }]} />
-          <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-            of the {fmt(nScope)} cells in scope
+          {/*
+            axis.nCells, not nScope. The floor is applied against the cells that
+            landed in a bucket, and pooling drops any cell whose cell type x
+            sample group is too small to build a metacell from — so on a narrow
+            scope the two are far apart: 72 Pericytes in scope, 34 of them in a
+            metacell, and this line was telling the reader the floor was 10% of
+            72 while the code applied 10% of 34. The results paragraph below
+            already reported the drop; the control that sets the floor did not.
+          */}
+          <span className="tx-micro" style={{ color: 'var(--ink-3)' }}
+            title={axis && axis.nCells < nScope
+              ? `${fmt(nScope - axis.nCells)} of the ${fmt(nScope)} cells in scope sit in a`
+                + ' group too small to pool, so they are not in the correlation'
+              : undefined}>
+            of the {fmt(axis?.nCells ?? nScope)} cells
+            {axis && axis.nCells < nScope ? ' that pool' : ' in scope'}
           </span>
           <div className="gsep h-6" />
           <Chips label="Rows each way" value={top} options={[25, 50, 100]} onChange={setTop} />
@@ -485,7 +531,8 @@ export default function Coexpression(p: CoexprProps) {
         ) : (
           <>
             <p className="sub mt-3">
-              {fmt(table.tested)} genes ranked over <b>{fmt(nObs)} {unit}</b> in {scopeText}
+              {fmt(table.tested)} genes ranked by {how === 'spearman' ? 'Spearman' : 'Pearson'}
+              {' '}r over <b>{fmt(nObs)} {unit}</b> in {scopeText}
               {(mode === 'group' || mode === 'pool') && axis
                 ? `, averaged from ${fmt(axis.nCells)} cells`
                 : ''}
@@ -504,9 +551,13 @@ export default function Coexpression(p: CoexprProps) {
               <Side title="Moves against it" rows={table.down} dir="down" onPick={p.onPickGene} />
             </div>
             <div className="mt-3 flex items-center justify-end">
+              {/* The column names WHICH r, and so does the filename. A file
+                  called coexpression_Ascl1.csv with a column called "r" is two
+                  different analyses under one name once there are two methods,
+                  and the one thing a saved file cannot do is ask which it was. */}
               <CsvButton onClick={() => downloadCsv(
-                `coexpression_${slug(label)}`,
-                ['gene', 'r', 'detected', 'is_seed_member'],
+                `coexpression_${slug(label)}_${how}`,
+                ['gene', `${how}_r`, 'detected', 'is_seed_member'],
                 [...table.up, ...table.down].map(row =>
                   [row.gene, row.r.toFixed(4), row.pct.toFixed(4), row.member ? 'yes' : 'no']))} />
             </div>
@@ -553,7 +604,7 @@ function compose(profiles: (Float64Array | null)[], shape: SetShape): Float64Arr
 
 /** The inline path, for an object whose values are already in memory. */
 function runInline(o: {
-  src: Source; axis: Axis | null; seedVec: Float64Array | null; minPct: number; nScope: number
+  src: Source; axis: Axis | null; seedVec: Float64Array | null; minPct: number; how: CorrMethod
 }): CorrResult {
   const { src, axis, seedVec } = o
   const empty = {
@@ -564,6 +615,7 @@ function runInline(o: {
   const plan = corrPlan({
     bucket: axis.of, size: axis.size, nBuckets: axis.n, seed: seedVec,
     nScope: axis.nCells, minPct: o.minPct, nGenes: src.genes.length, pooled: axis.pooled,
+    method: o.how,
   })
   if (!src.scanSync(plan.visit)) return empty
   return plan.done()
