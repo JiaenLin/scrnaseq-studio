@@ -35,7 +35,7 @@ export default function Popover({ open, anchor, align = 'left', width, label, ro
   children: ReactNode
 }) {
   const box = useRef<HTMLDivElement>(null)
-  const [at, setAt] = useState<{ top: number; left: number } | null>(null)
+  const [at, setAt] = useState<{ top: number; left: number; maxH: number } | null>(null)
 
   // Before paint, so the panel never shows at 0,0 for a frame first.
   useLayoutEffect(() => {
@@ -45,15 +45,32 @@ export default function Popover({ open, anchor, align = 'left', width, label, ro
       if (!a) return
       const r = a.getBoundingClientRect()
       const w = width ?? box.current?.offsetWidth ?? 220
-      const h = box.current?.offsetHeight ?? 0
+      // scrollHeight, not offsetHeight: once maxHeight is applied the panel's
+      // offsetHeight IS the cap, so measuring that on the second pass would
+      // report the clamp back to itself and the panel would never re-open to
+      // its full size when there is room for it.
+      const h = box.current?.scrollHeight ?? 0
       const GAP = 6
+      const EDGE = 8
       let left = align === 'right' ? r.right - w : r.left
       // Never off the left or right edge of the window.
-      left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
-      // Below the trigger, unless there is no room and there is room above.
-      let top = r.bottom + GAP
-      if (h && top + h > window.innerHeight - 8 && r.top - GAP - h > 8) top = r.top - GAP - h
-      setAt({ top, left })
+      left = Math.max(EDGE, Math.min(left, window.innerWidth - w - EDGE))
+
+      /**
+       * Below if it fits, above if that is roomier, and SCROLLING if neither.
+       *
+       * The old rule flipped above only when the panel fitted there whole, and
+       * capped nothing — so a list longer than the window ran off the bottom of
+       * the screen with no way to reach the end of it. Forty-three cell types
+       * does that on a laptop, and the object this was reported on has exactly
+       * that many.
+       */
+      const below = window.innerHeight - r.bottom - GAP - EDGE
+      const above = r.top - GAP - EDGE
+      const useAbove = h > below && above > below
+      const maxH = Math.max(120, useAbove ? above : below)
+      const top = useAbove ? Math.max(EDGE, r.top - GAP - Math.min(h, maxH)) : r.bottom + GAP
+      setAt({ top, left, maxH })
     }
     place()
     // A second pass once the panel has been measured, so a tall one that has to
@@ -145,6 +162,13 @@ export default function Popover({ open, anchor, align = 'left', width, label, ro
       className="menu-in fixed rounded-[--r-md]"
       style={{
         top: at?.top ?? -9999, left: at?.left ?? -9999, width,
+        // Scrolls itself rather than the page: the panel is fixed and portalled
+        // to the body, so a list that outgrows the window has nowhere else to
+        // go. `overscroll-contain` keeps a flick at the end of the list from
+        // carrying on into the page behind it.
+        maxHeight: at?.maxH,
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
         zIndex: 60,
         background: 'var(--surface)',
         border: '1px solid var(--line-2)',
