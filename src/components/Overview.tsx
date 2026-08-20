@@ -1,5 +1,8 @@
 import type { CellType, Dataset } from '../types.ts'
 import type { Source } from '../lib/source.ts'
+import { useMemo } from 'react'
+import { cellColumns } from '../lib/bundle.ts'
+import { groupOptions, typeOptions } from '../lib/roles.ts'
 import { axisRange, cellsBySample, fmt, quantiles, density, minOf, maxOf , hasSignal } from '../lib/chart.ts'
 import { axisTicks } from '../lib/labels.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
@@ -33,10 +36,13 @@ function geneNaming(src: Source): string {
     + (extra.length ? `. ${extra.join('; ')}` : '')
 }
 
-export default function Overview({ src, types, palKey }: {
+export default function Overview({ src, types, palKey, roles, onRoles }: {
   src: Source
   types: CellType[]
   palKey: PaletteKey
+  /** Which carried column is standing in for each role. -1 is the object's own. */
+  roles: { t: number; g: number }
+  onRoles: (next: { t: number; g: number }) => void
 }) {
   const d = src.d
   const nRep = minReplicates(src)
@@ -102,6 +108,8 @@ export default function Overview({ src, types, palKey }: {
           )}
         </div>
       </Card>
+
+      <RoleCard src={src} roles={roles} onRoles={onRoles} />
 
       <Card
         eyebrow="Provenance" title="Where every number comes from"
@@ -247,5 +255,76 @@ function QcPanel({ d, title, get, tick, palKey }: {
         <line className="axline" x1={PL} x2={W - PR} y1={H - PB} y2={H - PB} />
       </svg>
     </figure>
+  )
+}
+
+/**
+ * Which carried column counts as the cell type, and which as the group.
+ *
+ * Here and nowhere else. It reads as a structural fact about the object rather
+ * than a per-figure control, and a copy of it over every tab would invite
+ * changing it mid-analysis — which resets the contrast, the ordering and any
+ * renaming, because those are all said in the vocabulary being replaced.
+ *
+ * Only shown when the object actually carries an alternative. A bundle written
+ * without extra columns has one answer to each question, and a menu with one
+ * option is furniture.
+ */
+function RoleCard({ src, roles, onRoles }: {
+  src: Source
+  roles: { t: number; g: number }
+  onRoles: (next: { t: number; g: number }) => void
+}) {
+  const d = src.d
+  const cols = cellColumns(d)
+  // groupable() is a pass over every cell per column, so it is asked once for
+  // the whole card rather than once per render of a menu.
+  const tOpts = useMemo(() => typeOptions(d, 'cell type from the file'), [d])
+  const gOpts = useMemo(() => groupOptions(d, cols.cond ?? 'group from the file'), [d, cols.cond])
+  const excluded = cols.extras.length - (gOpts.length - 1)
+
+  if (!src.rebind || cols.extras.length === 0) return null
+
+  return (
+    <Card
+      eyebrow="Columns" title="What counts as a cell type, and as a group"
+      sub="Every column you ticked in the lab travels in the bundle, so these can be re-pointed here without converting the file again."
+    >
+      <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
+        <label className="flex flex-col gap-1">
+          <span className="glabel">Cell type</span>
+          <select className="sel" style={{ minWidth: 200 }} value={roles.t}
+            onChange={e => onRoles({ ...roles, t: Number(e.target.value) })}>
+            {tOpts.map(o => (
+              <option key={o.at} value={o.at}>
+                {o.key}{o.levels ? ` — ${o.levels} levels` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="glabel">Group</span>
+          <select className="sel" style={{ minWidth: 200 }} value={roles.g}
+            onChange={e => onRoles({ ...roles, g: Number(e.target.value) })}>
+            {gOpts.map(o => (
+              <option key={o.at} value={o.at}>{o.key} — {o.levels} levels</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="mt-3 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        Changing either clears the contrast, the group order and any renaming — those name
+        cell types and groups that the other column may not have.
+        {excluded > 0 && (
+          <> {excluded} other column{excluded === 1 ? ' is' : 's are'} not offered as a group:
+            {' '}a group has to be the same for every cell of a sample, or the pseudobulk
+            design would count one animal on both sides of its own comparison.</>
+        )}
+        {roles.t >= 0 && src.meta.hasRawCounts && (
+          <> The pseudobulk export is keyed by the cell types the lab wrote, so it goes quiet
+            while a different column is standing in; the per-cell Wilcoxon is unaffected.</>
+        )}
+      </p>
+    </Card>
   )
 }

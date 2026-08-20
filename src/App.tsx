@@ -9,6 +9,7 @@ import {
   type Gates, type SigBasis,
 } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
+import { withRoles } from './lib/roles.ts'
 import { withCondOrder } from './lib/order.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
 import PickMany from './components/PickMany.tsx'
@@ -185,8 +186,19 @@ export default function App() {
   // One rewrite of `d.conds` — see lib/order.ts. Memoised so an unchanged order
   // hands back the identical Source and Dataset, which is what the caches keyed
   // on them require.
+  /**
+   * Which carried column counts as the cell type, and which as the group.
+   *
+   * -1 on both is the object's own choice, which is what every bundle opens
+   * with. Re-pointing is a VIEW setting like the group order beside it — the
+   * columns are already in the bundle, so it costs one pass over the cells and
+   * no file access at all. See lib/roles.ts.
+   */
+  const [roles, setRoles] = useState<{ t: number; g: number }>({ t: -1, g: -1 })
+  const rebound = useMemo(
+    () => (opened ? withRoles(opened, roles.t, roles.g) : null), [opened, roles])
   const src = useMemo(
-    () => (opened ? withCondOrder(opened, condOrder) : null), [opened, condOrder])
+    () => (rebound ? withCondOrder(rebound.src, condOrder) : null), [rebound, condOrder])
   const [openError, setOpenError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [openNote, setOpenNote] = useState<string | null>(null)
@@ -358,6 +370,30 @@ export default function App() {
     setSrcs(defaultSources(lib.manifest, species))
   }, [lib.manifest, species, srcs])
 
+  /**
+   * A role change resets everything that was said in the old vocabulary.
+   *
+   * The cell types and the groups are what the contrast, the ordering and the
+   * renames are all expressed in, and after a re-point those names may not
+   * exist. Keeping them would leave a picker holding a cell type the object no
+   * longer has — which reads as the studio having lost the data.
+   */
+  const changeRoles = (next: { t: number; g: number }) => {
+    setRoles(next)
+    setCts([])
+    setCtrl([])
+    setCs([])
+    setCondOrder([])
+    setHiddenTypes(new Set())
+    setDeRan(null)
+  }
+
+  // The cell-type list follows a re-point. `rebound` changes identity only when
+  // the object or a role does, so a rename made in Markers is not undone by it.
+  useEffect(() => {
+    if (rebound) setTypes(rebound.types.map(t => ({ ...t })))
+  }, [rebound])
+
   function adopt(next: Source) {
     setOpened(next)
     setTypes(next.types.map(t => ({ ...t })))
@@ -375,6 +411,7 @@ export default function App() {
     setCts([])
     setCtrl([])
     setCs([])
+    setRoles({ t: -1, g: -1 })
     setMethod('wilcox')
     setPadjMax(0.05)
     setLfcMin(thresholdFor('wilcox').lfc)
@@ -866,7 +903,8 @@ export default function App() {
                 </div>
               </Empty>
             ) : tab === 'overview' ? (
-              <Overview src={src} types={types} palKey={palKey} />
+              <Overview src={src} types={types} palKey={palKey}
+                roles={roles} onRoles={changeRoles} />
             ) : tab === 'cells' ? (
               <Cells src={src} types={types} emb={emb}
                 colorBy={colorBy}

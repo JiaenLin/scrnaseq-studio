@@ -66,6 +66,21 @@ export interface Source {
   meta: SourceMeta
   d: Dataset
   /**
+   * The same matrix, described by a different Dataset.
+   *
+   * For re-pointing which carried column counts as the cell type or the group
+   * — see lib/roles.ts. It must be a NEW source rather than a mutation: the
+   * accessors below close over the cells they were built with, and `group` is
+   * cached by `ti|cond`, so changing a cell's type underneath them would leave
+   * cached answers describing an arrangement that no longer exists.
+   *
+   * What is NOT rebuilt is the expensive half. The gene vectors, the non-zero
+   * walk and the file handle are the same closures; only the per-cell labels
+   * and the counts derived from them change, which is 68 ms on a 1.2 M-cell
+   * object.
+   */
+  rebind?: (d: Dataset, types: CellType[]) => Source
+  /**
    * True when gene values live in the file rather than in memory, so they must
    * be awaited (`ensure`, `scan`) before the synchronous accessors can answer.
    */
@@ -247,6 +262,13 @@ export function baseSource(
     meta, d, types, genes, names, embeddings, pseudobulk,
     lazy: false, nParts: 1, remote: null,
     clusters: types.map(t => t.name),
+
+    // The same vector and nonZero closures, a fresh everything else — which is
+    // the point: the caches above are per call of this function, so the rebound
+    // source starts with an empty group cache rather than one keyed on labels
+    // that have moved.
+    rebind: (d2, types2) =>
+      baseSource(d2, types2, names, meta, vector, nonZero, pseudobulk, embeddings, resident),
 
     resident,
 
