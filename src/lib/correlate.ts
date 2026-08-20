@@ -602,13 +602,25 @@ export function corrDense(
  * list because that is what the axes want, and because "which cells" is the
  * only thing the rest of this file needs to know about a scope.
  */
-export function scopeMask(src: Source, ti: number | null, cond: Conds): Uint8Array {
+export function scopeMask(
+  src: Source, tis: readonly number[] | null, cond: Conds,
+): Uint8Array {
   const cells = src.d.cells
   const keep = new Uint8Array(cells.length)
   const set = cond != null && typeof cond !== 'string' ? new Set(cond) : null
+  // A LIST of types, or null for every one of them. It was a single index, so a
+  // correlation over "the three cardiomyocyte states" was not askable — and this
+  // is a scope, not a contrast, so restricting it is exactly the kind of thing a
+  // reader does two or three types at a time.
+  //
+  // null and an empty list are different on purpose. null is "every cell type",
+  // which is the default; empty is "these zero types", which is what the picker
+  // holds after the last one is unticked, and it has to mean no cells rather
+  // than silently widening to everything.
+  const want = tis === null ? null : new Set(tis)
   for (let i = 0; i < cells.length; i++) {
     const c = cells[i]
-    if (ti !== null && c.t !== ti) continue
+    if (want && !want.has(c.t)) continue
     if (set ? !set.has(c.cond) : cond && c.cond !== cond) continue
     keep[i] = 1
   }
@@ -730,8 +742,17 @@ export async function compositeOn(
 export function pseudobulkOn(
   pb: { genes: string[]; columns: { sample: string; cluster: string }[]; counts: Int32Array },
   samples: readonly { id: string; cond: string }[],
-  cluster: string | null,
-  cond: string | null,
+  /**
+   * Which clusters' columns to keep, or null for all of them.
+   *
+   * A FILTER here, not a sum — unlike the pseudobulk export, which has to add
+   * count vectors together to pool clusters. This function correlates ACROSS
+   * columns, and a (cluster, sample) column is already an observation, so
+   * choosing three clusters simply admits three clusters' worth of columns.
+   * More columns is more to correlate over, which is the direction that helps.
+   */
+  clusters: readonly string[] | null,
+  cond: readonly string[] | string | null,
 ): {
   cols: number[]
   values: Float64Array | null
@@ -739,10 +760,13 @@ export function pseudobulkOn(
   at: Map<string, number>
 } {
   const condOf = new Map(samples.map(s => [s.id, s.cond]))
+  const wantC = clusters === null ? null : new Set(clusters)
+  const wantG = cond == null ? null : new Set(typeof cond === 'string' ? [cond] : cond)
   const cols: number[] = []
   pb.columns.forEach((c, i) => {
-    if (cluster !== null && c.cluster !== cluster) return
-    if (cond && condOf.get(c.sample) !== cond) return
+    if (wantC && !wantC.has(c.cluster)) return
+    const g = condOf.get(c.sample)
+    if (wantG && (g === undefined || !wantG.has(g))) return
     cols.push(i)
   })
   const at = new Map(pb.genes.map((g, i) => [g, i]))

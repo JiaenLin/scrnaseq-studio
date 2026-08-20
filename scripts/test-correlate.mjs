@@ -13,8 +13,9 @@
 
 import {
   cellAxis, composite, constraintOf, corrDense, corrPlan, groupAxis, moments,
-  poolAxis, pseudobulkOn, rankCorr, standardise, withinSet,
+  poolAxis, pseudobulkOn, rankCorr, scopeMask, standardise, withinSet,
 } from '../src/lib/correlate.ts'
+import { demoSource } from '../src/lib/source.ts'
 
 let failed = 0
 const check = (name, got, want) => {
@@ -502,9 +503,9 @@ console.log('\nTHE PSEUDOBULK AXIS')
 
   const all = pseudobulkOn(pb, samples, null, null)
   check('with no scope every column is used', all.cols.length, 6)
-  const one = pseudobulkOn(pb, samples, 'T', null)
+  const one = pseudobulkOn(pb, samples, ['T'], null)
   check('a cell type takes its own columns', one.cols, [0, 1, 2, 3])
-  const pair = pseudobulkOn(pb, samples, 'T', 'ctrl')
+  const pair = pseudobulkOn(pb, samples, ['T'], 'ctrl')
   check('and a group narrows it further', pair.cols, [0, 1])
   check('under three columns there is nothing to correlate', pair.values, null)
 
@@ -537,7 +538,7 @@ console.log('\nTHE PSEUDOBULK AXIS')
     0, 0, 0, 7, 9, 9,
   ])
   for (let g = 0; g < 3; g++) deep[g * 6 + 3] *= 50
-  const scaled = pseudobulkOn({ genes, columns, counts: deep }, samples, 'T', null)
+  const scaled = pseudobulkOn({ genes, columns, counts: deep }, samples, ['T'], null)
   const before = rowOf(0)
   // Gene A's row starts at 0, so its column k is simply values[k].
   const after = Array.from({ length: nCols }, (_v, k) => scaled.values[k])
@@ -575,6 +576,80 @@ console.log('\nMOMENTS AND STANDARDISATION')
   near('standardised is centred', sum, 0, 1e-12)
   near('and has unit norm, so a dot product is a correlation', norm, 1, 1e-12)
   check('a constant vector cannot be standardised', standardise([2, 2, 2]), null)
+}
+
+
+console.log('\nTHE SCOPE TAKES SEVERAL CELL TYPES AND SEVERAL GROUPS')
+{
+  // scopeMask took one cell type and one group, so "the three cardiomyocyte
+  // states on the HFD arms" was three correlations compared by eye rather than
+  // one correlation over the pooled cells. Both are lists now.
+  const src = demoSource('cohort')
+  const conds = src.d.conds
+  const A = src.clusters.indexOf('qNSC')
+  const B = src.clusters.indexOf('aNSC')
+  const count = m => { let n = 0; for (const v of m) n += v; return n }
+  const cellsIn = m => {
+    const out = []
+    for (let i = 0; i < m.length; i++) if (m[i]) out.push(i)
+    return out
+  }
+
+  const all = scopeMask(src, null, null)
+  check('null is every cell', count(all), src.d.cells.length)
+
+  // The distinction that matters: NO types chosen is not every type. The picker
+  // reaches the empty list whenever the last one is unticked, and widening it
+  // back to the whole object there would silently answer a different question.
+  check('an EMPTY list is no cells, not every cell', count(scopeMask(src, [], null)), 0)
+
+  const a = count(scopeMask(src, [A], null))
+  const b = count(scopeMask(src, [B], null))
+  const both = scopeMask(src, [A, B], null)
+  check('two types is the two added up', count(both), a + b)
+  check('and every kept cell is one of them',
+    cellsIn(both).every(i => src.d.cells[i].t === A || src.d.cells[i].t === B), true)
+  check('the order they were ticked in does not matter',
+    count(scopeMask(src, [B, A], null)), count(both))
+
+  // Groups were already a list in the signature; this pins that the two axes
+  // compose rather than one overriding the other.
+  const g0 = count(scopeMask(src, [A, B], [conds[0]]))
+  const g1 = count(scopeMask(src, [A, B], [conds[1]]))
+  check('groups cut the same scope further', g0 + g1 <= count(both), true)
+  check('and both groups together is both groups',
+    count(scopeMask(src, [A, B], [conds[0], conds[1]])), g0 + g1)
+  check('every kept cell satisfies BOTH filters',
+    cellsIn(scopeMask(src, [A], [conds[0]]))
+      .every(i => src.d.cells[i].t === A && src.d.cells[i].cond === conds[0]), true)
+
+  // Pseudobulk columns are FILTERED by cluster, never summed — a (cluster,
+  // sample) column is already an observation, so more clusters is more columns
+  // to correlate over.
+  const samples = [
+    { id: 's1', cond: 'ctrl' }, { id: 's2', cond: 'ctrl' },
+    { id: 's3', cond: 'drug' }, { id: 's4', cond: 'drug' },
+  ]
+  const columns = []
+  for (const cl of ['T', 'B', 'M']) for (const s of samples) columns.push({ sample: s.id, cluster: cl })
+  const genes = ['g1', 'g2', 'g3']
+  const counts = Int32Array.from(
+    { length: genes.length * columns.length }, (_v, i) => 10 + (i % 7))
+  const pb = { genes, columns, counts }
+  const one = pseudobulkOn(pb, samples, ['T'], null)
+  const two = pseudobulkOn(pb, samples, ['T', 'B'], null)
+  check('two clusters give two clusters worth of columns',
+    two.cols.length, one.cols.length * 2)
+  check('and null still gives all of them',
+    pseudobulkOn(pb, samples, null, null).cols.length, columns.length)
+  check('an empty cluster list gives none',
+    pseudobulkOn(pb, samples, [], null).cols.length, 0)
+  check('a list of groups filters as a list',
+    pseudobulkOn(pb, samples, null, ['ctrl', 'drug']).cols.length, columns.length)
+  check('and one group is half of it',
+    pseudobulkOn(pb, samples, null, ['ctrl']).cols.length, columns.length / 2)
+  check('a bare string still works, as it always did',
+    pseudobulkOn(pb, samples, null, 'ctrl').cols.length, columns.length / 2)
 }
 
 console.log(failed ? `\n${failed} test(s) failed` : '\nAll co-expression tests passed')

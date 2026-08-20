@@ -8,6 +8,8 @@ import {
   type Axis, type CorrResult, type CorrRow, type SetShape, type Within,
 } from '../lib/correlate.ts'
 import { parseGeneList, rankGenes } from '../lib/genes.ts'
+import { typesLabel } from '../lib/stats.ts'
+import PickMany from './PickMany.tsx'
 import { fmt, pctTxt } from '../lib/chart.ts'
 import { AXIS_INK, DOWN_MARK, MARK_EDGE, UP_MARK } from '../lib/figure-ink.ts'
 import { widestW } from '../lib/labels.ts'
@@ -76,8 +78,18 @@ export default function Coexpression(p: CoexprProps) {
    * animals has quietly pooled the replicates a later claim rests on.
    */
   const [within, setWithin] = useState<Within>('type-sample')
-  const [ct, setCt] = useState<string>('')
-  const [cond, setCond] = useState<string>('')
+  /**
+   * The scope: which cell types and which groups the correlation is computed
+   * over. Empty means every one of them, which is the default.
+   *
+   * Lists, not single names. This is a SCOPE rather than a contrast — "the three
+   * cardiomyocyte states, on the HFD arms" is an ordinary thing to ask, and with
+   * a `<select>` each the only way to ask it was to run three correlations and
+   * compare tables by eye, which is not the same as one correlation over the
+   * pooled cells.
+   */
+  const [cts, setCts] = useState<string[]>([])
+  const [conds, setConds] = useState<string[]>([])
   const [minPctPc, setMinPctPc] = useState(10)
   const [top, setTop] = useState(25)
   /** Seurat writes min.pct as a fraction; the control reads as a percentage. */
@@ -96,12 +108,22 @@ export default function Coexpression(p: CoexprProps) {
 
   /* ---------------- the scope, and the axis over it ---------------- */
 
-  const ti = ct ? Math.max(0, types.findIndex(t => t.name === ct)) : null
+  // In the object's own order, so the cache key below does not change when the
+  // same scope is picked in a different sequence. null is every type; see
+  // scopeMask on why that is not the same as the empty list.
+  const tis = useMemo(
+    () => (cts.length
+      ? types.map((t, i) => (cts.includes(t.name) ? i : -1)).filter(i => i >= 0)
+      : null),
+    [cts, types])
+  const scopeConds = useMemo(
+    () => (conds.length ? d.conds.filter(c => conds.includes(c)) : null),
+    [conds, d.conds])
   const hasBulk = src.pseudobulk !== null
   const mode: Over = over === 'bulk' && !hasBulk ? 'pool' : over
 
   const keep = useMemo(
-    () => scopeMask(src, ti, cond || null), [src, ti, cond])
+    () => scopeMask(src, tis, scopeConds), [src, tis, scopeConds])
   const nScope = useMemo(() => {
     let n = 0
     for (let i = 0; i < keep.length; i++) n += keep[i]
@@ -133,8 +155,8 @@ export default function Coexpression(p: CoexprProps) {
   const bulk = useMemo(() => {
     if (!src.pseudobulk) return null
     return pseudobulkOn(src.pseudobulk, d.samples,
-      ti === null ? null : src.clusters[ti], cond || null)
-  }, [src, d.samples, ti, cond])
+      tis === null ? null : tis.map(i => src.clusters[i]), scopeConds)
+  }, [src, d.samples, tis, scopeConds])
 
   /* ---------------- the seed vector ---------------- */
 
@@ -161,9 +183,11 @@ export default function Coexpression(p: CoexprProps) {
   // What the seed depends on. Not the detection floor or the row count — those
   // filter an answer that is already in hand.
   const axisKey = mode === 'bulk'
-    ? `bulk|${bulk?.cols.length ?? 0}|${ti}|${cond}`
+    ? `bulk|${bulk?.cols.length ?? 0}|${tis?.join('+') ?? 'all'}`
+      + `|${scopeConds?.join('+') ?? 'all'}`
     : `${mode}|${mode === 'pool' ? `${emb.key}|${pools}|${within}` : ''}`
-      + `|${mode === 'group' ? by : ''}|${ti}|${cond}|${nScope}`
+      + `|${mode === 'group' ? by : ''}|${tis?.join('+') ?? 'all'}`
+      + `|${scopeConds?.join('+') ?? 'all'}|${nScope}`
   const seedKey = `${seedGenes.join(',')}|${axisKey}`
 
   useEffect(() => {
@@ -256,7 +280,8 @@ export default function Coexpression(p: CoexprProps) {
   const label = kind === 'gene'
     ? seedGenes[0] ?? ''
     : `${seedGenes.length} gene${seedGenes.length === 1 ? '' : 's'}`
-  const scopeText = `${ct || 'every cell type'}${cond ? ` · ${cond}` : ''}`
+  const scopeText = `${cts.length ? typesLabel(cts) : 'every cell type'}`
+    + `${conds.length ? ` · ${conds.join(' + ')}` : ''}`
   /** What one observation on this axis is, for every sentence that names it. */
   const unit = mode === 'bulk' ? 'pseudobulk columns'
     : mode === 'group' ? `cell type × ${by === 'cond' ? 'group' : 'sample'} columns`
@@ -370,23 +395,16 @@ export default function Coexpression(p: CoexprProps) {
             </>
           )}
           <div className="gsep h-6" />
-          <label className="flex items-center gap-1.5">
-            <span className="glabel">Cell type</span>
-            <select className="sel" value={ct} onChange={e => setCt(e.target.value)}
-              style={{ maxWidth: 200 }}>
-              <option value="">Every cell type</option>
-              {types.map(t => <option key={t.key} value={t.name}>{t.name}</option>)}
-            </select>
-          </label>
+          {/* The same picker the contrast bar uses, for the same reason: this is
+              a choice of which populations, and a `<select>` can only hold one.
+              Empty reads "every cell type", which is both the default and the
+              truth — unlike the contrast pickers, an unset scope here is a
+              complete question rather than a missing one. */}
+          <PickMany label="Cell type" all={types.map(t => t.name)} value={cts}
+            noun="cell types" empty="Every cell type" onChange={setCts} />
           {d.multi && (
-            <label className="flex items-center gap-1.5">
-              <span className="glabel">Group</span>
-              <select className="sel" value={cond} onChange={e => setCond(e.target.value)}
-                style={{ maxWidth: 170 }}>
-                <option value="">Every group</option>
-                {d.conds.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </label>
+            <PickMany label="Group" all={d.conds} value={conds}
+              noun="groups" empty="Every group" onChange={setConds} />
           )}
         </div>
 
