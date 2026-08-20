@@ -643,6 +643,24 @@ export async function openCollection(
   const scan: Source['scan'] = (visit, onScanProgress, cancelled) =>
     scanMatrix(file, plan, visit, onScanProgress, cancelled)
 
+  /**
+   * Everything a collection is that an in-memory object is not.
+   *
+   * Handed to baseSource rather than applied to its result, so that `rebind`
+   * applies it as well — re-pointing the cell type from Overview used to hand
+   * back a source without any of this, which read as the Run button vanishing
+   * and a contrast testing no genes at all.
+   */
+  const decorate = (s: Source): Source => Object.assign(s, {
+    lazy: true,
+    nParts: parts.length,
+    remote: { file, plan },
+    ensure,
+    withGenes,
+    scan,
+    scanSync: () => false,
+  })
+
   const src = baseSource(d, types, names, {
     label: merged.label,
     source: merged.source,
@@ -655,17 +673,10 @@ export async function openCollection(
     // The summed counts are indexed by row, so they carry the display name too —
     // an exported pseudobulk matrix must not be the one table in a different
     // vocabulary from every figure beside it.
-  }, vector, nonZero, pseudobulk && { ...pseudobulk, genes: display }, embeddings, resident)
+  }, vector, nonZero, pseudobulk && { ...pseudobulk, genes: display }, embeddings,
+  resident, decorate)
 
-  return Object.assign(src, {
-    lazy: true,
-    nParts: parts.length,
-    remote: { file, plan },
-    ensure,
-    withGenes,
-    scan,
-    scanSync: () => false,
-  })
+  return src
 }
 
 /**

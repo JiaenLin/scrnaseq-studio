@@ -253,6 +253,18 @@ export function baseSource(
   pseudobulk: Bundle['pseudobulk'],
   embeddings: Embedding[],
   resident: (gene: string) => boolean = () => true,
+  /**
+   * What a concrete source adds on top — a collection's streaming accessors,
+   * its `lazy` flag, its part count.
+   *
+   * Passed in rather than applied by the caller afterwards, because `rebind`
+   * has to apply it too. It did not, and a collection re-pointed from Overview
+   * came back as a plain in-memory source: `lazy` false, so the Run button
+   * vanished (`armed` is `!src.lazy || ...`), and `scanSync` the in-memory one,
+   * so a contrast tested 0 of 5 000 genes while still reporting the right cell
+   * counts. Two symptoms, one dropped decoration.
+   */
+  decorate: (s: Source) => Source = s => s,
 ): Source {
   const vecCache = memo<Float32Array>(64, v => v.byteLength, VEC_BUDGET)
   const grpCache = memo<Int32Array>(256)
@@ -268,7 +280,8 @@ export function baseSource(
     // source starts with an empty group cache rather than one keyed on labels
     // that have moved.
     rebind: (d2, types2) =>
-      baseSource(d2, types2, names, meta, vector, nonZero, pseudobulk, embeddings, resident),
+      baseSource(d2, types2, names, meta, vector, nonZero, pseudobulk, embeddings,
+        resident, decorate),
 
     resident,
 
@@ -352,7 +365,7 @@ export function baseSource(
       return out
     },
   }
-  return src
+  return decorate(src)
 }
 
 /* ---------------- the built-in demo objects ---------------- */

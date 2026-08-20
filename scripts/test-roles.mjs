@@ -6,7 +6,7 @@
 // group lookups by `ti|cond`, so a re-point that reused the old source would
 // answer every question with the arrangement that no longer exists.
 
-import { demoSource } from '../src/lib/source.ts'
+import { baseSource, demoSource } from '../src/lib/source.ts'
 import { groupable, groupOptions, typeOptions, withRoles } from '../src/lib/roles.ts'
 
 let failed = 0
@@ -125,6 +125,42 @@ console.log('\nNOTHING CHOSEN IS NOTHING DONE')
   // page does not re-render for a setting nobody changed.
   check('the object is handed back as it was', same.src === src, true)
   check('with its own types', same.types === src.types, true)
+}
+
+
+console.log('\nA RE-POINT KEEPS WHAT THE SOURCE IS')
+{
+  // The bug this pins, reported from the studio: re-pointing the cell type on a
+  // COLLECTION handed back a plain in-memory source. `lazy` came back false, so
+  // `armed` — which is `!src.lazy || deRan === deKey` — was always true and the
+  // Run button disappeared; `scanSync` came back as the in-memory one, so the
+  // contrast tested 0 of 5 000 genes while still reporting 11 293 and 17 051
+  // cells. Two symptoms, one dropped decoration.
+  //
+  // rebind now applies the same `decorate` baseSource was given.
+  const { src: plain } = withExtras()
+  const d = plain.d
+  const types = plain.types
+  const decorate = (s) => Object.assign(s, {
+    lazy: true,
+    nParts: 45,
+    scanSync: () => false,
+    withGenes: async () => {},
+  })
+  const src = baseSource(
+    d, types, plain.names, plain.meta,
+    g => plain.vector(g), (g, cb) => plain.forEachNonZero(g, cb),
+    null, plain.embeddings, () => true, decorate)
+
+  check('the decorated source is what it says it is',
+    [src.lazy, src.nParts, src.scanSync()], [true, 45, false])
+
+  const { src: next } = withRoles(src, 2, -1)
+  check('and so is the re-pointed one',
+    [next.lazy, next.nParts, next.scanSync()], [true, 45, false])
+  check('its streaming reader survives too', typeof next.withGenes, 'function')
+  check('while the Dataset really did change',
+    [next.types.length, next.types.length === src.types.length], [5, false])
 }
 
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll role tests passed\n')
