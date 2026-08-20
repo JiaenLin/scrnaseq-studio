@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { LibraryState, SetIndex } from '../lib/genesets.ts'
-import { type Collection } from '../lib/msigdb.ts'
+import { collectionToText, type Collection } from '../lib/msigdb.ts'
 import SetEditor from './SetEditor.tsx'
 import type { Detection, Species } from '../lib/species.ts'
 
@@ -44,7 +44,8 @@ export default function GeneSetSources({
 }) {
   const avail = lib.manifest?.species[species]?.sources ?? []
   const [gmtError, setGmtError] = useState<string | null>(null)
-  const [editing, setEditing] = useState(false)
+  /** The editor: closed, open on nothing, or open on a collection being edited. */
+  const [edit, setEdit] = useState<{ of: Collection | null } | null>(null)
 
   /**
    * Gene sets the reader supplies.
@@ -152,21 +153,25 @@ export default function GeneSetSources({
           </button>
         ))}
 
-        {/* The reader's own, beside MSigDB's rather than in a section of their
-            own — they are tested the same way and belong in the same row. They
-            carry no download and are always on, so the chip removes instead of
-            toggling. */}
-        {customSets.map(c => (
-          <button
-            key={c.source} className="chip" aria-pressed
-            title={`${c.sets.length.toLocaleString()} sets from your file — click to remove`}
-            onClick={() => onCustomSets(customSets.filter(x => x.source !== c.source))}
-          >
-            {c.source}
-            <span className="ml-1.5 opacity-60">{c.sets.length.toLocaleString()}</span>
-            <span className="ml-1.5 opacity-60" aria-hidden="true">×</span>
-          </button>
-        ))}
+      </div>
+
+      {/*
+        The reader's own sets, on a row of their own.
+
+        They used to sit at the end of the MSigDB row, and so did the button
+        that makes them — which put an ACTION at the end of a wrap-flow of
+        FILTERS. With fourteen collections that button lands wherever the row
+        happens to break, three lines down, indistinguishable from a fifteenth
+        database nobody has heard of. Reported as "buried in the MSigDB
+        collections", which is exactly what it was.
+
+        A labelled row instead, shown whether or not anything is in it, so the
+        one thing a lab with its own signatures needs is visible before they go
+        looking for it rather than after.
+      */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 border-t pt-2.5"
+        style={{ borderColor: 'var(--line)' }}>
+        <span className="glabel">Your sets</span>
 
         {/* A button, not a file picker.
             "Add a GMT…" asked the reader to go and produce a file in a format
@@ -174,18 +179,54 @@ export default function GeneSetSources({
             tab-separated triples, they keep them as the dict they built the
             analysis with. The editor takes that dict, and reading a file is
             still offered inside it. */}
-        <button className="btn btn-quiet" onClick={() => setEditing(true)}>
-          Add your own…
+        <button className="btn btn-sm" onClick={() => { setEdit({ of: null }) }}>
+          + Paste or upload
         </button>
+
+        {customSets.map(c => (
+          // Two targets, because they are two different acts. Clicking the name
+          // used to REMOVE the collection — a destructive action on the whole
+          // chip, one stray click from losing a paste with no way back, and no
+          // way at all to change a set once added. The name opens it for
+          // editing now; the × is its own button and says so.
+          <span key={c.source} className="chip-own">
+            <button
+              className="chip-own-name"
+              title={`${c.sets.length.toLocaleString()} of your sets — click to edit them`}
+              onClick={() => setEdit({ of: c })}
+            >
+              {c.source}
+              <span className="ml-1.5 opacity-70">{c.sets.length.toLocaleString()}</span>
+            </button>
+            <button
+              className="chip-own-x" aria-label={`Remove ${c.source}`}
+              title={`Remove ${c.source}`}
+              onClick={() => onCustomSets(customSets.filter(x => x.source !== c.source))}
+            >×</button>
+          </span>
+        ))}
+
+        {!customSets.length && (
+          <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+            Paste a Python dict, a GMT, or one <span className="mono">Name: a, b, c</span> per
+            line. They are tested and corrected exactly as MSigDB&rsquo;s are.
+          </span>
+        )}
       </div>
 
       <SetEditor
-        open={editing} background={background}
-        onClose={() => setEditing(false)}
+        open={edit !== null} background={background}
+        initial={edit?.of
+          ? { name: edit.of.source, text: collectionToText(edit.of) }
+          : null}
+        onClose={() => setEdit(null)}
         onAdd={c => {
           setGmtError(null)
           // Same name replaces rather than duplicates, so editing a set and
           // adding it again does not leave the old version enabled beside it.
+          // Renaming while editing therefore ADDS: the old name is still a
+          // collection somebody chose, and silently dropping it because a field
+          // changed would be the destructive click this control just lost.
           onCustomSets([...customSets.filter(x => x.source !== c.source), c])
         }}
       />

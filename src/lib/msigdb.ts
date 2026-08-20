@@ -511,3 +511,26 @@ export function parseSets(text: string, name = 'My sets'): Collection {
   }
   return out()
 }
+
+/**
+ * A collection written back out as text the editor can show and the parser can
+ * read again.
+ *
+ * `Name: a, b, c` per line — one of the forms `parseSets` accepts, chosen here
+ * because it is the one a person can read and edit in a textarea. GMT's tabs
+ * are invisible, and a JSON dict is the thing they pasted rather than the thing
+ * they now want to amend.
+ *
+ * The round trip is a real property, not a convenience: it is what makes a
+ * custom collection EDITABLE rather than delete-and-retype. Pinned in
+ * test-parse-sets — parse(toText(c)) has to give back the same sets with the
+ * same members in the same order.
+ *
+ * The set's readable NAME, not its id. For a pasted collection they are the same
+ * string, and for anything else the name is what the reader wrote down.
+ */
+export function collectionToText(c: Collection): string {
+  return c.sets
+    .map(s => `${s.name}: ${Array.from(s.genes, g => c.symbols[g]).join(', ')}`)
+    .join('\n')
+}

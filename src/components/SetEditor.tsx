@@ -21,16 +21,35 @@ import { lowerIndex } from '../lib/genes.ts'
  * what it understood and lets the reader see it was wrong while it is still
  * one edit away from right.
  */
-export default function SetEditor({ open, background, onClose, onAdd }: {
+export default function SetEditor({ open, background, initial, onClose, onAdd }: {
   open: boolean
   /** The object's own gene names, to say what is measured before anything is added. */
   background: readonly string[]
+  /**
+   * A collection to open FOR EDITING, written back out as text.
+   *
+   * Without it the only thing to do with a collection already added was remove
+   * it and paste the whole thing again — so fixing one typed symbol in a set of
+   * ninety meant retyping ninety. `collectionToText` is the other half; the
+   * parser reads its own output back.
+   */
+  initial?: { name: string; text: string } | null
   onClose: () => void
   onAdd: (c: Collection) => void
 }) {
   const [text, setText] = useState('')
   const [name, setName] = useState('My sets')
   const box = useRef<HTMLTextAreaElement>(null)
+
+  // Seeded when the dialog OPENS, not on every render: the fields are the
+  // reader's while it is open, and re-seeding under them would undo typing.
+  useEffect(() => {
+    if (!open) return
+    setText(initial?.text ?? '')
+    setName(initial?.name ?? 'My sets')
+    // `initial` is read once, on the transition to open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   useEffect(() => {
     if (open) setTimeout(() => box.current?.focus(), 0)

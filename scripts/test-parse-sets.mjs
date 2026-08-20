@@ -6,7 +6,7 @@
 // spreadsheet, a bare column of symbols. None of them may throw, and none of
 // them may quietly lose a set or a gene.
 
-import { parseSets } from '../src/lib/msigdb.ts'
+import { collectionToText, parseSets } from '../src/lib/msigdb.ts'
 
 let failed = 0
 const check = (name, got, want) => {
@@ -159,6 +159,53 @@ console.log('\nSIZE AND SHAPE OF WHAT COMES BACK')
   check('members are indices into that table', Array.from(c.sets[1].genes), [1, 2])
   check('it declares itself species-agnostic', c.species, 'any')
   check('and says where it came from', c.release, 'pasted')
+}
+
+
+console.log('\nA COLLECTION READS ITS OWN OUTPUT BACK')
+{
+  // What makes a pasted collection EDITABLE rather than delete-and-retype: the
+  // editor reopens it as text, and the parser has to give back what it was
+  // handed. Without this property, fixing one typed symbol in a set of ninety
+  // meant retyping ninety.
+  const shapes = {
+    'a python dict': `pathway_genes = {
+  "TCA cycle": ["Cs", "Aco2", "Idh3a", "Ogdh", "Sdha", "Fh1", "Mdh2"],
+  "Glycolysis": ["Hk1", "Gpi1", "Pfkl", "Aldoa", "Gapdh", "Pkm"],
+  "BCAA catabolism": ["Bckdha", "Bckdhb", "Dbt", "Dld", "Ivd"],
+}`,
+    'a GMT': [
+      'HALLMARK_ONE\thttp://x\tGfap\tAqp4\tS100b',
+      'HALLMARK_TWO\thttp://y\tAscl1\tEgfr\tMki67\tTop2a',
+    ].join('\n'),
+    'one name per line': 'Quiescence: Gfap, Aqp4, Id3\nActivation: Ascl1, Egfr',
+    'a single unnamed set': 'Gfap\nAqp4\nS100b\nId3',
+  }
+
+  const same = (a, b) =>
+    a.sets.length === b.sets.length
+    && a.sets.every((s, i) =>
+      s.name === b.sets[i].name
+      && s.genes.length === b.sets[i].genes.length
+      && Array.from(s.genes, g => a.symbols[g])
+        .every((sym, k) => sym === b.symbols[b.sets[i].genes[k]]))
+
+  for (const [what, text] of Object.entries(shapes)) {
+    const once = parseSets(text, 'Mine')
+    const twice = parseSets(collectionToText(once), 'Mine')
+    check(`${what} survives the round trip`, same(once, twice), true)
+    check('  and keeps every gene',
+      twice.sets.reduce((n, s) => n + s.genes.length, 0),
+      once.sets.reduce((n, s) => n + s.genes.length, 0))
+  }
+
+  // The awkward ones: a set name containing the separator. Written as
+  // `Name: a, b, c`, a colon in the name is the case that splits in the wrong
+  // place if anything does.
+  const odd = parseSets('Glycolysis: step 1: Hk1, Gpi1\nTCA, aerobic: Cs, Fh1', 'Mine')
+  const back = parseSets(collectionToText(odd), 'Mine')
+  check('a set name holding a colon or a comma still round-trips', same(odd, back), true)
+  check('and it did not silently become one set', [odd.sets.length, back.sets.length], [2, 2])
 }
 
 console.log(failed ? `\n${failed} test(s) failed` : '\nAll gene-set parsing tests passed')

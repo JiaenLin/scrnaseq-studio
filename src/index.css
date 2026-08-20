@@ -400,6 +400,50 @@ svg {
     @apply cursor-not-allowed opacity-40;
   }
 
+  /* A collection the reader supplied: a NAME that opens it for editing, and an
+     x that removes it.
+
+     Not .chip. That is a toggle, it always carries aria-pressed, and it never
+     performs an action — this is two actions and no state, so borrowing the
+     class would be borrowing the contract with it. Shaped like one so it still
+     reads as a sibling of the collection chips above, and inked like a pressed
+     one because sets the reader supplied are always on: they are not
+     downloaded, they are given. */
+  .chip-own {
+    display: inline-flex;
+    align-items: center;
+    background: var(--sel);
+    border: 1px solid var(--sel);
+    color: var(--surface);
+    border-radius: 9999px;
+    font-size: var(--t-small);
+    font-weight: 500;
+    overflow: hidden;
+  }
+  .chip-own > button {
+    color: inherit;
+    transition: background-color var(--d-press) ease;
+  }
+  .chip-own > .chip-own-name {
+    padding: 3px var(--s2) 3px var(--s3);
+  }
+  .chip-own > .chip-own-x {
+    padding: 3px var(--s3) 3px var(--s2);
+    /* Its own hit area, and a visible seam. The name and the x do different and
+       unequal things — one is reversible and one is not — so they must not read
+       as one target that happens to be wide. */
+    border-left: 1px solid color-mix(in srgb, var(--surface) 28%, transparent);
+    line-height: 1;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .chip-own > button:hover {
+      background: color-mix(in srgb, var(--surface) 18%, transparent);
+    }
+  }
+  .chip-own > button:active {
+    background: color-mix(in srgb, var(--surface) 28%, transparent);
+  }
+
   /* Segmented control — for a mutually exclusive, consequential choice (which
      statistical test runs), where radio-like grouping reads better than chips. */
   .seg {
