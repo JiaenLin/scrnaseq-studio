@@ -5,6 +5,7 @@ import {
   condLabel, deWilcox, designFor, inConds, isSig, LFC_GATE, MIN_CELLS, MIN_CELLS_GROUP,
   DE_GATES, MIN_REPS_PB, PCT_GATE, pseudobulkColumns, sameOrOverlapping, SEURAT_GATES,
   wilcoxSpec,
+  typesLabel,
   type DEResult, type Gates, type SigBasis,
 } from '../lib/stats.ts'
 import { useJob } from '../lib/compute.ts'
@@ -24,8 +25,19 @@ import DEGTableBody from './DEGTable.tsx'
 
 export interface StatsProps {
   src: Source
-  t: CellType
-  ti: number
+  /**
+   * The cell types the contrast runs over, and their indices.
+   *
+   * A LIST, because a contrast is often about a lineage rather than a cluster —
+   * "all three cardiomyocyte states, HFD against chow". Running it once per
+   * cluster and reading the tables side by side is not the same test: three
+   * corrections, three underpowered passes, and no pooled estimate. The cells of
+   * every selected type go on the same two sides; see `cellsOf`.
+   *
+   * May be EMPTY, which means nothing has been chosen and nothing is computed.
+   */
+  ts: CellType[]
+  tis: number[]
   ctrl: string[]
   cs: string[]
   method: Method
@@ -51,8 +63,9 @@ export interface StatsProps {
   onPickGene: (g: string) => void
 }
 
+const tName = (p: StatsProps) => typesLabel(p.ts.map(t => t.name))
 const contrastLabel = (p: StatsProps) =>
-  `${condLabel(p.cs)} vs ${condLabel(p.ctrl)} · ${p.t.name}`
+  `${condLabel(p.cs)} vs ${condLabel(p.ctrl)} · ${tName(p)}`
 
 /**
  * The contrast, computed.
@@ -85,28 +98,40 @@ function useDE(p: StatsProps) {
     // The gates are part of the QUESTION, not a filter over the answer: a gene
     // they exclude was never tested, so changing them is a different pass and
     // has to be a different key.
-    p.src, 'de', `de|${p.ti}|${condKey(p.ctrl)}|${condKey(p.cs)}|${g.pct}|${g.lfc}`,
+    // The types by KEY and in a stable order, so the key does not change when
+    // the same selection is made in a different sequence — that would be a
+    // second identical pass over the file.
+    p.src, 'de',
+    `de|${p.ts.map(t => t.key).join('+')}|${condKey(p.ctrl)}|${condKey(p.cs)}|${g.pct}|${g.lfc}`,
     // `computed` is the reader's go-ahead for THIS contrast. Without it every
     // click in the group pickers started a whole-transcriptome pass — and with
     // sets, choosing four levels a side is seven clicks and seven passes, six
     // of them cancelled a moment after they began.
-    p.method === 'wilcox' && !sameOrOverlapping(p.ctrl, p.cs) && p.computed,
-    () => deWilcox(p.src, p.ti, p.ctrl, p.cs, g),
+    // A side with nothing on it is not a comparison, and neither is a contrast
+    // with no cell type. Both are the starting state now that nothing is
+    // pre-selected, so both have to hold the pass rather than run an empty one.
+    p.method === 'wilcox' && p.tis.length > 0 && p.ctrl.length > 0 && p.cs.length > 0
+      && !sameOrOverlapping(p.ctrl, p.cs) && p.computed,
+    () => deWilcox(p.src, p.tis, p.ctrl, p.cs, g),
     // A fresh spec every time: the engine transfers these arrays rather than
     // copying them, so a reused one would arrive detached.
-    () => ({ kind: 'wilcox', ...wilcoxSpec(p.src, p.ti, p.ctrl, p.cs, g) }),
+    () => ({ kind: 'wilcox', ...wilcoxSpec(p.src, p.tis, p.ctrl, p.cs, g) }),
   )
 }
 
 const testing = (p: StatsProps) =>
-  `Testing every gene in ${p.t.name}: ${condLabel(p.cs)} against ${condLabel(p.ctrl)}`
+  `Testing every gene in ${tName(p)}: ${condLabel(p.cs)} against ${condLabel(p.ctrl)}`
 
 /** The test picker, above every contrast tab. */
 function MethodBar(p: StatsProps) {
-  const d = designFor(p.src, p.ti, p.ctrl, p.cs)
-  const why = !d.pbOK && p.ctrl !== p.cs
-    ? `Pseudobulk needs more than ${MIN_REPS_PB - 1} samples per group; ${p.t.name} has ${d.n0} and ${d.n1}.`
-    : ''
+  const d = designFor(p.src, p.tis, p.ctrl, p.cs)
+  const why = p.tis.length > 1
+    ? 'Pseudobulk exports one cell type at a time — the counts are summed per'
+      + ' cluster and sample in the bundle, so pooling clusters would mean adding'
+      + ' those columns together rather than choosing between them.'
+    : !d.pbOK && p.ctrl !== p.cs
+      ? `Pseudobulk needs more than ${MIN_REPS_PB - 1} samples per group; ${tName(p)} has ${d.n0} and ${d.n1}.`
+      : ''
   return (
     <>
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2.5">
@@ -344,6 +369,32 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 
 
 /** Results, or the reason there are none — never a substitute number. */
 function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
+  /**
+   * Nothing chosen yet, and which of the three it is.
+   *
+   * This comes FIRST, and it is new because the starting state is new: the cell
+   * type used to default to the first cluster and the two sides to the first and
+   * last condition, so a contrast always existed and this branch was
+   * unreachable. Those defaults were a guess drawn as a decision — "aged_HFD vs
+   * young_chow" appears in the bar whether or not anybody asked for it, and the
+   * only way to notice it is a guess is to notice it is the wrong one.
+   *
+   * Naming the missing piece rather than saying "make a selection": the picker
+   * that needs attention is one of three in a row, and which one it is is the
+   * whole of what the reader needs to know.
+   */
+  const missing = [
+    p.tis.length ? '' : 'a cell type',
+    p.ctrl.length ? '' : 'a control group',
+    p.cs.length ? '' : 'a group to compare it with',
+  ].filter(Boolean)
+  if (missing.length)
+    return <div className="note mt-3.5">
+      <b>Pick {missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]}.</b>{' '}
+      The pickers are in the bar above. Nothing is chosen for you, because a
+      contrast the studio guessed at looks exactly like one you asked for.
+    </div>
+
   if (sameOrOverlapping(p.ctrl, p.cs))
     return <Empty title="Pick two groups with no level in common">
       A level on both sides puts the same cells in both groups.
@@ -356,25 +407,25 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   // shouldn't have to.
   if (!p.computed)
     return <div className="note mt-3.5">
-      <b>Not computed yet.</b> One pass over the object, testing every gene in {p.t.name}.
+      <b>Not computed yet.</b> One pass over the object, testing every gene in {tName(p)}.
       Set the groups above, then press <b>Run</b>.
     </div>
 
-  const d = designFor(p.src, p.ti, p.ctrl, p.cs)
+  const d = designFor(p.src, p.tis, p.ctrl, p.cs)
 
   if (p.method === 'wilcox') {
     // Still running: the caller shows how far it has got.
     if (!de) return null
     const { n0, n1 } = de
     if (!n0 || !n1)
-      return <Empty title={`No ${p.t.name} cells in one of these groups`}>
+      return <Empty title={`No ${tName(p)} cells in one of these groups`}>
         {n0} cells in {condLabel(p.ctrl)}, {n1} in {condLabel(p.cs)}.
       </Empty>
     // Seurat's min.cells.group. A side of one or two cells does produce a table —
     // a long one, with small p-values — but every row of it describes those cells
     // rather than a difference between groups, and nothing on the page would say so.
     if (n0 < MIN_CELLS_GROUP || n1 < MIN_CELLS_GROUP)
-      return <Empty title={`Too few ${p.t.name} cells to test one of these groups`}>
+      return <Empty title={`Too few ${tName(p)} cells to test one of these groups`}>
         {n0} cell{n0 === 1 ? '' : 's'} in {condLabel(p.ctrl)}, {n1} in {condLabel(p.cs)}.
         A rank-sum test needs at least {MIN_CELLS_GROUP} per group — Seurat&rsquo;s{' '}
         <Mono>min.cells.group</Mono>.
@@ -384,7 +435,7 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
 
   if (!d.pbOK)
     return (
-      <Empty title={`Not enough samples in ${p.t.name} for pseudobulk`}>
+      <Empty title={`Not enough samples in ${tName(p)} for pseudobulk`}>
         {d.n0} {condLabel(p.ctrl)} and {d.n1} {condLabel(p.cs)} samples clear the {MIN_CELLS}-cell floor.
         Pseudobulk needs more than {MIN_REPS_PB - 1} per group.
         <div className="mt-3.5">
@@ -395,7 +446,7 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
         <div className="scrollx mt-4 text-left">
           <table className="t">
             <thead>
-              <tr><th>Sample</th><th>Group</th><th>Cells in {p.t.name}</th><th>Used</th></tr>
+              <tr><th>Sample</th><th>Group</th><th>Cells in {tName(p)}</th><th>Used</th></tr>
             </thead>
             <tbody>
               {d.used.map(s => (
@@ -424,7 +475,7 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
 
 /** The pseudobulk design and its export — shown in place of results. */
 function PseudobulkPanel(p: StatsProps) {
-  const cols = pseudobulkColumns(p.src, p.ti, p.ctrl, p.cs)
+  const cols = pseudobulkColumns(p.src, p.tis, p.ctrl, p.cs)
   const pb = p.src.pseudobulk
   const n0 = cols.filter(c => inConds(c.cond, p.ctrl)).length
   const n1 = cols.filter(c => inConds(c.cond, p.cs)).length
@@ -446,7 +497,7 @@ function PseudobulkPanel(p: StatsProps) {
     const keep = cols.map(c => pb.columns.findIndex(
       x => x.sample === c.sample && x.cluster === c.cluster))
     downloadCsv(
-      `pseudobulk_${slug(`${condLabel(p.cs)}_vs_${condLabel(p.ctrl)}_${p.t.name}`)}`,
+      `pseudobulk_${slug(`${condLabel(p.cs)}_vs_${condLabel(p.ctrl)}_${tName(p)}`)}`,
       ['gene', ...cols.map(c => `${c.sample}__${c.cond}`)],
       pb.genes.map((g, gi) => [g, ...keep.map(k => pb.counts[gi * pb.columns.length + k])]))
   }
@@ -455,13 +506,13 @@ function PseudobulkPanel(p: StatsProps) {
     <>
       <div className="note mt-1">
         <b>The matrix is here; the model is not.</b> Counts are summed per sample within{' '}
-        {p.t.name} — the whole of the pseudobulk step. DESeq2 itself is not in the browser, so
+        {tName(p)} — the whole of the pseudobulk step. DESeq2 itself is not in the browser, so
         take these to <code className="mono">DESeqDataSetFromMatrix</code>.
       </div>
       <div className="scrollx mt-3.5">
         <table className="t">
           <thead>
-            <tr><th>Sample</th><th>Group</th><th>Cells in {p.t.name}</th><th>Used</th></tr>
+            <tr><th>Sample</th><th>Group</th><th>Cells in {tName(p)}</th><th>Used</th></tr>
           </thead>
           <tbody>
             {p.src.d.samples

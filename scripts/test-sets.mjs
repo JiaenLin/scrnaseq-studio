@@ -422,7 +422,7 @@ console.log('\nENRICHMENT ON A REAL CONTRAST')
   const src = demoSource('cohort')
   const ti = src.clusters.indexOf('qNSC')
   const th = thresholdFor('wilcox')
-  const up = deWilcox(src, ti, 'Quiescent', 'Reactivated').rows
+  const up = deWilcox(src, [ti], 'Quiescent', 'Reactivated').rows
     .filter(r => isSig(r, th) && r.lfc > 0).map(r => r.gene)
   const res = oraIndexed(up, indexFor(MOUSE, GENES), { minSize: 3, maxSize: 500 })
   // Against real MSigDB rather than eighteen sets chosen so this would pass:
@@ -528,7 +528,7 @@ console.log('\nTHE ORA BACKGROUND IS NOT THE FILTERED LIST')
   const src = demoSource('cohort')
   const ti = src.clusters.indexOf('qNSC')
   const th = thresholdFor('wilcox')
-  const de = deWilcox(src, ti, 'Quiescent', 'Reactivated')
+  const de = deWilcox(src, [ti], 'Quiescent', 'Reactivated')
   const sig = de.rows.filter(r => isSig(r, th)).map(r => r.gene)
   // The genes the rank sum actually ran on. deWilcox now RETURNS the genes its
   // effect-size gate skipped as well, untested, so that lowering the display

@@ -640,6 +640,37 @@ export interface MarkersSpec {
 export const inConds = (cond: string, side: Conds): boolean =>
   (side == null ? true : typeof side === 'string' ? cond === side : side.includes(cond))
 
+/**
+ * The cells of ONE OR MORE cell types, on one side of a contrast, in cell order.
+ *
+ * `src.group` answers for a single type, which was the shape of every contrast
+ * the studio could ask: pick a cluster, pick two groups. That is the wrong shape
+ * whenever the question is about a lineage rather than a cluster — "all three
+ * cardiomyocyte states, HFD against chow" — and the workaround, running the
+ * contrast once per cluster and reading three tables side by side, is not the
+ * same test. It has three multiple-testing corrections and no pooled estimate.
+ *
+ * One walk over the cells with a type mask, so this costs the same for eight
+ * types as for one, and the result is ASCENDING — which `wilcoxSpec` relies on
+ * for nothing, but every other reader of a cell list does.
+ *
+ * An empty `tis` returns nothing rather than everything. "No cell type chosen"
+ * has to mean no cells; defaulting to the whole object would silently answer a
+ * question about one cluster with a contrast over all of them.
+ */
+export function cellsOf(src: Source, tis: readonly number[], cond?: Conds): Int32Array {
+  if (tis.length === 1) return src.group(tis[0], cond)
+  const want = new Set(tis)
+  const out: number[] = []
+  if (!want.size) return Int32Array.from(out)
+  const cells = src.d.cells
+  for (let i = 0; i < cells.length; i++) {
+    const c = cells[i]
+    if (want.has(c.t) && inConds(c.cond, cond ?? null)) out.push(i)
+  }
+  return Int32Array.from(out)
+}
+
 /** Two sides that share a condition are not two sides. */
 export const sameOrOverlapping = (a: Conds, b: Conds): boolean => {
   const A = a == null ? [] : typeof a === 'string' ? [a] : a
@@ -653,6 +684,20 @@ export const condLabel = (side: Conds): string =>
   (side == null ? 'all' : typeof side === 'string' ? side : side.join(' + '))
 
 /**
+ * How a selection of cell types is named in a heading, a caption or a CSV.
+ *
+ * Joined while the names still fit and counted once they do not: three of them
+ * spelled out is 60 characters in a bar that also holds two group pickers, and a
+ * caption reading "Cardiomyocyte/Working cardiomyocyte + Cardiomyocyte/Atrial
+ * cardiomyocyte + ..." pushes the numbers off the line. Nothing is hidden — the
+ * picker beside it lists what is ticked.
+ */
+export const typesLabel = (names: readonly string[]): string =>
+  (names.length === 0 ? '—'
+    : names.length <= 2 ? names.join(' + ')
+      : `${names.length} cell types`)
+
+/**
  * The comparison a DEG table asks for, as numbers.
  *
  * Each side may be one condition or several unioned. Only the membership of the
@@ -661,11 +706,12 @@ export const condLabel = (side: Conds): string =>
  * of two single levels is byte-for-byte what it was before sets existed.
  */
 export function wilcoxSpec(
-  src: Source, ti: number, ctrl: Conds, cs: Conds, gates: Gates = SEURAT_GATES,
+  src: Source, tis: readonly number[], ctrl: Conds, cs: Conds,
+  gates: Gates = SEURAT_GATES,
 ): WilcoxSpec {
   // `a` is the "1" side: pct.1, and the numerator of the fold change.
-  const a = src.group(ti, cs)
-  const b = src.group(ti, ctrl)
+  const a = cellsOf(src, tis, cs)
+  const b = cellsOf(src, tis, ctrl)
   return {
     lab: labels(src.d.cells.length, a, b),
     n1: a.length,
@@ -728,9 +774,10 @@ export function wilcoxPlan(spec: WilcoxSpec) {
 }
 
 export function deWilcox(
-  src: Source, ti: number, ctrl: Conds, cs: Conds, gates: Gates = SEURAT_GATES,
+  src: Source, tis: readonly number[], ctrl: Conds, cs: Conds,
+  gates: Gates = SEURAT_GATES,
 ): DEResult {
-  const plan = wilcoxPlan(wilcoxSpec(src, ti, ctrl, cs, gates))
+  const plan = wilcoxPlan(wilcoxSpec(src, tis, ctrl, cs, gates))
   if (plan.empty || !src.scanSync((gi, each) => plan.visit(gi, each))) {
     return { rows: [], n0: plan.n0, n1: plan.n1 }
   }
@@ -738,11 +785,11 @@ export function deWilcox(
 }
 
 export async function deWilcoxAsync(
-  src: Source, ti: number, ctrl: string, cs: string,
+  src: Source, tis: readonly number[], ctrl: Conds, cs: Conds,
   onProgress?: (done: number, total: number) => void,
   cancelled?: () => boolean,
 ): Promise<DEResult> {
-  const plan = wilcoxPlan(wilcoxSpec(src, ti, ctrl, cs))
+  const plan = wilcoxPlan(wilcoxSpec(src, tis, ctrl, cs))
   if (plan.empty) return { rows: [], n0: plan.n0, n1: plan.n1 }
   await src.scan(plan.visit, onProgress, cancelled)
   return named(src.genes, plan.done())
@@ -977,12 +1024,20 @@ export interface PseudobulkColumn {
   cond: string
 }
 
-/** The pseudobulk columns for one cluster and pair, after the cell floor. */
+/**
+ * The pseudobulk columns for one cluster and pair, after the cell floor.
+ *
+ * ONE cluster. The bundle carries a summed count vector per (cluster, sample),
+ * so pooling several clusters would mean adding those vectors together — real
+ * arithmetic on the exported matrix, not a filter over it. Rather than do that
+ * silently, the card asks for a single cell type; see the Wilcoxon path, which
+ * pools cells and therefore has nothing to add up.
+ */
 export function pseudobulkColumns(
-  src: Source, ti: number, ctrl: Conds, cs: Conds,
+  src: Source, tis: readonly number[], ctrl: Conds, cs: Conds,
 ): PseudobulkColumn[] {
-  if (!src.pseudobulk) return []
-  const cluster = src.clusters[ti]
+  if (!src.pseudobulk || tis.length !== 1) return []
+  const cluster = src.clusters[tis[0]]
   const condOf = new Map(src.d.samples.map(s => [s.id, s.cond]))
   return src.pseudobulk.columns
     .map(c => ({ ...c, cond: condOf.get(c.sample) ?? '' }))
@@ -992,10 +1047,16 @@ export function pseudobulkColumns(
 }
 
 /** Which samples of a cluster are usable, and whether pseudobulk is defensible. */
-export function designFor(src: Source, ti: number, ctrl: Conds, cs: Conds): Design {
+export function designFor(
+  src: Source, tis: readonly number[], ctrl: Conds, cs: Conds,
+): Design {
+  const want = new Set(tis)
   const counts = new Map<string, number>()
   for (const c of src.d.cells) {
-    if (c.t === ti) counts.set(c.s, (counts.get(c.s) ?? 0) + 1)
+    // A sample's cells across every selected type, because that is what the
+    // contrast pools. Counting one type would refuse pseudobulk on a design
+    // that has the replicates once the types are taken together.
+    if (want.has(c.t)) counts.set(c.s, (counts.get(c.s) ?? 0) + 1)
   }
   const used = src.d.samples
     .map(s => ({ ...s, n: counts.get(s.id) ?? 0 }))

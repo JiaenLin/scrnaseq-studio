@@ -3,7 +3,7 @@
 // whether the sparse rank-sum agrees with a straightforward dense one.
 import { demoSource } from '../src/lib/source.ts'
 import {
-  combinedScore, deMarkers, deMarkersAll, DE_GATES, deWilcox, designFor, isSig, LFC_GATE,
+  cellsOf, combinedScore, deMarkers, deMarkersAll, DE_GATES, deWilcox, designFor, isSig, LFC_GATE,
   logNormalTail, markersPlan, MIN_CELLS_GROUP, MIN_REPS_PB, minReplicates, nlpFromZ,
   normalTail, pbKey, rankSumSparse, rankSumSparseFull, SEURAT_GATES, sigCount,
   thresholdFor, wilcoxPlan,
@@ -244,9 +244,9 @@ console.log('\nA GROUP OF ONE OR TWO CELLS IS NOT TESTED')
 
 console.log('\nWILCOXON NEEDS NO REPLICATES')
 check('one sample per group still returns results',
-  deWilcox(course, ti(course, 'aNSC'), '0 h', '72 h').rows.length > 0, true)
+  deWilcox(course, [ti(course, 'aNSC')], '0 h', '72 h').rows.length > 0, true)
 check('and counts cells, not samples',
-  deWilcox(course, ti(course, 'aNSC'), '0 h', '72 h').n0 > 50, true)
+  deWilcox(course, [ti(course, 'aNSC')], '0 h', '72 h').n0 > 50, true)
 
 console.log('\nDIRECTION AND ORDERING')
 {
@@ -254,7 +254,7 @@ console.log('\nDIRECTION AND ORDERING')
   // gene changes by the same factor but off a near-zero baseline, so on the
   // log-normalized scale it falls under the fold-change gate — which is the
   // gate doing its job, not a bug.
-  const rows = deWilcox(cohort, ti(cohort, 'aNSC'), 'Quiescent', 'Reactivated').rows
+  const rows = deWilcox(cohort, [ti(cohort, 'aNSC')], 'Quiescent', 'Reactivated').rows
   const byGene = Object.fromEntries(rows.map(r => [r.gene, r.lfc]))
   check('Ascl1 is higher in the reactivated arm', byGene.Ascl1 > 0, true)
   // Over the TESTED rows. Since the effect-size gate started keeping the genes
@@ -268,12 +268,12 @@ console.log('\nDIRECTION AND ORDERING')
       || rows.slice(rows.findIndex(r => !Number.isFinite(r.p)))
         .every(r => !Number.isFinite(r.p)), true)
   check('reversing the contrast flips every sign',
-    deWilcox(cohort, ti(cohort, 'aNSC'), 'Reactivated', 'Quiescent').rows
+    deWilcox(cohort, [ti(cohort, 'aNSC')], 'Reactivated', 'Quiescent').rows
       .find(r => r.gene === 'Ascl1').lfc < 0, true)
   check('pct.1 and pct.2 are fractions',
     rows.every(r => r.pct1 >= 0 && r.pct1 <= 1 && r.pct2 >= 0 && r.pct2 <= 1), true)
 
-  const q = deWilcox(cohort, ti(cohort, 'qNSC'), 'Quiescent', 'Reactivated').rows
+  const q = deWilcox(cohort, [ti(cohort, 'qNSC')], 'Quiescent', 'Reactivated').rows
   const qGene = Object.fromEntries(q.map(r => [r.gene, r.lfc]))
   check('quiescence genes fall on reactivation', qGene.Id3 < 0 && qGene.Gfap < 0, true)
 }
@@ -289,13 +289,13 @@ for (const [cluster, marker] of [['aNSC', 'Ascl1'], ['TAP', 'Mki67'], ['qNSC', '
 
 console.log('\nPSEUDOBULK IS GATED ABOVE THREE PER GROUP')
 check('4 v 4 cohort qualifies',
-  designFor(cohort, ti(cohort, 'qNSC'), 'Quiescent', 'Reactivated').pbOK, true)
+  designFor(cohort, [ti(cohort, 'qNSC')], 'Quiescent', 'Reactivated').pbOK, true)
 check('1 v 1 time course does not',
-  designFor(course, ti(course, 'aNSC'), '0 h', '72 h').pbOK, false)
+  designFor(course, [ti(course, 'aNSC')], '0 h', '72 h').pbOK, false)
 check('a rare population does not, even in the cohort',
-  designFor(cohort, ti(cohort, 'Pericyte'), 'Quiescent', 'Reactivated').pbOK, false)
+  designFor(cohort, [ti(cohort, 'Pericyte')], 'Quiescent', 'Reactivated').pbOK, false)
 check('same group on both sides is never testable',
-  designFor(cohort, ti(cohort, 'qNSC'), 'Quiescent', 'Quiescent').pbOK, false)
+  designFor(cohort, [ti(cohort, 'qNSC')], 'Quiescent', 'Quiescent').pbOK, false)
 check('MIN_REPS_PB means "> 3"', MIN_REPS_PB, 4)
 
 console.log('\nDESIGN SHAPES')
@@ -398,19 +398,19 @@ console.log('\nA SIDE MAY BE SEVERAL GROUPS')
   check('the levels this test names all exist',
     [c0, c1, c2, c3].every(c => typeof c === 'string' && c.length > 0), true)
 
-  const one = deWilcox(course, t, c0, c3)
-  const set = deWilcox(course, t, [c0], [c3])
+  const one = deWilcox(course, [t], c0, c3)
+  const set = deWilcox(course, [t], [c0], [c3])
   check('a one-level set is the string, exactly', JSON.stringify(set), JSON.stringify(one))
 
   const n = (conds) => course.group(t, conds).length
   check('the levels being pooled are not empty', n(c1) > 0 && n(c2) > 0, true)
-  const pooled = deWilcox(course, t, [c0, c1], [c2, c3])
+  const pooled = deWilcox(course, [t], [c0, c1], [c2, c3])
   check('the control side is the union', pooled.n0, n(c0) + n(c1))
   check('the compare side is the union', pooled.n1, n(c2) + n(c3))
   check('and it is a different test from one level against one',
     pooled.n0 !== one.n0 && pooled.n1 !== one.n1, true)
 
-  const flipped = deWilcox(course, t, [c1, c0], [c3, c2])
+  const flipped = deWilcox(course, [t], [c1, c0], [c3, c2])
   check('the order levels were picked in does not matter',
     JSON.stringify(flipped), JSON.stringify(pooled))
 
@@ -425,9 +425,9 @@ console.log('\nOVERLAPPING SIDES ARE NOT A COMPARISON')
   const t = ti(course, 'Neuroblast')
   const [c0, c1, , c3] = course.d.conds
   check('a level on both sides blocks pseudobulk',
-    designFor(course, t, [c0, c1], [c1, c3]).pbOK, false)
-  check('disjoint sides do not', designFor(course, t, [c0], [c3]).pbOK,
-    designFor(course, t, c0, c3).pbOK)
+    designFor(course, [t], [c0, c1], [c1, c3]).pbOK, false)
+  check('disjoint sides do not', designFor(course, [t], [c0], [c3]).pbOK,
+    designFor(course, [t], c0, c3).pbOK)
 }
 
 console.log('\nTHE FDR COLUMN IS A REAL BH STEP-UP')
@@ -442,7 +442,7 @@ console.log('\nTHE FDR COLUMN IS A REAL BH STEP-UP')
   const rnd = (s => () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)(11)
   const src = demoSource('cohort')
   const ti = src.clusters.indexOf('qNSC')
-  const de = deWilcox(src, ti, 'Quiescent', 'Reactivated')
+  const de = deWilcox(src, [ti], 'Quiescent', 'Reactivated')
   // Tested rows only: BH adjusts p-values, and a gene the effect-size gate kept
   // but never tested has none. It is in de.rows with its fold change and its
   // detection rates, and it takes no part in the correction — which is the
@@ -516,7 +516,7 @@ console.log('\nTHE RADIX RANKER IS THE COMPARATOR SORT')
     const conds = src.d.conds
     if (conds.length < 2) continue
     for (let ti = 0; ti < src.clusters.length; ti++) {
-      const de = deWilcox(src, ti, [conds[0]], [conds[1]], DE_GATES)
+      const de = deWilcox(src, [ti], [conds[0]], [conds[1]], DE_GATES)
       const a = src.group(ti, [conds[1]])
       const b = src.group(ti, [conds[0]])
       if (!a.length || !b.length) continue
@@ -567,8 +567,8 @@ console.log('\nTESTING EVERY GENE CHANGES NOTHING ALREADY REPORTED')
     const conds = src.d.conds
     if (conds.length < 2) continue
     for (let ti = 0; ti < src.clusters.length; ti++) {
-      const gated = deWilcox(src, ti, [conds[0]], [conds[1]], SEURAT_GATES)
-      const wide = deWilcox(src, ti, [conds[0]], [conds[1]], DE_GATES)
+      const gated = deWilcox(src, [ti], [conds[0]], [conds[1]], SEURAT_GATES)
+      const wide = deWilcox(src, [ti], [conds[0]], [conds[1]], DE_GATES)
       const w = new Map(wide.rows.map(r => [r.gene, r]))
       for (const g of gated.rows) {
         if (!Number.isFinite(g.p)) continue
@@ -610,8 +610,8 @@ console.log('\nA CONTRAST IS A FUNCTION OF THE CONTRAST')
   // safe. thresholdFor is what changeMethod reads.
   const src = demoSource('cohort')
   const ti = src.clusters.indexOf('qNSC')
-  const one = deWilcox(src, ti, ['Quiescent'], ['Reactivated'], DE_GATES)
-  const two = deWilcox(src, ti, ['Quiescent'], ['Reactivated'], DE_GATES)
+  const one = deWilcox(src, [ti], ['Quiescent'], ['Reactivated'], DE_GATES)
+  const two = deWilcox(src, [ti], ['Quiescent'], ['Reactivated'], DE_GATES)
   check('the same question twice gives the same rows',
     one.rows.length === two.rows.length
       && one.rows.every((r, i) => r.gene === two.rows[i].gene && r.p === two.rows[i].p
@@ -622,6 +622,109 @@ console.log('\nA CONTRAST IS A FUNCTION OF THE CONTRAST')
   check('the studio tests wider than Seurat, at the same detection floor',
     [DE_GATES.pct, DE_GATES.lfc, SEURAT_GATES.pct, SEURAT_GATES.lfc],
     [0.1, 0, 0.1, LFC_GATE])
+}
+
+
+console.log('\nA CONTRAST OVER SEVERAL CELL TYPES')
+{
+  // The contrast used to take one cell type, because the picker could hold one.
+  // Pooling is not a display change: the cells of every selected type go on the
+  // same two sides, which is a different and better-powered test than running
+  // the contrast per cluster and reading the tables side by side.
+  const src = demoSource('cohort')
+  const A = src.clusters.indexOf('qNSC')
+  const B = src.clusters.indexOf('aNSC')
+  const conds = src.d.conds
+  const [c0, c1] = [conds[0], conds[conds.length - 1]]
+
+  // 1. The cell list is the union, and nothing else.
+  const a = Array.from(src.group(A, [c0]))
+  const b = Array.from(src.group(B, [c0]))
+  const both = Array.from(cellsOf(src, [A, B], [c0]))
+  check('pooling two types is their union', both.length, a.length + b.length)
+  check('with no cell counted twice', new Set(both).size, both.length)
+  check('in cell order', both.every((v, i) => i === 0 || both[i - 1] < v), true)
+  check('and every cell is one of the two types, in the right group',
+    both.every(i => (src.d.cells[i].t === A || src.d.cells[i].t === B)
+      && src.d.cells[i].cond === c0), true)
+  check('order of selection does not change the cells',
+    Array.from(cellsOf(src, [B, A], [c0])).join() === both.join(), true)
+
+  // 2. Nothing selected means NO cells, not every cell. The starting state of
+  // the picker is empty, so this is the difference between "not asked yet" and
+  // "a contrast over the whole object" — which would be answered silently.
+  check('no cell type selected is no cells', cellsOf(src, [], [c0]).length, 0)
+
+  // 3. A one-element list is bit-for-bit the old single-type contrast.
+  const one = deWilcox(src, [A], [c0], [c1], DE_GATES)
+  const ref = wilcoxPlan({
+    lab: (() => {
+      const lab = new Int8Array(src.d.cells.length).fill(-1)
+      for (const i of src.group(A, [c1])) lab[i] = 0
+      for (const i of src.group(A, [c0])) lab[i] = 1
+      return lab
+    })(),
+    n1: src.group(A, [c1]).length,
+    n2: src.group(A, [c0]).length,
+    nGenes: src.genes.length,
+    gates: { ...DE_GATES, carry: true },
+  })
+  src.scanSync((gi, each) => ref.visit(gi, each))
+  const refRows = ref.done().rows
+  check('one type in a list is the contrast it always was',
+    one.rows.length === refRows.length
+      && one.rows.every((r, i) => r.p === refRows[i].p && r.lfc === refRows[i].lfc), true)
+
+  // 4. Two types pooled equals the SAME test built by hand — the sides are the
+  // union of the two clusters' cells, not two tests averaged.
+  const pooled = deWilcox(src, [A, B], [c0], [c1], DE_GATES)
+  const lab = new Int8Array(src.d.cells.length).fill(-1)
+  const side1 = Array.from(cellsOf(src, [A, B], [c1]))
+  const side0 = Array.from(cellsOf(src, [A, B], [c0]))
+  for (const i of side1) lab[i] = 0
+  for (const i of side0) lab[i] = 1
+  const hand = wilcoxPlan({
+    lab, n1: side1.length, n2: side0.length, nGenes: src.genes.length,
+    gates: { ...DE_GATES, carry: true },
+  })
+  src.scanSync((gi, each) => hand.visit(gi, each))
+  const handRows = hand.done().rows
+  // handRows come straight off the plan, so their `gene` is still the index
+  // deWilcox would have turned into a symbol.
+  check('the pooled contrast is the pooled cells, tested once',
+    pooled.rows.length === handRows.length
+      && pooled.rows.every((r, i) => r.gene === src.genes[handRows[i].gene]
+        && r.p === handRows[i].p && r.lfc === handRows[i].lfc
+        && r.pct1 === handRows[i].pct1 && r.pct2 === handRows[i].pct2), true)
+  check('and its group sizes are the two clusters added up',
+    [pooled.n1, pooled.n0],
+    [src.group(A, [c1]).length + src.group(B, [c1]).length,
+      src.group(A, [c0]).length + src.group(B, [c0]).length])
+
+  // 5. It is a DIFFERENT test from either type alone — otherwise pooling would
+  // be a label on the same numbers.
+  const justB = deWilcox(src, [B], [c0], [c1], DE_GATES)
+  const pOf = de => new Map(de.rows.map(r => [r.gene, r.p]))
+  const pooledP = pOf(pooled)
+  const shared = [...pOf(one).keys()].filter(g => pooledP.has(g))
+  check('pooling changes the answer rather than relabelling it',
+    shared.some(g => pOf(one).get(g) !== pooledP.get(g)), true)
+  check('and it is not the other type either',
+    [...pOf(justB).keys()].some(g => pooledP.has(g) && pOf(justB).get(g) !== pooledP.get(g)), true)
+
+  // 6. Selection order must not change the answer OR the cache key upstream.
+  const flipped = deWilcox(src, [B, A], [c0], [c1], DE_GATES)
+  check('the order the types were ticked in does not matter',
+    pooled.rows.every((r, i) => r.gene === flipped.rows[i].gene && r.p === flipped.rows[i].p), true)
+
+  // 7. designFor counts a sample's cells across every selected type, so a design
+  // that has the replicates once the types are taken together is not refused.
+  const dA = designFor(src, [A], [c0], [c1])
+  const dAB = designFor(src, [A, B], [c0], [c1])
+  check('the pseudobulk design counts cells across the selected types',
+    dAB.used.every((s, i) => s.n >= dA.used[i].n), true)
+  check('and no cell type selected is not a design',
+    designFor(src, [], [c0], [c1]).kept.length, 0)
 }
 
 console.log(failed ? `\n${failed} test(s) failed\n` : '\nAll statistics tests passed\n')

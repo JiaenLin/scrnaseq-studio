@@ -48,11 +48,12 @@ const refFor = (text: string, table: [RegExp, RefKey][]): RefKey | null =>
   table.find(([re]) => re.test(text))?.[1] ?? null
 
 export default function Methods({
-  src, types, ti, ctrl, cs, method, padjMax, lfcMin, gates, lib,
+  src, types, tis, ctrl, cs, method, padjMax, lfcMin, gates, lib,
 }: {
   src: Source
   types: CellType[]
-  ti: number
+  /** The cell types the contrast pools — a list; see StatsProps#tis. */
+  tis: number[]
   ctrl: string[]
   cs: string[]
   method: Method
@@ -72,10 +73,13 @@ export default function Methods({
   lib: { release: string; taxon: string } | null
 }) {
   const d = src.d
-  const design = designFor(src, ti, ctrl, cs)
+  const design = designFor(src, tis, ctrl, cs)
   const wil = method === 'wilcox'
   const oneEach = d.samples.length === d.conds.length
-  const ct = types[ti]?.name ?? ''
+  // Spelled out in full here, however many there are. Methods is the one place
+  // that must name every population the test ran over — a reader reproducing it
+  // cannot work from "3 cell types".
+  const ct = tis.map(i => types[i]?.name).filter(Boolean).join(', ')
   const prov = src.meta.provenance
 
   // Numbers are allocated on first use, so the two paragraphs have to be built

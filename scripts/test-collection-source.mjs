@@ -349,7 +349,7 @@ console.log('\nTHE STREAMED TESTS RUN ON IT')
   check('one result per cluster', markers.length, src.types.length)
   check('and it counted every cell', markers.map(m => m.n0 + m.n1),
     src.types.map(() => TRUTH.n))
-  const de = await deWilcoxAsync(src, src.clusters.indexOf('Astrocyte'), 'ctrl', 'drug')
+  const de = await deWilcoxAsync(src, [src.clusters.indexOf('Astrocyte')], 'ctrl', 'drug')
   check('a contrast finds cells on both sides', [de.n0 > 0, de.n1 > 0], [true, true])
 }
 

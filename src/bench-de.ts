@@ -96,7 +96,7 @@ async function workerRun(ti: number, ctrl: string, cs: string): Promise<DEResult
   const t0 = performance.now()
   let messages = 0
   let lastPct = -1
-  const running = runJob<'wilcox'>(s, { kind: 'wilcox', ...wilcoxSpec(s, ti, ctrl, cs) },
+  const running = runJob<'wilcox'>(s, { kind: 'wilcox', ...wilcoxSpec(s, [ti], ctrl, cs) },
     (phase, done, total) => {
       messages++
       const pct = Math.floor((100 * done) / total / 10) * 10
@@ -119,7 +119,7 @@ async function pageRun(ti: number, ctrl: string, cs: string): Promise<DEResult> 
   const hb = heartbeat()
   const t0 = performance.now()
   let lastPct = -1
-  const res = await deWilcoxAsync(s, ti, ctrl, cs, (done, total) => {
+  const res = await deWilcoxAsync(s, [ti], ctrl, cs, (done, total) => {
     const pct = Math.floor((100 * done) / total / 10) * 10
     if (pct !== lastPct) { lastPct = pct; log(`  ${pct}%  ${secs(performance.now() - t0)}`) }
   })
@@ -203,7 +203,7 @@ async function race(ctrl?: string, cs?: string) {
   // the wrong answer.
   let first = 'still pending'
   const outcome = () => first
-  const a = runJob<'wilcox'>(s, { kind: 'wilcox', ...wilcoxSpec(s, pick.ti, c0, c1) }, () => {})!
+  const a = runJob<'wilcox'>(s, { kind: 'wilcox', ...wilcoxSpec(s, [pick.ti], c0, c1) }, () => {})!
   void a.promise.then(
     () => { first = 'RESOLVED — a superseded answer reached the page' },
     (e: unknown) => { first = isSuperseded(e) ? 'superseded' : `error: ${String(e)}` })
@@ -217,7 +217,7 @@ async function race(ctrl?: string, cs?: string) {
   // A different question of the same object, exactly as changing the cell type
   // in the studio does.
   const t0 = performance.now()
-  const b = runJob<'wilcox'>(s, { kind: 'wilcox', ...wilcoxSpec(s, second, c0, c1) }, () => {})!
+  const b = runJob<'wilcox'>(s, { kind: 'wilcox', ...wilcoxSpec(s, [second], c0, c1) }, () => {})!
   const res = await b.promise
   // Long after anything the first pass could still be doing.
   await new Promise(r => setTimeout(r, 4000))

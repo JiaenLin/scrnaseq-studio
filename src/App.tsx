@@ -5,13 +5,13 @@ import { readCollectionIndex } from './lib/collection.ts'
 import { openCollection } from './lib/collection-source.ts'
 import { bundleSource, condKey, demoSource, type Source } from './lib/source.ts'
 import {
-  condLabel, DE_GATES, designFor, sameOrOverlapping, thresholdFor,
+  condLabel, DE_GATES, designFor, sameOrOverlapping, thresholdFor, typesLabel,
   type Gates, type SigBasis,
 } from './lib/stats.ts'
 import { mergeGenes } from './lib/genes.ts'
 import { withCondOrder } from './lib/order.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
-import CondPicker from './components/CondPicker.tsx'
+import PickMany from './components/PickMany.tsx'
 import Landing from './components/Landing.tsx'
 import Overview from './components/Overview.tsx'
 import Cells from './components/Cells.tsx'
@@ -199,7 +199,14 @@ export default function App() {
   // to Markers, like every other view choice — and so the boundary key can name
   // it, which is what keeps a crash in the volcano from blanking the table.
   const [deView, setDeView] = useState<DEView>('table')
-  const [ct, setCt] = useState('')
+  /**
+   * The cell types a contrast runs over, by NAME, and nothing chosen to start.
+   *
+   * Names rather than indices because Markers can rename a cluster, and a name
+   * is what the picker and every caption show. A list because a contrast is
+   * often about a lineage rather than one cluster — see StatsProps#tis.
+   */
+  const [cts, setCts] = useState<string[]>([])
   // Each side of a comparison is a SET of conditions. One level on each is the
   // ordinary case and behaves exactly as it did; several pools them, which is
   // how a time course gets read as early versus late without the object being
@@ -354,9 +361,20 @@ export default function App() {
   function adopt(next: Source) {
     setOpened(next)
     setTypes(next.types.map(t => ({ ...t })))
-    setCt(next.types[0]?.name ?? '')
-    setCtrl([next.d.conds[0]])
-    setCs([next.d.conds[next.d.conds.length - 1]])
+    // NOTHING pre-selected, on all three.
+    //
+    // The old defaults were the first cell type, the first condition and the
+    // last — a guess at the contrast, drawn as though it were the reader's. It
+    // is right for a two-group object in file order and wrong the rest of the
+    // time, and being wrong SILENTLY is what made it bad: the bar reads
+    // "aged_HFD vs young_chow" whether or not anybody asked for that, so the
+    // only signal that it is a guess is noticing it is the wrong guess.
+    //
+    // Empty says what is true. Nothing runs until all three are set, and the
+    // card below names which one is still missing.
+    setCts([])
+    setCtrl([])
+    setCs([])
     setMethod('wilcox')
     setPadjMax(0.05)
     setLfcMin(thresholdFor('wilcox').lfc)
@@ -461,9 +479,12 @@ export default function App() {
   }
 
   const d = src.d
-  const ti = Math.max(0, types.findIndex(t => t.name === ct))
-  const t = types[ti] ?? src.types[0]
-  const design = designFor(src, ti, ctrl, cs)
+  // In the object's own order, not the order they were ticked, so a caption and
+  // a cache key are the same for two readers who chose the same types.
+  const tis = types.map((x, i) => (cts.includes(x.name) ? i : -1)).filter(i => i >= 0)
+  const ts = tis.map(i => types[i])
+  const ctLabel = typesLabel(ts.map(x => x.name))
+  const design = designFor(src, tis, ctrl, cs)
   const blocked = !d.multi && NEEDS_CONTRAST.has(tab)
 
   /**
@@ -509,11 +530,12 @@ export default function App() {
   // An object in memory answers instantly, so it is always armed: a Run button
   // in front of a result that is already there is a button that does nothing
   // visible, and readers learn to press it without reading it.
-  const deKey = `${ti}|${condKey(ctrl)}|${condKey(cs)}|${gates.pct}|${gates.lfc}`
+  const deKey = `${ts.map(x => x.key).join('+')}|${condKey(ctrl)}|${condKey(cs)}`
+    + `|${gates.pct}|${gates.lfc}`
   const armed = !src.lazy || deRan === deKey
 
   const statsProps: StatsProps = {
-    src, t, ti, ctrl, cs, method, padjMax, lfcMin, gates, sigBasis,
+    src, ts, tis, ctrl, cs, method, padjMax, lfcMin, gates, sigBasis,
     running: false, computed: armed,
     onMethod: changeMethod,
     onRun: () => setDeRan(deKey),
@@ -705,20 +727,14 @@ export default function App() {
               */}
             <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto py-2">
             {needs.ct && (
-              // `flex-1`, and a floor. Sized to its own content this claimed
-              // 146px of a squeezed row while the group pickers sat on their
-              // minimum — the widest appetite winning is not the same as the
-              // most important control winning. The three controls that hold a
-              // NAME now share what is left, and none of them goes below a
-              // width a name can be read at.
-              <label className="flex min-w-0 flex-1 items-center gap-1.5">
-                <span className="glabel flex-none">Cell type</span>
-                <select className="sel min-w-0 flex-1" style={{ minWidth: 120, maxWidth: 260 }}
-                  title={ct}
-                  value={ct} onChange={e => setCt(e.target.value)}>
-                  {types.map(x => <option key={x.key}>{x.name}</option>)}
-                </select>
-              </label>
+              // The same control as the two beside it, because it is the same
+              // kind of decision: which populations does this contrast run
+              // over. It was a `<select>`, which can only hold one and always
+              // holds one — so a contrast over a lineage meant running it once
+              // per cluster and reading the tables side by side, which is three
+              // corrections and no pooled estimate.
+              <PickMany label="Cell type" all={types.map(x => x.name)} value={cts}
+                noun="cell types" empty="pick one" onChange={setCts} />
             )}
             {showEmb && (
               <>
@@ -759,10 +775,10 @@ export default function App() {
                 {/* One contrast, drawn as one: CONTROL [a] VS [b]. Two
                     uppercase nouns read as two unrelated pickers and cost 63px
                     that the names themselves needed. */}
-                <CondPicker label="Control" all={d.conds} value={ctrl} other={cs}
-                  onChange={setCtrl} />
-                <CondPicker label="Compare" lead="vs" all={d.conds} value={cs} other={ctrl}
-                  onChange={setCs} />
+                <PickMany label="Control" all={d.conds} value={ctrl} other={cs}
+                  empty="pick one" onChange={setCtrl} />
+                <PickMany label="Compare" lead="vs" all={d.conds} value={cs} other={ctrl}
+                  empty="pick one" onChange={setCs} />
                 {/* The action belongs at the end of the decision it completes:
                     cell type, control, compare, run. */}
                 {needs.runs && !armed && !NEEDS_RUN_HIDDEN.has(method) && (
@@ -867,7 +883,7 @@ export default function App() {
                     const next = [...prev]
                     const was = next[i].name
                     next[i] = { ...next[i], name: name.trim() || next[i].key }
-                    if (ct === was) setCt(next[i].name)
+                    setCts(cur => cur.map(n => (n === was ? next[i].name : n)))
                     return next
                   })
                 }} />
@@ -881,7 +897,7 @@ export default function App() {
                     // condLabel, not the raw arrays — those join on a comma, so
                     // a pooled side read "6h,12h vs 0h" here and "6h + 12h vs
                     // 0h" on every other figure in the same session.
-                    label={`${condLabel(cs)} vs ${condLabel(ctrl)} · ${ct}`}
+                    label={`${condLabel(cs)} vs ${condLabel(ctrl)} · ${ctLabel}`}
                     detected={detected} onPickGene={pickGene} />
                 )} />
             ) : tab === 'expr' ? (
@@ -912,7 +928,7 @@ export default function App() {
                 lib={lib} ran={manyRan} onRan={setManyRan} />
               </>
             ) : (
-              <Methods src={src} types={types} ti={ti} ctrl={ctrl} cs={cs} method={method}
+              <Methods src={src} types={types} tis={tis} ctrl={ctrl} cs={cs} method={method}
                 padjMax={padjMax} lfcMin={lfcMin} gates={gates}
                 lib={species && lib.manifest?.species[species]
                   ? { release: lib.manifest.species[species].release,

@@ -1,21 +1,31 @@
 import { useRef, useState } from 'react'
 import Popover from './Popover.tsx'
 
+/** Frozen, so the default does not make a new array on every render. */
+const NONE: string[] = []
+
 /**
- * One side of a comparison: a condition, or several taken together.
+ * Several of something, chosen from a list: the groups on one side of a
+ * comparison, or the cell types a contrast runs over.
  *
  * A dropdown of checkboxes rather than a native multi-select. A native one
  * needs ctrl-click to add a second item and shows a scrolling box the size of
- * the whole level list, and the common case here is still one level — so this
- * has to read as a plain picker until the reader wants more from it, and then
- * be obvious.
+ * the whole list, and the common case here is still one item — so this has to
+ * read as a plain picker until the reader wants more from it, and then be
+ * obvious.
  *
- * Pooling levels is a real analysis decision, not a display convenience: 6 h
- * and 12 h together is a different experiment from either alone. So the button
- * always names every level it is standing for, and the count is never hidden
- * behind a "3 selected".
+ * Pooling is a real analysis decision, not a display convenience: 6 h and 12 h
+ * together is a different experiment from either alone, and three cardiomyocyte
+ * states tested as one is a different test from three tables. So the button
+ * always names every item it is standing for, and the count is never hidden
+ * behind a "3 selected" until the names genuinely will not fit.
+ *
+ * This was CondPicker, for conditions only. The cell type beside it was a plain
+ * `<select>` — one cluster, always one, with the first one chosen for you.
  */
-export default function CondPicker({ label, lead, all, value, other, onChange }: {
+export default function PickMany({
+  label, lead, all, value, other = NONE, noun = 'groups', empty = '—', onChange,
+}: {
   label: string
   /**
    * What to DRAW in front of the button, when that is not the label.
@@ -31,8 +41,12 @@ export default function CondPicker({ label, lead, all, value, other, onChange }:
   /** Every condition the object carries, in the object's own order. */
   all: string[]
   value: string[]
-  /** The other side, so a level cannot be put on both at once. */
-  other: string[]
+  /** The other side, so a level cannot be put on both at once. Empty when there is none. */
+  other?: string[]
+  /** What a plural of these is called, in the pooled footnote and the tooltip. */
+  noun?: string
+  /** What the button reads when nothing is ticked. */
+  empty?: string
   onChange: (next: string[]) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -40,9 +54,11 @@ export default function CondPicker({ label, lead, all, value, other, onChange }:
 
   const toggle = (c: string) => {
     const has = value.includes(c)
-    // The last level cannot be removed: a side with nothing on it is not a
-    // comparison, and the only way back would be this menu.
-    if (has && value.length === 1) return
+    // The last one CAN be removed. It could not be, on the reasoning that a side
+    // with nothing on it is not a comparison — which is true, and is a reason to
+    // refuse to RUN rather than to refuse to unpick. Nothing is pre-selected any
+    // more, so empty is where every picker starts; a control that can reach a
+    // state it will not let you return to is worse than the state.
     const next = has ? value.filter(x => x !== c) : [...value, c]
     // Kept in the object's own order rather than click order, so "0 h + 6 h"
     // never reads as "6 h + 0 h" and a caption is stable across two readers
@@ -50,7 +66,7 @@ export default function CondPicker({ label, lead, all, value, other, onChange }:
     onChange(all.filter(c2 => next.includes(c2)))
   }
 
-  const text = value.join(' + ') || '—'
+  const text = value.join(' + ') || empty
 
   return (
     // `flex-1` on the wrapper, not only on the button inside it. Without it
@@ -77,12 +93,12 @@ export default function CondPicker({ label, lead, all, value, other, onChange }:
         style={{ minWidth: 112, maxWidth: 420 }}
         aria-haspopup="listbox"
         aria-expanded={open}
-        title={value.length > 1 ? `${value.length} groups pooled: ${text}` : text}
+        title={value.length > 1 ? `${value.length} ${noun} pooled: ${text}` : text}
         onClick={() => setOpen(v => !v)}
       >
         <span className="block truncate">{text}</span>
       </button>
-      <Popover open={open} anchor={trigger} role="listbox" label={`${label} groups`}
+      <Popover open={open} anchor={trigger} role="listbox" label={`${label} ${noun}`}
         width={230} onClose={() => setOpen(false)}>
         <div className="p-1.5">
           {all.map(c => {
@@ -118,7 +134,7 @@ export default function CondPicker({ label, lead, all, value, other, onChange }:
           })}
           {value.length > 1 && (
             <p className="px-2 pb-1 pt-1.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
-              {value.length} groups pooled, tested as one.
+              {value.length} {noun} pooled, tested as one.
             </p>
           )}
         </div>
