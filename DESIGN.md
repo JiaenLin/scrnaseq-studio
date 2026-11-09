@@ -9,19 +9,49 @@ labelled as coming from the file, and is never silently redone.
 - `rnaseq-service` — raw FASTQ → counts (request builder)
 - `rnaseq-lab` — count matrix → DESeq2
 - `rnaseq-studio` — result bundle → figures + Methods
-- **`scrnaseq-studio`** — `.h5ad` / Seurat `.rds` → figures + Methods  ← this document
+- **`scrnaseq-studio`** — `.h5ad` / Seurat `.rds`, converted by scRNA-seq Lab → figures + Methods  ← this document
 
 Mentor grounding for every methodological choice below came from the Theis and Satija
 corpora (Digital Mentors); citations are inline as DOIs.
+
+**Status.** This document was written ahead of the code, and parts of it describe things that
+were never built. So every section now opens with one line: **shipped** (the app does it, and
+the file that does it is named), **planned** (not built), or **partly shipped** (which part is
+which). Where the text under a status line said the app does something it does not, the text
+was corrected rather than left standing under a warning. Checked against the code on
+2026-11-09.
+
+| Section | Status |
+| --- | --- |
+| 1 Input · 1.1 `.h5ad` · 1.2 `.rds` | **planned** — the studio opens a bundle converted in scRNA-seq Lab |
+| 1.3 Gene-major layout | **shipped**, written by the converter rather than built on load |
+| 2.1 DE | **partly** — Wilcoxon runs; pseudobulk is an export, DESeq2 does not run here |
+| 2.1a Gates · 2.3 Shapes · 2.4 Gene search · 2.8 Composition · 2.8a · 2.8b · 2.9 · 2.10 · 2.11 | **shipped** |
+| 2.2 Thresholds | **shipped** for Wilcoxon; the pseudobulk row has no result to cut |
+| 2.5 Palettes · 2.6 Markers | **shipped**, as amended below |
+| 2.7 QC | **partly** — violins and the doublet/ambient rows; no thresholds from `uns`, no preview filter |
+| 3.1 Bar · 3.2 Tabs · 3.3 Carried over | **shipped**, as amended below |
+| 4 Scale | **planned**, and superseded by collections and the compute worker |
+| 5 Not done | **true** |
 
 ---
 
 ## 1. Input
 
+> **Status: planned as written; shipped differently.** The studio opens a **bundle** — a
+> `.zip`, or a `.scstudio` collection of several — that scRNA-seq Lab (or
+> `tools/export_h5ad.py` / `tools/export_seurat.R`) writes from the processed object
+> (`accept=".zip,.scstudio"` in `src/components/Landing.tsx`; read by `src/lib/bundle.ts` and
+> `src/lib/collection-source.ts`; format in `tools/BUNDLE.md`). Reading `.h5ad` or `.rds`
+> directly, §1.1–1.2, is not built (README, *Status*).
+
 The user brings an object that has **already been processed** — QC'd, normalized,
-clustered, embedded. That object is the bundle. There is no import wizard.
+clustered, embedded — converted into a bundle. There is no import wizard.
 
 ### 1.1 `.h5ad` — first-class path
+
+> **Status: planned — not built.** There is no h5wasm in the app: its runtime dependencies
+> are react, react-dom and fflate (`package.json`). An `.h5ad` is read by the converter.
 
 AnnData's on-disk layout is HDF5 and is stable and specified:
 
@@ -41,7 +71,10 @@ per gene on demand.
 
 ### 1.2 Seurat `.rds` — supported, with an honest ceiling
 
-We already ship **webR** (for DESeq2). `readRDS()` deserializes a Seurat object
+> **Status: planned — not built.** webR is not shipped, for this or for DESeq2
+> (`package.json`). An `.rds` is read by the converter. What follows is the plan.
+
+With **webR** in the page, `readRDS()` would deserialize a Seurat object
 *without Seurat installed* — S4 slots are readable as attributes — so we extract
 `assays`, `meta.data`, and `reductions` and normalize them into the same in-memory
 shape as h5ad.
@@ -64,17 +97,24 @@ library(sceasy); sceasy::convertFormat(obj, from="seurat", to="anndata",
 
 ### 1.3 The one performance decision that matters
 
+> **Status: shipped — by the converter, not on load.** The bundle is already gene-major:
+> the exporter writes the CSC (`expr.indptr.i32`, `expr.indices.i32`, `expr.data.f32`; a
+> collection's parts also carry it in gene chunks, `expr.chunk.bin`), and the studio reads a
+> gene as one slice (`bundleSource` in `src/lib/source.ts`, `src/lib/chunked.ts`). Nothing is
+> built at open.
+
 AnnData `X` is **cells × genes CSR**. Row slices (a cell) are free; column slices
 (a gene) require touching every row — and *every plot in this app is a gene*.
 
-So on load we make **one O(nnz) pass to build a gene-major (CSC) index** into typed
-arrays. After that, "show me Ascl1" is a single contiguous slice instead of a full
-scan. This is done once, with a progress bar, and it is the difference between a
-200 ms gene lookup and a 20 s one.
+So the converter makes **one O(nnz) pass to write a gene-major (CSC) index**. After that,
+"show me Ascl1" is a single contiguous slice instead of a full scan. It is done once, at
+conversion, and it is the difference between a 200 ms gene lookup and a 20 s one.
 
 ---
 
 ## 2. What the studio computes, and what it refuses to
+
+> **Status: shipped** — the principle every subsection follows.
 
 `rnaseq-studio`'s rule was "statistics are DESeq2, or they are not shown." That rule
 was right for bulk and **wrong here**: bulk RNA-seq without replicates is a design
@@ -83,6 +123,14 @@ is the principle underneath it — *every number is labelled with the test that 
 it, and nothing is shown that has not been computed* — not the specific engine.
 
 ### 2.1 Differential expression — Wilcoxon by default, pseudobulk by choice
+
+> **Status: partly shipped.** The Wilcoxon default runs (`wilcoxPlan`, `deWilcox` in
+> `src/lib/stats.ts`). Pseudobulk is shipped as an **export**: the summed raw counts, the
+> 10-cell floor and the four-samples gate (`pseudobulkColumns`, `designFor`, `MIN_CELLS`,
+> `MIN_REPS_PB`), downloaded for `DESeqDataSetFromMatrix` (`PseudobulkPanel` in
+> `src/components/Stats.tsx`). DESeq2 itself does not run here, so no pseudobulk result
+> exists, and "the other test gives 4" below was never built. Methods says the counts were
+> exported and that no test was run.
 
 **Most single-cell experiments have no replicates.** A design rule that blocks on
 them would make the studio useless for the majority of real objects, so the default
@@ -95,11 +143,10 @@ available on every object with two or more groups. We implement the same test in
 JavaScript rather than shipping R for it, so it runs instantly and matches what a
 reviewer would reproduce in Seurat.
 
-**Option — pseudobulk → DESeq2, offered only above 3 samples per group.** Summing
-raw counts per (sample × cell type) yields a genes × samples matrix — exactly the
-shape `rnaseq-studio/src/lib/deseq.ts` already accepts, so there is no second
-statistics engine. Below four samples per group the button is disabled and states
-why. Cells are excluded from a pseudobulk column when a sample contributes fewer
+**Option — pseudobulk, offered only above 3 samples per group.** Summing raw counts per
+(sample × cell type) yields a genes × samples matrix — exactly the shape DESeq2 takes. The
+studio builds it and exports it; fitting DESeq2 in the browser (rnaseq-studio's `deseq.ts`, or
+webR) is planned. Below four samples per group the button is disabled and states why. Cells are excluded from a pseudobulk column when a sample contributes fewer
 than 10 of that type, because power "is heavily dependent on the abundance of the
 cell state" (doi:10.1016/j.cell.2021.04.048); the exclusions are shown, never silent.
 
@@ -111,13 +158,17 @@ the user assume the bigger number is the better one:
 > to substantial false positives for standard single-cell differential expression
 > workflows." — doi:10.1101/2024.10.15.618577
 
-So whenever both are available, each result names the other's count in a line the
-user cannot miss: *"The other test gives 4."* Per-cell testing is for exploring;
+The plan was that whenever both are available, each result would name the other's count in a
+line the user cannot miss: *"The other test gives 4."* It needs both tests to run here, so it
+waits for the DESeq2 fit. Per-cell testing is for exploring;
 pseudobulk is for a claim that has to survive a new animal. On a one-sample-per-group
 design the Methods text states plainly that the p-values describe variation between
 cells, not between animals — the study is not blocked, it is described accurately.
 
 ### 2.1a The gates are a control, not a constant
+
+> **Status: shipped.** `Gates`, `DE_GATES` and `SEURAT_GATES` in `src/lib/stats.ts`; **Test
+> every gene** and **Test them too** in `src/components/Stats.tsx`.
 
 `FindMarkers` does not test every gene. Seurat applies two gates first —
 `logfc.threshold` 0.25 and `min.pct` 0.1 — and a gene failing either is dropped without
@@ -159,6 +210,10 @@ widened them does not get a paragraph describing Seurat's defaults.
 
 ### 2.2 Two thresholds, because there are two scales
 
+> **Status: shipped for Wilcoxon** (`thresholdFor` in `src/lib/stats.ts`). The pseudobulk row
+> is the cutoff the app sets when pseudobulk is chosen; with no DESeq2 run here, it has no
+> result to cut (§2.1).
+
 `|log₂FC| > 1` is a **bulk convention that does not transfer**. Seurat's `avg_log2FC`
 is computed on log-normalized values, which compresses effect sizes; a cutoff of 1
 discards nearly everything real. Pseudobulk runs on summed raw counts, which behave
@@ -167,12 +222,15 @@ like a bulk experiment.
 | Test | Effect-size cutoff | Adjustment |
 | --- | --- | --- |
 | Wilcoxon, per cell | `logfc.threshold` 0.25 (Seurat's own) | Bonferroni |
-| Pseudobulk DESeq2 | \|log₂FC\| ≥ 1 | Benjamini–Hochberg |
+| Pseudobulk, once the exported counts are tested in DESeq2 | \|log₂FC\| ≥ 1 | Benjamini–Hochberg |
 
 The headline count, the table, the volcano's dashed lines and the Methods sentence
 all read from one function, so they can never disagree.
 
 ### 2.3 The object may have no comparison at all
+
+> **Status: shipped.** The three demo objects in `src/lib/demo.ts` (`cohort`, `course`,
+> `wt`), checked by `scripts/test-demo.mjs`.
 
 Three shapes must all work, and the interface reshapes itself for each. All three
 are in the prototype as demo objects, because a design that only survives the happy
@@ -180,7 +238,7 @@ case has not been tested.
 
 | Object | Global bar | Contrast tabs | Default view |
 | --- | --- | --- | --- |
-| **Replicated cohort** (4 v 4) | cell type · control · compare | both tests | as bulk studio |
+| **Replicated cohort** (4 v 4) | cell type · control · compare | Wilcoxon, and the pseudobulk export | as bulk studio |
 | **Time course** (0/6/24/72 h, one sample each) | cell type · control · compare | Wilcoxon only, pseudobulk disabled with the reason | groups in **file order**, never alphabetical |
 | **Wild type only** (one condition) | cell type only | dimmed, with an empty state pointing at Markers and Gene expression | gene search across cell types |
 
@@ -188,6 +246,9 @@ Group order comes from the categorical order stored in the object, so a time cou
 reads 0 h → 72 h. Sorting it would be a silent corruption of the axis.
 
 ### 2.4 Gene search is a first-class way in
+
+> **Status: shipped.** `src/components/GeneExpression.tsx` and `src/components/gene/`; up to
+> 100 genes (`MAX_GENES` in `src/lib/genes.ts`). A sentinel (§2.8) is never an identity.
 
 For a single-condition object, "what does gene X look like across my cell types" is
 *the* question, and it needs no statistics at all. So the Gene expression tab leads
@@ -248,29 +309,43 @@ across the swap.
 
 ### 2.5 Figure palettes are a product feature, not a default
 
+> **Status: shipped, and moved.** `src/lib/palette.ts`, with Okabe–Ito added for colour-vision
+> deficiency; the picker is **Figure style** in the top bar (`src/components/ViewMenu.tsx`),
+> not a card on Overview.
+
 A figure that has to be recoloured by hand before submission is a figure the studio
-half-finished. So palette choice is global — set once on Overview, applied to every
-figure at once — and the options are the ones journals' own figures use, as
+half-finished. So palette choice is global — set once under Figure style in the top bar,
+applied to every figure at once — and the options are the ones journals' own figures use, as
 distributed in ggsci: **npg** (Nature), **aaas** (Science), **lancet**, **nejm**,
 **jco**. Categorical colours fall back to golden-angle hue generation past the tenth
 entry, so a long cluster list never wraps round and gives two populations the same
 colour — the bug the bulk studio shipped once with a 23-arm design.
 
-Continuous expression ramps are offered separately: the Seurat grey→blue default and
-the Cell-style grey→red because readers recognise them, plus **viridis** and **magma**,
-which are perceptually uniform and safe for colour-vision deficiency — the reason they
+Continuous expression ramps are offered separately: two-colour ramps (blue, the default;
+red, teal, purple), Seurat's grey→blue because readers recognise it, plus **mako**,
+**rocket**, **viridis** and **magma**, which are perceptually uniform and safe for colour-vision deficiency — the reason they
 have largely displaced rainbow scales in the journals.
 
 ### 2.6 Marker genes ≠ condition DE
 
+> **Status: shipped, as amended.** The Markers card is headed "a ranking, not a test" and
+> Methods carries the argument (`src/components/Markers.tsx`, `src/components/Methods.tsx`).
+> No column is labelled "for ranking only"; the table shows −log₁₀ padj beside the effect
+> sizes.
+
 Cluster markers answer *"who is this cluster"* and are one-vs-rest within a dataset;
 they are ranked and labelled as a **descriptive ranking, not a hypothesis test**
 — the clusters were defined by the same expression the test then scores, so the
-p-values are circular. We show effect sizes (log fold-change, pct.1/pct.2) and mark
-the p-value column as "for ranking only". This is the single most common
+p-values are circular. We show effect sizes (log fold-change, pct.1/pct.2) and label the
+card, rather than the column, as a ranking. This is the single most common
 misreading in single-cell papers and the UI takes a position on it.
 
 ### 2.7 QC is reported, not redone
+
+> **Status: partly shipped.** Shipped: the three covariates as violins per sample (`QcPanel`
+> in `src/components/Overview.tsx`) and the doublet and ambient-RNA rows of the provenance
+> table, from what the converter recorded. Not built: a scatter view, reading the applied
+> thresholds from `uns`, and the preview filter — there is no threshold code in `src/`.
 
 > "Quality control is performed at the sample level as thresholds can vary
 > substantially between samples." — doi:10.1038/s41576-023-00586-w
@@ -279,11 +354,11 @@ misreading in single-cell papers and the UI takes a position on it.
 > are made, and these thresholds should be set as permissive as possible to avoid
 > filtering out viable cell populations." — doi:10.15252/msb.20188746
 
-The studio shows the **three covariates jointly, per sample** — total counts,
-genes detected, % mitochondrial — as violins with a scatter view, and reads the
-thresholds already applied from `uns` when the pipeline recorded them. It offers a
-*preview* filter (MAD-based or manual) that reports how many cells each threshold
-would remove, but writes nothing.
+The studio shows the **three covariates per sample** — total counts, genes detected,
+% mitochondrial — as violins. Planned, and not built: a scatter view to read them jointly,
+the thresholds already applied read from `uns` when the pipeline recorded them, and a
+*preview* filter (MAD-based or manual) that would report how many cells each threshold
+removes, writing nothing.
 
 Ambient RNA and doublets are **upstream** concerns (SoupX, CellBender, DecontX,
 doi:10.1038/s42255-023-00876-x). The studio detects whether they ran, from `uns`
@@ -291,6 +366,11 @@ keys and obs columns, and states plainly: *"no doublet call found in this object
 — rather than pretending or silently correcting.
 
 ### 2.8 Composition inherits the same independence problem
+
+> **Status: shipped.** `src/components/Composition.tsx`, `src/lib/composition.ts`. Cells an
+> annotator did not call — the bundle's `sentinels`, such as `EXCLUDED` and `UNRESOLVED` — are
+> drawn grey on the embedding and are in no bar, no denominator, no legend and no test, and
+> each view says how many it left out (`src/lib/sentinels.ts`).
 
 Cell-type proportions are plotted **per sample**, never pooled per group, for exactly
 the reason pseudobulk exists: cells from one animal are not independent observations.
@@ -312,6 +392,9 @@ Two charts, and the form of each is doing work:
 ---
 
 ### 2.8a Several signatures, one pass
+
+> **Status: shipped.** `scoreManyPlan` in `src/lib/score.ts`, `src/components/ScoreMany.tsx`
+> (`MAX_SETS` = 30).
 
 A module score is a weighted walk over the genes that carry a weight, and nothing about
 that walk is specific to one signature — so scoring seven sets one at a time reads the
@@ -346,13 +429,15 @@ on the two things that do grow — one Float32 per set per cell (thirty across t
 
 ### 2.8b "Across groups" is a question about the object, not about one cell type
 
+> **Status: shipped.** `src/lib/columns.ts`.
+
 `identities()` in chart.ts answers "which rows does the GENE tab draw", and there "across
 groups" legitimately means *within the cell type selected beside the figure* — a violin
 panel is showing one population's response to a treatment, and the cell type is a parameter
 of it.
 
 A module score across groups is a different question, and it was being answered with the
-same function. "How does this signature move between aged_HFD and aged_chow" is asked of
+same function. "How does this signature move between two diets at one age" is asked of
 the whole object; answering it for whichever cell type happened to be selected in a bar at
 the top of the page produced a figure that reads as the first question and is the second,
 with nothing on it saying so. Reported as a bug, and it was one.
@@ -397,6 +482,9 @@ something the rest of the studio could not see, was a fork with nothing on the o
 
 ### 2.9 A metabolic library, because MSigDB does not publish one
 
+> **Status: shipped.** `scripts/derive-metabolic.mjs`, `scripts/metabolic-terms.tsv`,
+> `public/genesets/*.metabolic.gs`; sizes from `public/genesets/manifest.json`.
+
 Over-representation is corrected across everything tested. A reader asking whether a
 contrast is metabolic has, in MSigDB, no way to ask only that: the metabolic pathways
 and the metabolic ontology terms are real and well curated, and they are scattered
@@ -405,8 +493,8 @@ development, protein turnover and mRNA decay beside them. Testing the default li
 to find out about glycolysis spends the correction on nine thousand terms nobody asked
 about.
 
-So `scripts/derive-metabolic.mjs` assembles one — **1 533 sets for human, 1 391 for
-mouse**, 181 and 178 kB, offered beside the databases it drew on and off by default.
+So `scripts/derive-metabolic.mjs` assembles one — **2 610 sets for human, 2 360 for
+mouse**, 229 and 212 kB, offered beside the databases it drew on and off by default.
 
 The first version of this file was a **subset** that kept its parents' systematic ids,
 so that a set present in two enabled collections would be folded and tested once. That
@@ -425,8 +513,8 @@ independent means two things, both of which cost something:
   so a hit is still citable as the pathway it is, and `scripts/test-sets.mjs` checks
   that dropping the prefix names a real set in a parent and that its members are that
   set's, unchanged.
-- **Its own content.** GO:BP and GO:MF are sources here, not only the curated pathway
-  collections, so the library carries 1 031 metabolic terms no pathway database has —
+- **Its own content.** GO:BP, GO:MF and GO:CC are sources here, not only the curated
+  pathway collections — 1 982 of the 2 813 kept terms are GO terms —
   which is what makes it worth enabling *next to* a full default library rather than
   instead of one.
 
@@ -492,6 +580,9 @@ has looked at this yet" from "somebody looked and said no", and so the second is
 in a diff instead of invisible.
 
 ### 2.10 Co-expression, and the three ways it lies
+
+> **Status: shipped.** `src/lib/correlate.ts`, `src/components/Coexpression.tsx`;
+> `scripts/test-correlate.mjs`.
 
 "Which genes move with this one" needs no statistics beyond a correlation, and it is one pass
 over the matrix: for every gene, accumulate three sums against a seed and throw the values
@@ -585,6 +676,9 @@ refuses to put them under one label.
 
 ### 2.11 Your own gene sets, in whatever you keep them in
 
+> **Status: shipped.** `parseSets` in `src/lib/msigdb.ts`, `src/components/SetEditor.tsx`;
+> `scripts/test-parse-sets.mjs`.
+
 The studio could take a GMT and nothing else, behind a control labelled "Add a GMT…". That is
 the Broad's interchange format and almost nobody's working format: what a person has in front of
 them is the dict they built the analysis with, in a notebook, one keystroke from the clipboard.
@@ -622,6 +716,10 @@ meant one input giving two answers depending on whether it happened to be strict
 
 ### 3.1 The global bar — set once, applies everywhere
 
+> **Status: shipped, as amended.** The bar is in `src/App.tsx`. Each control is offered only
+> above the tabs whose answer it changes (`needsOf`), and there is no `design.ts`: the design is
+> `designFor` in `src/lib/stats.ts`.
+
 The lesson from the 23-arm bulk stress test: selection belongs to the app, not the
 tab. Single-cell adds one axis, so the bar carries three controls:
 
@@ -630,9 +728,10 @@ Cell type ▾  |  Control ▾  |  Compare ▾          Wilcoxon · per cell · n
 Cell type ▾                                      Single condition · 1 sample
 ```
 
-Changing the cell type re-scopes every tab at once. `design.ts` generalizes from
-`{control, groups}` to `{cellType, control, groups}` — the same select-all /
-remove-all affordances, the same precomputed contrast list.
+The selection is held once, in the app, so a tab that reads it reads the same choice as every
+other. A control is shown only above a tab whose answer moves with it — a Control/Compare pair
+over an unfiltered view would claim the figure shows that contrast. Each side of a contrast is
+a set of levels, and the cell type is a set of types (`PickMany`).
 
 The bar is **built from the object, not fixed**: a single-condition file gets no
 control/compare selectors at all, because offering a comparison that cannot exist
@@ -657,38 +756,50 @@ pooled selections, before and after.
 
 ### 3.2 Tabs
 
+> **Status: shipped, as the table now says** (`GROUPS` in `src/App.tsx`).
+
 ```
-Overview · Cells · Composition · Markers ‖ DEG table · Volcano · Enrichment ·
-Gene expression · Gene sets · Methods
+Overview · Cells · Composition ‖ Markers · Differential expression · Gene expression ·
+Gene sets · Co-expression ‖ Methods
 ```
 
-The four tabs before the divider are single-cell-specific. **Everything after it is
-`rnaseq-studio`'s tab bar in the exact order approved there** — a user arriving
-from the bulk studio finds every downstream tool where they left it, now carrying a
-test selector because single-cell has two defensible answers where bulk had one.
+The first three describe the object as it arrived; the next five compute on it; Methods is
+the document. The volcano and enrichment are views of the one differential-expression pass,
+not tabs of their own, so changing the test on one cannot leave the other two describing a
+different one.
 
 | Tab | Content |
 | --- | --- |
-| **Overview** | cells / genes / samples / clusters; per-sample QC violins; provenance strip marking every step **from your file** vs **computed here**; missing-piece warnings (no raw counts → DE disabled, with the reason) |
-| **Cells** | embedding on WebGL canvas. Colour by cluster, condition, sample, QC metric, or gene. **Split by condition side-by-side with a shared axis range** — the honest way to show a condition effect on a map |
-| **Composition** | per-sample stacked proportions + per-cell-type dot plot with sample points |
+| **Overview** | cells / genes / samples / clusters; per-sample QC violins; provenance table marking every step **from your file** vs **computed here**; missing-piece rows (no raw counts → no pseudobulk, with the reason) |
+| **Cells** | embedding on a 2-D canvas. Colour by cluster, condition, sample or % mitochondrial; a gene's expression is on Gene expression. **Split by condition side-by-side with a shared axis range** — the honest way to show a condition effect on a map |
+| **Composition** | per-sample stacked proportions + a per-cell-type bar panel with sample points |
 | **Markers** | ranked one-vs-rest table + dot plot (mean expression × % detected). Cluster renaming lives here, and names propagate to every other tab and to Methods |
-| **DEG table · Volcano · Enrichment** | as `rnaseq-studio`, for the selected cell type, under a **Test** segmented control — Wilcoxon per cell (default) or pseudobulk DESeq2 (only above 3 samples per group). Dimmed entirely on a single-condition object |
+| **Differential expression** | table, volcano and enrichment views of one pass, for the selected cell types, under a **Test** segmented control — Wilcoxon per cell (default) or the pseudobulk export for DESeq2 (only above 3 samples per group). Disabled on a single-condition object |
 | **Co-expression** | a seed (one gene, or a signature sent over from Gene sets) correlated against every gene, over metacells, single cells, cell type × group columns or the exporter's pseudobulk; both ends ranked, with the set's own coherence reported beside the score |
-| **Gene expression** | gene search with exact-match-first ranking, one gene or up to 100 pasted; **Group by** across cell types / groups / their product; **Plot** as violin panel (independent y per facet, selectable columns, relative-to-control, detection bars) or **Seurat dot plot** (size = % expressing, colour = average expression, scaling switchable, axes clusterable and swappable) |
+| **Gene expression** | gene search with exact-match-first ranking, one gene or up to 100 pasted; **Group by** across cell types / groups / their product; **Plot** as violin panel (independent y per facet, selectable columns, relative-to-control, detection bars), **Seurat dot plot** (size = % expressing, colour = average expression, scaling switchable, axes clusterable and swappable) or **feature plot** |
+| **Gene sets** | per-cell module score for one set, and several at once as a signature × population heatmap |
 | **Methods** | continuous prose, superscript numbered citations, one reference per tool, cutoffs read from the object |
 
 ### 3.3 Carried over without change
 
+> **Status: shipped, but one item.** The object's name in the header is truncated with an
+> ellipsis when the bar is too narrow (`src/App.tsx`); the rest holds (`ViewBoundary` keyed on
+> the tab and its view, `src/components/Boundary.tsx`).
+
 Everything the bulk studio already paid for in user feedback: exact-match-ranks-first
 autocomplete, untruncated pathway labels, user-selectable term count, `ErrorBoundary`
-keyed on tab (never on selection — that wipes typed input), full project name with
-no truncation, contrast labelled on every figure, results hidden entirely when the
-selected pair has not been computed.
+keyed on tab (never on selection — that wipes typed input), contrast labelled on every
+figure, results hidden entirely when the selected pair has not been computed.
 
 ---
 
 ## 4. Scale
+
+> **Status: planned — not built, and superseded.** There is no density or hex view and no
+> summary mode: a 292,495-cell atlas opens with every cell drawn (README, *Any size*). What
+> shipped instead is the collection format, read gene by gene from the file
+> (`src/lib/collection-source.ts`), and a compute worker for the whole-transcriptome passes
+> (`src/lib/engine.ts`).
 
 | Cells | Behaviour |
 | --- | --- |
@@ -696,12 +807,14 @@ selected pair has not been computed.
 | 50 k – 250 k | embedding switches to a density/hex view above a point threshold; per-gene reads stay lazy |
 | > 250 k | opens read-only in summary mode; gene lookups still work, per-cell scatter is binned |
 
-Pseudobulk is unaffected by cell count — it collapses to *samples*, so DE stays fast
-at any scale. That is a second reason the pseudobulk choice is the right one.
+Pseudobulk is unaffected by cell count — it collapses to *samples*, so the matrix it exports
+stays small at any scale. That is a second reason the pseudobulk choice is the right one.
 
 ---
 
 ## 5. What this app deliberately does not do
+
+> **Status: true** — none of these is in `src/`.
 
 Not clustering, not integration, not trajectory inference, not annotation transfer.
 Those need the full dataset, real compute, and method choices that belong to the
@@ -716,26 +829,27 @@ analyst — and on Theis's own evidence they are where over-correction happens:
 > — doi:10.15252/msb.20188746
 
 The studio therefore never imputes or denoises, and shows what the object contains.
-If someone needs the upstream work done, that is a `scrnaseq-lab` — a separate app,
-the same way `rnaseq-lab` is separate from `rnaseq-studio`.
+The upstream work belongs upstream; scRNA-seq Lab is the separate app that converts its
+result into the file this one opens.
 
 ---
 
 # Why the defaults are what they are
 
-Moved from the README so that document can describe the tool. Unchanged.
+Moved from the README so that document can describe the tool. **Status: shipped**, with the
+pseudobulk sentences corrected on 2026-11-09 to what the app does.
 
 **Most single-cell experiments have no replicates, so nothing blocks on them.** The default test is
 the one Seurat's `FindMarkers` and Scanpy's `rank_genes_groups` run — a Wilcoxon rank-sum test
 across cells, with Seurat's own gates (`logfc.threshold` 0.25, `min.pct` 0.1, Bonferroni).
-Pseudobulk → DESeq2 is offered as an alternative and only above three samples per group, where it
-is defensible. When both are available each result names the other's count, because the larger
-number is not the better one: per-cell testing is for exploring, pseudobulk is for a claim that has
-to survive a new animal.
+Pseudobulk is offered as an alternative and only above three samples per group, where it is
+defensible: the summed counts are exported for DESeq2, which does not run in the browser. The two
+are not the same claim — per-cell testing is for exploring, pseudobulk is for a claim that has to
+survive a new animal.
 
 **The groups are drawn in the order the file wrote them, until you say otherwise.** A
-categorical order in an object is usually a design — `0 h, 6 h, 24 h, 72 h`, `young_chow,
-young_hfd, old_chow, old_hfd` — so sorting it would destroy information, and it is the default
+categorical order in an object is usually a design — `0 h, 6 h, 24 h, 72 h`, `a1_b1, a1_b2,
+a2_b1, a2_b2` — so sorting it would destroy information, and it is the default
 everywhere. It is also not always the order a figure wants, so **Group order** in the top bar
 moves a level and every figure that splits by group follows at once: the split embedding, the
 composition bars, the violins, the dot plot, the feature panels, the gene-set heatmap. Nothing is
@@ -758,7 +872,8 @@ independent correlations; how much of the set runs one way is reported with the 
 **Two cutoffs, because there are two scales.** `|log₂FC| > 1` is a bulk convention that does not
 transfer — single-cell values are log-normalized before testing, so effect sizes are compressed and
 a cutoff of 1 discards almost everything real. The per-cell test reports at Seurat's
-`logfc.threshold`; pseudobulk, which runs on summed raw counts, keeps the bulk cutoff. One function
+`logfc.threshold`; pseudobulk, whose summed raw counts are tested outside the app, keeps the bulk
+cutoff. One function
 feeds the headline count, the table, the volcano's dashed lines and the Methods sentence, so they
 cannot disagree.
 

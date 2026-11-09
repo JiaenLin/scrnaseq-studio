@@ -22,8 +22,9 @@ server and nothing is uploaded.
 An atlas opens as one intact dataset. Nothing about how it is stored reaches the interface:
 there is no part picker, no "viewing 3 of 43", no tab that works only on small objects.
 
-Measured on the deployed site, on a 9.3 GB source object — 292,495 cells, 31,053 genes,
-133 clusters, delivered as one 5.83 GB file the lab split into 43 pieces:
+Measured on the deployed site on 2026-08-09, on a 9.3 GB source object — 292,495 cells,
+31,053 genes, 133 clusters, delivered as one 5.83 GB file the lab split into 43 pieces. The
+object is not in this repository, so these three numbers have not been re-measured since:
 
 | | |
 |---|---|
@@ -53,13 +54,11 @@ with no worker and no progress card.
 
 | Tab | Content |
 |---|---|
-| **Overview** | cells / genes / samples / clusters; per-sample QC violins; a provenance table marking every step **from your file** vs **computed here**; the figure-palette picker |
-| **Cells** | UMAP on canvas, coloured by cluster, group, sample, QC metric or gene, split by group on one shared axis range |
+| **Overview** | cells / genes / samples / clusters; per-sample QC violins; a provenance table marking every step **from your file** vs **computed here**; which carried column is the cell type and which the group, when the object carries more than one |
+| **Cells** | the embedding on canvas, coloured by cluster, group, sample or, when the object records it, % mitochondrial; split by group on one shared axis range. A gene's expression is on **Gene expression**, as a feature plot |
 | **Composition** | horizontal 100% stacked bars per sample, plus a per-cell-type bar panel with every animal drawn on top |
 | **Markers** | one-vs-rest dot plot, and cluster renaming that propagates everywhere including Methods |
-| **DEG table** | sortable, filterable, significant-only, with a signed **Combined** ranking column and CSV export; click a row to open that gene. Says how many of the object's genes were **tested**, and Seurat's two pre-test gates (`min.pct`, `logfc.threshold`) are controls — **Test every gene** sets both to zero |
-| **Volcano** | adjustable cutoffs, up/down counts, hover to read a point, click to open the gene, PNG export |
-| **Enrichment** | hypergeometric over-representation on the DEG list — direction, set-size range, ranking and collections all adjustable, including a **Metabolic** collection — 2,610 human / 2,360 mouse sets on its own ids, chosen by reading all 15,646 pathway and ontology term names rather than matching them; click a term for its member genes with their rank among every tested gene; **paste your own sets** in whatever you keep them in — a Python or R dict, JSON, a GMT, `Name: gene, gene` lines — and see what was understood before adding them |
+| **Differential expression** | one contrast, three views of it. **Table**: sortable, filterable, significant-only, with a signed **Combined** ranking column and CSV export; click a row to open that gene. Says how many of the object's genes were **tested**, and Seurat's two pre-test gates (`min.pct`, `logfc.threshold`) are controls — **Test every gene** sets both to zero. **Volcano**: adjustable cutoffs, up/down counts, hover to read a point, click to open the gene, PNG export. **Enrichment**: hypergeometric over-representation on the DEG list — direction, set-size range, ranking and collections all adjustable, including a **Metabolic** collection — 2,610 human / 2,360 mouse sets on its own ids, chosen by reading all 15,646 pathway and ontology term names rather than matching them; click a term for its member genes with their rank among every tested gene; **paste your own sets** in whatever you keep them in — a Python or R dict, JSON, a GMT, `Name: gene, gene` lines — and see what was understood before adding them |
 | **Gene expression** | gene search (one gene or a pasted list of up to 100), as a violin panel, a **Seurat dot plot** — clusterable and transposable — or a **Seurat feature plot** |
 | **Gene sets** | per-cell module score (`AddModuleScore` / `score_genes`) for an MSigDB set, a derived collection or your own gene list, plus **several signatures at once** — up to 30, scored in a single pass, as a signature × population heatmap with CSV; on the embedding and per identity, with clickable member genes and a per-gene heatmap that can be z-scored or left on the object's own scale |
 | **Co-expression** | Pearson r of every gene against a seed — one gene, or a signature — over metacells, single cells, **cell type × group** columns built from the cells, or the exporter's pseudobulk table; both ends of the ranking, a detection floor, CSV export. A set is correlated with itself first and its members signed, so opposing arms add to the signature instead of cancelling in its mean |
@@ -67,15 +66,21 @@ with no worker and no progress card.
 
 ## Behaviour
 
-**Testing.** The default is a Wilcoxon rank-sum test across cells with Seurat's gates
-(`logfc.threshold` 0.25, `min.pct` 0.1, Bonferroni) — the same test `FindMarkers` and
-`rank_genes_groups` run. Pseudobulk → DESeq2 is offered above three samples per group. Where both
-are available, each result names the other's count.
+**Testing.** The one test the studio runs is a Wilcoxon rank-sum test across cells with
+Seurat's gates (`logfc.threshold` 0.25, `min.pct` 0.1, Bonferroni) — the same test `FindMarkers`
+and `rank_genes_groups` run. Above three samples per group, **pseudobulk** sums the raw counts
+per sample within the chosen cell type and exports that matrix for DESeq2; no DESeq2 runs in the
+browser, and Methods says so rather than describing a test nobody ran.
 
-**Two cutoffs, one source.** The per-cell test reports at Seurat's `logfc.threshold`; pseudobulk,
-which runs on summed raw counts, keeps the bulk `|log₂FC| > 1`. One function feeds the headline
-count, the table, the volcano's dashed lines and the Methods sentence, so they cannot disagree.
-padj and |log₂FC| live at app level rather than per tab, and switching test resets them.
+**Sentinels.** When the lab's converter lists an annotator's sentinels (`EXCLUDED`,
+`UNRESOLVED`: cells it did not call), those cells are drawn grey and are never a cell type — not
+in a legend, a composition bar or its denominator, a marker or contrast population, or a
+per-type figure — and every view that leaves them out says how many it left out.
+
+**One cutoff source.** The per-cell test reports at Seurat's `logfc.threshold`, and one function
+feeds the headline count, the table, the volcano's dashed lines and the Methods sentence, so they
+cannot disagree. padj and |log₂FC| live at app level rather than per tab, and switching test
+resets them (pseudobulk's is the bulk `|log₂FC| ≥ 1`, for when the exported counts are tested).
 
 **Group order.** Groups are drawn in the order the file wrote them — a categorical order in an
 object is usually a design. **Group order** in the top bar moves a level and every figure that
@@ -109,19 +114,22 @@ enriched term or a gene in a scored signature opens in **Gene expression**.
 
 ## Figure palettes
 
-Set once on Overview, applied to every figure at once, so an exported panel already matches the
-manuscript. Categorical: **npg** (Nature), **aaas** (Science), **lancet**, **nejm**, **jco**, as
-distributed in ggsci — with golden-angle hue generation past the tenth entry so a long cluster list
-never wraps round and hands two populations the same colour. Continuous: the Seurat grey→blue
-default and a grey→red, plus **viridis** and **magma**, which are perceptually uniform and safe for
-colour-vision deficiency.
+Set once under **Figure style** in the top bar, applied to every figure at once, so an exported
+panel already matches the manuscript. Categorical: **npg** (Nature), **aaas** (Science),
+**lancet**, **nejm**, **jco**, as distributed in ggsci, and **Okabe–Ito** for colour-vision
+deficiency — with golden-angle hue generation past the end of a palette so a long cluster list
+never wraps round and hands two populations the same colour. Continuous: two-colour ramps
+(blue, the default; red, teal, purple), Seurat's grey→blue, **mako**, **rocket**, **viridis**
+and **magma**, and three diverging scales for quantities with a real zero.
 
 ## Status
 
-Real data works end to end, from PBMC 3k to a 292,495-cell atlas. Opening PBMC 3k — 2,638
-cells, 13,714 genes — parses in ~200 ms and a full one-vs-rest marker test across all 8 clusters
-takes ~1.6 s, returning CD79A/MS4A1 for B cells, S100A9/CD14 for monocytes, GZMB/GNLY for NK,
-GP9/ITGA2B for megakaryocytes.
+Real data works end to end, from PBMC 3k to a 292,495-cell atlas. PBMC 3k — 2,638 cells,
+13,714 genes, as `tools/export_h5ad.py` converts `testdata/`'s object — parses in 137–219 ms and
+a full one-vs-rest marker test across all 8 clusters takes 0.6–0.8 s, returning CD79A/MS4A1 for
+B cells, S100A9/CD14 for monocytes, GZMB/GNLY for NK, GP9/ITGA2B for megakaryocytes. Measured
+2026-11-09 with `node scripts/bench-bundle.mjs` (the statistics code the browser runs, under
+Node 24 on an Apple M3 Pro), six runs.
 
 What remains:
 
@@ -154,19 +162,23 @@ from — kept because it is a faster place to try a layout than the app is.
 ## Develop
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm test         # gene search, statistics gates, demo-object consistency
+npm ci
 npm run lint
+npm test         # statistics, bundles, collections, composition, the rendered Methods, sentinels
 npm run build
+npm run dev      # http://localhost:5173
 ```
 
-Tests import `src/lib/*.ts` directly through Node's built-in TypeScript type-stripping, so they run
-against the real modules with no build step — which needs **Node 24**.
+That is CI's order (`.github/workflows/deploy.yml`, Node 24). Tests import `src/lib/*.ts`
+directly through Node's built-in TypeScript type-stripping, so they run against the real modules
+with no build step — which needs **Node 24**. The few that check what a page SAYS render the real
+components through Vite (`scripts/render.mjs`).
 
 Figures are hand-drawn SVG and canvas rather than a plotting library: the panels here are specific
 enough (detection bars, Seurat dot and feature plot conventions, per-facet axes) that a library
-would have been fought rather than used, and it keeps the bundle at ~83 kB gzipped.
+would have been fought rather than used, and the app ships three runtime dependencies (react,
+react-dom, fflate). `npm run build` writes the app's JavaScript as one file of 489.6 kB,
+158.7 kB gzipped, plus a 16.9 kB compute worker (measured 2026-11-09).
 
 ## License
 
