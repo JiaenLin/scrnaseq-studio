@@ -375,8 +375,8 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
    * This comes FIRST, and it is new because the starting state is new: the cell
    * type used to default to the first cluster and the two sides to the first and
    * last condition, so a contrast always existed and this branch was
-   * unreachable. Those defaults were a guess drawn as a decision — "aged_HFD vs
-   * young_chow" appears in the bar whether or not anybody asked for it, and the
+   * unreachable. Those defaults were a guess drawn as a decision — "a2_b2 vs
+   * a1_b1" appears in the bar whether or not anybody asked for it, and the
    * only way to notice it is a guess is to notice it is the wrong one.
    *
    * Naming the missing piece rather than saying "make a selection": the picker

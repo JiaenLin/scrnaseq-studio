@@ -4,7 +4,7 @@
 //
 // Four overlaps were reported off one real object, and none of them shows on a
 // demo: the demo cell types are "qNSC" and the demo groups are "0 h". Real ones
-// are "Cardiomyocyte/Working cardiomyocyte EXCLUDED" and "young_chow", and real
+// are "Cardiomyocyte/Working cardiomyocyte EXCLUDED" and "group_a1b1", and real
 // MSigDB names run to 76 characters. So this stamps those onto a demo and
 // measures geometry — `svg { overflow: visible }` is set globally, so a chart
 // that overflows does not clip, it paints on its neighbour.

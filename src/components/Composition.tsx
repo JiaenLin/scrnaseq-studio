@@ -537,7 +537,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
    *
    * It was 36 units for every object, and the group labels are rotated -38°
    * when they will not fit upright — so a label hangs `width * sin(38°)` below
-   * its anchor, which for `young_chow` is 33 units on top of the 12 it starts
+   * its anchor, which for `group_a1b1` is 33 units on top of the 12 it starts
    * at. That is 9 past the bottom of a 152-unit box, and `svg { overflow:
    * visible }` means it does not clip, it PAINTS: on a four-group object the
    * labels of one row of facets land on the titles of the row underneath.

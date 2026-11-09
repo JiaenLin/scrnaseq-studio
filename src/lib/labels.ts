@@ -17,7 +17,7 @@
  *
  * Rendered in the browser at 9, 10.5 and 11.5 px over the strings this app
  * actually draws — cell types like "Cardiomyocyte/Working cardiomyocyte
- * EXCLUDED", groups like "young_chow", MSigDB names like
+ * EXCLUDED", groups like "group_a1b1", MSigDB names like
  * "GOBP_REGULATION_OF_CELL_POPULATION_PROLIFERATION" — and read back with
  * getBBox. The ratio is flat across those sizes: 0.559 at weight 400 and 0.589
  * at 600 and above.

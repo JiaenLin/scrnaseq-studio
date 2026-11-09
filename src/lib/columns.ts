@@ -7,7 +7,7 @@
 // a treatment, and the cell type is a parameter of it.
 //
 // A module score across groups is a different question. "How does this
-// signature move between aged_HFD and aged_chow" is asked of the whole object,
+// signature move between two diets at one age" is asked of the whole object,
 // and answering it for whichever cell type happened to be selected in a bar at
 // the top of the page is a figure that looks like the first question and is
 // the second. Reported as exactly that: the columns were restricted to one cell

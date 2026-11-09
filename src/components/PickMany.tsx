@@ -33,7 +33,7 @@ export default function PickMany({
    * The pair reads as one thing — a contrast — so the second one is led by
    * "vs" rather than by a second uppercase noun. That is 45px of a row whose
    * labels were costing more than its values, and it says what the pair is
-   * for: `CONTROL [aged_control] VS [aged_hfd]`. `label` stays as written for
+   * for: `CONTROL [a2_control] VS [a2_treated]`. `label` stays as written for
    * the accessible name and the menu's heading, because "vs groups" is not
    * something to hand a screen reader.
    */
@@ -86,7 +86,7 @@ export default function PickMany({
         // what it holds instead of being clipped to a fixed width.
         //
         // The floor is 112, not 78. 78 fits "Quiescent" and nothing an object
-        // actually carries: `aged_control` came back as "aged_c…", and two
+        // actually carries: `a2_control` came back as "a2_co…", and two
         // groups that differ after the sixth character — which is what a
         // factorial design looks like — were the same six characters twice.
         // Below 112 the row scrolls instead, which at least keeps the name.

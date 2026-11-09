@@ -404,7 +404,7 @@ export default function App() {
     // last — a guess at the contrast, drawn as though it were the reader's. It
     // is right for a two-group object in file order and wrong the rest of the
     // time, and being wrong SILENTLY is what made it bad: the bar reads
-    // "aged_HFD vs young_chow" whether or not anybody asked for that, so the
+    // "a2_b2 vs a1_b1" whether or not anybody asked for that, so the
     // only signal that it is a guess is noticing it is the wrong guess.
     //
     // Empty says what is true. Nothing runs until all three are set, and the
@@ -612,7 +612,7 @@ export default function App() {
    * Differential expression is three views of one pass and only the third
    * tests against the library, so on the table and the volcano this select
    * changed nothing — while costing 161px of a row that was truncating the
-   * group names to "aged_c…" to make room for it. The CHOICE still lives in
+   * group names to "group_…" to make room for it. The CHOICE still lives in
    * App, so switching to Enrichment finds whatever was set on the Gene sets
    * tab; only the control comes and goes.
    */

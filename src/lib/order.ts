@@ -1,8 +1,8 @@
 // The order the groups are drawn in.
 //
 // A group's order in the object is the order the exporter wrote its categorical
-// levels in, and that is the right default: `young_chow, young_hfd, old_chow,
-// old_hfd` is a design, and sorting it alphabetically would destroy it. But it
+// levels in, and that is the right default: `a1_b1, a1_b2, a2_b1,
+// a2_b2` is a design, and sorting it alphabetically would destroy it. But it
 // is not always the order the reader wants on the page — a control that was
 // added to the object last still has to sit first on the axis, and a time
 // course exported out of order is a figure that reads backwards.

@@ -134,7 +134,7 @@ export function SizeKey({ cx, y, title, radius, steps = [0.25, 0.5, 0.75, 1], fi
  * Laid out on measured widths, for the reason SizeKey above is: a fixed pitch
  * is a bet that every label is about the same length, and the volcano's are
  * not. "up" and "not significant" differ by a factor of six as it is, and when
- * levels are pooled the key reads "up in young_chow + young_hfd + old_chow" —
+ * levels are pooled the key reads "up in a1_b1 + a1_b2 + a2_b1" —
  * 168 units of pitch against 210 of label, so the entry wrote 63 units into
  * its neighbour. Measuring costs nothing and cannot be wrong by a factor.
  */
