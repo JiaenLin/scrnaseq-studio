@@ -188,8 +188,8 @@ components through Vite (`scripts/render.mjs`).
 Figures are hand-drawn SVG and canvas rather than a plotting library: the panels here are specific
 enough (detection bars, Seurat dot and feature plot conventions, per-facet axes) that a library
 would have been fought rather than used, and the app ships three runtime dependencies (react,
-react-dom, fflate). `npm run build` writes the app's JavaScript as one file of 497.4 kB,
-161.1 kB gzipped, plus a 16.9 kB compute worker (measured 2026-11-09).
+react-dom, fflate). `npm run build` writes the app's JavaScript as one file of 497.45 kB,
+161.15 kB gzipped, plus a 16.91 kB compute worker (as the build printed them on 2026-11-09).
 
 ## License
 
