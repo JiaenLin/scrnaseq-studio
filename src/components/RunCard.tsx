@@ -19,7 +19,7 @@ export default function RunCard({ src }: { src: Source }) {
     <Card
       eyebrow="Run" title="The run that produced this object"
       sub={n > 0
-        ? `${n} record${n === 1 ? '' : 's'} from the object's uns, as the lab's converter copied ${n === 1 ? 'it' : 'them'}. `
+        ? `${n} record${n === 1 ? '' : 's'} from the object's uns, as the lab's converter carried ${n === 1 ? 'it' : 'them'}. `
           + 'Each field is shown under its own name, as recorded; nothing here is inferred.'
         : undefined}
     >
@@ -97,7 +97,9 @@ function Record({ r }: { r: RunRecordView }) {
         <Mono>{r.path}</Mono>
         <span className={`badge badge-${tone}`}>{label}</span>
       </div>
-      {r.kind === 'copied' ? (
+      {r.kind === 'copied' && r.fields.length === 0 ? (
+        <Said>An empty record: the entry holds no fields.</Said>
+      ) : r.kind === 'copied' ? (
         <div className="scrollx mt-1.5">
           <table className="t">
             <tbody>

@@ -173,6 +173,14 @@ console.log('\nNAMED, NOT COPIED: SHOWN AS NAMED, WITH ITS SIZE')
   check('and the ones it did not list are counted, not invented', /10 more/.test(text), true)
 }
 
+console.log('\nAN EMPTY RECORD SAYS SO')
+{
+  const recs = recordsOf(runCard(overview(open({ searched: SEARCHED, records: [{ path: 'uns/x_provenance', record: {} }] }))))
+  check('it is listed, copied, with no rows and a sentence saying it is empty',
+    [recs.map(r => r.path), recs[0]?.kind, recs[0]?.rows.length, /empty record/.test(recs[0]?.text ?? '')],
+    [['uns/x_provenance'], 'copied', 0, true])
+}
+
 console.log('\nA LONG VALUE IS FOLDED, NOT CUT')
 {
   const log = 'b'.repeat(240_000)
