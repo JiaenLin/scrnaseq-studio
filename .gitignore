@@ -29,6 +29,9 @@ dist-ssr
 *.h5Seurat
 *.loom
 *.zip
+# …except what the Lab's converter wrote from its own synthetic fixtures: see
+# testdata/lab/README.md. Nothing real ever goes in that folder.
+!testdata/lab/*.zip
 
 # Written by scripts/score-baseline.mjs while a proof runs, then deleted.
 scripts/.score-baseline.generated.ts
