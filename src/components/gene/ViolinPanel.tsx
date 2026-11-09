@@ -200,16 +200,21 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
             </g>
           )
         })}
-        {both && p.types.map((t, ti) => {
+        {/* One band per cell type the panel actually draws, placed by its
+            position among them. It was placed by the type's index in the whole
+            list, so a hidden type — or a sentinel, which is never drawn — left
+            every later band one block to the right of its own violins. */}
+        {both && [...new Set(cats.map(c => c.ti))].map((ti, k) => {
+          const t = p.types[ti]
           const block = bw * p.src.d.conds.length
-          const x0 = PL + bw * ti * p.src.d.conds.length
+          const x0 = PL + bw * k * p.src.d.conds.length
           // Wrapped onto as many lines as the name needs. It was cut to the
           // block width, so on a real annotation every band read "Cardiomyo…"
           // and the figure had one label repeated across it.
           const lines = wrapAll(t.name, block - 4, 9.5, true)
           return (
             <g key={t.key}>
-              {ti > 0 && <line className="axgrid" x1={x0} x2={x0} y1={PT} y2={H - PB + DET + 2} />}
+              {k > 0 && <line className="axgrid" x1={x0} x2={x0} y1={PT} y2={H - PB + DET + 2} />}
               <text className="axis" x={x0 + block / 2} y={H - 4 - 11 * (lines.length - 1)}
                 textAnchor="middle"
                 style={{ fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>

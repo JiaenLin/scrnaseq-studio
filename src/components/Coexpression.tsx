@@ -11,6 +11,7 @@ import {
 import { parseGeneList, rankGenes } from '../lib/genes.ts'
 import { typesLabel } from '../lib/stats.ts'
 import PickMany from './PickMany.tsx'
+import { populationNames, sentinelMask } from '../lib/sentinels.ts'
 import { fmt, pctTxt } from '../lib/chart.ts'
 import { AXIS_INK, DOWN_MARK, MARK_EDGE, UP_MARK } from '../lib/figure-ink.ts'
 import { widestW } from '../lib/labels.ts'
@@ -119,7 +120,7 @@ export default function Coexpression(p: CoexprProps) {
   // scopeMask on why that is not the same as the empty list.
   const tis = useMemo(
     () => (cts.length
-      ? types.map((t, i) => (cts.includes(t.name) ? i : -1)).filter(i => i >= 0)
+      ? types.map((t, i) => (!t.sentinel && cts.includes(t.name) ? i : -1)).filter(i => i >= 0)
       : null),
     [cts, types])
   const scopeConds = useMemo(
@@ -163,8 +164,11 @@ export default function Coexpression(p: CoexprProps) {
    */
   const bulk = useMemo(() => {
     if (!src.pseudobulk) return null
+    // "Every cell type" is every column the exporter wrote — except a
+    // sentinel's, which sums the cells the annotator did not call.
+    const every = sentinelMask(src.types) ? populationNames(src.types) : null
     return pseudobulkOn(src.pseudobulk, d.samples,
-      tis === null ? null : tis.map(i => src.clusters[i]), scopeConds)
+      tis === null ? every : tis.map(i => src.clusters[i]), scopeConds)
   }, [src, d.samples, tis, scopeConds])
 
   /* ---------------- the seed vector ---------------- */
@@ -432,7 +436,7 @@ export default function Coexpression(p: CoexprProps) {
               Empty reads "every cell type", which is both the default and the
               truth — unlike the contrast pickers, an unset scope here is a
               complete question rather than a missing one. */}
-          <PickMany label="Cell type" all={types.map(t => t.name)} value={cts}
+          <PickMany label="Cell type" all={populationNames(types)} value={cts}
             noun="cell types" empty="Every cell type" onChange={setCts} />
           {d.multi && (
             <PickMany label="Group" all={d.conds} value={conds}

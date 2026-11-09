@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { CellType, ColorBy, Dataset } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
-import { clusterCentroids, embedExtent, fmt, hasSignal } from '../lib/chart.ts'
-import { drawLabels } from '../lib/canvas-label.ts'
-import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import { fmt, hasSignal } from '../lib/chart.ts'
+import { paintEmbedding } from '../lib/embed-paint.ts'
+import { pal, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import { SENTINEL_GREY, countText, populations, sentinelCount } from '../lib/sentinels.ts'
 import { Card, Legend } from './Ui.tsx'
 
 export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey, onColorBy, onSplit }: {
@@ -52,11 +53,14 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
   // survives switching objects, and the control that would change it is gone.
   const shown: ColorBy = colorBy === 'mito' && !mito ? 'type' : colorBy
 
+  // A sentinel is not a cell type, so it is not a legend entry; its cells are
+  // drawn grey and said in one line under the legend instead.
   const legend: [string, string][] =
-    shown === 'type' ? types.map((t, i) => [pal(i, palKey), t.name])
+    shown === 'type' ? types.flatMap((t, i) => (t.sentinel ? [] : [[pal(i, palKey), t.name] as [string, string]]))
     : shown === 'cond' ? d.conds.map((c, i) => [pal(i, palKey), c])
     : shown === 'sample' ? d.samples.map((s, i) => [pal(i, palKey), s.id])
     : []
+  const uncalled = useMemo(() => sentinelCount(d.cells, types), [d.cells, types])
 
   return (
     <Card
@@ -108,6 +112,16 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
         </div>
       )}
 
+      {shown === 'type' && uncalled.total > 0 && (
+        <p className="mt-2 flex items-center gap-1.5 tx-micro" style={{ color: 'var(--ink-2)' }}>
+          <i className="sw flex-none" style={{ background: SENTINEL_GREY }} />
+          <span>
+            Grey: {fmt(uncalled.total)} cells the annotator did not call ({countText(uncalled)}).
+            They are drawn where they are, and are not a cell type.
+          </span>
+        </p>
+      )}
+
       <figcaption className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
         {panels.length > 1
           ? `One shared axis range across all ${panels.length} panels.`
@@ -136,59 +150,14 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels }:
     if (!cv) return
     const g = cv.getContext('2d')
     if (!g) return
-    const ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim()
-    const surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()
-    const sunk = getComputedStyle(document.documentElement).getPropertyValue('--sunk').trim()
-
-    g.fillStyle = sunk
-    g.fillRect(0, 0, cv.width, cv.height)
-    const { x0, x1, y0, y1 } = embedExtent(xy)
-    /**
-     * The top of the mito ramp, from the data rather than a literal 9.
-     *
-     * Both exporters convert mitochondrial content to a PERCENTAGE, so a fixed
-     * ceiling of 9 gave every cell from 9% to 100% the identical colour: a
-     * dying 40–60% cluster looked exactly like a healthy one at 9, and the
-     * reader could not see where their own QC cutoff fell. The 99th percentile
-     * rather than the maximum, so one extreme cell does not flatten the rest —
-     * which is the same rule the feature plot's percentile ceiling uses.
-     */
-    const mitoTop = (() => {
-      if (colorBy !== 'mito') return 0
-      const vs = d.cells.map(c => c.mito).filter(v => v > 0).sort((a, b) => a - b)
-      if (!vs.length) return 0
-      return vs[Math.min(vs.length - 1, Math.floor(vs.length * 0.99))] || 0
-    })()
-    const r = labels ? (cond ? 1.7 : 1.9) : 1.4
-
-    // Expression is drawn low-to-high so a small positive population is not
-    // buried under the negative majority — the same rule as the feature plot.
-    const order = new Int32Array(d.cells.length)
-    for (let i = 0; i < order.length; i++) order[i] = i
-    for (const i of order) {
-      const c = d.cells[i]
-      if (cond && c.cond !== cond) continue
-      g.fillStyle =
-        colorBy === 'type' ? pal(c.t, palKey)
-        : colorBy === 'cond' ? pal(d.conds.indexOf(c.cond), palKey)
-        : colorBy === 'sample' ? pal(d.samples.findIndex(s => s.id === c.s), palKey)
-        : rampColor(mitoTop > 0 ? Math.min(1, c.mito / mitoTop) : 0, rampKey)
-      g.beginPath()
-      g.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
-        (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * cv.height, r, 0, 6.284)
-      g.fill()
-    }
-
-    if (labels) {
-      g.font = '600 20px system-ui'
-      g.lineWidth = 4
-      const at = clusterCentroids(xy, d, types.length)
-      drawLabels(g, types.map((t, ti) => ({
-        name: t.name,
-        x: ((at[ti].x - x0) / (x1 - x0)) * cv.width,
-        y: (1 - (at[ti].y - y0) / (y1 - y0)) * cv.height,
-      })), { fill: ink, halo: surface })
-    }
+    const css = getComputedStyle(document.documentElement)
+    // What is drawn is in lib/embed-paint.ts, where a test can watch it.
+    paintEmbedding(g, {
+      d, types, xy, cond, colorBy, palKey, rampKey, labels,
+      ink: css.getPropertyValue('--ink').trim(),
+      surface: css.getPropertyValue('--surface').trim(),
+      sunk: css.getPropertyValue('--sunk').trim(),
+    })
   }, [d, types, xy, cond, colorBy, palKey, rampKey, labels])
 
   return (
@@ -201,7 +170,7 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels }:
       role="img"
       aria-label={`${fmt(d.cells.length)} cells on the embedding`
         + `${cond ? `, ${cond} only` : ''}, coloured by ${colorBy}`
-        + `${labels ? `, with ${types.length} cluster names` : ''}`}
+        + `${labels ? `, with ${populations(types).length} cluster names` : ''}`}
       ref={ref} width={Math.round(w * 2)} height={Math.round(h * 2)}
       style={{ width: '100%', height: 'auto', borderRadius: 'var(--r-md)' }}
     />

@@ -10,6 +10,7 @@ import type { CellType, Dataset } from '../types.ts'
 import { bundleDataset, type Bundle, type Embedding } from './bundle.ts'
 import { makeGeneNames, type GeneNames } from './genes.ts'
 import type { MatrixPlan } from './part-scan.ts'
+import { declaredSentinels, markSentinels } from './sentinels.ts'
 import {
   buildDataset, cellExpr, DATASETS, GENES as DEMO_GENES, hash, makeTypes, meanExpr,
 } from './demo.ts'
@@ -26,6 +27,13 @@ export interface SourceMeta {
   /** Decisions the exporter had to make, surfaced on Overview. */
   notes: string[]
   isDemo: boolean
+  /**
+   * The cluster levels the object declares as sentinels, checked against its
+   * levels. Empty (or absent, for the demo objects) when it declares none.
+   * Kept on the source, not only on its types, because re-pointing the cell
+   * type to a carried column marks that column's levels by the same names.
+   */
+  sentinels?: string[]
 }
 
 /** Walks one gene's non-zero entries. Valid only for the duration of the call. */
@@ -478,9 +486,10 @@ export function bundleSource(b: Bundle): Source {
     for (let k = b.indptr[gi]; k < b.indptr[gi + 1]; k++) cb(b.indices[k], b.data[k])
   }
 
-  const types: CellType[] = b.meta.clusters.map(name => ({
+  const sentinels = declaredSentinels(b.meta.sentinels, b.meta.clusters)
+  const types: CellType[] = markSentinels(b.meta.clusters.map(name => ({
     name, key: name, cx: 0, cy: 0, sd: 0, base: 0, resp: 0, mk: [],
-  }))
+  })), sentinels)
 
   return baseSource(d, types, names, {
     label: b.meta.label,
@@ -491,6 +500,7 @@ export function bundleSource(b: Bundle): Source {
     provenance: b.meta.provenance ?? {},
     notes: b.meta.notes ?? [],
     isDemo: false,
+    sentinels,
     // Row-aligned with genes.txt, so it takes the display name too — an exported
     // pseudobulk matrix must not be the one table still in accessions.
   }, vector, nonZero, b.pseudobulk && { ...b.pseudobulk, genes: names.display }, b.embeds)

@@ -97,12 +97,22 @@ export const COARSE = ['Lineage1', 'Lineage2', 'EXCLUDED', 'UNRESOLVED']
 const coarseOf = (i) => [2, 0, 0, 1, 3][clusterOf(i)]
 
 /**
+ * `sentinels` as asked for: the lab's list when the option is not given at all,
+ * and exactly what was given otherwise — including `undefined`, which is a
+ * bundle with no field. (A destructuring default would quietly turn an explicit
+ * `undefined` back into the list.)
+ */
+const sentinelsOf = (opts) => ('sentinels' in opts ? opts.sentinels : SENTINELS)
+
+/**
  * The bundle, over cells [from, to). `sentinels` is the list as the lab writes
  * it (a part names only the ones it has cells of), `undefined` for a bundle
  * that predates the field, or anything else to test how a malformed one is
  * met. `raw` is written verbatim, unfiltered.
  */
-function bundleFiles({ from = 0, to = N, sentinels = SENTINELS, raw, chunked = false } = {}) {
+function bundleFiles(opts = {}) {
+  const { from = 0, to = N, raw, chunked = false } = opts
+  const sentinels = sentinelsOf(opts)
   const n = to - from
   // A part names only the levels it has cells for, as the lab writes them.
   const usedC = [...new Set(Array.from({ length: n }, (_x, k) => clusterOf(from + k)))].sort((a, b) => a - b)
@@ -164,7 +174,8 @@ export const sentinelBundle = (opts = {}) => zipSync(bundleFiles(opts)).buffer
  * splits an atlas: s1–s2 and s3–s4, each part with its own levels and its own
  * `sentinels`, and the whole list in `collection.json`.
  */
-export function sentinelCollection({ sentinels = SENTINELS } = {}) {
+export function sentinelCollection(opts = {}) {
+  const sentinels = sentinelsOf(opts)
   const half = N / 2
   const parts = [[0, half], [half, N]].map(([from, to], k) => ({
     key: `p${k + 1}`, file: `parts/p${k + 1}.zip`, nCells: to - from,

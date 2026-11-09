@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CellType, GroupBy } from '../types.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
+import { populations } from '../lib/sentinels.ts'
 
 /**
  * Which cell types and which groups a figure draws.
@@ -38,12 +39,15 @@ export default function ColumnFilter({
   const showTypes = groupBy !== 'cond'
   const showConds = groupBy !== 'type' && conds.length > 1
 
+  // Populations only. A sentinel is never a column (lib/columns.ts), so a
+  // toggle for it would be a control that changes nothing.
+  const nTypes = populations(types).length
   const toggleT = (ti: number) => {
     const next = new Set(hideT)
     if (!next.delete(ti)) next.add(ti)
     // Never all of them: the figure would have no columns and the only way back
     // would be this control, which is easy to scroll past.
-    if (next.size >= types.length) return
+    if (next.size >= nTypes) return
     onHideT(next)
   }
   const toggleC = (c: string) => {
@@ -53,7 +57,7 @@ export default function ColumnFilter({
     onHideC(next)
   }
 
-  const nT = types.length - hideT.size
+  const nT = nTypes - hideT.size
   const nC = conds.length - hideC.size
   const some = (showTypes && hideT.size > 0) || (showConds && hideC.size > 0)
 
@@ -64,7 +68,7 @@ export default function ColumnFilter({
           {open ? '▾' : '▸'} {label}
         </button>
         <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-          {showTypes && `${nT} of ${types.length} cell type${types.length === 1 ? '' : 's'}`}
+          {showTypes && `${nT} of ${nTypes} cell type${nTypes === 1 ? '' : 's'}`}
           {showTypes && showConds && ' · '}
           {showConds && `${nC} of ${conds.length} groups`}
           {!showTypes && !showConds && 'every population'}
@@ -82,6 +86,7 @@ export default function ColumnFilter({
               <div className="grid gap-1"
                 style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))' }}>
                 {types.map((t, ti) => {
+                  if (t.sentinel) return null
                   const on = !hideT.has(ti)
                   return (
                     <button key={t.key} onClick={() => toggleT(ti)} aria-pressed={on}

@@ -13,6 +13,13 @@ export interface CellType {
   resp: number
   /** Canonical markers, most specific first. */
   mk: string[]
+  /**
+   * The annotator's label for cells it did not call — EXCLUDED, UNRESOLVED —
+   * rather than a cell type. Its cells stay drawn (grey) and are never a
+   * population: see lib/sentinels.ts. Absent on every type of an object that
+   * declares no sentinels.
+   */
+  sentinel?: boolean
 }
 
 export interface SampleRow {

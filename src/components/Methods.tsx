@@ -2,6 +2,7 @@ import type { CellType, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
   condLabel, designFor, MIN_CELLS, type Gates } from '../lib/stats.ts'
+import { countText, sentinelCount } from '../lib/sentinels.ts'
 import { Card, Mono } from './Ui.tsx'
 
 /**
@@ -81,6 +82,12 @@ export default function Methods({
   // cannot work from "3 cell types".
   const ct = tis.map(i => types[i]?.name).filter(Boolean).join(', ')
   const prov = src.meta.provenance
+  // The populations are the cell types. A sentinel — the annotator's label for
+  // a cell it did not call — is not one, and the paragraph says how many cells
+  // carried one and what was done with them, because a reader reproducing the
+  // numbers has to leave the same cells out.
+  const pops = types.filter(t => !t.sentinel)
+  const uncalled = sentinelCount(d.cells, types)
 
   // Numbers are allocated on first use, so the two paragraphs have to be built
   // in the order they are read — which is why the first one is a variable here
@@ -102,7 +109,7 @@ export default function Methods({
       This object was processed elsewhere and read from a bundle exported from{' '}
       <Mono>{src.meta.source}</Mono>. Expression values are{' '}
       <Mono>{src.meta.expression}</Mono>; nothing in this app imputes, denoises or rescales
-      them. The {types.length} populations are the object&rsquo;s own labels
+      them. The {pops.length} populations are the object&rsquo;s own labels
       {clustering
         ? <>, taken from its <Mono>{clustering}</Mono> annotation{clusterRef && cite(clusterRef)}</>
         : <>, and the file records no clustering method for them</>}.
@@ -122,14 +129,19 @@ export default function Methods({
       <b>Everything between the counts and those labels is unknown to this app</b>: how many
       variable genes were kept, how many components were used, how large the neighbourhood was
       and at what resolution the graph was cut are not carried in the file, and are not guessed
-      at here. The populations are reported as {types.map(t => t.name).join(', ')}.
+      at here. The populations are reported as {pops.map(t => t.name).join(', ')}.
+      {uncalled.total > 0 && <> A further {uncalled.total.toLocaleString('en-US')} cells carry
+        the annotator&rsquo;s labels for cells it did not call ({countText(uncalled)}); they are
+        not a cell type, so they are left out of every population, proportion and test below,
+        and kept on the embedding.</>}
     </p>
   )
 
   const de = !d.multi ? (
     <>No between-group differential expression was performed, as the object contains a single
     condition. Cluster identities were supported by one-vs-rest Wilcoxon rank-sum
-    tests{cite('seurat')}, reported as a ranking of marker genes rather than as hypothesis
+    tests{cite('seurat')}{uncalled.total > 0 && <>, each population against every other cell
+    with a cell type</>}, reported as a ranking of marker genes rather than as hypothesis
     tests.</>
   ) : wil ? (
     <>Differential expression between {condLabel(cs)} and {condLabel(ctrl)} within {ct} was tested with a Wilcoxon
@@ -144,18 +156,26 @@ export default function Methods({
       : <>Because cells from the same animal are not independent observations, these p-values
         describe variation between cells rather than between animals{cite('practices')}.</>}</>
   ) : (
-    <>Differential expression between {condLabel(cs)} and {condLabel(ctrl)} within {ct} was tested on pseudobulk
-    profiles{cite('practices')}: raw counts were summed across all cells of a given animal, animals
-    contributing fewer than {MIN_CELLS} cells of that type were excluded, and the resulting matrix
-    of {design.n0} {condLabel(ctrl)} and {design.n1} {condLabel(cs)} profiles was tested with DESeq2{cite('deseq2')} using{' '}
-    {condLabel(ctrl)} as the reference level, with Benjamini–Hochberg adjustment. Genes with an adjusted p
-    below {padjMax} and an absolute log₂ fold change of at least {lfcMin} were considered
-    differentially expressed.</>
+    // What the pseudobulk path does, and only that: it sums the counts and
+    // exports them. DESeq2 is cited as what the matrix is for, not as a test
+    // that ran — this paragraph is the text people copy into a paper, and it
+    // used to say the profiles "were tested with DESeq2 … with Benjamini–
+    // Hochberg adjustment", which nothing in this app does.
+    <>Pseudobulk profiles were prepared for {condLabel(cs)} against {condLabel(ctrl)} within{' '}
+    {ct}{cite('practices')}: raw counts were summed across all cells of a given animal, animals
+    contributing fewer than {MIN_CELLS} cells of that type were excluded, and the summed counts of
+    the resulting {design.n0} {condLabel(ctrl)} and {design.n1} {condLabel(cs)} profiles were
+    exported for DESeq2{cite('deseq2')}. No test was run here, so no gene is reported as
+    differentially expressed; the model, its reference level and its multiple-testing adjustment
+    are chosen where the counts are tested.</>
   )
 
-  const closing = (
+  const closing = wil || !d.multi ? (
     <>{' '}Exploration, figures and statistics were produced in scRNA-seq
     Studio{cite('studio')}, which runs these tests in the browser.</>
+  ) : (
+    <>{' '}Exploration and figures were produced, and the counts summed, in scRNA-seq
+    Studio{cite('studio')}, in the browser.</>
   )
 
   return (

@@ -8,6 +8,7 @@ import { maxOf } from '../lib/chart.ts'
 import { widestW } from '../lib/labels.ts'
 import { AXIS_INK, GHOST_INK, GRID_INK, LABEL_INK, MARK_EDGE } from '../lib/figure-ink.ts'
 import { mix, pal, type PaletteKey } from '../lib/palette.ts'
+import { countText, populations, sentinelCount } from '../lib/sentinels.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { Card, Chips, Empty } from './Ui.tsx'
@@ -69,8 +70,16 @@ export default function Markers({
    * `want` is held by index and is part of the job key below, so changing it
    * asks a new question rather than filtering the old answer.
    */
-  const chosen = want.size ? [...want].sort((a, b) => a - b) : types.map((_t, i) => i)
+  // Every population, which is every cell type unless the object declares
+  // sentinels: those are on neither side of any test, so there is nothing to
+  // choose or to draw for them. See markersSpec.
+  const pops = populations(types)
+  const chosen = want.size ? [...want].sort((a, b) => a - b) : pops
   const wantKey = want.size ? chosen.join(',') : 'all'
+  const uncalled = sentinelCount(src.d.cells, types)
+  const uncalledNote = uncalled.total > 0
+    ? `${uncalled.total.toLocaleString('en-US')} cells the annotator did not call (${countText(uncalled)}) are on neither side of any test.`
+    : null
 
   // One Wilcoxon per cluster against every other cell, all clusters in one pass
   // over the genes. Keyed on the object alone: renaming a cluster must not throw
@@ -157,8 +166,11 @@ export default function Markers({
         </div>
         <button className="btn btn-primary mt-3.5" onClick={() => onGo(true)}>
           {want.size ? `Find markers for ${want.size} cell type${want.size > 1 ? 's' : ''}`
-            : `Find markers for all ${types.length}`}
+            : `Find markers for all ${pops.length}`}
         </button>
+        {uncalledNote && (
+          <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>{uncalledNote}</p>
+        )}
       </Card>
     )
   }
@@ -219,7 +231,7 @@ export default function Markers({
           one clause, on the label that makes the claim. */}
       <Card
         eyebrow="Markers · one vs rest · a ranking, not a test"
-        title={`${genes.length} genes across ${chosen.length} of ${types.length} cell types`}
+        title={`${genes.length} genes across ${chosen.length} of ${pops.length} cell types`}
         sub="Mean expression × fraction detected. Rename a cluster to rename it everywhere."
         right={<>
           <Chips label="Top per cluster" value={topN} options={[3, 5, 8, 12]} onChange={setTopN} />
@@ -396,6 +408,7 @@ export default function Markers({
               numbers on screen do not say for themselves. */}
           <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
             Counts are genes at padj &lt; {th.padj} and log₂FC ≥ {th.lfc}; click one for the list.
+            {uncalledNote && <> {uncalledNote}</>}
           </p>
         </div>
       </Card>
@@ -424,12 +437,13 @@ function TypePicker({ types, want, onWant, palKey }: {
     if (!next.delete(i)) next.add(i)
     onWant(next)
   }
+  const nPop = populations(types).length
   return (
     <div className="panel">
       <div className="mb-1.5 flex flex-wrap items-center gap-2 px-1">
         <span className="glabel">Cell types</span>
         <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-          {want.size ? `${want.size} of ${types.length}` : `all ${types.length}`}
+          {want.size ? `${want.size} of ${nPop}` : `all ${nPop}`}
         </span>
         {want.size > 0 && (
           <button className="btn btn-quiet" onClick={() => onWant(new Set())}>All of them</button>
@@ -438,6 +452,7 @@ function TypePicker({ types, want, onWant, palKey }: {
       <div className="grid gap-1"
         style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))' }}>
         {types.map((t, i) => {
+          if (t.sentinel) return null
           const on = want.size === 0 || want.has(i)
           return (
             <button key={t.key} onClick={() => toggle(i)} aria-pressed={want.has(i)}

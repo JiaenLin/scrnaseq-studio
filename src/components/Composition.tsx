@@ -10,6 +10,7 @@ import { downloadCsv, svgSheetToFile } from '../lib/download.ts'
 import { MARK_EDGE, PLATE } from '../lib/figure-ink.ts'
 import { axisTicks, wrapAll, widestW } from '../lib/labels.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
+import { namesText, sentinelCount } from '../lib/sentinels.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Legend } from './Ui.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
@@ -106,6 +107,8 @@ export default function Composition({ d, types, palKey }: {
 
   const condAt = useMemo(
     () => new Map(d.conds.map((c, i) => [c, i])), [d.conds])
+  /** The annotator's uncalled cells: in no bar and no denominator, and said so. */
+  const uncalled = useMemo(() => sentinelCount(d.cells, types), [d.cells, types])
 
   /** Every row the user asked for, before the drawing cap. */
   const chosen = useMemo(() => {
@@ -310,8 +313,13 @@ export default function Composition({ d, types, palKey }: {
               />
             </Figure>
             <Legend
-              items={partNames.map((n, i) => [pal(i, palKey), n])}
-              note={`${drawn.length} row${drawn.length === 1 ? '' : 's'} · ${table.nCells.toLocaleString('en-US')} cells`}
+              items={partNames.flatMap((n, i) => (parts === 'type' && types[i]?.sentinel
+                ? [] : [[pal(i, palKey), n] as [string, string]]))}
+              note={`${drawn.length} row${drawn.length === 1 ? '' : 's'} · ${table.nCells.toLocaleString('en-US')} cells`
+                + (table.nSentinel
+                  ? ` · ${table.nSentinel.toLocaleString('en-US')} cells the annotator did not call`
+                    + ` (${namesText(uncalled)}) are not a cell type and are left out`
+                  : '')}
             />
           </>
         )}
@@ -339,8 +347,8 @@ export default function Composition({ d, types, palKey }: {
               onClick={() => downloadCsv(
                 'composition_type_by_group_per_sample',
                 ['type', 'sample', 'cond', 'fraction'],
-                types.flatMap((t, ti) => d.samples.map((s, si) =>
-                  [t.name, s.id, s.cond, d.prop[si][ti].toFixed(6)])),
+                types.flatMap((t, ti) => (t.sentinel ? [] : d.samples.map((s, si) =>
+                  [t.name, s.id, s.cond, d.prop[si][ti].toFixed(6)]))),
               )}
             />
           </div>
@@ -349,7 +357,8 @@ export default function Composition({ d, types, palKey }: {
             className="mt-3 grid gap-3"
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(178px, 1fr))' }}
           >
-            {types.map((t, ti) => <TypeFacet key={t.key} d={d} t={t} ti={ti} palKey={palKey} />)}
+            {types.map((t, ti) => (t.sentinel ? null
+              : <TypeFacet key={t.key} d={d} t={t} ti={ti} palKey={palKey} />))}
           </div>
           <Legend
             items={d.conds.map((c, i) => [pal(i, palKey), c])}

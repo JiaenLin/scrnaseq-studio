@@ -11,6 +11,7 @@ import {
 import { mergeGenes } from './lib/genes.ts'
 import { withRoles } from './lib/roles.ts'
 import { withCondOrder } from './lib/order.ts'
+import { populationNames } from './lib/sentinels.ts'
 import type { PaletteKey, RampKey } from './lib/palette.ts'
 import PickMany from './components/PickMany.tsx'
 import Landing from './components/Landing.tsx'
@@ -518,7 +519,9 @@ export default function App() {
   const d = src.d
   // In the object's own order, not the order they were ticked, so a caption and
   // a cache key are the same for two readers who chose the same types.
-  const tis = types.map((x, i) => (cts.includes(x.name) ? i : -1)).filter(i => i >= 0)
+  // Never a sentinel, even one sharing a name with a renamed type: the cells
+  // the annotator did not call are on neither side of any contrast.
+  const tis = types.map((x, i) => (!x.sentinel && cts.includes(x.name) ? i : -1)).filter(i => i >= 0)
   const ts = tis.map(i => types[i])
   const ctLabel = typesLabel(ts.map(x => x.name))
   const design = designFor(src, tis, ctrl, cs)
@@ -770,7 +773,7 @@ export default function App() {
               // holds one — so a contrast over a lineage meant running it once
               // per cluster and reading the tables side by side, which is three
               // corrections and no pooled estimate.
-              <PickMany label="Cell type" all={types.map(x => x.name)} value={cts}
+              <PickMany label="Cell type" all={populationNames(types)} value={cts}
                 noun="cell types" empty="pick one" onChange={setCts} />
             )}
             {showEmb && (

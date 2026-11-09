@@ -26,6 +26,7 @@
 import type { CellType, Dataset } from '../types.ts'
 import { cellColumns } from './bundle.ts'
 import { cellsBySample } from './chart.ts'
+import { sentinelMask } from './sentinels.ts'
 
 /**
  * A categorical column of this object, by role or by position.
@@ -229,7 +230,14 @@ export interface CompTable {
   spanningSamples: number
   /** Every row falls in a single part, so the bars would carry no information. */
   degenerate: boolean
+  /** The cells counted: every cell that carries a cell type. */
   nCells: number
+  /**
+   * Cells left out because their label is a sentinel — the annotator did not
+   * call them, so they are not a slice of any bar, nor of any denominator. The
+   * figure states this number; 0 for an object that declares none.
+   */
+  nSentinel: number
 }
 
 /** 0, 1, 2 for the three roles; 3 + N for the Nth extra column. */
@@ -243,12 +251,14 @@ const CACHE = new WeakMap<Dataset, Map<string, CompTable>>()
  *
  * Cached on the Dataset. Cluster names are not part of the key because nothing
  * here stores a name — rows carry level indices and the caller resolves them,
- * so renaming a cluster in Markers cannot invalidate a count.
+ * so renaming a cluster in Markers cannot invalidate a count. Which levels are
+ * sentinels IS part of it, because it decides which cells are counted at all.
  */
 export function compTable(
   d: Dataset, types: CellType[], parts: CompField, rowFields: CompField[],
 ): CompTable {
-  const key = `${parts}|${rowFields.join('+')}|${types.length}`
+  const sent = sentinelMask(types)
+  const key = `${parts}|${rowFields.join('+')}|${types.length}${sent ? `|${sent.join('')}` : ''}`
   let per = CACHE.get(d)
   if (!per) { per = new Map(); CACHE.set(d, per) }
   const hit = per.get(key)
@@ -326,7 +336,13 @@ function build(
   // that is the difference between one pass and 292 495 map lookups.
   const buckets = cellsBySample(d)
   const cells = d.cells
+  // A sentinel cell is a cell, but not of any type, so it is in no bar and no
+  // denominator — whatever the pairing, because a composition is a statement
+  // about the cell types. null when the object declares none: the loop is then
+  // the one it always was.
+  const sent = sentinelMask(types)
   let nCells = 0
+  let nSentinel = 0
   for (let si = 0; si < nSample; si++) {
     const ci = sampleCond[si]
     const idx = buckets[si]
@@ -334,6 +350,7 @@ function build(
       const cell = idx[k]
       const ti = cells[cell].t
       if (ti >= nType) continue
+      if (sent && sent[ti]) { nSentinel++; continue }
       let r = 0
       for (let j = 0; j < rowCodes.length; j++) {
         const c = rowCodes[j]
@@ -412,5 +429,6 @@ function build(
     spanningSamples,
     degenerate,
     nCells,
+    nSentinel,
   }
 }

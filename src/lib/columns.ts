@@ -49,7 +49,9 @@ export function scoreColumns(
   keepT: ReadonlySet<number> | null,
   keepC: ReadonlySet<string> | null,
 ): Column[] {
-  const okT = (t: number) => t >= 0 && t < types.length && (!keepT || keepT.has(t))
+  // A sentinel is never a column, and its cells are in none — "across groups"
+  // pools every cell TYPE, and an uncalled cell has none.
+  const okT = (t: number) => t >= 0 && t < types.length && !types[t].sentinel && (!keepT || keepT.has(t))
   const okC = (c: string) => !keepC || keepC.has(c)
   const condAt = new Map(d.conds.map((c, i) => [c, i]))
 
@@ -183,7 +185,7 @@ export function aggregateColumns(
   keepC: ReadonlySet<string> | null,
   fine: Fine,
 ): AggColumn[] {
-  const okT = (t: number) => !keepT || keepT.has(t)
+  const okT = (t: number) => !types[t]?.sentinel && (!keepT || keepT.has(t))
   const okC = (c: string) => !keepC || keepC.has(c)
   const out: AggColumn[] = []
   const slot = new Map<string, number>()

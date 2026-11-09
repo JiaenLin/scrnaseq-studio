@@ -4,6 +4,7 @@ import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { condLabel } from '../lib/stats.ts'
 import { identities } from '../lib/chart.ts'
+import { populations } from '../lib/sentinels.ts'
 import { geneIndex, MAX_GENES, mergeGenes, parseGeneList, rankGenes, SEPS } from '../lib/genes.ts'
 import {
   DIVERGING, pal, RAMPS, SEQUENTIAL, type PaletteKey, type RampKey,
@@ -138,8 +139,11 @@ export default function GeneExpression(p: GeneProps) {
    * than a new one. Nothing about the numbers changes.
    */
   const [flipDot, setFlipDot] = useState(false)
-  const [ct, setCt] = useState(p.types[0]?.name ?? '')
-  const ctName = p.types.some(t => t.name === ct) ? ct : (p.types[0]?.name ?? '')
+  // A sentinel is not a cell type to look inside, so it is never the default
+  // and never offered — see identities(), which leaves it out of every axis.
+  const firstType = p.types.find(t => !t.sentinel)?.name ?? ''
+  const [ct, setCt] = useState(firstType)
+  const ctName = p.types.some(t => t.name === ct && !t.sentinel) ? ct : firstType
 
   // Hidden types leave the violin panel and the dot plot entirely — an identity
   // with no cells is a blank column, and a panel of blank columns is worse than
@@ -270,7 +274,7 @@ export default function GeneExpression(p: GeneProps) {
             <label className="flex items-center gap-1.5">
               <span className="glabel">Cell type</span>
               <select className="sel" value={ctName} onChange={e => setCt(e.target.value)}>
-                {p.types.filter((_t, i) => !p.hidden.has(i))
+                {p.types.filter((t, i) => !t.sentinel && !p.hidden.has(i))
                   .map(t => <option key={t.key} value={t.name}>{t.name}</option>)}
               </select>
             </label>
@@ -403,7 +407,8 @@ function CellFilter({ p }: { p: GeneProps }) {
     return n
   }, [p.src, p.types.length])
 
-  const total = p.types.length
+  // Populations only: a sentinel is in no figure here, so it is not a toggle.
+  const total = populations(p.types).length
   const shown = total - p.hidden.size
   const toggle = (ti: number) => {
     const next = new Set(p.hidden)
@@ -436,6 +441,7 @@ function CellFilter({ p }: { p: GeneProps }) {
           <div className="grid gap-1"
             style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))' }}>
             {p.types.map((t, ti) => {
+              if (t.sentinel) return null
               const on = !p.hidden.has(ti)
               return (
                 <button key={t.key} onClick={() => toggle(ti)} aria-pressed={on}

@@ -35,6 +35,7 @@ import type { CollectionIndex, CollectionMeta, PartEntry } from './collection.ts
 import { unionLevels } from './levels.ts'
 import { scanMatrix, type MatrixPlan } from './part-scan.ts'
 import { geneLookup, baseSource, type Source } from './source.ts'
+import { declaredSentinels, markSentinels } from './sentinels.ts'
 import { readZipDir, payloadStart, readZipEntry, type ZipEntry } from './zipdir.ts'
 
 class CollectionError extends Error {}
@@ -107,7 +108,7 @@ export async function openCollection(
   if (!cmeta.parts?.length) fail('this collection lists no parts')
   // Read without the index type having to know the fields, so a studio built
   // against an older collection.ts still reads a collection that carries them.
-  const { condOrder, extraOrder } = cmeta as CollectionMeta & {
+  const { condOrder, extraOrder, sentinels: listed } = cmeta as CollectionMeta & {
     condOrder?: string[]
     extraOrder?: Record<string, string[]>
   }
@@ -115,6 +116,7 @@ export async function openCollection(
   const perPartCache = Math.max(2 << 20, Math.floor(CACHE_BUDGET / cmeta.parts.length))
   const parts: Part[] = []
   const clusterLevels: string[][] = []
+  const partSentinels = new Set<string>()
   const sampleLevels: string[][] = []
   const condLevels: string[][] = []
   const clusterCodes: Uint16Array[] = []
@@ -280,6 +282,12 @@ export async function openCollection(
         new Uint8Array(await file.slice(base + from, base + to).arrayBuffer()),
     })
     clusterLevels.push(meta.clusters)
+    // Each part names the sentinels it has cells of. Checked as a single bundle
+    // checks its own, so a malformed list refuses the open rather than leaving
+    // some uncalled cells counted as a cell type.
+    try {
+      for (const s of declaredSentinels(meta.sentinels, meta.clusters)) partSentinels.add(s)
+    } catch (e) { fail(`part ${info.key}: ${(e as Error).message}`) }
     sampleLevels.push(meta.samples.map(s => s.id))
     condLevels.push(meta.conditions ?? [])
     clusterCodes.push(cluster)
@@ -316,6 +324,14 @@ export async function openCollection(
   // Optional, like clusterOrder: a collection written before the lab recorded
   // it still opens, and still gets the reconstruction in levels.ts.
   const cl = unionLevels(clusterLevels, cmeta.clusterOrder)
+  // The index's list when it has one — it is the whole object's, where a part
+  // holds only the sentinels it has cells of — and otherwise every part's.
+  let sentinels: string[]
+  try {
+    sentinels = listed !== undefined
+      ? declaredSentinels(listed, cl.levels)
+      : cl.levels.filter(l => partSentinels.has(l))
+  } catch (e) { return fail(`collection.json: ${(e as Error).message}`) }
   const sm = unionLevels(sampleLevels)
   const cd = unionLevels(condLevels, condOrder)
 
@@ -404,6 +420,7 @@ export async function openCollection(
     source: cmeta.source ?? meta0.source,
     nCells, nGenes, nnz,
     clusters: cl.levels,
+    sentinels,
     samples: sm.levels.map((id, i) => ({ id, condition: sampleCond[i] ?? cd.levels[0] ?? 'all cells' })),
     conditions: cd.levels.length ? cd.levels : ['all cells'],
     embedding: meta0.embedding,
@@ -421,9 +438,9 @@ export async function openCollection(
     cluster, sample, embed, qc, pseudobulk, extras: columns,
   } as Bundle)
 
-  const types: CellType[] = merged.clusters.map(name => ({
+  const types: CellType[] = markSentinels(merged.clusters.map(name => ({
     name, key: name, cx: 0, cy: 0, sd: 0, base: 0, resp: 0, mk: [],
-  }))
+  })), sentinels)
 
   // ---- gene values, read from the file on demand --------------------------
   // Named exactly as a one-part bundle is: the display name is the only name
@@ -670,6 +687,7 @@ export async function openCollection(
     provenance: merged.provenance,
     notes,
     isDemo: false,
+    sentinels,
     // The summed counts are indexed by row, so they carry the display name too —
     // an exported pseudobulk matrix must not be the one table in a different
     // vocabulary from every figure beside it.

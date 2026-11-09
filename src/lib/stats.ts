@@ -12,6 +12,7 @@
 // the one that matters.
 
 import type { CellType, DERow, Design, Method } from '../types.ts'
+import { sentinelMask } from './sentinels.ts'
 import { condKey, type Conds, type NonZeroWalk, type Source } from './source.ts'
 
 /** Cells a sample must contribute before it becomes a pseudobulk column. */
@@ -616,9 +617,11 @@ export interface MarkersSpec {
    * Which clusters to test. 1 for wanted, 0 to skip.
    *
    * It restricts what is REPORTED, never what a cluster is compared against:
-   * every cluster's "rest" is still every other cell in the object, including
-   * the cells of clusters nobody asked about. Narrowing the question must not
-   * quietly change the answer to it.
+   * every cluster's "rest" is still every other typed cell in the object,
+   * including the cells of clusters nobody asked about. Narrowing the question
+   * must not quietly change the answer to it. (A sentinel's cells — the ones
+   * the annotator did not call — are in no population, so they are owned by
+   * nobody and sit on neither side; see markersSpec.)
    *
    * It is also where the saving is. The gates are evaluated before the sort and
    * a gene with no cluster passing skips the sort entirely — so asking about
@@ -641,6 +644,18 @@ export const inConds = (cond: string, side: Conds): boolean =>
   (side == null ? true : typeof side === 'string' ? cond === side : side.includes(cond))
 
 /**
+ * The cell types of `tis` that are populations — every one of them, unless the
+ * object declares sentinels. A sentinel is never a side of a comparison, even
+ * when its index is handed over: a picker offers none, and this is the floor
+ * under that, so a cell type renamed to a sentinel's name cannot bring the
+ * uncalled cells in with it.
+ */
+function typedOnly(src: Source, tis: readonly number[]): readonly number[] {
+  const sent = sentinelMask(src.types)
+  return sent ? tis.filter(ti => !sent[ti]) : tis
+}
+
+/**
  * The cells of ONE OR MORE cell types, on one side of a contrast, in cell order.
  *
  * `src.group` answers for a single type, which was the shape of every contrast
@@ -658,7 +673,8 @@ export const inConds = (cond: string, side: Conds): boolean =>
  * has to mean no cells; defaulting to the whole object would silently answer a
  * question about one cluster with a contrast over all of them.
  */
-export function cellsOf(src: Source, tis: readonly number[], cond?: Conds): Int32Array {
+export function cellsOf(src: Source, types: readonly number[], cond?: Conds): Int32Array {
+  const tis = typedOnly(src, types)
   if (tis.length === 1) return src.group(tis[0], cond)
   const want = new Set(tis)
   const out: number[] = []
@@ -733,10 +749,15 @@ export function markersSpec(
   const n = src.d.cells.length
   const owner = new Int32Array(n)
   const size = new Int32Array(nT)
+  // A sentinel's cells are owned by nobody: not tested as a cluster, and not in
+  // any cluster's rest. null for an object without sentinels, which then
+  // builds exactly the spec it always did.
+  const sent = sentinelMask(src.types)
   let nUsed = 0
   for (let i = 0; i < n; i++) {
     const c = src.d.cells[i]
     if (cond && c.cond !== cond) { owner[i] = -1; continue }
+    if (sent && sent[c.t]) { owner[i] = -1; continue }
     owner[i] = c.t
     size[c.t]++
     nUsed++
@@ -745,6 +766,7 @@ export function markersSpec(
   const mask = new Uint8Array(nT)
   if (want == null) mask.fill(1)
   else for (const c of want) if (c >= 0 && c < nT) mask[c] = 1
+  if (sent) for (let t = 0; t < nT; t++) if (sent[t]) mask[t] = 0
   return { owner, size, want: mask, nUsed, nGenes: src.genes.length }
 }
 
@@ -1000,8 +1022,13 @@ export async function deMarkersAllAsync(
 export function deMarkers(src: Source, ti: number, cond?: string | null): DEResult {
   const inCluster: number[] = []
   const rest: number[] = []
+  // The same populations as markersSpec — a sentinel's cells on neither side —
+  // because that is the question being checked. What this reference must NOT
+  // share is the cell floor; see above.
+  const sent = sentinelMask(src.types)
   src.d.cells.forEach((c, i) => {
     if (cond && c.cond !== cond) return
+    if (sent && sent[c.t]) return
     if (c.t === ti) inCluster.push(i); else rest.push(i)
   })
   const a = Int32Array.from(inCluster)
@@ -1036,7 +1063,7 @@ export interface PseudobulkColumn {
 export function pseudobulkColumns(
   src: Source, tis: readonly number[], ctrl: Conds, cs: Conds,
 ): PseudobulkColumn[] {
-  if (!src.pseudobulk || tis.length !== 1) return []
+  if (!src.pseudobulk || tis.length !== 1 || src.types[tis[0]]?.sentinel) return []
   const cluster = src.clusters[tis[0]]
   const condOf = new Map(src.d.samples.map(s => [s.id, s.cond]))
   return src.pseudobulk.columns
@@ -1050,7 +1077,7 @@ export function pseudobulkColumns(
 export function designFor(
   src: Source, tis: readonly number[], ctrl: Conds, cs: Conds,
 ): Design {
-  const want = new Set(tis)
+  const want = new Set(typedOnly(src, tis))
   const counts = new Map<string, number>()
   for (const c of src.d.cells) {
     // A sample's cells across every selected type, because that is what the

@@ -608,11 +608,13 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
     g.font = '600 17px system-ui'
     g.lineWidth = 3.5
     const at = clusterCentroids(xy, d, types.length)
-    drawLabels(g, types.map((t, ti) => ({
+    // Cell types only: a sentinel's cells are scored and drawn like any cell,
+    // but a name at their median would mark a population that is not there.
+    drawLabels(g, types.flatMap((t, ti) => (t.sentinel ? [] : [{
       name: t.name,
       x: ((at[ti].x - x0) / (x1 - x0)) * cv.width,
       y: (1 - (at[ti].y - y0) / (y1 - y0)) * plotH,
-    })), { fill: LABEL_INK, halo: 'rgba(255,255,255,.9)' })
+    }])), { fill: LABEL_INK, halo: 'rgba(255,255,255,.9)' })
 
     // The scale, on the figure. It was an HTML strip beside the canvas, so an
     // exported score map had colours and no way to read them — and this one is

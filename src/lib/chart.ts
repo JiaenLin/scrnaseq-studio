@@ -151,17 +151,21 @@ export function identities(
   d: Dataset, types: CellType[], groupBy: 'type' | 'cond' | 'both',
   ct: string, palKey: PaletteKey,
 ): Identity[] {
+  // A sentinel is not an identity: its cells were not called, so a violin or a
+  // dot-plot row for them would be a per-label statistic for a label that is
+  // not one. Each type keeps its own index, so its colour does not move.
   if (groupBy === 'type')
-    return types.map((t, ti) => ({
+    return types.flatMap((t, ti) => (t.sentinel ? [] : [{
       label: t.name, full: t.name, color: pal(ti, palKey), ti, cond: d.conds[0],
-    }))
+    }]))
   if (groupBy === 'cond') {
-    const ti = Math.max(0, types.findIndex(t => t.name === ct))
+    const found = types.findIndex(t => t.name === ct && !t.sentinel)
+    const ti = found >= 0 ? found : Math.max(0, types.findIndex(t => !t.sentinel))
     return d.conds.map((c, ci) => ({
       label: c, full: `${types[ti]?.name ?? ct} · ${c}`, color: pal(ci, palKey), ti, cond: c,
     }))
   }
-  return types.flatMap((t, ti) =>
+  return types.flatMap((t, ti) => t.sentinel ? [] :
     d.conds.map((c, ci) => ({
       label: c, full: `${t.name} · ${c}`, color: pal(ti, palKey),
       dim: d.conds.length > 1 ? ci / (d.conds.length - 1) : 1,

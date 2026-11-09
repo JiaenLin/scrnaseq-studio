@@ -26,6 +26,7 @@ const check = (name, got, want) => {
   console.log(`${ok ? '  ok  ' : '  FAIL'} ${name}${ok ? '' : `\n        got  ${JSON.stringify(got)}\n        want ${JSON.stringify(want)}`}`)
 }
 const S = await import('../src/lib/sentinels.ts').catch(() => null)
+const P = await import('../src/lib/embed-paint.ts').catch(() => null)
 const C = await loadComponents()
 const T = truth()
 const legendOf = (html) => [...html.matchAll(/<span><i class="sw" style="background:([^"]*)"><\/i>([^<]*)<\/span>/g)]
@@ -101,6 +102,28 @@ for (const [label, opts] of [['with no sentinels field', { sentinels: undefined 
       const n = T.reduce((a, row) => a + row[ci], 0)
       return [n, N - n]
     }))
+
+  // The rule the Cells tab has always drawn by: every cell, in the object's
+  // order, in its cluster's palette colour, and every cluster named.
+  if (!P) check('src/lib/embed-paint.ts paints the embedding', 'missing', 'present')
+  else {
+    const arcs = []
+    const texts = []
+    let pending = false
+    const g = {
+      canvas: { width: 800, height: 600 }, font: '600 20px system-ui', fillStyle: '', strokeStyle: '',
+      lineWidth: 1, textAlign: 'left', fillRect() {}, beginPath() { pending = false }, arc() { pending = true },
+      fill() { if (pending) arcs.push(this.fillStyle); pending = false },
+      measureText(s) { return { width: s.length * 9 } }, strokeText() {}, fillText(s) { texts.push(s) },
+    }
+    P.paintEmbedding(g, {
+      d, types: src.types, xy: src.embeddings[0].xy, cond: null, colorBy: 'type',
+      palKey: 'npg', rampKey: 'blue', labels: true, ink: '#000', surface: '#fff', sunk: '#eee',
+    })
+    check('the embedding paints every cell in order, in its cluster\'s colour',
+      arcs, d.cells.map(c => pal(c.t, 'npg')))
+    check('and names every cluster it can place', texts.filter(s => CLUSTERS.includes(s)).length, CLUSTERS.length)
+  }
 
   const cells = render(C.Cells, {
     src, types: src.types, emb: src.embeddings[0], colorBy: 'type', split: false,

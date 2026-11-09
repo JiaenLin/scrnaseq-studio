@@ -8,6 +8,7 @@
 import { unzipSync } from 'fflate'
 import type { Cell, Dataset, SampleRow } from '../types.ts'
 import type { GeneIdKind } from './genes.ts'
+import { declaredSentinels, maskOfNames, proportions } from './sentinels.ts'
 
 export const SCHEMA = 'scrnaseq-studio/bundle@1'
 
@@ -66,6 +67,14 @@ export interface BundleMeta {
   nGenes: number
   nnz: number
   clusters: string[]
+  /**
+   * Cluster levels that are an annotator's sentinels — its labels for cells it
+   * did not call — rather than cell types. Written by the lab's command-line
+   * converter (an empty list is "none"); absent in bundles from the in-browser
+   * lab and from before the field existed, which read the same as empty. The
+   * cells stay in `clusters` and are drawn; see lib/sentinels.ts.
+   */
+  sentinels?: string[]
   samples: { id: string; condition: string }[]
   conditions: string[]
   /**
@@ -219,6 +228,9 @@ export function parseBundle(buf: ArrayBuffer): Bundle {
   if (qc.length !== 3 * n) fail(`qc.f32 has ${qc.length} values, expected ${3 * n}`)
   if (!meta.clusters?.length) fail('the bundle has no clusters')
   if (!meta.samples?.length) fail('the bundle has no samples')
+  // Checked here so a malformed list refuses the open, like every other field
+  // above, rather than counting some uncalled cells as a cell type.
+  try { declaredSentinels(meta.sentinels, meta.clusters) } catch (e) { fail((e as Error).message) }
 
   // A cell index outside the matrix would read another gene's values, which is
   // the kind of wrongness that renders instead of throwing.
@@ -367,10 +379,10 @@ export function bundleDataset(b: Bundle): Dataset {
   const nT = meta.clusters.length
   const grid = Array.from({ length: nT }, () => new Array(samples.length).fill(0))
   for (let i = 0; i < meta.nCells; i++) grid[b.cluster[i]][b.sample[i]]++
-  const prop = samples.map((_s, si) => {
-    const tot = grid.reduce((a, row) => a + row[si], 0) || 1
-    return grid.map(row => row[si] / tot)
-  })
+  // The grid counts every cell, sentinels included — they are cells. The
+  // proportions are of each sample's typed cells: see proportions().
+  const prop = proportions(grid, samples.length,
+    maskOfNames(meta.clusters, declaredSentinels(meta.sentinels, meta.clusters)))
   const nPerCond: Record<string, number> = {}
   for (const c of meta.conditions) nPerCond[c] = 0
   for (const c of cells) nPerCond[c.cond] = (nPerCond[c.cond] ?? 0) + 1

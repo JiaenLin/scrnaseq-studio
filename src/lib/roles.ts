@@ -28,6 +28,7 @@
 
 import type { CellType, Cell, Dataset } from '../types.ts'
 import { cellColumns, type ExtraColumn } from './bundle.ts'
+import { markSentinels, proportions, sentinelMask } from './sentinels.ts'
 import type { Source } from './source.ts'
 
 /** A column that could stand in for a role, and what it is called. */
@@ -110,8 +111,13 @@ export function withRoles(
   const gCol = groupAt >= 0 ? extras[groupAt] : null
   if (!tCol && !gCol) return base
 
+  // A carried column that names uncalled cells with the object's sentinel words
+  // means the same by them, so its levels are marked by name — the same rule
+  // the object's own cell types were marked by.
   const types: CellType[] = tCol
-    ? tCol.levels.map(name => ({ name, key: name, cx: 0, cy: 0, sd: 0, base: 0, resp: 0, mk: [] }))
+    ? markSentinels(
+      tCol.levels.map(name => ({ name, key: name, cx: 0, cy: 0, sd: 0, base: 0, resp: 0, mk: [] })),
+      src.meta.sentinels)
     : src.types
 
   const conds = gCol ? gCol.levels.slice() : d.conds
@@ -143,10 +149,7 @@ export function withRoles(
     const si = sampleAt.get(c.s)
     if (si !== undefined && c.t >= 0 && c.t < nT) grid[c.t][si]++
   }
-  const prop = samples.map((_s, si) => {
-    const tot = grid.reduce((a, row) => a + row[si], 0) || 1
-    return grid.map(row => row[si] / tot)
-  })
+  const prop = proportions(grid, samples.length, sentinelMask(types))
   const nPerCond: Record<string, number> = {}
   for (const c of conds) nPerCond[c] = 0
   for (const c of cells) nPerCond[c.cond] = (nPerCond[c.cond] ?? 0) + 1

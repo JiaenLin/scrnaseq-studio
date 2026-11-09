@@ -41,6 +41,7 @@
 //    file does the second and reports it as the first, because the first is
 //    what it means and the second is what fits in one pass.
 
+import { sentinelMask } from './sentinels.ts'
 import type { Conds, NonZeroWalk, Source } from './source.ts'
 
 /* ---------------- the axis a correlation is taken over ---------------- */
@@ -701,8 +702,12 @@ export function scopeMask(
   // holds after the last one is unticked, and it has to mean no cells rather
   // than silently widening to everything.
   const want = tis === null ? null : new Set(tis)
+  // A sentinel is not a cell type, so "every cell type" leaves its cells out —
+  // and so does a list that somehow names one. null when there are none.
+  const sent = sentinelMask(src.types)
   for (let i = 0; i < cells.length; i++) {
     const c = cells[i]
+    if (sent && sent[c.t]) continue
     if (want && !want.has(c.t)) continue
     if (set ? !set.has(c.cond) : cond && c.cond !== cond) continue
     keep[i] = 1

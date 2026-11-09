@@ -67,6 +67,14 @@ export interface CollectionMeta {
    * describe the collection without opening it.
    */
   geneAlias?: { kind: 'symbol' | 'accession'; column: string } | null
+  /**
+   * The cluster levels that are an annotator's sentinels, for the whole object.
+   *
+   * Each part lists only the ones it has cells of, so this is the list to
+   * trust. Absent in collections from the in-browser lab and from before the
+   * field existed; the parts' own lists are read instead. See lib/sentinels.ts.
+   */
+  sentinels?: string[]
   parts: PartInfo[]
   notes: string[]
 }

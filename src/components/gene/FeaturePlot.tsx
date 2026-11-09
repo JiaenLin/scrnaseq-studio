@@ -147,9 +147,11 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
       top,
       floor: 0,
       ramp: p.rampKey,
+      // No name for a sentinel: it marks cells the annotator did not call, not
+      // a place on the embedding where a population is.
       labels: at
         ? p.types.map((t, ti) => ({ name: t.name, x: at[ti].x, y: at[ti].y }))
-          .filter((_l, ti) => !hidden.has(ti))
+          .filter((_l, ti) => !hidden.has(ti) && !p.types[ti].sentinel)
         : null,
       borders: p.borders,
       silhouette: true,

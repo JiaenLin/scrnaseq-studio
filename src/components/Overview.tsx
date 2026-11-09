@@ -7,6 +7,7 @@ import { axisRange, cellsBySample, fmt, quantiles, density, minOf, maxOf , hasSi
 import { axisTicks } from '../lib/labels.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
+import { countText, populations, sentinelCount } from '../lib/sentinels.ts'
 import { Card, Stat } from './Ui.tsx'
 
 type Kind = 'file' | 'here' | 'none'
@@ -47,9 +48,16 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
   const d = src.d
   const nRep = minReplicates(src)
   const prov = src.meta.provenance
+  // The annotator's uncalled cells, when the file lists any: counted, and the
+  // count of clusters is of cell types only.
+  const uncalled = sentinelCount(d.cells, types)
   const rows: [string, Kind, React.ReactNode][] = [
     ['Normalization', prov.normalization ? 'file' : 'none', prov.normalization ?? 'not recorded'],
     ['Clustering', prov.clustering ? 'file' : 'none', prov.clustering ?? 'not recorded'],
+    ...(uncalled.total > 0 ? [['Uncalled cells', 'file',
+      `${countText(uncalled)} — the annotator's labels for cells it did not call, listed `
+      + 'as sentinels in the file. Drawn grey on the embedding; not a cell type, so left out '
+      + 'of composition, legends, markers and every test.'] as [string, Kind, string]] : []),
     ['Batch integration', prov.integration ? 'file' : 'none', prov.integration ?? 'none recorded'],
     // Every embedding the object carried, not just the one it opens on — the
     // switcher only appears over a figure, so this is where a user finds out
@@ -88,7 +96,7 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
           <Stat value={fmt(src.genes.length)} label="genes" />
           <Stat value={d.samples.length} label="samples" />
           <Stat value={d.conds.length} label={d.conds.length > 1 ? 'groups' : 'group'} />
-          <Stat value={types.length} label="clusters" />
+          <Stat value={populations(types).length} label="clusters" />
           <Stat value={nRep} label="min replicates" />
         </div>
 
@@ -97,8 +105,11 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
             these were the only things in the app rendered on the page ground. */}
         <div className={`note mt-4 ${nRep >= MIN_REPS_PB ? 'note-info' : ''}`}>
           {nRep >= MIN_REPS_PB ? (
-            <><b>Both tests are available.</b> Wilcoxon across cells by default; with {nRep} samples
-            a group, pseudobulk DESeq2 tests between animals instead.</>
+            // Not "both tests": the pseudobulk path sums counts and hands them
+            // over, and the test is run wherever they are taken.
+            <><b>Wilcoxon runs here; pseudobulk counts can be exported.</b> Wilcoxon across
+            cells by default; with {nRep} samples a group, the counts summed per animal can be
+            exported for DESeq2, which is not run here.</>
           ) : d.multi ? (
             <><b>{nRep} sample per group, so Wilcoxon is the only test</b> — the normal case in
             single-cell. Its p-values describe variation between cells, not between animals.</>
