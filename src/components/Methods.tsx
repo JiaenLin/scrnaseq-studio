@@ -2,6 +2,7 @@ import type { CellType, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
   condLabel, designFor, MIN_CELLS, type Gates } from '../lib/stats.ts'
+import { carriedRecords, runView } from '../lib/run.ts'
 import { countText, sentinelCount } from '../lib/sentinels.ts'
 import { Card, Mono } from './Ui.tsx'
 
@@ -88,6 +89,9 @@ export default function Methods({
   // numbers has to leave the same cells out.
   const pops = types.filter(t => !t.sentinel)
   const uncalled = sentinelCount(d.cells, types)
+  // The run's records whose content travelled with the bundle. A record the
+  // converter only named carries nothing, so it changes nothing below.
+  const carried = carriedRecords(runView(src.meta))
 
   // Numbers are allocated on first use, so the two paragraphs have to be built
   // in the order they are read — which is why the first one is a variable here
@@ -126,10 +130,25 @@ export default function Methods({
           </span>
         )
       })} — computed before export and never recomputed here.{' '}
-      <b>Everything between the counts and those labels is unknown to this app</b>: how many
-      variable genes were kept, how many components were used, how large the neighbourhood was
-      and at what resolution the graph was cut are not carried in the file, and are not guessed
-      at here. The populations are reported as {pops.map(t => t.name).join(', ')}.
+      {carried.length ? (
+        // The file now says what made the object, so "not carried in the file"
+        // would be false. What stays true is that this text reads nothing out
+        // of those records: the parameters are the tools' own words, on
+        // Overview, and a paragraph that picked some of them out would be
+        // choosing which of a tool's settings to call the method.
+        <><b>This text reads nothing between the counts and those labels</b>: the object carries
+        the run&rsquo;s own record{carried.length === 1 ? '' : 's'} — {carried.map((p, i) => (
+          <span key={`${i}:${p}`}>{i === 0 ? '' : i === carried.length - 1 ? ' and ' : ', '}<Mono>{p}</Mono></span>
+        ))} — which Overview shows as recorded, and how many variable genes were kept, how many
+        components were used, how large the neighbourhood was and at what resolution the graph was
+        cut are not read out of {carried.length === 1 ? 'it' : 'them'} here, and are not guessed
+        at.</>
+      ) : (
+        <><b>Everything between the counts and those labels is unknown to this app</b>: how many
+        variable genes were kept, how many components were used, how large the neighbourhood was
+        and at what resolution the graph was cut are not carried in the file, and are not guessed
+        at here.</>
+      )} The populations are reported as {pops.map(t => t.name).join(', ')}.
       {uncalled.total > 0 && <> A further {uncalled.total.toLocaleString('en-US')} cells carry
         the annotator&rsquo;s labels for cells it did not call ({countText(uncalled)}); they are
         not a cell type, so they are left out of every population, proportion and test below,
@@ -292,7 +311,9 @@ export default function Methods({
             </p>
             <p className="mb-0 mt-3">
               <b>What this text will not say.</b> It names no normalization, variable-gene count,
-              component count or clustering resolution, because a bundle carries none of them; it
+              component count or clustering resolution, because {carried.length
+                ? 'it reads none of them out of the run’s records'
+                : 'a bundle carries none of them'}; it
               claims no doublet removal, ambient-RNA correction or batch correction it did not
               find; it does not call a t-SNE a UMAP, or a one-sample-per-group design replicated.
               Cutoffs are read from <Mono>lib/stats.ts</Mono>, so the prose and the figures cannot

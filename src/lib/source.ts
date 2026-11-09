@@ -28,6 +28,12 @@ export interface SourceMeta {
   notes: string[]
   isDemo: boolean
   /**
+   * The bundle's `run` section as it came: what the object records about the
+   * run that produced it. Absent when the bundle has none. Read only through
+   * lib/run.ts, which checks its shape.
+   */
+  run?: unknown
+  /**
    * The cluster levels the object declares as sentinels, checked against its
    * levels. Empty (or absent, for the demo objects) when it declares none.
    * Kept on the source, not only on its types, because re-pointing the cell
@@ -498,6 +504,7 @@ export function bundleSource(b: Bundle): Source {
     hasRawCounts: b.meta.hasRawCounts,
     embedding: b.meta.embedding,
     provenance: b.meta.provenance ?? {},
+    ...(b.meta.run === undefined ? {} : { run: b.meta.run }),
     notes: b.meta.notes ?? [],
     isDemo: false,
     sentinels,

@@ -12,7 +12,7 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import { readCollectionIndex } from '../src/lib/collection.ts'
 import { openCollection } from '../src/lib/collection-source.ts'
-import { cellColumns, parseBundle } from '../src/lib/bundle.ts'
+import { cellColumns, parseBundle, pseudobulkKey } from '../src/lib/bundle.ts'
 import {
   compFields, compTable, fieldLabel, levelsOf, refuses, rowAxes,
 } from '../src/lib/composition.ts'
@@ -266,7 +266,8 @@ console.log('\nPSEUDOBULK')
       + ` — nothing to compare`)
   } else {
     check('same number of columns', a.columns.length, b.columns.length)
-    const key = c => `${c.sample}||${c.cluster}`
+    // By the pair, not a joined string: a split sample's id can hold '|'.
+    const key = pseudobulkKey
     const bAt = new Map(b.columns.map((c, i) => [key(c), i]))
     let bad = 0
     let cells = 0

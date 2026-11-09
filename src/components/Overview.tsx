@@ -8,6 +8,7 @@ import { axisTicks } from '../lib/labels.ts'
 import { MIN_REPS_PB, minReplicates } from '../lib/stats.ts'
 import { pal, type PaletteKey } from '../lib/palette.ts'
 import { countText, populations, sentinelCount } from '../lib/sentinels.ts'
+import RunCard from './RunCard.tsx'
 import { Card, Stat } from './Ui.tsx'
 
 type Kind = 'file' | 'here' | 'none'
@@ -144,6 +145,8 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
           </table>
         </div>
       </Card>
+
+      <RunCard src={src} />
 
       {src.meta.notes.length > 0 && (
         <Card eyebrow="From the conversion" title="What the exporter had to decide"

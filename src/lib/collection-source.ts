@@ -24,8 +24,8 @@
 // part B's cluster 0 are usually different cell types.
 
 import type { CellType } from '../types.ts'
-import type { Bundle, BundleMeta, Embedding, ExtraColumn, Pseudobulk } from './bundle.ts'
-import { bundleDataset, SCHEMA } from './bundle.ts'
+import type { Bundle, BundleMeta, Embedding, ExtraColumn, Pseudobulk, PseudobulkColumn } from './bundle.ts'
+import { ambiguousNote, bundleDataset, pseudobulkKey, readPseudobulkHeader, SCHEMA } from './bundle.ts'
 import { makeGeneNames } from './genes.ts'
 import {
   chunkCount, makeChunkCache, readGenes,
@@ -411,9 +411,20 @@ export async function openCollection(
   }
 
   const meta0 = parts[0].meta
+  // The run section is the object's, and the lab writes the same one into
+  // every part. A part carrying another means the parts were not converted
+  // together; the first part's is shown, as the first part's provenance is,
+  // and the difference is said rather than left for nobody to find.
+  const run0 = JSON.stringify(meta0.run)
+  const otherRun = parts.slice(1).filter(p => JSON.stringify(p.meta.run) !== run0).map(p => p.key)
+  if (otherRun.length) {
+    notes.push(`${otherRun.length === 1 ? 'part' : 'parts'} ${otherRun.slice(0, 5).join(', ')}`
+      + `${otherRun.length > 5 ? ` and ${otherRun.length - 5} more` : ''} carry a different run section `
+      + `from part ${parts[0].key}; the run shown is part ${parts[0].key}'s`)
+  }
   // Merged first, because whether the summed counts survived the merge is what
   // "raw counts: present" on Overview is actually promising.
-  const pseudobulk = mergePseudobulk(pbTexts, genes!, notes)
+  const pseudobulk = mergePseudobulk(pbTexts, parts.map(p => p.meta), genes!, notes)
   const merged: BundleMeta = {
     schema: SCHEMA,
     label: cmeta.label ?? meta0.label,
@@ -427,6 +438,7 @@ export async function openCollection(
     expression: meta0.expression,
     hasRawCounts: parts.every(p => p.meta.hasRawCounts) && pseudobulk !== null,
     provenance: meta0.provenance ?? {},
+    ...(meta0.run === undefined ? {} : { run: meta0.run }),
     notes,
   }
 
@@ -685,6 +697,7 @@ export async function openCollection(
     hasRawCounts: merged.hasRawCounts,
     embedding: merged.embedding,
     provenance: merged.provenance,
+    ...(merged.run === undefined ? {} : { run: merged.run }),
     notes,
     isDemo: false,
     sentinels,
@@ -704,9 +717,13 @@ export async function openCollection(
  * sample or cluster can put the same column in two parts, so the counts are
  * summed rather than concatenated — which is what the unsplit export would have
  * written.
+ *
+ * Each part's headers are read against that part's own declared samples and
+ * clusters (see readPseudobulkHeader), and columns are merged by the pair, not
+ * by a joined string.
  */
 function mergePseudobulk(
-  texts: (string | null)[], genes: string[], notes: string[],
+  texts: (string | null)[], metas: BundleMeta[], genes: string[], notes: string[],
 ): Pseudobulk | null {
   if (!texts.some(t => t)) return null
   if (!texts.every(t => t)) {
@@ -714,22 +731,28 @@ function mergePseudobulk(
     return null
   }
 
-  type Col = { sample: string; cluster: string; nCells: number }
-  const key = (c: Col) => `${c.sample}||${c.cluster}`
-  const columns: Col[] = []
+  const columns: PseudobulkColumn[] = []
   const at = new Map<string, number>()
+  const ambiguous: string[] = []
   // The headers carry sample and cluster by NAME, not by code, so nothing has to
   // be remapped here — which is exactly why the exporter writes them that way.
-  const parsed = texts.map((text) => {
+  const parsed = texts.map((text, i) => {
     if (!text) return null
     const lines = text.split('\n').filter(l => l.trim().length > 0)
     if (lines.length < 2) return null
+    const samples = new Set(metas[i].samples.map(s => s?.id))
+    const clusters = new Set(metas[i].clusters)
     const cols = lines[0].split('\t').slice(1).map(h => {
-      const [s, c, n] = h.split('||')
-      return { sample: s, cluster: c ?? '', nCells: Number(n) || 0 }
+      const c = readPseudobulkHeader(h, samples, clusters)
+      if (!c) ambiguous.push(h)
+      return c ?? { sample: '', cluster: '', nCells: 0 }
     })
     return { lines, cols }
   })
+  if (ambiguous.length) {
+    notes.push(ambiguousNote([...new Set(ambiguous)]))
+    return null
+  }
   // Narrowed once, rather than asserted at each of the four uses below. The
   // guard was already here; what was missing was telling the type system, so
   // every later `p!` was a promise the compiler could not check and a reader
@@ -739,7 +762,7 @@ function mergePseudobulk(
 
   for (const p of ok) {
     for (const c of p.cols) {
-      const k = key(c)
+      const k = pseudobulkKey(c)
       const seen = at.get(k)
       if (seen === undefined) { at.set(k, columns.length); columns.push({ ...c }) }
       else columns[seen].nCells += c.nCells
@@ -758,7 +781,7 @@ function mergePseudobulk(
     // Every column was inserted into `at` in the loop above, so this lookup
     // cannot miss — but a -1 would silently accumulate into the wrong gene's
     // row, so it is checked rather than asserted.
-    const map = p.cols.map(c => at.get(key(c)) ?? -1)
+    const map = p.cols.map(c => at.get(pseudobulkKey(c)) ?? -1)
     if (map.some(m => m < 0)) return null
     for (let r = 1; r < p.lines.length; r++) {
       const cells = p.lines[r].split('\t')

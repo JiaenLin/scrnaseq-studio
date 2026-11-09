@@ -126,15 +126,96 @@ export interface BundleMeta {
     missing: number
     duplicated: number
   } | null
+  /**
+   * The run that produced the object, as the lab's converter copied it out of
+   * the object's uns: `{ searched, records: [{ path, record }], leftOut? }`.
+   *
+   * Absent in bundles from this repository's exporters, from the lab before it
+   * read run records, and from an .rds. Carried exactly as it came, untyped:
+   * only lib/run.ts reads it, and that file names a section it cannot read
+   * rather than trusting its shape.
+   */
+  run?: unknown
 }
+
+/** One summed column: a sample within a cluster, and how many cells went into it. */
+export interface PseudobulkColumn { sample: string; cluster: string; nCells: number }
 
 /** Summed raw counts, one column per sample × cluster. */
 export interface Pseudobulk {
   genes: string[]
-  /** Column headers, parsed from `sample||cluster||nCells`. */
-  columns: { sample: string; cluster: string; nCells: number }[]
+  /** Column headers, `sample||cluster||nCells`, as readPseudobulkHeader reads them. */
+  columns: PseudobulkColumn[]
   /** counts[geneIndex][columnIndex]. */
   counts: Int32Array
+}
+
+/**
+ * One pseudobulk column header, read against the levels the bundle declares.
+ *
+ * Every writer — the lab, tools/export_h5ad.py, tools/export_seurat.R — writes
+ * `sample||cluster||nCells` with the ids as they are. An id can hold '|'. A
+ * sample whose cells sit in two conditions is split into `sample|condition`,
+ * so an empty level gives `s1|`, a level `|x` gives `s2||x` and a level `a||b`
+ * gives `s3|a||b`; cluster names come from the object unchanged. Split on '||',
+ * those headers named samples that do not exist, every one of their columns was
+ * orphaned, and a count that read as 0 summed several of them into one.
+ *
+ * So the count is read from the right: it is digits, and holds no '|'. The
+ * boundary between sample and cluster is then the one '||' whose left side is a
+ * sample the part declares and whose right side is a cluster it declares. The
+ * writer takes both from the same levels it writes into meta.json, so the
+ * reading it meant is always one of them.
+ *
+ * Null when two declared pairs both read out of one header — samples `a` and
+ * `a|` with clusters `|b` and `b` both give `a|||b||3`. Whose counts those are
+ * is not in the file, and choosing would put one sample's counts under the
+ * other's name. A header no declared pair reads (a table from some other
+ * writer) is split as it always was, so a bundle whose ids hold no '|' reads
+ * exactly as it did.
+ */
+export function readPseudobulkHeader(
+  h: string, samples: ReadonlySet<string>, clusters: ReadonlySet<string>,
+): PseudobulkColumn | null {
+  const cut = h.lastIndexOf('||')
+  if (cut >= 0 && /^\d+$/.test(h.slice(cut + 2))) {
+    const body = h.slice(0, cut)
+    const nCells = Number(h.slice(cut + 2))
+    let found: PseudobulkColumn | null = null
+    let readings = 0
+    // Every '||', overlapping ones included: in `s1|||A` the boundary is the
+    // second of the two.
+    for (let at = body.indexOf('||'); at >= 0; at = body.indexOf('||', at + 1)) {
+      const sample = body.slice(0, at)
+      const cluster = body.slice(at + 2)
+      if (samples.has(sample) && clusters.has(cluster)) {
+        readings++
+        found = { sample, cluster, nCells }
+      }
+    }
+    if (readings > 1) return null
+    if (found) return found
+  }
+  const [sample, cluster, nCells] = h.split('||')
+  return { sample, cluster: cluster ?? '', nCells: Number(nCells) || 0 }
+}
+
+/**
+ * What a column is merged by: the pair itself. A joined string is a bet that no
+ * id holds the separator, and `a` in `|b` and `a|` in `b` both join to `a|||b`.
+ */
+export const pseudobulkKey = (c: { sample: string; cluster: string }): string =>
+  JSON.stringify([c.sample, c.cluster])
+
+/** The note for headers that read as more than one declared pair. */
+export function ambiguousNote(headers: readonly string[]): string {
+  const shown = headers.slice(0, 3).map(h => `"${h}"`).join(', ')
+  const more = headers.length > 3 ? ` and ${headers.length - 3} more` : ''
+  const one = headers.length === 1
+  return `the summed raw counts are not offered: the pseudobulk column header${one ? '' : 's'} ${shown}${more} `
+    + `can${one ? '' : ' each'} be read as more than one sample × cluster pair this object declares, so which sample's `
+    + `counts ${one ? 'it holds' : 'they hold'} is not in the file, and choosing would put one sample's `
+    + "counts under another's name"
 }
 
 export interface Bundle {
@@ -243,14 +324,26 @@ export function parseBundle(buf: ArrayBuffer): Bundle {
     if (sample[i] >= meta.samples.length) fail('sample.u16 refers to a sample that meta.json does not define')
   }
 
+  let pseudobulk: Pseudobulk | null = null
+  let read = meta
+  if (files['pseudobulk.tsv']) {
+    const pb = parsePseudobulk(new TextDecoder().decode(files['pseudobulk.tsv']), meta.nGenes,
+      new Set(meta.samples.map(s => s?.id)), new Set(meta.clusters))
+    pseudobulk = pb.table
+    if (pb.ambiguous.length) {
+      // Said where the conversion's decisions are said, and "raw counts:
+      // present" withdrawn — which is what a collection whose table does not
+      // survive its merge already reads as.
+      read = { ...meta, hasRawCounts: false, notes: [...(meta.notes ?? []), ambiguousNote(pb.ambiguous)] }
+    }
+  }
+
   return {
-    meta, genes, indptr, indices, data, cluster, sample, embed, qc,
+    meta: read, genes, indptr, indices, data, cluster, sample, embed, qc,
     embeds: readEmbeddings(files, meta, embed, n),
     extras: readExtras(files, meta, n),
     alias: readAlias(files, meta, genes),
-    pseudobulk: files['pseudobulk.tsv']
-      ? parsePseudobulk(new TextDecoder().decode(files['pseudobulk.tsv']), meta.nGenes)
-      : null,
+    pseudobulk,
   }
 }
 
@@ -336,14 +429,20 @@ function readAlias(
   return alias.map((a, i) => a || genes[i])
 }
 
-function parsePseudobulk(text: string, nGenes: number): Pseudobulk | null {
+/**
+ * The summed counts, or null when there are none to offer — and, apart, the
+ * headers that read as more than one declared pair, which refuse the table.
+ */
+function parsePseudobulk(
+  text: string, nGenes: number, samples: ReadonlySet<string>, clusters: ReadonlySet<string>,
+): { table: Pseudobulk | null; ambiguous: string[] } {
   const lines = text.split('\n').filter(l => l.trim().length > 0)
-  if (lines.length < 2) return null
+  if (lines.length < 2) return { table: null, ambiguous: [] }
   const header = lines[0].split('\t').slice(1)
-  const columns = header.map(h => {
-    const [sample, cluster, nCells] = h.split('||')
-    return { sample, cluster: cluster ?? '', nCells: Number(nCells) || 0 }
-  })
+  const read = header.map(h => readPseudobulkHeader(h, samples, clusters))
+  const ambiguous = header.filter((_h, i) => read[i] === null)
+  if (ambiguous.length) return { table: null, ambiguous }
+  const columns = read as PseudobulkColumn[]
   const genes: string[] = []
   const counts = new Int32Array((lines.length - 1) * columns.length)
   for (let r = 1; r < lines.length; r++) {
@@ -351,8 +450,8 @@ function parsePseudobulk(text: string, nGenes: number): Pseudobulk | null {
     genes.push(parts[0])
     for (let c = 0; c < columns.length; c++) counts[(r - 1) * columns.length + c] = +parts[c + 1] || 0
   }
-  if (genes.length !== nGenes) return null
-  return { genes, columns, counts }
+  if (genes.length !== nGenes) return { table: null, ambiguous: [] }
+  return { table: { genes, columns, counts }, ambiguous: [] }
 }
 
 /** The Dataset the views work with, built from a bundle. */

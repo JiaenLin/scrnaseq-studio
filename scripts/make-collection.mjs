@@ -13,6 +13,7 @@
 
 import fs from 'node:fs'
 import { unzipSync, zipSync, strToU8, strFromU8 } from 'fflate'
+import { readPseudobulkHeader } from '../src/lib/bundle.ts'
 import { CHUNK_GENES, writeChunked } from '../src/lib/chunked.ts'
 import { writeCollection } from '../src/lib/collection.ts'
 
@@ -63,6 +64,15 @@ for (let i = 0; i < n; i++) cellsOf[partOf[i]].push(i)
 
 const pb = files['pseudobulk.tsv'] ? strFromU8(files['pseudobulk.tsv']).split('\n') : null
 const pbHeader = pb ? pb[0].split('\t').slice(1) : []
+// Each column's sample, read the way the studio reads it: against the bundle's
+// declared levels, because a split sample's id can hold '|' and the first
+// '||' is then not where the sample ends. A header that two declared pairs
+// both read cannot be placed in a part, so no part gets the table.
+const pbCols = pbHeader.map(h => readPseudobulkHeader(h,
+  new Set(meta.samples.map(s => s.id)), new Set(meta.clusters)))
+if (pb && pbCols.some(c => c === null)) {
+  console.log('  pseudobulk left out: a column header reads as more than one sample × cluster pair')
+}
 
 const parts = []
 for (let p = 0; p < nParts; p++) {
@@ -129,6 +139,8 @@ for (let p = 0; p < nParts; p++) {
   const out = {
     'meta.json': strToU8(JSON.stringify(partMeta)),
     'genes.txt': geneTxt,
+    // One line per gene, so every part carries the whole of it, as genes.txt.
+    ...(files['gene_alias.txt'] ? { 'gene_alias.txt': files['gene_alias.txt'] } : {}),
     'cluster.u16': new Uint8Array(clusterOut.buffer),
     'sample.u16': new Uint8Array(sampleOut.buffer),
     'embed.f32': new Uint8Array(embedOut.buffer),
@@ -142,11 +154,10 @@ for (let p = 0; p < nParts; p++) {
   // part. A block split cuts columns in half, and the summed counts cannot be
   // re-derived without the raw matrix — so leave them out rather than write a
   // table that says the wrong thing.
-  if (pb && usedSamples >= nParts) {
+  if (pb && usedSamples >= nParts && pbCols.every(c => c !== null)) {
     const keep = []
-    pbHeader.forEach((h, ci) => {
-      const [sid] = h.split('||')
-      if (sm.map[meta.samples.findIndex(s => s.id === sid)] >= 0) keep.push(ci)
+    pbCols.forEach((c, ci) => {
+      if (sm.map[meta.samples.findIndex(s => s.id === c.sample)] >= 0) keep.push(ci)
     })
     const lines = ['gene\t' + keep.map(ci => pbHeader[ci]).join('\t')]
     for (let r = 1; r < pb.length; r++) {

@@ -133,8 +133,8 @@ console.log("\nTHE LAB'S COMMITTED FIXTURE: THE RUN CARD SHOWS ITS ONE RECORD, A
   [['uns/scintegrate/provenance', 'copied']])
   await attempt('every one of its fields, with the value the converter wrote', async () => {
     const rec = recordsOf(runCard(overview(await open('family-2x2.zip'))))[0]
-    return Object.fromEntries((rec?.rows ?? []).map(([k, v]) => [k, v]))
-  }, Object.fromEntries(Object.entries(record).map(([k, v]) => [k, asRecorded(v)])))
+    return (rec?.rows ?? []).map(([k, v]) => `${k} = ${v}`).sort()
+  }, Object.entries(record).map(([k, v]) => `${k} = ${asRecorded(v)}`).sort())
   await attempt('tool, version, commit and job first; then the record\'s own order', async () =>
     recordsOf(runCard(overview(await open('family-2x2.zip'))))[0]?.rows.map(r => r[0]),
   ['tool', 'version', 'commit', 'job',
@@ -209,7 +209,7 @@ console.log('\nRECORDS THE CONVERTER COULD NOT COPY WHOLE')
   }, [true, true])
   await attempt("the harness's record, parsed by the converter, shows its stages as recorded", async () => {
     const rec = recordsOf(runCard(overview(await open('budget.zip')))).find(r => r.path === 'uns/harness_run')
-    return [rec?.kind, rec?.rows.map(r => r[0]), rec?.text.includes('"run_key":"RUNKEY-FIXTURE"')]
+    return [rec?.kind, rec?.rows.map(r => r[0]), /"run_key": ?"RUNKEY-FIXTURE"/.test(rec?.text ?? '')]
   }, ['copied', ['stages', 'decisions'], true])
 }
 
