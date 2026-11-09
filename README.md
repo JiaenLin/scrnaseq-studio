@@ -54,7 +54,7 @@ with no worker and no progress card.
 
 | Tab | Content |
 |---|---|
-| **Overview** | cells / genes / samples / clusters; per-sample QC violins; a provenance table marking every step **from your file** vs **computed here**; which carried column is the cell type and which the group, when the object carries more than one |
+| **Overview** | cells / genes / samples / clusters; per-sample QC violins; a provenance table marking every step **from your file** vs **computed here**; **the run that produced the object**, record by record as its `uns` holds them; which carried column is the cell type and which the group, when the object carries more than one |
 | **Cells** | the embedding on canvas, coloured by cluster, group, sample or, when the object records it, % mitochondrial; split by group on one shared axis range. A gene's expression is on **Gene expression**, as a feature plot |
 | **Composition** | horizontal 100% stacked bars per sample, plus a per-cell-type bar panel with every animal drawn on top |
 | **Markers** | one-vs-rest dot plot, and cluster renaming that propagates everywhere including Methods |
@@ -79,6 +79,13 @@ browser, and Methods says so rather than describing a test nobody ran.
 `UNRESOLVED`: cells it did not call), those cells are drawn grey and are never a cell type — not
 in a legend, a composition bar or its denominator, a marker or contrast population, or a
 per-type figure — and every view that leaves them out says how many it left out.
+
+**The run.** When the lab's converter carries the run records an object's `uns` holds (each
+tool's provenance, the harness's run record), Overview shows each one as recorded: every field
+under its own name, the tool, version, commit, stage and run key first wherever a record has
+them, and nothing inferred. A record too large to carry is named with its size, and a bundle
+with no run section says so. Methods then stops saying the file carries none of the upstream
+steps, and still reads no parameter out of the records.
 
 **One cutoff source.** The per-cell test reports at Seurat's `logfc.threshold`, and one function
 feeds the headline count, the table, the volcano's dashed lines and the Methods sentence, so they
@@ -167,7 +174,8 @@ from — kept because it is a faster place to try a layout than the app is.
 ```bash
 npm ci
 npm run lint
-npm test         # statistics, bundles, collections, composition, the rendered Methods, sentinels
+npm test         # statistics, bundles, collections, composition, the rendered Methods and Run card,
+                 # sentinels, and the lab's own bundles (testdata/lab)
 npm run build
 npm run dev      # http://localhost:5173
 ```
@@ -180,8 +188,8 @@ components through Vite (`scripts/render.mjs`).
 Figures are hand-drawn SVG and canvas rather than a plotting library: the panels here are specific
 enough (detection bars, Seurat dot and feature plot conventions, per-facet axes) that a library
 would have been fought rather than used, and the app ships three runtime dependencies (react,
-react-dom, fflate). `npm run build` writes the app's JavaScript as one file of 489.6 kB,
-158.7 kB gzipped, plus a 16.9 kB compute worker (measured 2026-11-09).
+react-dom, fflate). `npm run build` writes the app's JavaScript as one file of 497.4 kB,
+161.1 kB gzipped, plus a 16.9 kB compute worker (measured 2026-11-09).
 
 ## License
 

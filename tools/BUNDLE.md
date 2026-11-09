@@ -35,7 +35,7 @@ bundle.zip
 ├── expr.indptr.i32     int32   nGenes + 1   ┐ CSC — gene-major, so one gene
 ├── expr.indices.i32    int32   nnz          │ is a contiguous slice and no
 ├── expr.data.f32       float32 nnz          ┘ view has to scan the matrix
-└── pseudobulk.tsv      optional — summed raw counts per sample × cluster
+└── pseudobulk.tsv      optional — summed raw counts per sample × cluster (see below)
 ```
 
 All binary is little-endian. `expr` holds **log-normalized expression**, never scaled
@@ -86,6 +86,69 @@ experiment never had.
 role was read from, or are `null` when the object had none. The app uses the condition's:
 "Group" is a placeholder for whatever an experiment varied, and an object that calls it `Age`
 gets a menu that says Age.
+
+### The run that produced the object
+
+`meta.run` is optional. scRNA-seq Lab's converter writes it, copying what the object's `uns`
+records about the run that made it. That means each tool's provenance (an entry or child named
+`provenance` or `*_provenance`, or a group whose `schema` names provenance), and the harness's
+`uns/harness_run`:
+
+```jsonc
+"run": {
+  "searched": "uns/harness_run; every entry of uns, …",   // where the converter looked
+  "records": [                                              // in uns order
+    { "path": "uns/scintegrate/provenance",
+      "record": { "tool": "scintegrate", "version": "…", "commit": "…", "job": "…" } }
+  ],
+  "leftOut": { "count": 1, "paths": ["uns/…"] }            // only when some were not written
+}
+```
+
+`record` takes one of three forms:
+
+- the uns entry as JSON;
+- a `(not copied: …)` sentence, when the converter named the record instead of copying it. Over
+  its size budget, the sentence states the size;
+- `null`, when the record could not be read.
+
+The app shows every record on Overview's **Run** card exactly as recorded. Each field keeps its
+own name, and `tool`, `version`, `commit`, `stage`, `run_key` and `job` come first where a record
+has them. Nothing is inferred: no tool is taken from a path, and no missing field is filled in.
+
+Other cases:
+
+- **No `run`:** the card says the bundle carries no run section. This is so for this
+  repository's exporters, for the lab before it read run records, and for an `.rds`.
+- **A section not in this shape:** the card names it and shows none of it. The bundle still
+  opens.
+
+### pseudobulk.tsv
+
+The table has one row per gene, in `genes.txt` order. Each column is one sample × cluster that
+has cells, headed `sample||cluster||nCells`, with the ids written as they are.
+
+An id can hold `|`. A sample whose cells sit in more than one condition is split into
+`sample|condition`, and a name another sample already has gets `#2`. So an empty level gives
+`s1|`, a level `|x` gives `s2||x`, and a level `a||b` gives `s3|a||b`. Cluster names come from
+the object unchanged.
+
+The app therefore reads each header against `meta.json`:
+
+- the count comes from the right;
+- the boundary between sample and cluster is the one `||` whose left side is in `samples` and
+  whose right side is in `clusters`.
+
+The writer takes both from the levels it writes there, so the reading it meant is always found.
+The other cases:
+
+- **Two declared pairs read one header** (samples `a` and `a|` with clusters `|b` and `b` both
+  give `a|||b||3`): the table is refused, not guessed. It is not offered, and a note names the
+  header.
+- **No declared pair reads it:** the header is split at the first `||`, as before.
+
+In a collection, each part's headers are read against that part's own levels, and columns are
+summed by the pair, never by a joined string.
 
 ### Both namings of the genes
 
@@ -149,6 +212,7 @@ Two things happen to that list, both recorded in `meta.geneAlias` rather than hi
     "doublets": null,
     "ambient": null
   },
+  "run": { "...": "..." },           // optional; the run's own records — see above
   "notes": ["..."]                   // anything the exporter had to decide, shown in the app
 }
 ```

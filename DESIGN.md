@@ -778,7 +778,7 @@ different one.
 
 | Tab | Content |
 | --- | --- |
-| **Overview** | cells / genes / samples / clusters; per-sample QC violins; provenance table marking every step **from your file** vs **computed here**; missing-piece rows (no raw counts → no pseudobulk, with the reason) |
+| **Overview** | cells / genes / samples / clusters; per-sample QC violins; provenance table marking every step **from your file** vs **computed here**; missing-piece rows (no raw counts → no pseudobulk, with the reason); the **Run** card — the records of the run that produced the object, each field as recorded (`src/components/RunCard.tsx`, `src/lib/run.ts`) |
 | **Cells** | embedding on a 2-D canvas. Colour by cluster, condition, sample or % mitochondrial; a gene's expression is on Gene expression. **Split by condition side-by-side with a shared axis range** — the honest way to show a condition effect on a map |
 | **Composition** | per-sample stacked proportions + a per-cell-type bar panel with sample points |
 | **Markers** | ranked one-vs-rest table + dot plot (mean expression × % detected). Cluster renaming lives here, and names propagate to every other tab and to Methods |
