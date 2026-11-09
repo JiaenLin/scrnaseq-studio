@@ -66,9 +66,12 @@ with no worker and no progress card.
 
 ## Behaviour
 
-**Testing.** The one test the studio runs is a Wilcoxon rank-sum test across cells with
-Seurat's gates (`logfc.threshold` 0.25, `min.pct` 0.1, Bonferroni) — the same test `FindMarkers`
-and `rank_genes_groups` run. Above three samples per group, **pseudobulk** sums the raw counts
+**Testing.** The one test the studio runs is a Wilcoxon rank-sum test across cells,
+Bonferroni-adjusted — the test `FindMarkers` and `rank_genes_groups` run. A contrast tests every
+gene detected in at least 10% of cells on either side (Seurat's `min.pct`) and calls results at
+|log₂FC| ≥ 0.25 (Seurat's `logfc.threshold`) as a cutoff over the tested genes; **Seurat's
+defaults**, which also use 0.25 as a pre-test gate, are one click away. Markers use both gates.
+Above three samples per group, **pseudobulk** sums the raw counts
 per sample within the chosen cell type and exports that matrix for DESeq2; no DESeq2 runs in the
 browser, and Methods says so rather than describing a test nobody ran.
 

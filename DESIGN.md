@@ -137,8 +137,9 @@ them would make the studio useless for the majority of real objects, so the defa
 is the test the field actually runs.
 
 **Default — `FindMarkers` / `rank_genes_groups`.** A Wilcoxon rank-sum test across
-cells, with Seurat's own defaults: `logfc.threshold` 0.25, `min.pct` 0.1, and
-Bonferroni adjustment over the genes tested. It requires no replicates and is
+cells, with Seurat's `min.pct` 0.1 and Bonferroni adjustment over the genes tested, and
+results called at Seurat's `logfc.threshold` 0.25 — which a contrast applies as a cutoff over
+the tested genes rather than as a pre-test gate (§2.1a); markers use it as both. It requires no replicates and is
 available on every object with two or more groups. We implement the same test in
 JavaScript rather than shipping R for it, so it runs instantly and matches what a
 reviewer would reproduce in Seurat.
@@ -167,8 +168,14 @@ cells, not between animals — the study is not blocked, it is described accurat
 
 ### 2.1a The gates are a control, not a constant
 
-> **Status: shipped.** `Gates`, `DE_GATES` and `SEURAT_GATES` in `src/lib/stats.ts`; **Test
-> every gene** and **Test them too** in `src/components/Stats.tsx`.
+> **Status: shipped, and moved on since.** `Gates` in `src/lib/stats.ts`; **What gets
+> tested**, **Test every gene**, **Seurat's defaults** and **Test them too** in
+> `src/components/Stats.tsx`. A contrast now opens with no `logfc.threshold` at all
+> (`DE_GATES`: `min.pct` 0.1, `logfc.threshold` 0), so the |log₂FC| slider filters answers
+> from its first position; Seurat's 0.25 gate is the **Seurat's defaults** button
+> (`SEURAT_GATES`), and "Test them too" appears only when a gate above the slider hides rows.
+> Markers keep both gates fixed (`markersPlan`). The last two paragraphs below are the
+> earlier design, corrected where they said otherwise.
 
 `FindMarkers` does not test every gene. Seurat applies two gates first —
 `logfc.threshold` 0.25 and `min.pct` 0.1 — and a gene failing either is dropped without
@@ -193,15 +200,15 @@ bug.
 There is a second inert control, and it is the one that gets reported. The |log₂FC| cutoff
 runs down to 0, but a gene below the GATE has no row to admit at any cutoff — and both
 default to 0.25, so the slider's whole travel below its own default is dead until somebody
-widens the gate. That is stated where it happens, with the one click that fixes it:
-*"No gene below 0.25 log₂ was tested… **Test them too**"*. Not done automatically, because
-widening the gate re-runs the test and a slider that silently starts a four-minute pass is
-the complaint immediately before this one.
+widens the gate. That is stated where it happens, with the one click that fixes it —
+**Test them too** — whenever the gate in force is above the slider. Not done automatically,
+because widening the gate re-runs the test and a slider that silently starts a four-minute
+pass is the complaint immediately before this one.
 
-The default stays at Seurat's 0.25 rather than at 0, and that is a trade rather than an
-oversight: matching `FindMarkers` is what lets a reader reproduce these rows, which the
-whole DE design rests on. What changed is that the gate is no longer a wall — it is one
-click, and the click is offered at the moment the reader hits it.
+The default was once Seurat's 0.25, to match `FindMarkers` row for row. Once the radix ranker
+made the ungated pass 1.7× the gated one rather than 8.7× (`DE_GATES` in
+`src/lib/stats.ts`), a contrast's default became no effect-size gate, and matching
+`FindMarkers` exactly became one click: **Seurat's defaults**.
 
 The gates are part of the QUESTION, so they are in the pass's cache key and in the Run
 gate: widening one on a streamed object re-arms Run rather than silently starting a
@@ -345,7 +352,8 @@ misreading in single-cell papers and the UI takes a position on it.
 > **Status: partly shipped.** Shipped: the three covariates as violins per sample (`QcPanel`
 > in `src/components/Overview.tsx`) and the doublet and ambient-RNA rows of the provenance
 > table, from what the converter recorded. Not built: a scatter view, reading the applied
-> thresholds from `uns`, and the preview filter — there is no threshold code in `src/`.
+> thresholds from `uns`, and the preview filter — no code in `src/` reads or draws a QC
+> threshold.
 
 > "Quality control is performed at the sample level as thresholds can vary
 > substantially between samples." — doi:10.1038/s41576-023-00586-w
@@ -841,7 +849,8 @@ pseudobulk sentences corrected on 2026-11-09 to what the app does.
 
 **Most single-cell experiments have no replicates, so nothing blocks on them.** The default test is
 the one Seurat's `FindMarkers` and Scanpy's `rank_genes_groups` run — a Wilcoxon rank-sum test
-across cells, with Seurat's own gates (`logfc.threshold` 0.25, `min.pct` 0.1, Bonferroni).
+across cells with Seurat's `min.pct` 0.1 and Bonferroni, its results called at Seurat's
+`logfc.threshold` 0.25.
 Pseudobulk is offered as an alternative and only above three samples per group, where it is
 defensible: the summed counts are exported for DESeq2, which does not run in the browser. The two
 are not the same claim — per-cell testing is for exploring, pseudobulk is for a claim that has to
