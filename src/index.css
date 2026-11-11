@@ -182,6 +182,13 @@ body {
   line-height: var(--lh-body);
 }
 
+/* One weight for emphasis. The browser's bold is 700, a fourth weight that
+   came in through every <b> and <strong>. */
+b,
+strong {
+  font-weight: 600;
+}
+
 h1,
 h2,
 h3 {
@@ -1350,11 +1357,12 @@ svg {
     border-color: var(--sel);
   }
   /* Two sections side by side: a figure and the table that reads it out. */
-  /* A map and its table: the map takes up to its own size, the table the rest. */
+  /* A map and its table: the table takes what its columns need and no more
+     (at most 420 px), the map everything else, never under 280 px. */
   .sect-pair {
     column-gap: var(--s5);
     display: grid;
-    grid-template-columns: minmax(280px, 1fr) minmax(320px, 420px);
+    grid-template-columns: minmax(280px, 1fr) fit-content(420px);
   }
   .sect-pair > .sect {
     border-top: 0;

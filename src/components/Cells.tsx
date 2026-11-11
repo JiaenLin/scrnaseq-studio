@@ -350,14 +350,15 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
           <p className="m-0 truncate">
             {panels.length > 1
               ? `One shared axis range across all ${panels.length} panels.`
-              : `Coloured by ${shown}.`}
+              // In the interface's own words (Cell type, Group, % mito), not the field's key.
+              : `Coloured by ${legendName.charAt(0).toLowerCase()}${legendName.slice(1)}.`}
           </p>
           {isolated !== null && (
             <span className="flex items-center gap-2">
               <span className="num">
                 Only {isolated}: {fmt(counts.get(isolated) ?? 0)} of {fmt(d.nCells)} cells
               </span>
-              <button type="button" className="btn btn-quiet" style={{ height: 20 }} onClick={() => setOnly(null)}>
+              <button type="button" className="btn btn-quiet" onClick={() => setOnly(null)}>
                 Show all
               </button>
             </span>

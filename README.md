@@ -177,7 +177,8 @@ from — kept because it is a faster place to try a layout than the app is.
 npm ci
 npm run lint
 npm test         # statistics, bundles, collections, composition, the rendered Methods and Run card,
-                 # sentinels, and the lab's own bundles (testdata/lab)
+                 # sentinels, the lab's own bundles (testdata/lab), and the rules of what a Save writes
+                 # (npm run test:export writes every Save in a browser, both themes, and measures each file)
 npm run build
 npm run dev      # http://localhost:5173
 ```

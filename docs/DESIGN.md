@@ -132,8 +132,8 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
   wash and an ink edge; several = a check box per row) and the result on the right as a document of sections
   (`<Section>`: a title, a meta, its own actions at the right end, a hairline above; one line, a long title gives
   way with an ellipsis and its full text as its `title`, the actions never drop under it). The score map and its
-  table share a row (`.sect-pair`): the table keeps 320 to 420 px, the map takes the rest and is fitted between
-  280 and 560 px, painted by the feature plot's painter with its type in CSS pixels.
+  table share a row (`.sect-pair`): the table takes what its columns need (at most 420 px), the map takes the
+  rest and is fitted between 280 and 560 px, painted by the feature plot's painter with its type in CSS pixels.
 
 **Composition** (a chart that is read row by row).
 - Rail: `Bars show`, `One row per`, `Limit to`. Stage: a section per figure, each with its actions at the right
