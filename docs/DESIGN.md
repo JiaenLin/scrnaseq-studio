@@ -337,6 +337,124 @@ floating surface). Nothing on the page itself is rounded.
   figure (every panel with its name and n, the axis glyph, the key with n; an isolated entry is isolated in the
   key too) repainted on white. A figure that drops ticks, a legend or cells in its file is a wrong figure.
 
+## Words
+
+Run 5 measured every word before changing one ([design/COPY.md](design/COPY.md): 1,319 distinct strings, 7,971 words,
+on 153 states) and then wrote this. The numbers below are `scripts/copy-standard.mjs`; `scripts/test-copy.mjs` fails
+`npm test` when a string is over its budget or uses a retired term. **The reader is a scientist with a figure in
+mind:** they scan for the control or the number they came for, read a sentence only when a result surprises them,
+and take a saved figure away from every word on the screen. So: fewer words is the default, a sentence that changes
+nothing the reader will do goes, and the reasoning behind a method lives in Methods (and the root DESIGN.md), not
+beside the control.
+
+**Word budgets, per string.** A word is a run of characters holding a letter or a digit. A slot the data fills (a
+number, a gene, a cell type) counts as none: the budget is for what the app says.
+
+| kind | words | why this number |
+|---|---:|---|
+| tab | 2 | a noun, found by position after the first visit |
+| button, segment, option, chip, label, table header | 3 | a verb and its object, or a name; three words is the most read in one fixation |
+| picker's face, menu item | 4 | a name the reader chose, or chooses among others in a column |
+| badge | 2 | a state, never a sentence |
+| title (a section, a stage, a panel) | 8 | one line at 15 px in the narrowest stage |
+| placeholder | 6 | it vanishes on the first key: an example, not an instruction |
+| accessible name | 8 | heard in full before the next key press |
+| status line, head line | 14 | one line of the head at 1,280 px; it is re-read every time the figure changes |
+| tooltip | 16 | one sentence; it is gone when the pointer moves, so it cannot hold a reason and its consequence |
+| help line under a control | 20 | three lines of the 208 px rail; a fourth pushes the next control off a 900 px window |
+| legend line under a figure | 24 | what a mark means and n, in one line of a 900 px stage (a list of groups with their n is data) |
+| note (a limit on a claim) | 30 | two sentences: the limit, and what to read instead |
+| empty state | 12 + 24 | the instruction is the title; one more sentence only if it says what will be drawn |
+| error | 30 | what happened, then what to do (below) |
+| readout | 12 | read while the pointer moves |
+| text on a figure | 8 | an axis title or one annotation |
+| a saved figure's legend | 45 | beside its key and n: a journal's legend for one panel runs two to three lines |
+| a paragraph of prose (Overview, a note under a result) | 40 | past that it is a method, and belongs in Methods |
+| a paragraph of Methods | 160 | a paper's methods paragraph; the one place a reader came to read |
+
+**One screen at rest** (1,440 by 900, the app's own words in view): 160 on a view that is a figure, 220 on one that
+holds a table or a list, 520 on Methods. At the base the worst were Differential expression (312), Co-expression
+(308) and the enrichment (245).
+
+**One term per concept.** The left column is the only word the interface uses.
+
+| concept | term | retired |
+|---|---|---|
+| a file leaving the app | **Save** (a figure), **CSV** (a table, named by its format) | download, export ("export counts" stays: it is the pseudobulk table's own verb in the lab's tools) |
+| the experimental factor | **group** | condition |
+| one biological unit | **sample** | animal, mouse, replicate (as a noun for a sample) |
+| the annotation a view splits by | **cell type** | cluster (it stays only for ordering a heat map: "Cluster rows"), population, identity |
+| a named list of genes | **gene set** (a "set" after first use) | signature, pathway (unless it is the collection's own word), module (except "module score", the method's name) |
+| a cell the annotator gave no cell type | **cells not called**, then the annotator's own labels | sentinel, uncalled, unassigned, grey cells |
+| an adjusted p-value | **adj. p** in a head or a line, "adjusted p" in a sentence | padj, p_adj, q, FDR as a column name (FDR stays the name of the Benjamini-Hochberg cutoff) |
+| the thing that is open | **object** (what was analysed), **bundle** (the file it came in) | dataset, file (for the object), data |
+| this application | no subject, or **this app** | the studio, Studio (except the product's name on the landing page and in Methods) |
+| the left pane | **on the left** | the controls on the left, the rail, the sidebar |
+| choosing from a list | **Choose** | pick, select (for a list) |
+| acting on a mark or a row | **Select** (it works by keyboard too) | click, tap, press (for a mark); hover is "point at" |
+| starting a computation | the verb of the result: **Run** (a test), **Find markers**, **Score**, **Correlate** | compute, calculate, go |
+| a fraction of cells with a count above zero | **detected in** n% | expressed in, pct, positive (except "positive cells drawn last") |
+
+**Sentence case, and punctuation.** Every label, title, button and head is sentence case; a method, a tool or a person
+keeps its capitals (Wilcoxon, Bonferroni, Seurat, MSigDB). A fragment (a label, a title, a tooltip of one clause)
+has no full stop; a sentence has one. No exclamation mark, no "please", no "simply". No dash joining two clauses:
+write two sentences, or use a colon when the second half is the content of the first. The em dash has one meaning
+in this app, in a table cell: no value. An ellipsis only on a control that opens a file picker and on a busy button.
+
+**Numbers.**
+
+| quantity | written | example |
+|---|---|---|
+| a count | whole, thousands separated | 34,367 cells |
+| n | "n = " with spaces, what is counted at first use; in a key "(n = 6,065)" | n = 34,367 cells |
+| a share | whole percent; one decimal under 10% in a table | 92%, 0.4% |
+| expression (log-normalized mean), log₂ fold change, r, a module score, a z-score | two decimals | 2.46, −0.61 |
+| a coordinate on an embedding | two decimals (the sixth decimal of a UMAP is not information) | 4.21, −7.03 |
+| p, adj. p | two significant digits; under 0.001 as 1.4e-5; an underflow as < 1e-308 | 0.021, 1.4e-5 |
+| a negative number | the minus sign (U+2212), never a hyphen, never a dash | −1.18 |
+| a range | "a to b" in a sentence, an en dash in a label | 10 to 500 genes, 10–500 |
+| a unit | a space before it, except % and × | 7 in, 300 dpi, 6.3 pt, 2.2× |
+
+A number rounded on screen is whole in the file made for numbers: every table's CSV writes full precision, and a
+readout's values are the columns of the CSV saved from that view (the embedding's coordinates are in the bundle's
+`embed.f32`, which the app never changes).
+
+**Names.** A gene is written as the object writes it (Gfap, ASCL1), in mono where symbols align. A gene set keeps
+its source's capitals: the collection's prefix goes, an underscore becomes a space, the first word takes a capital,
+and a word is lower-cased only if it is a dictionary word. A token with a digit or from the acronym list
+(`ACRONYMS`: DNA, RNA, E2F, MYC, G2M, KRAS, TNFA, NFKB, MTORC1, IL2, IL6, JAK, STAT3, STAT5, UV, TGF, PI3K, AKT,
+MTOR, P53, WNT …) stays as the source has it: "E2F targets", "DNA repair", "TNFA signaling via NFKB", never "E2f
+targets" or "Dna repair". The source's own name is in the element's title and in every CSV. A cell type, a group
+and a sample are the object's own strings, never re-cased, never abbreviated except by an ellipsis with the whole
+name in the title.
+
+**An error says what happened, then what to do.** First sentence: what the reader was doing and what did not
+happen, in their words ("That file did not open"). Second: the cause the app knows, without a code name. Third:
+one action that works (a button where there is one). The technical message comes last, in mono, for a bug report.
+Never only "Something went wrong"; never a cause the app is guessing.
+
+**On screen, or in the saved figure.** Each fact has one place per medium.
+
+| | on screen | in the saved file |
+|---|---|---|
+| what is plotted (quantity, cell type, contrast) | the head line, once | the legend's first line, bold |
+| the test and its cutoffs | the rail (where they are set) | the legend, when a line or a colour on the figure comes from them |
+| the key and n | the key pane, or the line under the figure when there is no pane | always, under the drawing |
+| what a mark means | the line under the figure | always |
+| cells left out (cells not called; cells too few to pool) | one sentence where the count is shown | the same sentence, always |
+| how to use the figure (select, point at, on the left) | a tooltip or the empty state | never |
+| the app's name, the theme, the window | never | never |
+
+Nothing is said twice on one screen: a tooltip does not repeat its control's label, a help line does not restate the
+option chosen, a legend line does not repeat the key pane's n. Nothing needed is missing from a file: the test is
+`npm run test:export` (every file holds a title, a key or its n) and the lab fixture's check (a file from an object
+with cells not called names them and their count).
+
+**Elements, measured** ([design/ELEMENTS.md](design/ELEMENTS.md)). One box per kind: a control is 28 px in the rail
+and 24 px in a head line or a toolbar, with 13 px type at 28 and 12 px at 24; a row (table, option, picker option)
+is 28 px; radius 6 on a control and 4 on a thumb, a swatch or a badge. The differences that have a reason are named
+in ELEMENTS.md; any other is a defect.
+
 ## States (every panel has all five)
 
 - **Empty** (the reader has not asked yet): `.empty` in the place the figure will take. The instruction is the

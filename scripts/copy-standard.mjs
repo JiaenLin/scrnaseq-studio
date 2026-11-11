@@ -68,6 +68,8 @@ export const RETIRED = [
   { re: /\bidentit(y|ies)\b/i, use: 'cell type or group', why: "Seurat's word, not the reader's" },
   { re: /\bsentinels?\b/i, use: 'cells not called', why: 'the code word for a label that is not a cell type', but: /in sentinels|listed in sentinels/i },
   { re: /\buncalled\b/i, use: 'not called', why: 'one phrase for a cell the annotator gave no cell type' },
+  { re: /\bpick(s|ed|ers?)?\b/i, use: 'choose', why: 'one verb for taking one of a list' },
+  { re: /\bdatasets?\b/i, use: 'object', why: 'what is open is an object; the file it came in is a bundle' },
   { re: /\bthe studio\b/i, use: 'this app (or no subject)', why: 'the app does not name itself in its own sentences', but: /scRNA-seq Studio/ },
   { re: /\bpadj\b/, use: 'adj. p', why: "a column name from DESeq2's output, not a word; the table header says adj. p", but: /log₁₀ padj|padj_/ },
   { re: /\bcontrols on the left\b/i, use: 'on the left', why: 'the rail is where controls are; said once, shortly' },
