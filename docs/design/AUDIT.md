@@ -29,7 +29,7 @@ left for that run.
 ## 3. Colour (5)
 1. `--ink-3` text (tabs at rest, captions, eyebrows, table heads, `n =`) at 2.34 to 2.56:1 in light and 3.07 to
    3.96:1 in dark: fails AA, and the tabs read as disabled (measured; `cells-1440-light`, `landing`). **A**.
-2. `--accent` as text is 4.47:1 in light; white on the dark accent (the "Open a bundle" button) is 2.9:1
+2. `--accent` as text is 4.47:1 in light; white on the dark accent (the "Open a bundle" button) is 2.98:1
    (`landing-1280-dark`). **A** (`--text-on-accent`).
 3. The default categorical palette (`npg`) fails on a nine-type scatter: worst pair ΔE 4.8 for protan readers
    (`#7E6148` against `#E64B35`); qNSC and Endothelial are both red at ΔE 7.5 for full colour vision; five of ten

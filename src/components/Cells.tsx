@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, ColorBy, Dataset } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
@@ -77,13 +77,18 @@ export function CellsControls({ d, colorBy, split, onColorBy, onSplit }: {
 }
 
 /** The stage's size, read from the page, so the figure fills it at the embedding's own aspect. */
+// Before paint in a browser, so the first frame is already the fitted size and
+// nothing jumps; on the server (the tests' render) there is no layout to read.
+const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect
+
 function useStageBox() {
   const ref = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ w: 0, vh: 0 })
-  useEffect(() => {
+  useBeforePaint(() => {
     const el = ref.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const read = () => setBox({ w: Math.floor(el.clientWidth), vh: window.innerHeight })
+    read()
     const ro = new ResizeObserver(read)
     ro.observe(el)
     window.addEventListener('resize', read)

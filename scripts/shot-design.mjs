@@ -83,7 +83,8 @@ for (const T of THEMES) for (const W of WIDTHS) {
   await tab('Differential expression'); await shot('de')
   // A contrast is never chosen for the reader: pick a cell type, a control and a
   // comparison through the bar's own pickers, the first free option of each.
-  const pickers = page.locator('header button[aria-haspopup="listbox"]')
+  // In the bar under the tabs before W037, in the rail after it.
+  const pickers = page.locator('header button[aria-haspopup="listbox"], aside button[aria-haspopup="listbox"]')
   for (let i = 0; i < await pickers.count(); i++) {
     await pickers.nth(i).click(); await settle(300)
     if (i === 0) await shot('menu-celltype', false)
