@@ -2,7 +2,7 @@
  "measured": "the built app (vite preview), headless Chromium, light theme",
  "window": "1440 x 900",
  "source": {
-  "sha": "e5a212a2575c8fbf"
+  "sha": "2d8c3e0257eb5fee"
  },
  "states": [
   {
@@ -687,7 +687,7 @@
   {
    "state": "Gene sets / Several sets / Cell type × group",
    "view": "Gene sets",
-   "app": 188,
+   "app": 186,
    "data": 171,
    "texts": 330
   },
@@ -17188,11 +17188,11 @@
    "kind": "title",
    "where": "head line",
    "src": "text",
-   "text": "Which gene set does each cell type in each group express?",
-   "shape": "Which gene set does each cell type in each group express?",
-   "words": 11,
-   "own": 11,
-   "chars": 57,
+   "text": "Which gene set does each cell type × group express?",
+   "shape": "Which gene set does each cell type × group express?",
+   "words": 9,
+   "own": 9,
+   "chars": 51,
    "px": 13,
    "wt": "600",
    "data": false,

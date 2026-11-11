@@ -206,14 +206,14 @@
   "file": "src/components/Coexpression.tsx",
   "kind": "empty state",
   "before": "This scope leaves # # — too few to correlate over. A correlation over two points is +1 or −1 whatever the data says. Widening the scope, or correlating over metacells, also works. Cutting the columns by sample instead would give more of them.",
-  "after": "Cutting the columns by sample gives more.",
+  "after": "This scope leaves # #: too few to correlate over. Widen the scope, or correlate over metacells. Cutting the columns by sample gives more.",
   "why": "retired: a colon, a comma or a full stop. over the empty state budget"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "empty state",
   "before": "Cutting the columns by sample instead would give more of them.",
-  "after": "This scope leaves # #: too few to correlate over. Widen the scope, or correlate over metacells. Cutting the columns by sample gives more.",
+  "after": "Cutting the columns by sample gives more.",
   "why": "reworded"
  },
  {
@@ -262,7 +262,7 @@
   "file": "src/components/Coexpression.tsx",
   "kind": "text",
   "before": "Metacells are pooled on the # embedding, which is a 2-D projection — neighbours there are close to, but not the same as, neighbours in expression space. hdWGCNA builds its metacells the same way but in a reduced space with many more components, which a bundle does not carry; the constraint on the left is its group.by, and a metacell holds at least ten cells.",
-  "after": "Metacells are pooled on #, a 2-D projection, at least ten cells each.",
+  "after": null,
   "why": "retired: a colon, a comma or a full stop. over the text budget"
  },
  {
@@ -271,6 +271,13 @@
   "before": "Each member is standardised and turned the same way round before they are combined, so members that move in opposite directions add to the signature rather than cancelling in its mean. The combined score is the weighted mean of the members’ own correlations. This set does not move as one programme — read the combined score as a summary of its dominant arm.",
   "after": "Members are standardized and signed before they are combined, so opposite members add, not cancel. The score is the weighted mean of the members’ correlations. This set does not move as one programme: read the score as its dominant arm.",
   "why": "retired: gene set; one spelling: -ize (normalize, standardize, capitalization); a colon, a comma or a full stop. over the text budget"
+ },
+ {
+  "file": "src/components/Coexpression.tsx",
+  "kind": "text",
+  "before": "",
+  "after": "Metacells are pooled on #, a 2-D projection, at least ten cells each.",
+  "why": "new: something a view or a saved file did not say"
  },
  {
   "file": "src/components/ColumnFilter.tsx",
@@ -787,7 +794,7 @@
   "file": "src/components/GeneSets.tsx",
   "kind": "title",
   "before": "Every gene of the set, across identities",
-  "after": "Expression of # set genes across # cell types",
+  "after": null,
   "why": "retired: cell type or group"
  },
  {
@@ -815,7 +822,7 @@
   "file": "src/components/GeneSets.tsx",
   "kind": "accessible name",
   "before": "Expression of # set genes across # populations",
-  "after": "Set genes",
+  "after": "Expression of # set genes across # cell types",
   "why": "retired: cell type"
  },
  {
@@ -831,6 +838,13 @@
   "before": "Module score by identity",
   "after": "Module score by cell type or group",
   "why": "retired: cell type or group"
+ },
+ {
+  "file": "src/components/GeneSets.tsx",
+  "kind": "label",
+  "before": "",
+  "after": "Set genes",
+  "why": "new: something a view or a saved file did not say"
  },
  {
   "file": "src/components/GroupOrder.tsx",
@@ -1186,7 +1200,7 @@
   "file": "src/components/Overview.tsx",
   "kind": "title",
   "before": "What counts as a cell type, and as a group",
-  "after": "cell type",
+  "after": "The cell type and group columns",
   "why": "over the title budget"
  },
  {
@@ -1249,6 +1263,13 @@
   "file": "src/components/Overview.tsx",
   "kind": "label",
   "before": "",
+  "after": "cell type",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "",
   "after": "cell types",
   "why": "new: something a view or a saved file did not say"
  },
@@ -1257,13 +1278,6 @@
   "kind": "label",
   "before": "",
   "after": "fewest samples per group",
-  "why": "new: something a view or a saved file did not say"
- },
- {
-  "file": "src/components/Overview.tsx",
-  "kind": "title",
-  "before": "",
-  "after": "The cell type and group columns",
   "why": "new: something a view or a saved file did not say"
  },
  {
