@@ -424,10 +424,11 @@ forced duration on every element gave one to everything, the property defaulting
    when Differential expression shows every note (it scrolls); the lab bundle's Overview selects on the stage.
 6. States seen on a large object (the DE table's row cut, the label drop of a 300,000-cell embedding): designed
    and written, never seen, because the synthetic demos are small.
-7. Cells the annotator did not call (the lab's EXCLUDED and UNRESOLVED) are said on the screen but not in two saved
-   files: Cells draws them grey with no key entry (its key counts the called cells, its panels' n every cell), and
-   Composition's foot counts the called cells only ("8 rows, 224 cells" on the lab fixture's 240). Every number is
-   true; the cut is not named. `npm run test:export` saves from the replicated demo, which has no such cells.
+7. Cells the annotator did not call (the lab's EXCLUDED and UNRESOLVED) are said on the screen but not in the saved
+   files: Cells draws them grey with no key entry (its key counts the called cells, its panels' n every cell);
+   Composition's foot counts the called cells only ("8 rows, 224 cells" on the lab fixture's 240); Markers' foot says
+   "each cell type against the rest" over 224 cells, not that the 16 are on neither side. Every number is true; the
+   cut is not named. `npm run test:export` saves from the replicated demo, which has no such cells.
 
 **Do not get wrong:** `Card` must keep rendering `<section class="card">` (two tests split the page on it); a
 view's controls go through `<InRail>`, never by lifting its state into App; an action on a figure goes through
