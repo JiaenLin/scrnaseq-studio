@@ -20,13 +20,27 @@
 //    as it was drawn, with the kind of element that drew it, the words on one
 //    screen at rest, and the legend each saved figure carries.
 //
-// It needs no browser. The inventory is re-measured when copy changes
-// (docs/DESIGN.md, "Checking a change").
+// 3. THE VIEWS RENDERED NOW, in Node (scripts/render.mjs): Overview on the three
+//    demos and on the fixture with cells not called, and Methods, as text. No
+//    retired word, no "1 samples".
+//
+// It needs no browser, so reading 2 is of a walk somebody ran. It carries a
+// STAMP, the hash of the source's strings at the time of the walk, and the
+// check fails when the source's strings are no longer those: a changed string
+// cannot pass on an inventory of the string before it. Re-measure after any
+// change to a string (docs/DESIGN.md, "Checking a change").
+//
+// What reading 1 takes for copy: any text of an element; an attribute that is
+// copy by its name (title, label, placeholder, aria-label ...) even when it is
+// ONE word; a `label:` or `title:` of an object; any other literal of three
+// words or more; and what a Save writes for a script to read, a file's name
+// (`<Figure name>`, the first argument of downloadCsv) and a CSV's header.
 
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
-import { BUDGET, SCREEN_BUDGET, SCREEN_KIND, excepted, refine, retiredIn, words } from './copy-standard.mjs'
+import { BUDGET, KEPT, RETIRED, SCREEN_BUDGET, SCREEN_KIND, asWords, butParts, excepted, kept, refine, retiredIn, words } from './copy-standard.mjs'
 import { properName } from '../src/lib/msigdb.ts'
 import { nNote, wrapSpaces } from '../src/lib/figure-foot.ts'
 import { NOT_CALLED, notCalledNote } from '../src/lib/sentinels.ts'
@@ -114,8 +128,8 @@ const ATTR_KIND = {
   'aria-label': () => 'accessible name',
   label: e => (tagOf(e) === 'Popover' ? 'accessible name' : tagOf(e) === 'Figure' || tagOf(e) === 'CsvButton' ? 'button' : 'label'),
   note: e => (tagOf(e) === 'MenuItem' ? 'menu item note' : 'help'),
-  hint: () => 'help', help: () => 'help', sub: () => 'help', meta: () => 'status', why: () => 'tooltip', reason: () => 'tooltip',
-  alt: () => 'accessible name', name: () => null,
+  hint: () => 'help', help: () => 'help', sub: e => (tagOf(e) === 'Card' ? 'legend' : 'help'), meta: () => 'status', why: () => 'tooltip', reason: () => 'tooltip',
+  alt: () => 'accessible name', name: e => (tagOf(e) === 'Figure' ? 'file name' : null),
 }
 
 const strings = []   // { file, line, kind, text, words }
@@ -176,6 +190,30 @@ const SKIP_ATTR = /^(className|style|key|id|href|src|type|role|d|viewBox|fill|st
 const codeLike = t => /^[\w./:#@\-[\]()%,=*> ]*$/.test(t) && !/[a-z]{3,} [a-z]{2,} [a-z]{2,}/i.test(t)
   || /^(\.|#|\/|[a-z]+:\/\/)/.test(t) || /\b(px|rem|var\(--|rgba?\(|flex|grid|mt-|px-|tx-)\b/.test(t)
 
+// An attribute that is copy by its name is read even when it is one word: only a path, a colour, a
+// selector or an identifier is set aside. (`codeLike` set every one-word string aside, and a string
+// that begins with a slot, so `label="clusters"` and an accessible name that opens with a count passed unread.)
+const codeAttr = t => /^(\.[\w-]|\/|[a-z]+:\/\/)/.test(t) || /^#[\w-]+$/.test(t) || /var\(--|rgba?\(/.test(t) || /^[a-z0-9]+(_[a-z0-9]+)+$/.test(t)
+const COPY_PROP = /^(label|title|note|notes|hint|sub|eyebrow|placeholder|head|meta|why|reason|help)$/
+/** Is this literal where copy goes: a copy property of an object, a copy attribute, the text of an element? */
+function copySlot(node) {
+  for (let e = node.parent, child = node; e; child = e, e = e.parent) {
+    if (ts.isConditionalExpression(e)) { if (e.condition === child) return false; continue }
+    if (ts.isParenthesizedExpression(e) || ts.isTemplateSpan(e) || ts.isTemplateExpression(e) || ts.isArrayLiteralExpression(e)) continue
+    if (ts.isBinaryExpression(e)) {
+      const k = e.operatorToken.kind
+      if (k === ts.SyntaxKind.PlusToken) continue
+      if ((k === ts.SyntaxKind.AmpersandAmpersandToken || k === ts.SyntaxKind.BarBarToken || k === ts.SyntaxKind.QuestionQuestionToken) && e.right === child) continue
+      return false
+    }
+    if (ts.isPropertyAssignment(e)) return COPY_PROP.test(e.name.getText())
+    if (ts.isJsxExpression(e)) { if (e.parent && ts.isJsxAttribute(e.parent)) continue; return !!e.parent && (ts.isJsxElement(e.parent) || ts.isJsxFragment(e.parent)) }
+    if (ts.isJsxAttribute(e)) return !!(ATTR_KIND[e.name.getText()] ?? (() => null))(e.parent.parent)
+    return false
+  }
+  return false
+}
+
 for (const f of files) {
   const sf = ts.createSourceFile(f, fs.readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true, f.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
   const seen = new Set()
@@ -194,9 +232,19 @@ for (const f of files) {
         const init = ts.isJsxExpression(node.initializer) ? node.initializer.expression : node.initializer
         const text = init && (ts.isConditionalExpression(init) ? branchText(init, seen) : flat(init))
         const kind = (ATTR_KIND[name] ?? (() => null))(el)
-        if (text && kind && !codeLike(text)) { add(sf, node, kind, text); seen.add(init) }
+        if (text && kind && (kind === 'file name' || !codeAttr(text))) { add(sf, node, kind, text); seen.add(init) }
         else if (text) seen.add(init)
       } else if (node.initializer) { seen.add(ts.isJsxExpression(node.initializer) ? node.initializer.expression : node.initializer) }
+    }
+    // What a Save writes for a script to read: a CSV's file name and its header.
+    if (ts.isCallExpression(node) && node.expression.getText() === 'downloadCsv') {
+      const lits = (n, kind) => {
+        if (!n) return
+        const t = flat(n)
+        if (t !== null) { add(sf, n, kind, t); seen.add(n); n.forEachChild(function mark(c) { seen.add(c); c.forEachChild(mark) }); return }
+        n.forEachChild(c => lits(c, kind))
+      }
+      lits(node.arguments[0], 'file name'); lits(node.arguments[1], 'csv header')
     }
     // Any other sentence a reader can be shown: a message, a legend's note, a description in a list.
     if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)
@@ -208,7 +256,10 @@ for (const f of files) {
         const p = top.parent
         const isImport = ts.isImportDeclaration(p) || ts.isExportDeclaration(p) || ts.isLiteralTypeNode(p) || (ts.isCallExpression(p) && /^(import|require|querySelector(All)?|closest|matches|getAttribute|setAttribute|addEventListener|removeEventListener|createElement|createElementNS|getContext|includes|startsWith|endsWith|split|join|replace|test|match|indexOf|localeCompare|toLocaleString|getPropertyValue|setProperty|slug)$/.test(p.expression.getText().split('.').pop()))
         const text = flat(top) ?? ''
-        if (!isImport && words(text.replace(/#/g, ' ')) >= 3 && /[a-z]{2,} [a-z]{2,}/i.test(text) && !codeLike(text)) {
+        const sentence = words(text.replace(/#/g, ' ')) >= 3 && /[a-z]{2,} [a-z]{2,}/i.test(text) && !codeLike(text)
+        // A shorter one is copy when it sits where copy goes: `{ label: 'none' }` is read, `mode === 'bulk'` is not.
+        const short = !sentence && /[A-Za-z]{2}/.test(text) && !codeAttr(text) && copySlot(top)
+        if (!isImport && (sentence || short)) {
           let kind = /Methods\.tsx$|methods/.test(f) ? 'methods' : 'text'
           for (let e = top.parent; e; e = e.parent) {
             if (ts.isThrowStatement(e) || (ts.isNewExpression(e) && /Error$/.test(e.expression.getText()))) { kind = 'error'; break }
@@ -228,15 +279,18 @@ for (const f of files) {
   visit(sf)
 }
 
+// The source's strings, as one number: the inventory carries it, so a walk of other strings is refused.
+const stamp = crypto.createHash('sha256').update([...new Set(strings.map(s => `${s.kind}\t${s.text}`))].sort().join('\n')).digest('hex').slice(0, 16)
+if (process.argv.includes('--stamp')) { fs.writeFileSync(1, stamp + '\n'); process.exit(0) }
 if (process.argv.includes('--json')) {
   // Written to a file descriptor in one piece: a pipe would be cut by the exit.
-  fs.writeFileSync(process.env.COPY_OUT ?? 1, JSON.stringify(strings.map(s => ({ ...s, file: s.file.replace(SRC, 'src'), over: s.words > (BUDGET[s.kind] ?? Infinity), retired: retiredIn(s.text).map(r => r.use) }))))
+  fs.writeFileSync(process.env.COPY_OUT ?? 1, JSON.stringify(strings.map(s => ({ ...s, file: s.file.replace(SRC, 'src'), over: s.words > (BUDGET[s.kind] ?? Infinity), retired: kept(s) ? [] : retiredIn(asWords(s)).map(r => r.use) }))))
   process.exit(0)
 }
 if (LIST) {
   const over = s => s.words - (BUDGET[s.kind] ?? 999)
   for (const s of [...strings].sort((a, b) => over(b) - over(a) || b.words - a.words)) {
-    const r = retiredIn(s.text).map(x => x.use).join(', ')
+    const r = kept(s) ? '' : retiredIn(asWords(s)).map(x => x.use).join(', ')
     console.log(`${String(s.words).padStart(3)}/${String(BUDGET[s.kind] ?? '-').padEnd(3)} ${s.kind.padEnd(16)} ${s.file.replace('src/', '').replace('components/', '')}:${s.line}  ${s.text}${r ? `   [RETIRED -> ${r}]` : ''}`)
   }
   process.exit(0)
@@ -258,14 +312,31 @@ for (const [kind, list] of Object.entries(byKind).sort()) {
   ok(over.length === 0, `${kind}: ${list.length} strings, none over ${cap} words`,
     over.slice(0, 6).map(s => `${s.file}:${s.line} (${s.words}) ${s.text.slice(0, 110)}`).join('\n       '))
 }
-const retired = strings.flatMap(s => retiredIn(s.text).map(r => ({ s, r })))
+const retired = strings.filter(s => !kept(s)).flatMap(s => retiredIn(asWords(s)).map(r => ({ s, r })))
 ok(retired.length === 0, 'no string uses a retired term',
   retired.slice(0, 10).map(({ s, r }) => `${s.file}:${s.line} "${s.text.slice(0, 90)}" -> ${r.use}`).join('\n       '))
+{
+  // What this reading missed at d51bf41, each now read: a one-word string, a CSV's header, a file's name, "clicked".
+  const one = strings.filter(s => s.words === 1 && !['file name', 'csv header'].includes(s.kind)).length
+  const heads = strings.filter(s => s.kind === 'csv header').length, names = strings.filter(s => s.kind === 'file name').length
+  ok(one > 100 && heads > 20 && names > 15, `one-word strings are read (${one}), and CSV headers (${heads}) and file names (${names})`)
+  const caught = t => retiredIn(asWords(t)).length > 0
+  ok(caught({ kind: 'label', text: 'clusters' }) && caught({ kind: 'button', text: 'Clear 1 clicked' })
+    && caught({ kind: 'file name', text: 'cluster_markers' }) && caught({ kind: 'csv header', text: 'identity' })
+    && caught({ kind: 'csv header', text: 'cluster population' }) && caught({ kind: 'label', text: 'min replicates' }),
+    'each of them with a retired word is caught: "clusters", "Clear 1 clicked", cluster_markers, identity, min replicates')
+  const all = strings.map(asWords)
+  const stale = RETIRED.flatMap(r => butParts(r).filter(b => !all.some(t => r.re.test(t) && b.test(t))).map(b => `/${b.source}/ (${r.use})`))
+  ok(stale.length === 0, 'every exemption still exempts a string in the source', stale.join('; '))
+  ok(KEPT.every(k => strings.some(s => kept(s) && s.text === k.text)), `every word kept in a file by name is still there (${KEPT.map(k => k.text).join(', ')})`)
+}
 
 const INV = 'docs/design/inventory/after.json'
 if (fs.existsSync(INV)) {
   console.log('Copy: the measured inventory')
   const inv = refine(JSON.parse(fs.readFileSync(INV, 'utf8')))
+  ok(inv.source?.sha === stamp, 'the inventory was measured from this source: its stamp is the hash of the strings read above',
+    `the inventory's stamp is ${inv.source?.sha ?? 'absent'}, the source's is ${stamp}: build, serve, and run scripts/inventory-design.mjs again`)
   const app = inv.strings.filter(s => !s.data)
   ok(app.length > 300, `the inventory holds the app's strings as drawn (${app.length} distinct, ${inv.states.length} states)`)
   const kinds = {}
@@ -285,6 +356,12 @@ if (fs.existsSync(INV)) {
   const drawn = app.flatMap(s => retiredIn(s.text).map(r => ({ s, r })))
   ok(drawn.length === 0, 'no string as drawn uses a retired term',
     drawn.slice(0, 10).map(({ s, r }) => `[${s.state}] "${s.text.slice(0, 90)}" -> ${r.use}`).join('\n       '))
+  // A short string the walk counted as the object's own (a tile's label, a key's entry) is read for retired words too.
+  const own = inv.strings.filter(s => s.data && words(s.text) <= 3).flatMap(s => retiredIn(s.text).map(r => ({ s, r })))
+  ok(own.length === 0, 'nor any short string counted as the object\'s own',
+    own.slice(0, 10).map(({ s, r }) => `[${s.state}] "${s.text.slice(0, 60)}" -> ${r.use}`).join('\n       '))
+  ok(!inv.saved.some(f => retiredIn(String(f.file).replace(/[_.]+/g, ' ')).length), 'no saved file\'s name holds a retired word',
+    inv.saved.filter(f => retiredIn(String(f.file).replace(/[_.]+/g, ' ')).length).map(f => f.file).join(', '))
   // What a saved figure carries (the legend Save writes under the drawing, as the walk read it from each file).
   const text = f => (f.format === 'SVG' ? f.foot.map(l => l.t).join(' ') : f.own.join(' | '))
   const file = (state, re) => inv.saved.find(f => f.state === state && re.test(f.file))
@@ -313,10 +390,39 @@ if (fs.existsSync(INV)) {
     "Markers' saved legend carries the sentence its screen shows", labMk && text(labMk))
 }
 
+if (SRC === 'src') {
+  console.log('Copy: the views rendered now (no browser, no committed file)')
+  const { loadComponents, render, textOf } = await import('./render.mjs')
+  const { demoSource, bundleSource } = await import('../src/lib/source.ts')
+  const { parseBundle } = await import('../src/lib/bundle.ts')
+  const { DE_GATES } = await import('../src/lib/stats.ts')
+  const { sentinelBundle } = await import('./fixture-sentinels.mjs')
+  const C = await loadComponents()
+  const objects = [['the replicated demo', demoSource('cohort')], ['the time course', demoSource('course')],
+    ['the wild type', demoSource('wt')], ['the fixture with cells not called', bundleSource(parseBundle(sentinelBundle()))]]
+  for (const [what, src] of objects) {
+    const over = textOf(render(C.Overview, { src, types: src.types, palKey: 'npg', roles: { t: -1, g: -1 }, onRoles: () => {} }))
+    const bad = retiredIn(over)
+    ok(bad.length === 0, `Overview on ${what}: no retired word (${words(over)} words)`, bad.map(r => `${r.re} -> ${r.use}`).join('; '))
+    ok(/\bcell types?\b/.test(over) && !/\b1 (samples|groups|cell types|genes|cells)\b/.test(over), 'its tiles count cell types, and one of a thing is singular',
+      (over.match(/\b1 (samples|groups|cell types|genes|cells)\b/) ?? [''])[0])
+    const conds = src.d.conds
+    const methods = textOf(render(C.Methods, { src, types: src.types, tis: [1], ctrl: [conds[0]], cs: [conds[conds.length - 1]],
+      method: 'wilcox', padjMax: 0.05, lfcMin: 0.25, gates: DE_GATES, lib: null }))
+    const badM = retiredIn(methods)
+    ok(badM.length === 0, `Methods on ${what}: no retired word (${words(methods)} words)`, badM.map(r => `${r.re} -> ${r.use}`).join('; '))
+    if (conds.length > 1) ok(methods.includes(`${src.genes.length.toLocaleString()} genes the object measures`), 'and it names the correction\'s denominator: every gene the object measures')
+  }
+}
+
 console.log('Copy: rules that are functions')
 ok(properName('Dna repair') === 'DNA repair' && properName('E2f targets') === 'E2F targets', 'a gene-set name keeps its acronyms: DNA repair, E2F targets')
 ok(properName('Tnfa signaling via nfkb') === 'TNFA signaling via NFKB' && properName('Myc targets v1') === 'MYC targets V1' && properName('G2m checkpoint') === 'G2M checkpoint',
   'TNFA signaling via NFKB, MYC targets V1, G2M checkpoint', [properName('Tnfa signaling via nfkb'), properName('Myc targets v1'), properName('G2m checkpoint')].join(' / '))
+ok(properName('Mhc class i protein complex') === 'MHC class I protein complex' && properName('T cell activation') === 'T cell activation'
+  && properName('Regulation of b cell proliferation') === 'Regulation of B cell proliferation' && properName('Vitamin a metabolic process') === 'Vitamin A metabolic process'
+  && properName('Transferase activity acting on a sulfur group') === 'Transferase activity acting on a sulfur group',
+  'a single letter is a capital (MHC class I, B cell, vitamin A), and "a" after a preposition is the article')
 ok(properName('Oxidative phosphorylation') === 'Oxidative phosphorylation' && properName('Rna polymerase ii transcription') === 'RNA polymerase II transcription' && properName('Mrna splicing') === 'mRNA splicing',
   'a dictionary word is left alone; RNA polymerase II, mRNA', properName('Rna polymerase ii transcription'))
 {

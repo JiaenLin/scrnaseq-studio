@@ -10,8 +10,8 @@
   "file": "src/App.tsx",
   "kind": "tooltip",
   "before": "Rank-sum across cells, as in Seurat FindMarkers — no replicates required",
-  "after": "Rank-sum across cells, as in Seurat FindMarkers: no replicates required",
-  "why": "retired: a colon, a comma or a full stop"
+  "after": "Rank-sum across cells, as in Seurat FindMarkers: one sample per group is enough",
+  "why": "retired: sample; a colon, a comma or a full stop"
  },
  {
   "file": "src/App.tsx",
@@ -46,7 +46,7 @@
   "kind": "text",
   "before": "Nothing else moved. # is still open, and a pass still running is still running.",
   "after": "# is still open, and a running pass keeps running.",
-  "why": "shorter"
+  "why": "reworded"
  },
  {
   "file": "src/App.tsx",
@@ -60,34 +60,41 @@
   "kind": "text",
   "before": "Grey: # cells the annotator did not call (#). They are drawn where they are, and are not a cell type.",
   "after": "Drawn grey: # cells the annotator did not call (#). Not a cell type.",
-  "why": "shorter"
+  "why": "reworded"
+ },
+ {
+  "file": "src/components/Cells.tsx",
+  "kind": "accessible name",
+  "before": ", with # cluster names",
+  "after": ", with # cell type names",
+  "why": "retired: cell type"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "placeholder",
   "before": "paste a signature — up to 500 genes",
-  "after": null,
+  "after": "paste genes, up to 500",
   "why": "retired: gene set; a colon, a comma or a full stop. over the placeholder budget"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "tooltip",
   "before": "paste a signature — up to 500 genes",
-  "after": "Neighbouring cells averaged into equal-sized pools: the default",
+  "after": "paste genes, up to 500",
   "why": "retired: gene set; a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "tooltip",
   "before": "Neighbouring cells averaged into equal-sized pools — the default, because it is what makes r mean what it looks like it means",
-  "after": "One column per cell type × level, averaged from the cells: works on any object",
+  "after": "Neighbouring cells averaged into equal-sized pools: the default",
   "why": "retired: a colon, a comma or a full stop. over the tooltip budget"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "tooltip",
   "before": "One column per populated cell type × level, averaged from the cells — needs no counts table, so it works on any object",
-  "after": "One column per cell type × sample: the closest this gets to replicates",
+  "after": "One column per cell type × level, averaged from the cells: works on any object",
   "why": "retired: a colon, a comma or a full stop. over the tooltip budget"
  },
  {
@@ -115,8 +122,8 @@
   "file": "src/components/Coexpression.tsx",
   "kind": "tooltip",
   "before": "One column per cell type × sample — more columns, and the closest this gets to replicates",
-  "after": "Cutting the columns by sample gives more.",
-  "why": "retired: a colon, a comma or a full stop"
+  "after": "One column per cell type × sample: the closest this gets to independent observations",
+  "why": "retired: sample; a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Coexpression.tsx",
@@ -145,6 +152,20 @@
   "before": "Seurat's min.pct — a gene detected in fewer cells is not ranked",
   "after": "Seurat's min.pct: a gene detected in fewer cells is not ranked",
   "why": "retired: a colon, a comma or a full stop"
+ },
+ {
+  "file": "src/components/Coexpression.tsx",
+  "kind": "tooltip",
+  "before": "# of the # cells in scope sit in a group too small to pool, so they are not in the correlation",
+  "after": "# of the # cells in scope are in groups too small to pool and are left out",
+  "why": "over the tooltip budget"
+ },
+ {
+  "file": "src/components/Coexpression.tsx",
+  "kind": "tooltip",
+  "before": "# of the # cells in scope sit in a group too small to pool, so they are not in the correlation",
+  "after": "# of the # cells in scope are in groups too small to pool and are left out",
+  "why": "over the tooltip budget"
  },
  {
   "file": "src/components/Coexpression.tsx",
@@ -185,15 +206,15 @@
   "file": "src/components/Coexpression.tsx",
   "kind": "empty state",
   "before": "This scope leaves # # — too few to correlate over. A correlation over two points is +1 or −1 whatever the data says. Widening the scope, or correlating over metacells, also works. Cutting the columns by sample instead would give more of them.",
-  "after": "This scope leaves # #: too few to correlate over. Widen the scope, or correlate over metacells. Cutting the columns by sample gives more.",
+  "after": "Cutting the columns by sample gives more.",
   "why": "retired: a colon, a comma or a full stop. over the empty state budget"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "empty state",
   "before": "Cutting the columns by sample instead would give more of them.",
-  "after": "No p-value. With # observations almost any r clears a threshold, and cells from one sample are not independent. Columns are means of log-normalized values, not summed counts; one of fewer than ten cells is dropped.",
-  "why": "shorter"
+  "after": "This scope leaves # #: too few to correlate over. Widen the scope, or correlate over metacells. Cutting the columns by sample gives more.",
+  "why": "reworded"
  },
  {
   "file": "src/components/Coexpression.tsx",
@@ -220,28 +241,28 @@
   "file": "src/components/Coexpression.tsx",
   "kind": "text",
   "before": "No p-value, deliberately. With # observations a correlation of almost any size clears any threshold, and cells from one animal are not independent draws — the same reason the studio separates Wilcoxon from pseudobulk. Rank by r, and read the detection rate beside it. These columns average values that are already log-normalised, which is a mean of logs — not the log of a mean that summing raw counts would give. It answers the same question as the exporter's pseudobulk table and is not the same quantity, which is why the two are separate modes. A column built from fewer than ten cells is dropped rather than drawn.",
-  "after": "Columns are means of log-normalized values, not summed counts; one of fewer than ten cells is dropped.",
-  "why": "retired: sample; this app (or no subject); one spelling: normalize; a colon, a comma or a full stop. over the text budget"
+  "after": "No p-value. With # observations almost any r clears a threshold, and cells from one sample are not independent. Rank by r, and read the detection rate beside it.",
+  "why": "retired: sample; this app (or no subject); one spelling: -ize (normalize, standardize, capitalization); a colon, a comma or a full stop. over the text budget"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "text",
   "before": "Per cell, two sparsely detected genes also agree wherever they are both absent; metacells are the answer to that.",
   "after": "Per cell, two sparse genes also agree wherever both are absent.",
-  "why": "shorter"
+  "why": "reworded"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "text",
   "before": "These columns average values that are already log-normalised, which is a mean of logs — not the log of a mean that summing raw counts would give. It answers the same question as the exporter's pseudobulk table and is not the same quantity, which is why the two are separate modes. A column built from fewer than ten cells is dropped rather than drawn.",
-  "after": "Metacells are pooled on #, a 2-D projection, at least ten cells each.",
-  "why": "retired: one spelling: normalize; a colon, a comma or a full stop. over the text budget"
+  "after": "Columns are means of log-normalized values, not summed counts; one of fewer than ten cells is dropped.",
+  "why": "retired: one spelling: -ize (normalize, standardize, capitalization); a colon, a comma or a full stop. over the text budget"
  },
  {
   "file": "src/components/Coexpression.tsx",
   "kind": "text",
   "before": "Metacells are pooled on the # embedding, which is a 2-D projection — neighbours there are close to, but not the same as, neighbours in expression space. hdWGCNA builds its metacells the same way but in a reduced space with many more components, which a bundle does not carry; the constraint on the left is its group.by, and a metacell holds at least ten cells.",
-  "after": null,
+  "after": "Metacells are pooled on #, a 2-D projection, at least ten cells each.",
   "why": "retired: a colon, a comma or a full stop. over the text budget"
  },
  {
@@ -249,7 +270,14 @@
   "kind": "text",
   "before": "Each member is standardised and turned the same way round before they are combined, so members that move in opposite directions add to the signature rather than cancelling in its mean. The combined score is the weighted mean of the members’ own correlations. This set does not move as one programme — read the combined score as a summary of its dominant arm.",
   "after": "Members are standardized and signed before they are combined, so opposite members add, not cancel. The score is the weighted mean of the members’ correlations. This set does not move as one programme: read the score as its dominant arm.",
-  "why": "retired: gene set; a colon, a comma or a full stop. over the text budget"
+  "why": "retired: gene set; one spelling: -ize (normalize, standardize, capitalization); a colon, a comma or a full stop. over the text budget"
+ },
+ {
+  "file": "src/components/ColumnFilter.tsx",
+  "kind": "help",
+  "before": "every population",
+  "after": "every column",
+  "why": "retired: cell type"
  },
  {
   "file": "src/components/Composition.tsx",
@@ -277,14 +305,28 @@
   "kind": "help",
   "before": "· # cells the annotator did not call (#) are not a cell type and are left out",
   "after": "are not a cell type and are left out",
-  "why": "shorter"
+  "why": "reworded"
+ },
+ {
+  "file": "src/components/Composition.tsx",
+  "kind": "legend",
+  "before": "Its own y axis per panel. Dots are animals — overlap means the difference is not evidence.",
+  "after": "Its own y axis per panel. Rings are samples: overlap means the difference is not evidence.",
+  "why": "retired: sample; a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Composition.tsx",
   "kind": "help",
-  "before": "Its own y axis per panel. Dots are animals — overlap means the difference is not evidence.",
-  "after": "Its own y axis per panel. Dots are samples: overlap means the difference is not evidence.",
-  "why": "retired: sample; a colon, a comma or a full stop"
+  "before": "· bar = mean · dots = individual samples",
+  "after": "· bar: mean of the samples · ring: one sample",
+  "why": "reworded"
+ },
+ {
+  "file": "src/components/Composition.tsx",
+  "kind": "help",
+  "before": "· bar = mean · dots = individual samples",
+  "after": "· bar: mean of the samples · ring: one sample",
+  "why": "reworded"
  },
  {
   "file": "src/components/Composition.tsx",
@@ -322,6 +364,13 @@
   "why": "new: something a view or a saved file did not say"
  },
  {
+  "file": "src/components/Composition.tsx",
+  "kind": "legend",
+  "before": "",
+  "after": "# cells not called are left out.",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
   "file": "src/components/DEGTable.tsx",
   "kind": "tooltip",
   "before": "Not tested — under the effect-size gate below.",
@@ -339,7 +388,7 @@
   "file": "src/components/DEGTable.tsx",
   "kind": "note",
   "before": "# of # genes were tested. Seurat's own gates run before the rank sum. A gene detected in under 10% of the cells on both sides (min.pct) is dropped: with almost no cells expressing it on either side there is nothing to compare. A gene changing by less than the effect-size gate (logfc.threshold) is kept but not tested — the # rows showing “—” are those. Their fold change and detection rates are real and were computed either way; only the rank sum, which is the slow half, was skipped. Lower the gate under What gets tested to give them p-values too.",
-  "after": "# of # genes were tested. Under 10% detected on both sides (min.pct): dropped. The # rows showing “—” are under logfc.threshold: kept, not tested. Lower it under What gets tested.",
+  "after": "# of # genes were tested. Genes under min.pct on both sides are dropped. The # rows showing “—” are under logfc.threshold: kept, but not tested. Lower it under What gets tested.",
   "why": "retired: a colon, a comma or a full stop. over the note budget"
  },
  {
@@ -353,7 +402,7 @@
   "file": "src/components/Enrichment.tsx",
   "kind": "legend",
   "before": "Hypergeometric on # genes #, against an annotated background of # of the # this object measures. # sets overlapped the list; # reach padj < 0.05 after BH across all of them.",
-  "after": "padj",
+  "after": "Hypergeometric on # genes #, against an annotated background of # of the # genes measured. # sets overlap the list; # reach padj < 0.05 after BH across them all.",
   "why": "over the legend budget"
  },
  {
@@ -366,9 +415,16 @@
  {
   "file": "src/components/Enrichment.tsx",
   "kind": "empty state",
+  "before": "# genes, but none of the # sets fall between # and # genes — so nothing was tested. Widen the set size window on the left.",
+  "after": "# genes, but none of the # sets fall between # and # genes, so nothing was tested. Widen the set size window on the left.",
+  "why": "retired: a colon, a comma or a full stop"
+ },
+ {
+  "file": "src/components/Enrichment.tsx",
+  "kind": "empty state",
   "before": "None of the # genes in this list is in any of the # sets tested, so there is nothing to be enriched. On a small collection of your own that usually means the species or the capitalisation differs from this object — the set editor lists which genes it could not find.",
   "after": "None of the # genes is in any of the # sets tested. With your own sets, check species and capitalization in the set editor.",
-  "why": "retired: a colon, a comma or a full stop. over the empty state budget"
+  "why": "retired: one spelling: -ize (normalize, standardize, capitalization); a colon, a comma or a full stop. over the empty state budget"
  },
  {
   "file": "src/components/Enrichment.tsx",
@@ -381,7 +437,7 @@
   "file": "src/components/Enrichment.tsx",
   "kind": "table header",
   "before": "p adjusted",
-  "after": "#: # of this list in a set of #, #× enrichment, adjusted p <1e-308 (−log₁₀ #)",
+  "after": null,
   "why": "retired: padj (the column and its cutoff) or \"adjusted p\" (a sentence, an axis)"
  },
  {
@@ -395,7 +451,7 @@
   "file": "src/components/Enrichment.tsx",
   "kind": "tooltip",
   "before": "# — # of this list in a set of #, #× enrichment, adjusted p <1e-308 (−log₁₀ #)",
-  "after": null,
+  "after": "#: # of this list in a set of #, #× enrichment, adjusted p <1e-308 (−log₁₀ #)",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
@@ -409,29 +465,64 @@
   "file": "src/components/Enrichment.tsx",
   "kind": "legend",
   "before": "",
-  "after": "Hypergeometric on # genes #, against an annotated background of # of the # genes measured. # sets overlap the list; # reach padj < 0.05 (BH).",
+  "after": "Hypergeometric test of the list against the annotated genes measured. padj: Benjamini–Hochberg across the # sets that overlap the list.",
   "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Enrichment.tsx",
+  "kind": "table header",
+  "before": "",
+  "after": "padj",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Figure.tsx",
+  "kind": "tooltip",
+  "before": "Download #",
+  "after": null,
+  "why": "retired: save"
+ },
+ {
+  "file": "src/components/Figure.tsx",
+  "kind": "accessible name",
+  "before": "Download #",
+  "after": null,
+  "why": "retired: save"
  },
  {
   "file": "src/components/Figure.tsx",
   "kind": "menu item",
   "before": "SVG — vector",
-  "after": null,
+  "after": "SVG, vector",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Figure.tsx",
   "kind": "menu item",
   "before": "PNG — 300 dpi",
-  "after": null,
+  "after": "PNG, 300 dpi",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Figure.tsx",
   "kind": "menu item",
   "before": "PNG — 600 dpi",
-  "after": null,
+  "after": "PNG, 600 dpi",
   "why": "retired: a colon, a comma or a full stop"
+ },
+ {
+  "file": "src/components/Figure.tsx",
+  "kind": "tooltip",
+  "before": "",
+  "after": "Save #",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Figure.tsx",
+  "kind": "accessible name",
+  "before": "",
+  "after": "Save #",
+  "why": "new: something a view or a saved file did not say"
  },
  {
   "file": "src/components/GeneExpression.tsx",
@@ -444,8 +535,8 @@
   "file": "src/components/GeneExpression.tsx",
   "kind": "help",
   "before": "Not in this object: # — check the species and capitalisation (mouse Ascl1 vs human ASCL1).",
-  "after": "Not in this object: #. Check the species and capitalisation (mouse Ascl1 vs human ASCL1).",
-  "why": "retired: a colon, a comma or a full stop"
+  "after": "Not in this object: #. Check the species and capitalization (mouse Ascl1 vs human ASCL1).",
+  "why": "retired: one spelling: -ize (normalize, standardize, capitalization); a colon, a comma or a full stop"
  },
  {
   "file": "src/components/GeneExpression.tsx",
@@ -458,7 +549,7 @@
   "file": "src/components/GeneExpression.tsx",
   "kind": "tooltip",
   "before": "Swap the axes — genes down the side, identities along the bottom",
-  "after": "Swap the axes: genes down the side, cell types along the bottom",
+  "after": "Swap the axes: genes down the side, # along the bottom",
   "why": "retired: cell type or group; a colon, a comma or a full stop"
  },
  {
@@ -481,6 +572,13 @@
   "before": "Cell types in these plots",
   "after": "Cell types shown",
   "why": "over the label budget"
+ },
+ {
+  "file": "src/components/GeneExpression.tsx",
+  "kind": "help",
+  "before": "# of # — hiding ##",
+  "after": "# of #, hiding ##",
+  "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/GeneSetSources.tsx",
@@ -515,7 +613,7 @@
   "kind": "help",
   "before": "MSigDB # · # sets, of which # contain a gene this contrast tested. Those are the ones tested, and the ones corrected across.",
   "after": "MSigDB # · # sets, of which # contain a gene this contrast tested: the ones tested and corrected across.",
-  "why": "shorter"
+  "why": "reworded"
  },
  {
   "file": "src/components/GeneSetSources.tsx",
@@ -534,9 +632,30 @@
  {
   "file": "src/components/GeneSetSources.tsx",
   "kind": "help",
+  "before": "it",
+  "after": null,
+  "why": "cut, or reworded whole: no string now shares its words"
+ },
+ {
+  "file": "src/components/GeneSetSources.tsx",
+  "kind": "help",
+  "before": "them",
+  "after": null,
+  "why": "cut, or reworded whole: no string now shares its words"
+ },
+ {
+  "file": "src/components/GeneSetSources.tsx",
+  "kind": "help",
   "before": "# is human sets mapped through orthologs, not a # annotation — MSigDB publishes no native one. Read it as a weaker claim than the rest.",
   "after": "# is human sets mapped through orthologs, not a # annotation. Read it as a weaker claim.",
   "why": "retired: a colon, a comma or a full stop. over the help budget"
+ },
+ {
+  "file": "src/components/GeneSetSources.tsx",
+  "kind": "tooltip",
+  "before": "# of your sets — click to edit them",
+  "after": "# of your sets: select to edit them",
+  "why": "retired: select; a colon, a comma or a full stop"
  },
  {
   "file": "src/components/GeneSetSources.tsx",
@@ -556,8 +675,8 @@
   "file": "src/components/GeneSets.tsx",
   "kind": "label",
   "before": "Genes of the set",
-  "after": "Select a gene to see whether it carries the score on its own. # control genes per set gene, drawn from # expression bins. Not measured: # +#.",
-  "why": "over the label budget"
+  "after": "Every gene of the set, across cell types",
+  "why": "reworded"
  },
  {
   "file": "src/components/GeneSets.tsx",
@@ -570,15 +689,15 @@
   "file": "src/components/GeneSets.tsx",
   "kind": "tooltip",
   "before": "Swap the axes — identities down the side, genes along the bottom",
-  "after": "Swap the axes: cell types down the side, genes along the bottom",
+  "after": "Swap the axes: # down the side, genes along the bottom",
   "why": "retired: cell type or group; a colon, a comma or a full stop"
  },
  {
   "file": "src/components/GeneSets.tsx",
   "kind": "label",
   "before": "Columns in this heatmap",
-  "after": null,
-  "why": "over the label budget"
+  "after": "Columns shown",
+  "why": "reworded"
  },
  {
   "file": "src/components/GeneSets.tsx",
@@ -626,22 +745,29 @@
   "file": "src/components/GeneSets.tsx",
   "kind": "table header",
   "before": "Identity",
-  "after": "Cells of",
+  "after": null,
+  "why": "retired: cell type or group"
+ },
+ {
+  "file": "src/components/GeneSets.tsx",
+  "kind": "csv header",
+  "before": "identity",
+  "after": null,
   "why": "retired: cell type or group"
  },
  {
   "file": "src/components/GeneSets.tsx",
   "kind": "text",
   "before": "Click a gene to see whether it carries the score on its own. # control genes per set gene, drawn from # expression bins. Not measured: # +#.",
-  "after": "Expression of # set genes across # cell types",
+  "after": "Select a gene to see whether it carries the score on its own. # control genes per set gene, drawn from # expression bins. Not measured: # +#.",
   "why": "retired: select"
  },
  {
   "file": "src/components/GeneSets.tsx",
   "kind": "button",
   "before": "Correlate with this set →",
-  "after": "Correlate this set",
-  "why": "over the button budget"
+  "after": "Correlate against this set",
+  "why": "reworded"
  },
  {
   "file": "src/components/GeneSets.tsx",
@@ -652,9 +778,16 @@
  },
  {
   "file": "src/components/GeneSets.tsx",
+  "kind": "file name",
+  "before": "module_score_by_identity_#",
+  "after": "module_score_per_cell_#",
+  "why": "retired: cell type or group"
+ },
+ {
+  "file": "src/components/GeneSets.tsx",
   "kind": "title",
   "before": "Every gene of the set, across identities",
-  "after": "Every gene of the set, across cell types",
+  "after": "Expression of # set genes across # cell types",
   "why": "retired: cell type or group"
  },
  {
@@ -682,7 +815,7 @@
   "file": "src/components/GeneSets.tsx",
   "kind": "accessible name",
   "before": "Expression of # set genes across # populations",
-  "after": null,
+  "after": "Set genes",
   "why": "retired: cell type"
  },
  {
@@ -717,63 +850,63 @@
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "No contrast — markers and gene search",
-  "after": "a categorical cell annotation: every view is per cell type",
+  "after": null,
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "a categorical cell annotation — every view is per cell type",
-  "after": "log-normalized, not scaled: z-scores are refused",
+  "after": "a categorical cell annotation: every view is per cell type",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "log-normalized, not scaled — z-scores are refused",
-  "after": "which donor or run: without it, no spread between samples",
+  "after": "log-normalized, not scaled: z-scores are refused",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "which animal or run — without it, no composition spread",
-  "after": "the experimental factor: without it, no comparisons",
+  "after": "the biological unit or run: without it, no spread between samples",
   "why": "retired: sample; a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "the experimental group — without it, no comparisons",
-  "after": "Markers, differential expression, enrichment and module scores on a processed object, in your browser.",
+  "after": "the experimental factor: without it, no comparisons",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "integer, pre-normalization — without them, no pseudobulk",
-  "after": "It does not cluster, integrate or normalize. Nothing is uploaded.",
+  "after": null,
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "Markers, differential expression, enrichment and module scores — on a processed object, in your browser.",
-  "after": "or drop it here: a .zip or .scstudio from scRNA-seq Lab",
+  "after": "Markers, differential expression, enrichment and module scores on a processed object, in your browser.",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "It does not cluster, integrate or normalise. Nothing is uploaded.",
-  "after": null,
-  "why": "retired: one spelling: normalize"
+  "after": "It does not cluster, integrate or normalize. Nothing is uploaded.",
+  "why": "retired: one spelling: -ize (normalize, standardize, capitalization)"
  },
  {
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "or drop it here — a .zip or .scstudio from scRNA-seq Lab",
-  "after": "A .zip or .scstudio from scRNA-seq Lab, not the .h5ad or .rds itself. Size is not a limit.",
+  "after": "or drop it here: a .zip or .scstudio from scRNA-seq Lab",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
@@ -794,7 +927,14 @@
   "file": "src/components/Landing.tsx",
   "kind": "text",
   "before": "A .zip or .scstudio from scRNA-seq Lab — not the .h5ad or .rds itself. Size is not a limit.",
-  "after": null,
+  "after": "A .zip or .scstudio from scRNA-seq Lab, not the .h5ad or .rds itself. Size is not a limit.",
+  "why": "retired: a colon, a comma or a full stop"
+ },
+ {
+  "file": "src/components/Landing.tsx",
+  "kind": "text",
+  "before": "# Scanpy / AnnData curl -O #/export_h5ad.py # Seurat — needs no Seurat installed curl -O #/export_seurat.R",
+  "after": "# Scanpy / AnnData curl -O #/export_h5ad.py # Seurat: needs no Seurat installed curl -O #/export_seurat.R",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
@@ -816,11 +956,18 @@
   "kind": "empty state",
   "before": "This object has no clusters to compare.",
   "after": "This object has no cell types to compare.",
-  "why": "shorter"
+  "why": "reworded"
  },
  {
   "file": "src/components/Markers.tsx",
-  "kind": "help",
+  "kind": "file name",
+  "before": "cluster_markers",
+  "after": "markers",
+  "why": "retired: cell type"
+ },
+ {
+  "file": "src/components/Markers.tsx",
+  "kind": "legend",
   "before": "Mean expression × fraction detected. Rename a cluster to rename it everywhere.",
   "after": "Mean expression × fraction detected. Rename a cell type to rename it everywhere.",
   "why": "retired: cell type"
@@ -838,6 +985,13 @@
   "before": "Reading # genes from the file — the dots arrive when it finishes.",
   "after": "Reading # genes from the file: the dots arrive when it finishes.",
   "why": "retired: a colon, a comma or a full stop"
+ },
+ {
+  "file": "src/components/Markers.tsx",
+  "kind": "file name",
+  "before": "cluster_markers",
+  "after": "markers",
+  "why": "retired: cell type"
  },
  {
   "file": "src/components/Markers.tsx",
@@ -864,7 +1018,14 @@
   "file": "src/components/Markers.tsx",
   "kind": "title",
   "before": "Per cluster",
-  "after": "Per cell type",
+  "after": null,
+  "why": "retired: cell type"
+ },
+ {
+  "file": "src/components/Markers.tsx",
+  "kind": "accessible name",
+  "before": "Rename cluster #",
+  "after": "Rename cell type #",
   "why": "retired: cell type"
  },
  {
@@ -876,9 +1037,16 @@
  },
  {
   "file": "src/components/Markers.tsx",
-  "kind": "accessible name",
+  "kind": "label",
   "before": "",
-  "after": "Rename cell type #",
+  "after": "Top genes",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Markers.tsx",
+  "kind": "title",
+  "before": "",
+  "after": "Per cell type",
   "why": "new: something a view or a saved file did not say"
  },
  {
@@ -893,13 +1061,13 @@
   "kind": "methods",
   "before": "No between-group differential expression was performed, as the object contains a single condition. Cluster identities were supported by one-vs-rest Wilcoxon rank-sum tests#, reported as a ranking of marker genes rather than as hypothesis tests., each population against every other cell with a cell type",
   "after": "No between-group differential expression was performed, as the object contains a single group. Cell types were supported by one-vs-rest Wilcoxon rank-sum tests#, reported as a ranking of marker genes rather than as hypothesis tests., each cell type against every other cell with a cell type",
-  "why": "retired: cell type; cell type or group"
+  "why": "retired: group; cell type; cell type or group"
  },
  {
   "file": "src/components/Methods.tsx",
   "kind": "methods",
   "before": "Differential expression between # and # within # was tested with a Wilcoxon rank-sum test across cells#, restricted to genes with an absolute log₂ fold change of at least # detected in at least #% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below # and an absolute log₂ fold change of at least # were considered differentially expressed. Because cells from the same animal are not independent observations, these p-values describe variation between cells rather than between animals#.",
-  "after": "Differential expression between # and # within # was tested with a Wilcoxon rank-sum test across cells#, restricted to genes with an absolute log₂ fold change of at least # detected in at least #% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below # and an absolute log₂ fold change of at least # were considered differentially expressed. Because cells from the same sample are not independent observations, these p-values describe variation between cells rather than between samples#.",
+  "after": "Differential expression between # and # within # was tested with a Wilcoxon rank-sum test across cells#, restricted to genes with an absolute log₂ fold change of at least # detected in at least #% of cells in either group, with p-values adjusted by the Benjamini–Hochberg procedure, with m the # genes the object measures. Genes with an adjusted p below # and an absolute log₂ fold change of at least # were considered differentially expressed. Because cells from the same sample are not independent observations, these p-values describe variation between cells rather than between samples#.",
   "why": "retired: sample"
  },
  {
@@ -920,7 +1088,7 @@
   "file": "src/components/Methods.tsx",
   "kind": "methods",
   "before": "Cluster markers rank; they do not test. Each cluster is compared against every other cell with the same Wilcoxon that Seurat’s FindAllMarkers runs — but the clusters were defined using the expression these p-values then score, so they are not evidence the clusters exist. The effect size and the detection rates are the honest columns.",
-  "after": "Markers rank; they do not test. Each cell type is compared against every other cell with the same Wilcoxon that Seurat’s FindAllMarkers runs. But the cell types were defined using the expression these p-values then score, so they are not evidence the cell types exist. The effect size and the detection rates are the honest columns.",
+  "after": "Markers rank; they do not test. Each cell type is compared against every other cell with the same Wilcoxon that Seurat’s FindAllMarkers runs. But cell types that began as clusters were defined using the expression these p-values then score, so the p-values are not evidence the clusters exist. The effect size and the detection rates are the honest columns.",
   "why": "retired: cell type; a colon, a comma or a full stop"
  },
  {
@@ -962,8 +1130,8 @@
   "file": "src/components/Methods.tsx",
   "kind": "methods",
   "before": "A signature is signed before it is combined. Seeding a correlation with the mean of a set’s members cancels: a pathway holds members that move in opposite directions, and the mean is dominated by whichever are most abundant. So the set is first correlated with itself, each member is standardised and given the sign of the leading eigenvector of that matrix — WGCNA’s module eigengene — and the members are combined only then. Because each member is standardised, the correlation against that composite is the weighted mean of the members’ own independent correlations, so one pass reports what testing every member separately would have said. How much of the set runs one way is reported with the result, since a combined score over a set that is really two programmes is a number to read with care.",
-  "after": "A gene set is signed before it is combined. Seeding a correlation with the mean of a set’s members cancels: a pathway holds members that move in opposite directions, and the mean is dominated by whichever are most abundant. So the set is first correlated with itself, each member is standardised and given the sign of the leading eigenvector of that matrix (WGCNA’s module eigengene), and the members are combined only then. Because each member is standardised, the correlation against that composite is the weighted mean of the members’ own independent correlations, so one pass reports what testing every member separately would have said. How much of the set runs one way is reported with the result, since a combined score over a set that is really two programmes is a number to read with care.",
-  "why": "retired: gene set; a colon, a comma or a full stop"
+  "after": "A gene set is signed before it is combined. Seeding a correlation with the mean of a set’s members cancels: a pathway holds members that move in opposite directions, and the mean is dominated by whichever are most abundant. So the set is first correlated with itself, each member is standardized and given the sign of the leading eigenvector of that matrix (WGCNA’s module eigengene), and the members are combined only then. Because each member is standardized, the correlation against that composite is the weighted mean of the members’ own independent correlations, so one pass reports what testing every member separately would have said. How much of the set runs one way is reported with the result, since a combined score over a set that is really two programmes is a number to read with care.",
+  "why": "retired: gene set; one spelling: -ize (normalize, standardize, capitalization); a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Overview.tsx",
@@ -978,6 +1146,20 @@
   "before": "present — pseudobulk columns are in the bundle",
   "after": "present: pseudobulk columns are in the bundle",
   "why": "retired: a colon, a comma or a full stop"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "clusters",
+  "after": null,
+  "why": "retired: cell type"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "min replicates",
+  "after": null,
+  "why": "retired: sample"
  },
  {
   "file": "src/components/Overview.tsx",
@@ -1004,15 +1186,22 @@
   "file": "src/components/Overview.tsx",
   "kind": "title",
   "before": "What counts as a cell type, and as a group",
-  "after": "The cell type and group columns",
+  "after": "cell type",
   "why": "over the title budget"
  },
  {
   "file": "src/components/Overview.tsx",
-  "kind": "help",
+  "kind": "legend",
   "before": "Every column you ticked in the lab travels in the bundle, so these can be re-pointed here without converting the file again.",
   "after": "Every column you ticked in the lab is in the bundle, so these can be re-pointed without converting again.",
-  "why": "over the help budget"
+  "why": "reworded"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "— # levels",
+  "after": ": # levels",
+  "why": "reworded"
  },
  {
   "file": "src/components/Overview.tsx",
@@ -1033,6 +1222,48 @@
   "kind": "text",
   "before": "",
   "after": "Cells not called",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "",
+  "after": "sample",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "",
+  "after": "sample",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "",
+  "after": "cell type",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "",
+  "after": "cell types",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "label",
+  "before": "",
+  "after": "fewest samples per group",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Overview.tsx",
+  "kind": "title",
+  "before": "",
+  "after": "The cell type and group columns",
   "why": "new: something a view or a saved file did not say"
  },
  {
@@ -1060,22 +1291,22 @@
   "file": "src/components/ScoreMany.tsx",
   "kind": "label",
   "before": "Columns in this figure",
-  "after": null,
-  "why": "over the label budget"
+  "after": "Columns shown",
+  "why": "reworded"
  },
  {
   "file": "src/components/ScoreMany.tsx",
   "kind": "title",
   "before": "Which signature does each population express?",
-  "after": "Which gene set does each cell type express?",
+  "after": "Which gene set does # express?",
   "why": "retired: cell type; gene set"
  },
  {
   "file": "src/components/ScoreMany.tsx",
   "kind": "status",
   "before": "— # is the most",
-  "after": "Colour is the mean score of that set in that cell type. Zero is the reference: no higher than genes of comparable abundance.",
-  "why": "shorter"
+  "after": ", # is the most",
+  "why": "reworded"
  },
  {
   "file": "src/components/ScoreMany.tsx",
@@ -1095,7 +1326,14 @@
   "file": "src/components/ScoreMany.tsx",
   "kind": "title",
   "before": "# signatures",
-  "after": "# gene sets",
+  "after": null,
+  "why": "retired: gene set"
+ },
+ {
+  "file": "src/components/ScoreMany.tsx",
+  "kind": "tooltip",
+  "before": "Scoring # signatures",
+  "after": "Scoring # gene sets",
   "why": "retired: gene set"
  },
  {
@@ -1116,14 +1354,14 @@
   "file": "src/components/ScoreMany.tsx",
   "kind": "legend",
   "before": "Colour is the mean score of that signature in that population. Zero is the reference: no higher than genes of comparable abundance.",
-  "after": null,
+  "after": "Colour is the mean score of that set in #. Zero is the reference: no higher than genes of comparable abundance.",
   "why": "retired: cell type; gene set"
  },
  {
   "file": "src/components/ScoreMany.tsx",
   "kind": "accessible name",
   "before": "Mean module score of # signatures across # populations",
-  "after": "Mean module score: # gene sets across # cell types",
+  "after": "Mean module score: # gene sets across # #",
   "why": "retired: cell type; gene set"
  },
  {
@@ -1148,18 +1386,32 @@
   "why": "retired: gene set"
  },
  {
+  "file": "src/components/ScoreMany.tsx",
+  "kind": "title",
+  "before": "",
+  "after": "Which gene set does # express?",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/ScoreMany.tsx",
+  "kind": "title",
+  "before": "",
+  "after": "# gene sets",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
   "file": "src/components/SetEditor.tsx",
   "kind": "title",
   "before": "Gene sets · your own",
   "after": "Your gene sets",
-  "why": "shorter"
+  "why": "reworded"
  },
  {
   "file": "src/components/SetEditor.tsx",
   "kind": "button",
   "before": "or read a file… #",
   "after": "Read a file… #",
-  "why": "over the button budget"
+  "why": "reworded"
  },
  {
   "file": "src/components/SetEditor.tsx",
@@ -1173,14 +1425,7 @@
   "kind": "text",
   "before": "none of them — check the species and capitalisation",
   "after": "none of them: check the species and capitalization",
-  "why": "retired: a colon, a comma or a full stop"
- },
- {
-  "file": "src/components/SetEditor.tsx",
-  "kind": "table header",
-  "before": "Not in this object",
-  "after": "Not in object",
-  "why": "over the table header budget"
+  "why": "retired: one spelling: -ize (normalize, standardize, capitalization); a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Stats.tsx",
@@ -1198,16 +1443,30 @@
  },
  {
   "file": "src/components/Stats.tsx",
+  "kind": "label",
+  "before": "FDR ≤",
+  "after": "FDR <",
+  "why": "reworded"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "label",
+  "before": "padj ≤",
+  "after": "padj <",
+  "why": "reworded"
+ },
+ {
+  "file": "src/components/Stats.tsx",
   "kind": "tooltip",
   "before": "padj — severe, and pinned to 1 for every gene with p above 1/n",
-  "after": "padj: severe, pinned to 1 for every gene with p above 1/n",
+  "after": null,
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/Stats.tsx",
   "kind": "tooltip",
   "before": "Benjamini–Hochberg — what the slider can actually move",
-  "after": "Benjamini–Hochberg: the cutoff the slider can move",
+  "after": "Benjamini–Hochberg, with the same # genes as its m",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
@@ -1221,7 +1480,7 @@
   "file": "src/components/Stats.tsx",
   "kind": "help",
   "before": "Bonferroni over the # genes this object measures pins every gene with p above # to exactly 1, so no cutoff above that admits another row — moving the slider here cannot change the count. Cut on FDR for a threshold that does something, or read the −log₁₀ padj column, which still separates them.",
-  "after": "Bonferroni pins every gene with p above # to 1, so the slider cannot change the count. Cut on FDR instead.",
+  "after": "padj is p × the # genes this object measures: p above # gives 1, which no cutoff admits. Cut on FDR instead.",
   "why": "retired: a colon, a comma or a full stop. over the help budget"
  },
  {
@@ -1236,6 +1495,13 @@
   "kind": "help",
   "before": "min.pct #, no logfc.threshold — every gene detected in a tenth of either side is tested, so the slider above filters answers",
   "after": "min.pct #, no logfc.threshold: every gene detected in a tenth of either side is tested",
+  "why": "retired: a colon, a comma or a full stop"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "help",
+  "before": "Seurat's defaults — min.pct #, logfc.threshold #",
+  "after": "Seurat's defaults: min.pct #, logfc.threshold #",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
@@ -1256,22 +1522,29 @@
   "file": "src/components/Stats.tsx",
   "kind": "help",
   "before": "These decide what the test looks at, and changing one runs it again. A gene under logfc.threshold still gets a row, with its fold change and no p; one under min.pct gets none, because there is nothing to compare. Neither changes the correction: Bonferroni multiplies by every gene the object measures, and that is BH’s m as well.",
-  "after": "Changing one reruns the test. A gene under logfc.threshold keeps its row with no p; one under min.pct gets none.",
+  "after": "Neither changes the correction: Bonferroni multiplies by every gene the object measures, and that is BH’s m as well.",
   "why": "over the help budget"
  },
  {
   "file": "src/components/Stats.tsx",
   "kind": "text",
   "before": "a group to compare it with",
-  "after": "a group to compare",
-  "why": "shorter"
+  "after": "a group to compare against #",
+  "why": "reworded"
  },
  {
   "file": "src/components/Stats.tsx",
   "kind": "empty state",
   "before": "The pickers are in the controls on the left. Nothing is chosen for you, because a contrast the studio guessed at looks exactly like one you asked for.",
-  "after": "On the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for.",
+  "after": "The three choices are on the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for.",
   "why": "retired: choose; this app (or no subject); on the left. over the empty state budget"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "empty state title",
+  "before": "Pick #.",
+  "after": null,
+  "why": "retired: choose"
  },
  {
   "file": "src/components/Stats.tsx",
@@ -1303,6 +1576,13 @@
  },
  {
   "file": "src/components/Stats.tsx",
+  "kind": "button",
+  "before": "Clear # clicked",
+  "after": "Clear # selected names",
+  "why": "retired: select"
+ },
+ {
+  "file": "src/components/Stats.tsx",
   "kind": "status",
   "before": "Dashed lines are the cutoffs on the left. # more genes are in the table with a fold change and no p — under the effect-size gate, so the rank sum was skipped and they have no height to be drawn at.",
   "after": "Dashed lines are the cutoffs. # genes with no p are in the table only.",
@@ -1312,56 +1592,105 @@
   "file": "src/components/Stats.tsx",
   "kind": "help",
   "before": "Hover a point to read it, click to keep its name on the figure.",
-  "after": "Point at a gene to read it; select it to keep its name on the figure.",
+  "after": null,
   "why": "retired: select; point at"
  },
  {
   "file": "src/components/Stats.tsx",
   "kind": "label",
   "before": "Named on the figure",
-  "after": "Named on figure",
-  "why": "over the label budget"
+  "after": "Point at a gene to read it; select it to keep its name on the figure.",
+  "why": "reworded"
  },
  {
   "file": "src/components/Stats.tsx",
-  "kind": "legend",
+  "kind": "tooltip",
   "before": "",
-  "after": "Wilcoxon rank-sum test across cells.",
+  "after": "padj: p × the # genes this object measures, capped at 1",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "help",
+  "before": "",
+  "after": "Changing one reruns the test. A gene under logfc.threshold keeps its row with no p; one under min.pct gets none.",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "empty state title",
+  "before": "",
+  "after": "Choose #.",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "tooltip",
+  "before": "",
+  "after": "# vs # in #",
   "why": "new: something a view or a saved file did not say"
  },
  {
   "file": "src/components/Stats.tsx",
   "kind": "legend",
   "before": "",
-  "after": "Dashed lines: # < # and |log₂FC| ≥ #. Larger points are past both.",
+  "after": "Wilcoxon rank-sum test across cells. padj: Bonferroni over the # genes the object measures.",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "legend",
+  "before": "",
+  "after": "Dashed lines: padj = # and |log₂FC| = #. Larger points: Benjamini–Hochberg FDR < # and |log₂FC| ≥ #.",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "legend",
+  "before": "",
+  "after": "Dashed lines: padj < # and |log₂FC| ≥ #. Larger points are past both.",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/Stats.tsx",
+  "kind": "label",
+  "before": "",
+  "after": "Names you selected",
   "why": "new: something a view or a saved file did not say"
  },
  {
   "file": "src/components/ViewMenu.tsx",
   "kind": "label",
   "before": "Clusters",
-  "after": "Cell types",
+  "after": null,
+  "why": "retired: cell type"
+ },
+ {
+  "file": "src/components/ViewMenu.tsx",
+  "kind": "accessible name",
+  "before": "Cluster palette",
+  "after": "Cell type palette",
   "why": "retired: cell type"
  },
  {
   "file": "src/components/ViewMenu.tsx",
   "kind": "help",
   "before": "Any quantity that starts at zero — feature plots, the dot plot’s size, enrichment significance.",
-  "after": "From zero: feature plots, dot size, enrichment.",
+  "after": "A scale from zero, for feature plots, dot size and enrichment.",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/ViewMenu.tsx",
   "kind": "help",
   "before": "z-scores and module scores — the dot plot, both gene-set heatmaps.",
-  "after": "Signed: z-scores, module scores.",
+  "after": "A signed scale, for z-scores and module scores.",
   "why": "retired: a colon, a comma or a full stop"
  },
  {
   "file": "src/components/ViewMenu.tsx",
-  "kind": "accessible name",
+  "kind": "label",
   "before": "",
-  "after": "Cell type palette",
+  "after": "Cell types",
   "why": "new: something a view or a saved file did not say"
  },
  {
@@ -1387,6 +1716,13 @@
  },
  {
   "file": "src/components/gene/DotPlot.tsx",
+  "kind": "tooltip",
+  "before": "",
+  "after": "Expression of # gene# by #",
+  "why": "new: something a view or a saved file did not say"
+ },
+ {
+  "file": "src/components/gene/DotPlot.tsx",
   "kind": "legend",
   "before": "",
   "after": "Dot size: fraction of cells detecting the gene. Colour: mean expression#.",
@@ -1398,6 +1734,13 @@
   "before": "# hidden cells and other groups — kept as the outline",
   "after": "# hidden cells and other groups , kept as the outline",
   "why": "retired: a colon, a comma or a full stop"
+ },
+ {
+  "file": "src/components/gene/FeaturePlot.tsx",
+  "kind": "legend",
+  "before": "",
+  "after": "##: n = # cells#. Embedding #.",
+  "why": "new: something a view or a saved file did not say"
  },
  {
   "file": "src/components/gene/ViolinPanel.tsx",
@@ -1550,7 +1893,7 @@
   "file": "src/main.tsx",
   "kind": "text",
   "before": "Reload the studio",
-  "after": null,
+  "after": "Reload",
   "why": "retired: this app (or no subject)"
  }
 ]

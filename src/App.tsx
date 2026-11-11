@@ -642,7 +642,7 @@ export default function App() {
     : sameOrOverlapping(ctrl, cs)
       ? { cls: 'bad', text: 'Groups overlap', title: 'A level on both sides puts the same cells in both groups' }
     : method === 'wilcox'
-      ? { cls: 'ok', text: 'Wilcoxon · per cell', title: 'Rank-sum across cells, as in Seurat FindMarkers: no replicates required' }
+      ? { cls: 'ok', text: 'Wilcoxon · per cell', title: 'Rank-sum across cells, as in Seurat FindMarkers: one sample per group is enough' }
     : design.pbOK
       ? { cls: 'ok', text: `Pseudobulk · ${design.n0} v ${design.n1}`, title: `${design.n0} and ${design.n1} samples clear the cell floor` }
     : { cls: 'bad', text: `Pseudobulk · ${design.n0} v ${design.n1}`,

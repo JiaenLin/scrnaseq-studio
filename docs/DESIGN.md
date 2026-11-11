@@ -354,7 +354,8 @@ floating surface). Nothing on the page itself is rounded.
 ## Words
 
 Run 5 measured every word before changing one ([design/COPY.md](design/COPY.md): 1,319 distinct strings, 7,971 words,
-on 153 states) and then wrote this. The numbers below are `scripts/copy-standard.mjs`; `scripts/test-copy.mjs` fails
+on 153 states) and then wrote this; run 6 corrected it where a reviewer found it wrong (what "cell type" and
+"cluster" each name, four budgets, the rule for a name, what a CSV writes) and where its check had holes. The numbers below are `scripts/copy-standard.mjs`; `scripts/test-copy.mjs` fails
 `npm test` when a string is over its budget or uses a retired term. **The reader is a scientist with a figure in
 mind:** they scan for the control or the number they came for, read a sentence only when a result surprises them,
 and take a saved figure away from every word on the screen. So: fewer words is the default, a sentence that changes
@@ -392,8 +393,9 @@ truth is written and the budget moves, here, with its reason. Run 6 moved four: 
 | a paragraph of prose (Overview, a note under a result) | 40 | past that it is a method, and belongs in Methods |
 | a paragraph of Methods | 200 | a paper's methods paragraph; the one place a reader came to read; a longer one is two |
 
-**One screen at rest** (1,440 by 900, the app's own words in view): 160 on a view that is a figure, 220 on one that
-holds a table or a list, 520 on Methods. At the base the worst were Differential expression (312), Co-expression
+**One screen at rest** (1,440 by 900, the app's own words in view): 160 on a view that is a figure, 240 on one that
+holds a table or a list (220 until run 6: Co-expression stood at 219, and its note needed back the ten words that
+say what to read instead of a p-value), 520 on Methods. At the base the worst were Differential expression (312), Co-expression
 (308) and the enrichment (245).
 
 **One term per concept.** The left column is the only word the interface uses.
@@ -624,16 +626,26 @@ between clauses); a figure's text takes figure ink (`AXIS_INK`), never `--ink-3`
 
 ## Checking a change
 
-- **Words and elements.** `node scripts/test-copy.mjs` (in `npm test`) reads every string from the source through the
-  TypeScript parser, and the measured inventory (`docs/design/inventory/after.json`), and fails when a string is over
-  its kind's budget, a screen at rest is over its budget, a retired term is used, a saved figure has no legend, or the
-  lab fixture's files do not name the cells not called. `--list` prints every string, the furthest over first. After
-  a change to any string or control: `npm run build`, serve it, then
-  `CHROME=<chrome> node scripts/inventory-design.mjs <url> docs/design/inventory/after.json` and
-  `node scripts/inventory-report.mjs` (COPY.md and ELEMENTS.md are generated; the designer's reading of the boxes is
-  `docs/design/inventory/elements-notes.md`). `node scripts/copy-changes.mjs <base src>` lists what a change did to
-  each string. A new string over its budget on purpose is named in `EXCEPTIONS` (`scripts/copy-standard.mjs`) with
-  its reason; there is one (the Markers button, whose count a data-level check reads).
+- **Words and elements.** `node scripts/test-copy.mjs` (in `npm test`) makes three readings. (1) The source, through
+  the TypeScript parser: the text of every element; every attribute that is copy by its name (a title, a label, a
+  placeholder, an accessible name), one word or many; a `label:` or `title:` of an object; any other literal of
+  three words or more; and what a Save writes for a script to read, a file's name and a CSV's header. It fails
+  when a string is over its kind's budget or holds a retired word (`clusters`, `Clear 1 clicked`,
+  `cluster_markers` and a header `identity` each fail), and when an exemption no longer exempts anything. A short
+  string in a table of tuples (a row of `DEMOS`) is not read here. (2) The views rendered now, in Node, with no
+  browser: Overview and Methods on the three demos and on the fixture with cells not called. (3) The measured
+  inventory (`docs/design/inventory/after.json`), a walk of the built app somebody ran: each string as drawn, the
+  words on one screen at rest, what each saved file carries and is called. It is a committed file, so it carries
+  a stamp, the hash of the source's strings at the time of the walk, and the check fails when the source's
+  strings are no longer those. After a change to any string or control: `npm run build`, serve it, then
+  `CHROME=<chrome> node scripts/inventory-design.mjs <url> docs/design/inventory/after.json` (it needs
+  `playwright-core`) and `node scripts/inventory-report.mjs` (COPY.md and ELEMENTS.md are generated; the designer's
+  reading of the boxes is `docs/design/inventory/elements-notes.md`). `node scripts/copy-changes.mjs <base src>`
+  lists what a change did to each string, pairing an old string with a new one only when they share their words.
+  `--list` prints every string, the furthest over first. A string over its budget on purpose is named in
+  `EXCEPTIONS` (`scripts/copy-standard.mjs`) with its reason (the Markers button, whose count a data-level check
+  reads; the error boundary read as one block); a retired word kept in a file on purpose is named in `KEPT`
+  (`cluster` in the markers CSV).
 
 - `CHROME=<chrome> node scripts/shot-design.mjs <url> docs/design/after` captures every screen at 1,280, 1,440 and
   1,920 px in both themes (synthetic objects only), growing the window to take a whole document view.

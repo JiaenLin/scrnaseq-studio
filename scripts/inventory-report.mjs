@@ -104,8 +104,8 @@ L.push('')
 if (changes.length) {
   const cut = changes.filter(c => c.before && !c.after), same = changes.filter(c => c.before && c.after), fresh = changes.filter(c => !c.before)
   const wb = changes.reduce((x, c) => x + words(c.before), 0), wa = changes.reduce((x, c) => x + words(c.after ?? ''), 0)
-  L.push('## Every string changed in run 5', '',
-    `${changes.length} strings in the source (\`node scripts/copy-changes.mjs\`, which pairs the source at the base with the source now): ${same.length} reworded, ${cut.length} cut whole, ${fresh.length} new (what a view or a saved file did not say). Their words: ${fmt(wb)} before, ${fmt(wa)} after.`,
+  L.push('## Every string changed in runs 5 and 6', '',
+    `${changes.length} strings in the source (\`node scripts/copy-changes.mjs\`, which reads the source at the base and the source now, short strings, CSV headers and file names included, and pairs an old string with a new one only when they share their words, never by position): ${same.length} reworded, ${cut.length} cut or reworded whole (no string now shares their words: the new one, where there is one, is among the new of the same file), ${fresh.length} new. Their words: ${fmt(wb)} before, ${fmt(wa)} after.`,
     'As written in the source (a `#` is a slot the data fills). Words / characters.', '',
     '| file | before | w / c | after | w / c | why |', '|---|---|---:|---|---:|---|')
   for (const c of changes) {

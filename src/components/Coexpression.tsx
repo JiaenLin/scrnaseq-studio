@@ -412,7 +412,7 @@ export default function Coexpression(p: CoexprProps) {
             options={[
               { k: 'cond', label: 'by group', title: 'One column per cell type × group' },
               { k: 'sample', label: 'by sample',
-                title: 'One column per cell type × sample: the closest this gets to replicates' },
+                title: 'One column per cell type × sample: the closest this gets to independent observations' },
             ]} />
         )}
       </RailGroup>

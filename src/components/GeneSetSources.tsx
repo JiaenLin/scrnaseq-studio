@@ -287,7 +287,7 @@ export default function GeneSetSources({
           <span key={c.source} className="chip-own">
             <button
               className="chip-own-name"
-              title={`${c.sets.length.toLocaleString()} of your sets — click to edit them`}
+              title={`${c.sets.length.toLocaleString()} of your sets: select to edit them`}
               onClick={() => setEdit({ of: c })}
             >
               {c.source}

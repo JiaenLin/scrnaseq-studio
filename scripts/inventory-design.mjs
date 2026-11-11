@@ -20,6 +20,7 @@
 //
 // Needs `playwright-core` on the module path, like scripts/shot-design.mjs.
 
+import { execFileSync } from 'node:child_process'
 import { chromium } from 'playwright-core'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -601,6 +602,8 @@ for (const e of elements) {
 fs.mkdirSync(path.dirname(outFile), { recursive: true })
 fs.writeFileSync(outFile, JSON.stringify({
   measured: 'the built app (vite preview), headless Chromium, light theme', window: `${W} x ${H}`,
+  // The source's strings at the time of the walk: scripts/test-copy.mjs refuses an inventory of other strings.
+  source: { sha: execFileSync(process.execPath, ['scripts/test-copy.mjs', '--stamp'], { encoding: 'utf8' }).trim() },
   states: rest, strings: [...strings.values()], boxes: [...boxes.values()], saved, stateStyles, errors,
 }, null, 1))
 console.log(`${states.length} states, ${states.reduce((a, s) => a + s.texts.length, 0)} texts (${strings.size} distinct), ${elements.length} controls (${boxes.size} distinct boxes), ${saved.length} files saved`)

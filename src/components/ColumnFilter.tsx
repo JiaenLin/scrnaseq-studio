@@ -71,7 +71,7 @@ export default function ColumnFilter({
           {showTypes && `${nT} of ${nTypes} cell type${nTypes === 1 ? '' : 's'}`}
           {showTypes && showConds && ' · '}
           {showConds && `${nC} of ${conds.length} groups`}
-          {!showTypes && !showConds && 'every population'}
+          {!showTypes && !showConds && 'every column'}
         </span>
         {some && (
           <button className="btn btn-quiet"
