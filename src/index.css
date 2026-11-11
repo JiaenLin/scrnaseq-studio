@@ -850,6 +850,10 @@ svg {
   .rail .field {
     @apply flex flex-col gap-1;
   }
+  .rail .field .sel {
+    max-width: none;
+    width: 100%;
+  }
   .rail .field > .glabel {
     color: var(--ink-2);
   }
@@ -940,6 +944,9 @@ svg {
   }
   .stage[data-fit] {
     overflow: hidden;
+  }
+  .stage:focus-visible {
+    outline-offset: -2px;
   }
   .stage[data-fit] > .column {
     height: 100%;

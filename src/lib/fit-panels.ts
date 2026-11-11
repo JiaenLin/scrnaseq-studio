@@ -11,17 +11,23 @@ export const NAME = 28
  *
  * The figure used to be sized by width alone, so two panels on a wide, short
  * stage were each half the width and a third of the window stayed empty.
- * Every column count is tried; a tie goes to fewer rows, because panels that
- * are compared are read side by side.
+ * Every column count is tried. Fewer rows win unless another layout draws
+ * the panels more than 15% larger, because panels that are compared are read
+ * side by side: stacking two to gain a few pixels is not worth the eye's trip.
  */
 export function fitPanels(n: number, W: number, H: number, aspect: number) {
-  let best = { cols: 1, rows: n, w: 0, h: 0 }
   const top = n > 1 ? NAME : EDGE
+  const tries: { cols: number; rows: number; w: number; h: number }[] = []
   for (let cols = 1; cols <= n; cols++) {
     const rows = Math.ceil(n / cols)
     const cw = (W - (cols - 1)) / cols, ch = (H - (rows - 1)) / rows
-    const w = Math.floor(Math.min(cw - 2 * EDGE, (ch - top - EDGE) / aspect))
-    if (w > best.w) best = { cols, rows, w, h: Math.floor(w * aspect) }
+    // Never negative: a box with no room yet (a narrow window's first frame)
+    // still has to come back with a layout.
+    const w = Math.max(0, Math.floor(Math.min(cw - 2 * EDGE, (ch - top - EDGE) / aspect)))
+    tries.push({ cols, rows, w, h: Math.floor(w * aspect) })
   }
-  return best
+  const largest = Math.max(...tries.map(t => t.w))
+  // Among the layouts within 15% of the largest: the fewest rows, then the largest.
+  return tries.filter(t => t.w * 1.15 >= largest)
+    .sort((a, b) => a.rows - b.rows || b.w - a.w)[0]
 }

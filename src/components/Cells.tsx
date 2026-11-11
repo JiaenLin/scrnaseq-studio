@@ -175,8 +175,19 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
       : (i: number) => cells[i].s === isolated
   }, [d.cells, types, shown, isolated])
 
+  // The key is one stop in the tab order; the arrows move along it.
+  const stop = isolated ?? legend[0]?.[1]
+  const alongKey = (e: React.KeyboardEvent<HTMLElement>) => {
+    const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0
+    if (!step) return
+    const rows = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('button.lg-row')]
+    const at = rows.indexOf(document.activeElement as HTMLButtonElement)
+    if (at < 0) return
+    e.preventDefault()
+    rows[(at + step + rows.length) % rows.length].focus()
+  }
   const entry = (color: string, label: string, withCount: boolean) => (
-    <button key={label} type="button" aria-pressed={isolated === label}
+    <button key={label} type="button" aria-pressed={isolated === label} tabIndex={label === stop ? 0 : -1}
       className={`lg-row${withCount ? '' : ' lg-inline'}${isolated !== null && isolated !== label ? ' lg-dim' : ''}`}
       title={isolated === label ? 'Show every cell again' : `Show only ${label}`}
       onClick={() => setOnly(isolated === label ? null : label)}>
@@ -203,7 +214,8 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
           <span className="stage-meta">{`Embedding · ${emb.key} from your file`}</span>
           {/* Colour is never left without its key: with the inspector closed it sits here. */}
           {!inspector && (
-            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-1" role="group" aria-label={legendName}>
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-1" role="group" aria-label={legendName}
+              onKeyDown={alongKey}>
               <span className="stage-meta mr-1">{legendName}</span>
               {legend.length > 0 ? legend.map(([color, label]) => entry(color, label, false)) : ramp}
             </div>
@@ -257,7 +269,7 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
               {legend.length > 0 && <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>cells</span>}
             </div>
             {legend.length > 0 ? (
-              <div className="legend flex-col items-stretch" style={{ gap: 0, color: 'var(--ink)' }}>
+              <div className="legend flex-col items-stretch" style={{ gap: 0, color: 'var(--ink)' }} onKeyDown={alongKey}>
                 {legend.map(([color, label]) => entry(color, label, true))}
               </div>
             ) : ramp}

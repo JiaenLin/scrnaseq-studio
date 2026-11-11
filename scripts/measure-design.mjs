@@ -70,6 +70,43 @@ for (const T of ['light', 'dark']) {
     // Only the pairs the stylesheet actually uses are graded; the rest are listed.
     console.log(`\nCONTRAST ${T} (fg on bg: ratio; AA body 4.5, large/UI 3.0)`)
     for (const [f, b, r, fc, bc] of rows) console.log(`  ${r < 4.5 ? (r < 3 ? 'FAIL' : 'LOW ') : 'ok  '} ${f.padEnd(16)} on ${b.padEnd(14)} ${String(r).padEnd(6)} rgb(${fc}) on rgb(${bc})`)
+    // The lowest ratio of each text token over the grounds text sits on.
+    const GROUNDS = ['--bg', '--surface', '--sunk', '--accent-soft', '--warn-soft', '--good-soft']
+    console.log(`\nLOWEST ${T} (each text token over ${GROUNDS.join(' ')})`)
+    for (const f of FG.filter(x => x !== '--text-on-accent')) {
+      const rs = rows.filter(r => r[0] === f && GROUNDS.includes(r[1]))
+      if (rs.length) { const m = rs.sort((p, q) => p[2] - q[2])[0]; console.log(`  ${m[2] < 4.5 ? 'FAIL' : 'ok  '} ${f.padEnd(14)} ${m[2]} on ${m[1]}`) }
+    }
+    for (const [f, b] of [['--text-on-accent', '--accent'], ['--surface', '--sel']]) {
+      const m = rows.find(r => r[0] === f && r[1] === b) ?? (f === '--surface' ? rows.find(r => r[0] === '--ink' && r[1] === '--surface') : null)
+      if (m) console.log(`  ${m[2] < 4.5 ? 'FAIL' : 'ok  '} ${f.padEnd(14)} ${m[2]} on ${b}`)
+    }
+    // Edges. A control known only by its edge (a field, a checkbox, a switch's
+    // track) needs 3:1 against its ground (WCAG 1.4.11): that edge is --ctl.
+    // --line-2 and --line are the quiet edge of a labelled control and the
+    // hairline between panes; they are listed, not graded.
+    const edges = await page.evaluate(() => {
+      const read = v => {
+        const val = getComputedStyle(document.documentElement).getPropertyValue(v).trim()
+        if (!val) return null
+        const g = document.createElement('canvas'); g.width = g.height = 1
+        const x = g.getContext('2d'); x.fillStyle = val; x.fillRect(0, 0, 1, 1)
+        return [...x.getImageData(0, 0, 1, 1).data]
+      }
+      const lum = c => {
+        const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+        return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+      }
+      const out = []
+      for (const e of ['--ctl', '--line-2', '--line']) for (const b of ['--bg', '--surface', '--sunk']) {
+        const ec = read(e), bc = read(b); if (!ec || !bc) continue
+        const [l1, l2] = [lum(ec), lum(bc)].sort((p, q) => q - p)
+        out.push([e, b, +((l1 + 0.05) / (l2 + 0.05)).toFixed(2)])
+      }
+      return out
+    })
+    console.log(`\nEDGES ${T} (--ctl needs 3.0)`)
+    for (const [e, b, r] of edges) console.log(`  ${e === '--ctl' ? (r < 3 ? 'FAIL' : 'ok  ') : '    '} ${e.padEnd(9)} on ${b.padEnd(10)} ${r}`)
   }
 
   if (WHAT.has('axe')) {

@@ -100,7 +100,7 @@ function CrashOnRender({ tab }: { tab: TabId }): never {
 /** Tabs that describe a comparison, and so cannot exist without two groups. */
 const NEEDS_CONTRAST = new Set<TabId>(['de'])
 /** Views that put controls of their own in the rail (components/Rail.tsx). */
-const OWN_RAIL = new Set<TabId>(['expr', 'de'])
+const OWN_RAIL = new Set<TabId>(['expr', 'de', 'composition', 'markers'])
 
 /** Tests that do not go through the gated Wilcoxon pass, so have nothing to run. */
 const NEEDS_RUN_HIDDEN = new Set<Method>(['pseudobulk'])
@@ -887,7 +887,8 @@ export default function App() {
         )}
 
       <main className="stage" id={`panel-${tab}`} role="tabpanel" data-fit={fitted ? '' : undefined}
-        aria-labelledby={`tab-${tab}`} tabIndex={-1}>
+        // A document view scrolls here, so the keyboard has to be able to reach it.
+        aria-labelledby={`tab-${tab}`} tabIndex={fitted ? -1 : 0}>
         <div className="column">
           {/*
             One tab's work, and the only thing a bad render is allowed to take

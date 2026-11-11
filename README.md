@@ -125,7 +125,9 @@ enriched term or a gene in a scored signature opens in **Gene expression**.
 ## Figure palettes
 
 Set once under **Figure style** in the top bar, applied to every figure at once, so an exported
-panel already matches the manuscript. Categorical: **npg** (Nature), **aaas** (Science),
+panel already matches the manuscript. Categorical: **studio** (the default: ten colours checked
+on every pair for colour-vision deficiency, on the light and the dark ground; `docs/DESIGN.md`),
+**npg** (Nature), **aaas** (Science),
 **lancet**, **nejm**, **jco**, as distributed in ggsci, and **Okabe–Ito** for colour-vision
 deficiency — with golden-angle hue generation past the end of a palette so a long cluster list
 never wraps round and hands two populations the same colour. Continuous: two-colour ramps

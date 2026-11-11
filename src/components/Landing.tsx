@@ -29,7 +29,7 @@ const DEMOS: [string, string, string, string][] = [
  * whole section it reads as a caption for nothing.
  */
 const SectionTitle = ({ children }: { children: string }) => (
-  <h2 className="tx-micro font-bold uppercase tracking-[0.09em]"
+  <h2 className="tx-small font-semibold"
     style={{ color: 'var(--ink)' }}>{children}</h2>
 )
 
@@ -65,10 +65,10 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
       <div className="w-full max-w-[540px]">
         <header className="text-center">
           <div
-            className="mx-auto mb-3 grid h-[30px] w-[30px] place-items-center rounded-[--r-md] tx-small font-bold"
+            className="mx-auto mb-3 grid h-[30px] w-[30px] place-items-center rounded-[--r-md] tx-small font-semibold"
             style={{ background: 'var(--ink)', color: 'var(--surface)' }}
           >sc</div>
-          <h1 className="tx-title tracking-[-0.02em]">scRNA-seq Studio</h1>
+          <h1 className="tx-title">scRNA-seq Studio</h1>
           <p className="mx-auto mt-1.5 max-w-[470px] tx-body" style={{ color: 'var(--ink-2)' }}>
             Markers, differential expression, enrichment and module scores — on a processed
             object, in your browser.

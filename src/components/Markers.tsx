@@ -11,7 +11,8 @@ import { mix, pal, type PaletteKey } from '../lib/palette.ts'
 import { countText, populations, sentinelCount } from '../lib/sentinels.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
-import { Card, Chips, Empty } from './Ui.tsx'
+import { Card, Empty } from './Ui.tsx'
+import { Field, InRail, RailGroup, Steps } from './Rail.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import { useJob } from '../lib/compute.ts'
 import Progress, { Failed } from './Progress.tsx'
@@ -234,7 +235,13 @@ export default function Markers({
         title={`${genes.length} genes across ${chosen.length} of ${pops.length} cell types`}
         sub="Mean expression × fraction detected. Rename a cluster to rename it everywhere."
         right={<>
-          <Chips label="Top per cluster" value={topN} options={[3, 5, 8, 12]} onChange={setTopN} />
+          <InRail>
+            <RailGroup label="Markers">
+              <Field label="Top per cluster">
+                <Steps value={topN} options={[3, 5, 8, 12]} onChange={setTopN} />
+              </Field>
+            </RailGroup>
+          </InRail>
           <CsvButton onClick={saveCsv} />
         </>}
       >

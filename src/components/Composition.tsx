@@ -13,6 +13,7 @@ import { pal, type PaletteKey } from '../lib/palette.ts'
 import { namesText, sentinelCount } from '../lib/sentinels.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Legend } from './Ui.tsx'
+import { InRail, RailGroup } from './Rail.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 
 /**
@@ -212,8 +213,10 @@ export default function Composition({ d, types, palKey }: {
           ? 'Percentages on a shared axis. Never pooled across samples.'
           : 'One sample, so this describes it rather than comparing anything.'}
       >
-        <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
-          <label className="flex items-center gap-1.5">
+        {/* What is counted, in the rail; the figure and its export on the stage. */}
+        <InRail>
+        <RailGroup label="Composition">
+          <label className="field">
             <span className="glabel">Bars show</span>
             <select
               className="sel" value={parts}
@@ -225,20 +228,20 @@ export default function Composition({ d, types, palKey }: {
               {fields.map(f => <option key={f} value={f}>{fieldLabel(d, f)}</option>)}
             </select>
           </label>
-          <label className="flex items-center gap-1.5">
+          <label className="field">
             <span className="glabel">One row per</span>
             <select
-              className="sel max-w-[240px]" value={axis.key}
+              className="sel" value={axis.key}
               onChange={e => set({ rows: e.target.value, only: -1 })}
             >
               {axes.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
             </select>
           </label>
           {outer && (
-            <label className="flex items-center gap-1.5">
+            <label className="field">
               <span className="glabel">Limit to</span>
               <select
-                className="sel max-w-[220px]" value={only}
+                className="sel" value={only}
                 onChange={e => set({ only: Number(e.target.value) })}
               >
                 <option value={-1}>every {fieldLabel(d, outer).toLowerCase()}</option>
@@ -246,8 +249,9 @@ export default function Composition({ d, types, palKey }: {
               </select>
             </label>
           )}
-          <div className="ml-auto"><CsvButton onClick={saveCsv} /></div>
-        </div>
+        </RailGroup>
+        </InRail>
+        <div className="mt-2 flex justify-end"><CsvButton onClick={saveCsv} /></div>
 
         {/* Pooling is drawn, not refused. The figure the reader asked for is
             the figure they get; what pooling costs is said in one line above it

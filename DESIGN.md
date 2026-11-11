@@ -324,7 +324,9 @@ A figure that has to be recoloured by hand before submission is a figure the stu
 half-finished. So palette choice is global — set once under Figure style in the top bar,
 applied to every figure at once — and the options are the ones journals' own figures use, as
 distributed in ggsci: **npg** (Nature), **aaas** (Science), **lancet**, **nejm**,
-**jco**. Categorical colours fall back to golden-angle hue generation past the tenth
+**jco**. The default since W037 is **studio**, ten colours validated on every pair for
+colour-vision deficiency on both grounds (`docs/DESIGN.md`, "Charts"); npg fails that check
+on nine types and stays as a choice. Categorical colours fall back to golden-angle hue generation past the tenth
 entry, so a long cluster list never wraps round and gives two populations the same
 colour — the bug the bulk studio shipped once with a 23-arm design.
 

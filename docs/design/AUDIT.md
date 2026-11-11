@@ -87,3 +87,35 @@ layout made it false (§5.2), and no number.
 - **B7.** Selection on the embedding with undo (§6.4); a keyboard path to the readout.
 - **C.** Motion audit and reduced motion; figure export at publication quality from the new frame; the
   before-and-after gallery; the last polish found by looking.
+
+## Designer run 1 (2026-11-11): what closed, what the designer added, what is left
+
+Run A's surface was replaced (docs/DESIGN.md, "Rejected"); its 19 fixes stand where they were structural. Of the
+eight it left:
+- **Closed.** §3.3 and §3.5 (B4): the default palette is `studio`, validated `--pairs all` on both grounds (every
+  gate passes; worst pair CVD ΔE 7.5, normal 15.4, 3:1 or more on both grounds). §5.2: DE's first step is an empty
+  state. §6.4 (B7): a key entry isolates its cells; the entry again, Escape or Show all undoes it.
+- **Part.** B1: Gene expression's controls are in the rail and the figure starts under the head line; the violin's
+  y title, the feature ramp and one Save are left (§7.3 to 7.5). B2: DE's test and cutoffs are in the rail, the
+  view switch in the stage's head, the volcano at its own size; the table to the bottom edge and the volcano's
+  inspector are left. B3: Composition's and Markers' controls are in the rail; Co-expression and Gene sets are
+  not started. §5.1: `.empty` is words on the stage with no box, everywhere; each view's wording is left.
+- **Left.** B5, B6, C, and the parts above. docs/DESIGN.md, "What is left", is the order.
+
+Found by the designer and fixed in this run (each by looking at `after/` or by measurement):
+1. Boxes in boxes: grey page, white card, grey plot ground, carded legend (`cells`). Flat panes at hairlines.
+2. The page scrolled and the figure was sized by width: split panels 375 px with a third of the window empty
+   (`cells-viewport-1440`). A fixed frame; the figure fitted in both directions for any panel count.
+3. A panel's name sat in the corner of its cell, away from its plot. It sits directly above the plot.
+4. Names on the embedding were 10 px whatever the panel. Sized from the panel, 11 to 14 px.
+5. One swatch read as two colours in two screenshots: the PNGs were 256-colour images. The record is full colour.
+6. Chosen segments and chips were black fills, the heaviest marks on a screen (`sets`, `expr-violin`). A thumb; a wash.
+7. Field edges were 1.5:1. `--ctl`: 3.18:1 or more.
+8. 12.5 px type; `font-bold`; uppercase tracked headings on the landing page. Whole pixels, three weights, sentence case.
+9. The volcano's type grew with the window (16 px axis type at 1,440). Drawn at 1.25 times its own size at most.
+10. The key was nine tab stops once its rows were buttons (measured: 20 stops on Cells). One stop; arrows move along it.
+11. A scrolling stage could not be reached by keyboard (axe: scrollable-region-focusable on Overview). It is a tab stop.
+
+Open, seen and not fixed: Composition's bars and Markers' dot plot still scale their type with the stage; Save
+buttons still sit over every facet; `Show cells` and the volcano's Labels are still on the stage; Co-expression and
+Gene sets keep their rows of controls; the DE status chip repeats the Test group's choice.

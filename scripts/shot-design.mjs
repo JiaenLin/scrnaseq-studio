@@ -37,6 +37,18 @@ for (const T of THEMES) for (const W of WIDTHS) {
   }
   const shot = async (name, full = true) => {
     if (ONLY.size && !ONLY.has(name)) return
+    // The frame does not scroll (the stage does), so a whole view is taken by
+    // growing the window by what the stage has below the fold, up to MAXH.
+    const below = full ? await page.evaluate(() => {
+      const m = document.querySelector('main.stage')
+      return m ? Math.max(0, m.scrollHeight - m.clientHeight) : 0
+    }) : 0
+    if (below > 0) { await page.setViewportSize({ width: W, height: Math.min(MAXH, 900 + below) }); await settle(400) }
+    try { await capture(name, full) } finally {
+      if (below > 0) { await page.setViewportSize({ width: W, height: 900 }); await settle(300) }
+    }
+  }
+  const capture = async (name, full) => {
     const h = await page.evaluate(() => document.documentElement.scrollHeight)
     await page.screenshot({
       path: path.join(out, `${name}-${W}-${T}.png`), fullPage: full,
@@ -68,6 +80,15 @@ for (const T of THEMES) for (const W of WIDTHS) {
     await split.click(); await settle()
     await shot(was === 'true' ? 'cells-single' : 'cells-split')
     await split.click(); await settle()
+    // Split, with the key closed (it moves into the head), then both panes closed.
+    if (was !== 'true') { await split.click(); await settle() }
+    await page.keyboard.press(']'); await settle(); await shot('cells-split-nokey', false)
+    await page.keyboard.press('['); await settle(); await shot('cells-split-bare', false)
+    await page.keyboard.press('['); await page.keyboard.press(']'); await settle()
+    // One entry of the key isolated.
+    const entry = page.locator('aside.inspector button.lg-row').nth(3)
+    if (await entry.count()) { await entry.click(); await settle(); await shot('cells-isolate', false); await page.keyboard.press('Escape'); await settle() }
+    if (was !== 'true') { await split.click(); await settle() }
   }
   // The two menus in the control bar, open, over the Cells view.
   const menus = page.locator('header button[aria-haspopup="dialog"]')
@@ -78,7 +99,7 @@ for (const T of THEMES) for (const W of WIDTHS) {
   }
   await tab('Composition'); await shot('composition')
   await tab('Markers')
-  await page.waitForSelector('main table', { timeout: 120_000 }).catch(() => {})
+  await page.waitForSelector('main svg[role="img"]', { timeout: 120_000 }).catch(() => {})
   await settle(800); await shot('markers')
   await tab('Differential expression'); await shot('de')
   // A contrast is never chosen for the reader: pick a cell type, a control and a
@@ -112,6 +133,13 @@ for (const T of THEMES) for (const W of WIDTHS) {
 
   await open('Wild type only')
   await tab('Cells'); await shot('wt-cells')
+
+  // Four panels: the time course, split by group.
+  await open('Time course')
+  await tab('Cells')
+  const split4 = page.getByRole('button', { name: 'Split by group', exact: true })
+  if (await split4.count() && await split4.getAttribute('aria-pressed') !== 'true') { await split4.click(); await settle() }
+  await shot('tc-cells-split', false)
 
   await page.goto(url, { waitUntil: 'networkidle' })
   await page.setInputFiles('input[type=file]', LAB)
