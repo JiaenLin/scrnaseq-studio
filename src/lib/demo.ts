@@ -118,7 +118,7 @@ export const pctFromMean = (m: number): number => Math.min(0.99, 1 - Math.exp(-m
 
 export const DATASETS: Record<string, DatasetSpec> = {
   cohort: {
-    label: 'Adult SVZ neural stem cell reactivation — quiescent vs reactivated, 8 animals',
+    label: 'Adult SVZ neural stem cell reactivation: quiescent vs reactivated, 8 samples',
     file: 'SVZ_NSC_reactivation_harmony_leiden.h5ad · 1.4 GB · AnnData 0.10.8',
     conds: ['Quiescent', 'Reactivated'],
     act: { Quiescent: 0, Reactivated: 1 },
@@ -128,7 +128,7 @@ export const DATASETS: Record<string, DatasetSpec> = {
     ],
   },
   course: {
-    label: 'SVZ reactivation time course after AraC ablation — 0, 6, 24 and 72 hours',
+    label: 'SVZ reactivation time course after AraC ablation: 0, 6, 24 and 72 hours',
     file: 'SVZ_timecourse_4tp.h5ad · 0.8 GB · AnnData 0.10.8',
     conds: ['0 h', '6 h', '24 h', '72 h'],
     act: { '0 h': 0, '6 h': 0.35, '24 h': 0.78, '72 h': 1 },
@@ -138,7 +138,7 @@ export const DATASETS: Record<string, DatasetSpec> = {
     ],
   },
   wt: {
-    label: 'Adult SVZ wild-type reference — single animal, no comparison',
+    label: 'Adult SVZ wild-type reference: one sample, no comparison',
     file: 'SVZ_WT_reference.h5ad · 0.4 GB · AnnData 0.10.8',
     conds: ['Wild type'],
     act: { 'Wild type': 0 },

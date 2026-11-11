@@ -16,9 +16,9 @@ function Code({ children }: { children: string }) {
 }
 
 const DEMOS: [string, string, string, string][] = [
-  ['cohort', '4 v 4', 'Replicated cohort', 'Two conditions, four animals each'],
+  ['cohort', '4 v 4', 'Replicated cohort', 'Two groups, four samples each'],
   ['course', 'time course', 'Time course', '0–72 h, one sample per point'],
-  ['wt', 'single', 'Wild type only', 'No contrast — markers and gene search'],
+  ['wt', 'single', 'Wild type only', 'No contrast: markers, gene search'],
 ]
 
 /**
@@ -35,12 +35,12 @@ const SectionTitle = ({ children }: { children: string }) => (
 
 /** What has to be in a bundle. Terse rows, not sentences. */
 const NEEDS: [string, boolean, string][] = [
-  ['Clusters', true, 'a categorical cell annotation — every view is per cell type'],
+  ['Cell type', true, 'a categorical cell annotation: every view is per cell type'],
   ['Embedding', true, 'UMAP or t-SNE, two dimensions'],
-  ['Expression', true, 'log-normalized, not scaled — z-scores are refused'],
-  ['Sample', false, 'which animal or run — without it, no composition spread'],
-  ['Condition', false, 'the experimental group — without it, no comparisons'],
-  ['Raw counts', false, 'integer, pre-normalization — without them, no pseudobulk'],
+  ['Expression', true, 'log-normalized, not scaled: z-scores are refused'],
+  ['Sample', false, 'which donor or run: without it, no spread between samples'],
+  ['Group', false, 'the experimental factor: without it, no comparisons'],
+  ['Raw counts', false, 'integer, before normalization: without them, no pseudobulk'],
 ]
 
 export default function Landing({ onDemo, onFile, error, busy, note }: {
@@ -70,13 +70,13 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
           >sc</div>
           <h1 className="tx-title">scRNA-seq Studio</h1>
           <p className="mx-auto mt-1.5 max-w-[470px] tx-body" style={{ color: 'var(--ink-2)' }}>
-            Markers, differential expression, enrichment and module scores — on a processed
+            Markers, differential expression, enrichment and module scores on a processed
             object, in your browser.
           </p>
           {/* The limit, stated with the claim rather than buried below it: this
               is a studio, not a pipeline, and it should not be mistaken for one. */}
           <p className="mx-auto mt-1.5 max-w-[470px] tx-small" style={{ color: 'var(--ink-3)' }}>
-            It does not cluster, integrate or normalise. Nothing is uploaded.
+            It does not cluster, integrate or normalize. Nothing is uploaded.
           </p>
         </header>
 
@@ -106,7 +106,7 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
             {busy ? 'Opening…' : 'Open a bundle'}
           </button>
           <p className="mt-2.5 tx-small" style={{ color: 'var(--ink-3)' }}>
-            {note ?? <>or drop it here — a <code className="mono">.zip</code> or{' '}
+            {note ?? <>or drop it here: a <code className="mono">.zip</code> or{' '}
               <code className="mono">.scstudio</code> from scRNA-seq Lab</>}
           </p>
         </div>
@@ -122,7 +122,7 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
           <div className="tx-small font-semibold">Don&rsquo;t have a bundle yet?</div>
           <p className="mt-1 tx-small" style={{ color: 'var(--ink-2)' }}>
             A bundle is made once from your <code className="mono">.h5ad</code> or{' '}
-            <code className="mono">.rds</code> —{' '}
+            <code className="mono">.rds</code>:{' '}
             <a className="underline" style={{ color: 'var(--accent-ink)', fontWeight: 600 }}
               href={LAB} target="_blank" rel="noreferrer">convert it in scRNA-seq&nbsp;Lab →</a>
           </p>
@@ -131,7 +131,7 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
             style={{ color: 'var(--ink-3)' }}
             onClick={() => dlg.current?.showModal()}
           >
-            or convert offline with a script
+            convert offline
           </button>
         </div>
 
@@ -139,7 +139,7 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
           <SectionTitle>Input format</SectionTitle>
           <p className="mt-1.5 tx-small" style={{ color: 'var(--ink-2)' }}>
             A <code className="mono">.zip</code> or <code className="mono">.scstudio</code> from
-            scRNA-seq Lab — not the <code className="mono">.h5ad</code> or{' '}
+            scRNA-seq Lab, not the <code className="mono">.h5ad</code> or{' '}
             <code className="mono">.rds</code> itself. Size is not a limit.
           </p>
           <div className="mt-2.5 grid gap-1.5">
@@ -206,7 +206,7 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
           <Code>{`# Scanpy / AnnData
 curl -O ${RAW}/export_h5ad.py
 
-# Seurat — needs no Seurat installed
+# Seurat: needs no Seurat installed
 curl -O ${RAW}/export_seurat.R`}</Code>
 
           <div className="eyebrow mt-4">2 · Install what it needs</div>

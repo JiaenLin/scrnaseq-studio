@@ -3,6 +3,7 @@
 //
 //   node scripts/test-copy.mjs            (in `npm test`)
 //   node scripts/test-copy.mjs --list     (every string, longest first: the worklist)
+//   node scripts/test-copy.mjs --json     (the same, for scripts/copy-changes.mjs)
 //
 // Two readings, because neither is enough alone:
 //
@@ -25,10 +26,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
-import { BUDGET, SCREEN_BUDGET, SCREEN_KIND, retiredIn, words } from './copy-standard.mjs'
+import { BUDGET, SCREEN_BUDGET, SCREEN_KIND, excepted, refine, retiredIn, words } from './copy-standard.mjs'
+import { properName } from '../src/lib/msigdb.ts'
+import { nNote, wrapSpaces } from '../src/lib/figure-foot.ts'
+import { NOT_CALLED, notCalledNote } from '../src/lib/sentinels.ts'
 
 const LIST = process.argv.includes('--list')
-const SRC = 'src'
+const SRC = process.env.COPY_SRC ?? 'src'   // another tree, to list what a change did (scripts/copy-changes.mjs)
 const files = []
 const walkDir = d => {
   for (const f of fs.readdirSync(d, { withFileTypes: true })) {
@@ -88,10 +92,13 @@ function kindOfElement(el, file) {
     if (/\bnote\b/.test(cls) || tag === 'Note') return 'note'
     if (/\bhint\b/.test(cls) || tag === 'Hint') return 'help'
     if (/\brail-status\b/.test(cls)) return 'status'
-    if (/\brail-label\b|\btx-label\b|\beyebrow\b/.test(cls) || tag === 'label' || tag === 'dt') return 'label'
+    if (/\btx-micro\b/.test(cls) && tag === 'span' && depth === 0) return 'help'
+    if (/\beyebrow\b/.test(cls)) return 'title'
+    if (/\brail-label\b|\btx-label\b/.test(cls) || tag === 'label' || tag === 'dt') return 'label'
     if (/^h[1-4]$/.test(tag) || /\b(stage-title|card-title|tpane-name|plot-name|tx-title)\b/.test(cls)) return 'title'
     if (/\b(stage-meta|stage-foot|figscroll-note)\b/.test(cls)) return 'status'
-    if (/\b(legend|tnote|sub|lead)\b/.test(cls) || tag === 'figcaption') return 'legend'
+    if (/\btnote\b/.test(cls)) return 'note'
+    if (/\b(legend|sub|lead)\b/.test(cls) || tag === 'figcaption') return 'legend'
     if (tag === 'text' || tag === 'tspan') return 'figure text'
     if (tag === 'title') return 'tooltip'
     if (tag === 'InRail' || tag === 'RailGroup' || /\brail\b/.test(cls)) return 'help'
@@ -101,7 +108,8 @@ function kindOfElement(el, file) {
 }
 
 const ATTR_KIND = {
-  title: e => (/^[A-Z]/.test(tagOf(e)) ? (tagOf(e) === 'MenuItem' ? 'menu item' : tagOf(e) === 'Empty' ? 'empty state title' : 'title') : 'tooltip'),
+  title: e => (tagOf(e) === 'MenuItem' ? 'menu item' : tagOf(e) === 'Empty' ? 'empty state title'
+    : /^(Card|Section|Stage|Side|RailGroup|Block)$/.test(tagOf(e)) ? 'title' : 'tooltip'),
   placeholder: () => 'placeholder',
   'aria-label': () => 'accessible name',
   label: e => (tagOf(e) === 'Popover' ? 'accessible name' : tagOf(e) === 'Figure' || tagOf(e) === 'CsvButton' ? 'button' : 'label'),
@@ -119,7 +127,11 @@ const add = (sf, node, kind, text) => {
 }
 
 /** The text of one element as the reader gets it: its own text with its inline children's, slots as `#`. */
+const andBranch = new Map()
 function elementText(el, seen) {
+  return elementOwn(el, seen) + (andBranch.get(el) ?? '')
+}
+function elementOwn(el, seen) {
   let out = ''
   for (const c of el.children) {
     seen.add(c)
@@ -133,7 +145,11 @@ function elementText(el, seen) {
         // The longer branch: the budget is for the most the reader can be shown.
         const a = branchText(e.whenTrue, seen), b = branchText(e.whenFalse, seen)
         out += words(a) >= words(b) ? a : b
-      } else if (ts.isBinaryExpression(e) && (e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)) out += branchText(e.right, seen)
+      } else if (ts.isBinaryExpression(e) && (e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)) {
+        // Of several `cond && text` in one element the longest is counted: they are alternatives far more often than not.
+        const t = branchText(e.right, seen)
+        if (words(t) > words(andBranch.get(el) ?? '')) andBranch.set(el, t)
+      }
       else out += '#'
     } else if (ts.isJsxElement(c)) {
       const tag = tagOf(c)
@@ -198,7 +214,7 @@ for (const f of files) {
             if (ts.isThrowStatement(e) || (ts.isNewExpression(e) && /Error$/.test(e.expression.getText()))) { kind = 'error'; break }
             if (ts.isPropertyAssignment(e) && /^(notes|note)$/.test(e.name.getText())) { kind = 'legend'; break }
             if (ts.isPropertyAssignment(e) && /^(why|error|message|reason)$/.test(e.name.getText())) { kind = 'error'; break }
-            if (ts.isPropertyAssignment(e) && /^(title)$/.test(e.name.getText())) { kind = 'title'; break }
+            if (ts.isPropertyAssignment(e) && /^(title)$/.test(e.name.getText())) { kind = 'tooltip'; break }
             if (ts.isJsxAttribute(e)) { kind = (ATTR_KIND[e.name.getText()] ?? (() => null))(e.parent.parent) ?? kind; break }
             if (ts.isJsxExpression(e) && e.parent && (ts.isJsxElement(e.parent) || ts.isJsxFragment(e.parent))) { kind = kindOfElement(e.parent, f); break }
             if (ts.isFunctionLike(e) && !ts.isArrowFunction(e)) break
@@ -212,6 +228,11 @@ for (const f of files) {
   visit(sf)
 }
 
+if (process.argv.includes('--json')) {
+  // Written to a file descriptor in one piece: a pipe would be cut by the exit.
+  fs.writeFileSync(process.env.COPY_OUT ?? 1, JSON.stringify(strings.map(s => ({ ...s, file: s.file.replace(SRC, 'src'), over: s.words > (BUDGET[s.kind] ?? Infinity), retired: retiredIn(s.text).map(r => r.use) }))))
+  process.exit(0)
+}
 if (LIST) {
   const over = s => s.words - (BUDGET[s.kind] ?? 999)
   for (const s of [...strings].sort((a, b) => over(b) - over(a) || b.words - a.words)) {
@@ -233,7 +254,7 @@ for (const s of strings) (byKind[s.kind] ??= []).push(s)
 for (const [kind, list] of Object.entries(byKind).sort()) {
   const cap = BUDGET[kind]
   if (cap === undefined) continue
-  const over = list.filter(s => s.words > cap)
+  const over = list.filter(s => s.words > cap && !excepted(s.text))
   ok(over.length === 0, `${kind}: ${list.length} strings, none over ${cap} words`,
     over.slice(0, 6).map(s => `${s.file}:${s.line} (${s.words}) ${s.text.slice(0, 110)}`).join('\n       '))
 }
@@ -244,15 +265,16 @@ ok(retired.length === 0, 'no string uses a retired term',
 const INV = 'docs/design/inventory/after.json'
 if (fs.existsSync(INV)) {
   console.log('Copy: the measured inventory')
-  const inv = JSON.parse(fs.readFileSync(INV, 'utf8'))
+  const inv = refine(JSON.parse(fs.readFileSync(INV, 'utf8')))
   const app = inv.strings.filter(s => !s.data)
   ok(app.length > 300, `the inventory holds the app's strings as drawn (${app.length} distinct, ${inv.states.length} states)`)
   const kinds = {}
   for (const s of app) (kinds[s.kind] ??= []).push(s)
   for (const [kind, list] of Object.entries(kinds).sort()) {
-    const cap = kind === 'text' && false ? 0 : BUDGET[kind]
+    // The walk reads an empty state as one block: its instruction and its sentence together.
+    const cap = kind === 'empty state' ? BUDGET['empty state block'] : BUDGET[kind]
     if (cap === undefined) continue
-    const over = list.filter(s => s.own > (/^Methods|Methods$/.test(s.views[0]) && kind === 'text' ? BUDGET.methods : cap))
+    const over = list.filter(s => s.own > (/Methods$/.test(s.views[0]) && kind === 'text' ? BUDGET.methods : cap) && !excepted(s.text))
     ok(over.length === 0, `as drawn, ${kind}: ${list.length}, none over ${cap} of the app's own words`,
       over.slice(0, 6).map(s => `[${s.state}] (${s.own}) ${s.text.slice(0, 110)}`).join('\n       '))
   }
@@ -263,11 +285,53 @@ if (fs.existsSync(INV)) {
   const drawn = app.flatMap(s => retiredIn(s.text).map(r => ({ s, r })))
   ok(drawn.length === 0, 'no string as drawn uses a retired term',
     drawn.slice(0, 10).map(({ s, r }) => `[${s.state}] "${s.text.slice(0, 90)}" -> ${r.use}`).join('\n       '))
-  for (const f of inv.saved) {
-    const notes = f.foot.filter(l => !l.bold).map(l => l.t).join(' ')
-    const own = words(notes.replace(/\(n = [\d,]+\)/g, ' ').replace(/[\d,.]+/g, ' '))
-    if (f.format === 'SVG') ok(f.foot.length > 0 || f.own.some(t => /n = /.test(t)), `${f.file}: the saved figure says what is plotted and n`)
+  // What a saved figure carries (the legend Save writes under the drawing, as the walk read it from each file).
+  const text = f => (f.format === 'SVG' ? f.foot.map(l => l.t).join(' ') : f.own.join(' | '))
+  const file = (state, re) => inv.saved.find(f => f.state === state && re.test(f.file))
+  for (const f of inv.saved.filter(f => f.format === 'SVG')) {
+    ok(f.foot.length > 0, `${f.state}, ${f.file}: the saved figure has a legend`)
+    const own = words(f.foot.filter(l => !l.bold).map(l => l.t).join(' ').replace(/\(n = [\d,]+\)/g, ' ').replace(/[^\s]*\d[^\s]*/g, ' '))
+    ok(own <= 3 * BUDGET['figure legend'], `${f.file}: its legend's sentences are ${own} words with the names of its groups, within ${3 * BUDGET['figure legend']}`)
   }
+  const volcano = file('Differential expression / Volcano', /volcano/)
+  ok(!!volcano && volcano.foot.some(l => l.bold && / vs .* in /.test(l.t)), "the volcano's file names its contrast and its cell type in a title line",
+    volcano?.foot.map(l => l.t).join(' / '))
+  ok(!!volcano && /Wilcoxon rank-sum/.test(text(volcano)) && /(padj|FDR) < [\d.e-]+ and \|log₂FC\| ≥ [\d.]+/.test(text(volcano)), "and its test and its two cutoffs")
+  const dot = file('Gene expression / Dot plot', /dotplot/)
+  ok(!!dot && dot.foot[0]?.bold === true, "the dot plot's file has a title line", dot?.foot[0]?.t)
+  console.log('Copy: the cells the annotator did not call, in the lab fixture\'s saved files (16 of 240)')
+  const labCells = file('Lab bundle: Cells', /./), labComp = file('Lab bundle: Composition', /./), labMk = file('Lab bundle: Markers', /./)
+  ok(!!labCells && new RegExp(`${NOT_CALLED} \\| 16\\b`).test(text(labCells)), "Cells' saved key has a row for them with its count", labCells && text(labCells).slice(-200))
+  ok(!!labCells && /EXCLUDED 10/.test(text(labCells)) && /UNRESOLVED 6/.test(text(labCells)), "and the annotator's own labels with theirs")
+  {
+    const m = labCells ? [...text(labCells).matchAll(/Type[A-D] \| (\d+)/g)].map(x => +x[1]) : []
+    ok(m.length === 4 && m.reduce((a, b) => a + b, 0) + 16 === 240, `the saved key sums to the cells drawn (${m.join(' + ')} + 16 = 240)`)
+  }
+  ok(!!labComp && /16 cells the annotator did not call \(EXCLUDED and UNRESOLVED\) are not a cell type and are left out/.test(text(labComp)),
+    "Composition's saved legend carries the sentence its screen shows", labComp && text(labComp))
+  ok(!!labMk && /16 cells the annotator did not call \(EXCLUDED 10, UNRESOLVED 6\) are on neither side of any test/.test(text(labMk)),
+    "Markers' saved legend carries the sentence its screen shows", labMk && text(labMk))
+}
+
+console.log('Copy: rules that are functions')
+ok(properName('Dna repair') === 'DNA repair' && properName('E2f targets') === 'E2F targets', 'a gene-set name keeps its acronyms: DNA repair, E2F targets')
+ok(properName('Tnfa signaling via nfkb') === 'TNFA signaling via NFKB' && properName('Myc targets v1') === 'MYC targets V1' && properName('G2m checkpoint') === 'G2M checkpoint',
+  'TNFA signaling via NFKB, MYC targets V1, G2M checkpoint', [properName('Tnfa signaling via nfkb'), properName('Myc targets v1'), properName('G2m checkpoint')].join(' / '))
+ok(properName('Oxidative phosphorylation') === 'Oxidative phosphorylation' && properName('Rna polymerase ii transcription') === 'RNA polymerase II transcription' && properName('Mrna splicing') === 'mRNA splicing',
+  'a dictionary word is left alone; RNA polymerase II, mRNA', properName('Rna polymerase ii transcription'))
+{
+  const s = { total: 16, by: [{ name: 'EXCLUDED', n: 10 }, { name: 'UNRESOLVED', n: 6 }] }
+  ok(notCalledNote(s, 'are on neither side of any test') === '16 cells the annotator did not call (EXCLUDED 10, UNRESOLVED 6) are on neither side of any test',
+    'one sentence for the cells the annotator did not call, with their count and labels')
+  ok(notCalledNote({ total: 0, by: [] }, 'x') === '', 'and none when there are none')
+  for (const f of ['Composition.tsx', 'Markers.tsx']) ok(/notCalledNote\(/.test(fs.readFileSync(`src/components/${f}`, 'utf8')), `${f} takes that sentence from the one function (screen and saved legend)`)
+  ok(/NOT_CALLED/.test(fs.readFileSync('src/components/Cells.tsx', 'utf8').split('const redraw')[1] ?? ''), "Cells paints the row into its saved key")
+}
+{
+  const per = ['qNSC / Quiescent', 'qNSC / Reactivated', 'Oligodendrocyte / Quiescent', 'Endothelial / Reactivated', 'Pericyte / Quiescent'].map((label, i) => ({ label, n: 960 + i * 1013 }))
+  let parted = 0, lines = 0
+  for (let w = 220; w <= 900; w += 20) for (const l of wrapSpaces(nNote(per), w, 10.5, false)) { lines++; if (/\/ ?$/.test(l) || /^\d[\d,]*( ·)?$/.test(l) || /^(Quiescent|Reactivated) [\d,]+/.test(l) && w >= 220) parted++ }
+    ok(lines > 50 && parted === 0, `a saved legend never parts a name from its count, from the width of its widest entry up (${lines} lines at 35 widths)`, `${parted} parted`)
 }
 
 console.log(`\n${fail ? `${fail} FAILED, ` : ''}${pass} passed`)

@@ -145,7 +145,7 @@ export default function FeaturePlot(p: GeneProps) {
             <i className="inline-block h-2.5 w-2.5 rounded-full"
               style={{ background: dark ? GHOST_DARK : GHOST_INK, boxShadow: '0 0 0 1px var(--line-2)' }} />
             {anyHidden && split ? 'hidden cells and other groups'
-              : anyHidden ? 'hidden cells' : 'the other groups'} — kept as the outline
+              : anyHidden ? 'hidden cells' : 'the other groups'} , kept as the outline
           </span>
         )}
       </div>
@@ -260,8 +260,13 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
   }, [spec, dark])
 
   return (
-    <Figure
+        <Figure
       name={name} compact
+      foot={{
+        notes: [`${gene}${cond ? `, ${cond}` : ''}: n = ${(cond
+          ? p.src.d.cells.reduce((n, x) => n + (x.cond === cond ? 1 : 0), 0)
+          : p.src.d.nCells).toLocaleString('en-US')} cells${cond ? ' in colour, the other groups as the outline' : ''}. Embedding ${p.emb.key}.`],
+      }}
       redraw={(out, w, h) => {
         const ctx = out.getContext('2d')
         // A figure going into a manuscript is printed on white, whatever theme

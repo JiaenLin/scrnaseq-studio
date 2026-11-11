@@ -116,7 +116,7 @@ export class Engine {
     try { this.worker.terminate() } catch { /* already gone */ }
     this.failAll(message)
     if (this.restarts >= 3) {
-      this.fatal = `${message} — and it failed again after ${this.restarts} restarts`
+      this.fatal = `${message}: and it failed again after ${this.restarts} restarts`
       return
     }
     this.restarts++

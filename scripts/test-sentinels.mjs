@@ -167,7 +167,7 @@ console.log('\nMARKERS: SENTINEL CELLS ARE ON NEITHER SIDE OF ANY TEST')
   check('and the button counts them', textOf(before).includes('Find markers for all 3'), true)
   const after = render(C.Markers, props(true))
   check('the finished plot has a row, and a rename box, for each type and no other',
-    [...after.matchAll(/aria-label="Rename cluster ([^"]*)"/g)].map(m => m[1]), ['TypeA', 'TypeB', 'TypeC'])
+    [...after.matchAll(/aria-label="Rename cell type ([^"]*)"/g)].map(m => m[1]), ['TypeA', 'TypeB', 'TypeC'])
   check('and says how many types it covers', /across 3 of 3 cell types/.test(textOf(after)), true)
 }
 
@@ -187,7 +187,7 @@ console.log('\nDIFFERENTIAL EXPRESSION AND SCOPES: TYPES ONLY')
     src, types: src.types, tis: [1], ctrl: [a1], cs: [a2], method: 'wilcox',
     padjMax: 0.05, lfcMin: 0.25, gates: DE_GATES, lib: null,
   }))
-  check('Methods counts three populations', methods.includes('The 3 populations'), true)
+  check('Methods counts three populations', methods.includes('The 3 cell types'), true)
   check('and reports them as the three types', methods.includes('reported as TypeA, TypeB, TypeC.'), true)
   check('and says what the sentinel cells were, and what was done with them',
     methods.includes(`${nSentinelCells} cells`) && methods.includes('EXCLUDED') && /not a (cell type|population)/.test(methods), true)

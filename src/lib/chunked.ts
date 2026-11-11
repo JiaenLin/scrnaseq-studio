@@ -156,7 +156,7 @@ export function writeChunked(
     const z = deflateSync(payload, { level: 6 })
 
     at += z.length
-    if (at > MAX_BIN) fail('this matrix is too large to chunk into one entry — split it further')
+    if (at > MAX_BIN) fail('this matrix is too large to chunk into one entry: split it further')
     blocks.push(z)
     ptr[k + 1] = at
   }
@@ -296,7 +296,7 @@ async function loadChunk(
 
   const raw = await getBytes(from, to)
   if (raw.length !== to - from) {
-    fail(`chunk ${k} is ${raw.length} bytes but the index says ${to - from} — this bundle is truncated`)
+    fail(`chunk ${k} is ${raw.length} bytes but the index says ${to - from}: this bundle is truncated`)
   }
 
   const nGenes = indptr.length - 1
@@ -313,7 +313,7 @@ async function loadChunk(
     fail(`chunk ${k} of this bundle is corrupt (${(e as Error).message})`)
   }
   if (payload!.length !== expect) {
-    fail(`chunk ${k} holds ${payload!.length} bytes, expected ${expect} for its ${nnz} values — this bundle is damaged`)
+    fail(`chunk ${k} holds ${payload!.length} bytes, expected ${expect} for its ${nnz} values: this bundle is damaged`)
   }
   return payload!
 }

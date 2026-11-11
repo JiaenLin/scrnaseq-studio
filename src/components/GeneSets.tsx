@@ -343,7 +343,7 @@ export default function GeneSets({
           <RailGroup label="Score per cell">
             <Opts<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
           </RailGroup>
-          <RailGroup label="Genes of the set">
+          <RailGroup label="Set genes">
             <Toggle on={heat} onChange={setHeat}>Show the genes</Toggle>
             {heat && (
               <>
@@ -354,14 +354,14 @@ export default function GeneSets({
                 <Toggle on={heatCluster} onChange={setHeatCluster}
                   title="Order rows and columns by similarity, and draw the trees">Cluster</Toggle>
                 <Toggle on={heatScale} onChange={setHeatScale}
-                  title="z-score each gene across the identities shown — pheatmap scale = row">
+                  title="z-score each gene across the columns shown (pheatmap scale = row)">
                   Scale each gene</Toggle>
                 <Toggle on={heatFlip} onChange={setHeatFlip}
-                  title="Swap the axes — identities down the side, genes along the bottom">
+                  title="Swap the axes: cell types down the side, genes along the bottom">
                   Transpose</Toggle>
                 <ColumnFilter types={types} conds={d.conds} groupBy={heatBy}
                   hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
-                  palKey={palKey} label="Columns in this heatmap" />
+                  palKey={palKey} label="Columns shown" />
               </>
             )}
           </RailGroup>
@@ -383,7 +383,7 @@ export default function GeneSets({
               <input
                 className="inp w-full" value={find}
                 placeholder={lib.loading ? 'loading MSigDB…'
-                  : `search ${allSets.length.toLocaleString()} sets — cell cycle, notch…`}
+                  : `search ${allSets.length.toLocaleString()} sets: cell cycle, notch…`}
                 aria-label="Search gene sets"
                 disabled={lib.loading}
                 role="combobox" aria-expanded={hits.length > 0} aria-controls="geneset-hits"
@@ -425,9 +425,9 @@ export default function GeneSets({
               <Progress pass={pass ?? STARTING} title={`Scoring ${name} across every cell`} />
             ) : used.length === 0 ? (
               !chosen ? (
-                <Empty title="Pick a set in the list to score it.">
-                  Your own sets appear there too — add them with &ldquo;Paste or upload&rdquo;
-                  in the controls on the left.
+                <Empty title="Choose a set in the list to score it.">
+                  Your own sets appear there too: add them with &ldquo;Paste or upload&rdquo;
+                  on the left.
                 </Empty>
               ) : (
                 <div className="empty">
@@ -442,7 +442,7 @@ export default function GeneSets({
                   {name}
                 </div>
                 {used.length} gene{used.length === 1 ? '' : 's'} measured here, scored against{' '}
-                {SCORE_DEFAULTS.ctrl} controls each — one pass over every cell.
+                {SCORE_DEFAULTS.ctrl} controls each: one pass over every cell.
                 <div className="mt-3.5">
                   <button className="btn btn-primary" onClick={() => onScoreRan(key)}>
                     Score this set
@@ -456,10 +456,10 @@ export default function GeneSets({
                     <ScoreMap d={d} types={types} xy={emb.xy} scores={scoreOf} rampKey={rampKey} name={name} />
                   </Section>
 
-                  <Section title="Score by identity">
+                  <Section title="Score by cell type or group">
                     <div className="scrollx" style={{ maxHeight: 420 }}>
                       <table className="t">
-                        <thead><tr><th>Identity</th><th className="num">Cells</th><th className="num">Median</th><th className="num">Mean</th></tr></thead>
+                        <thead><tr><th>Cells of</th><th className="num">Cells</th><th className="num">Median</th><th className="num">Mean</th></tr></thead>
                         <tbody>
                           {ids.map((id, k) => {
                             const s = stats[k]
@@ -506,7 +506,7 @@ export default function GeneSets({
                     ))}
                   </div>
                   <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
-                    Click a gene to see whether it carries the score on its own.
+                    Select a gene to see whether it carries the score on its own.
                     {' '}{SCORE_DEFAULTS.ctrl} control genes per set gene, drawn from{' '}
                     {SCORE_DEFAULTS.nbin} expression bins.
                     {missing.length > 0 && (
@@ -517,8 +517,8 @@ export default function GeneSets({
                   </p>
                   <InHead>
                     <button className="btn btn-quiet" onClick={() => onCorrelate(used)}
-                      title="Find the genes that move with this signature, and against it">
-                      Correlate with this set →
+                      title="Find the genes that move with this set, and against it">
+                      Correlate this set
                     </button>
                   </InHead>
                 </Section>
@@ -550,12 +550,12 @@ export default function GeneSets({
                   the violin's and reading as a footnote to it.
                 */}
                 {heat && (
-                  <Section title="Every gene of the set, across identities"
+                  <Section title="Every gene of the set, across cell types"
                     meta={modes.find(m => m.k === heatBy)?.label}>
                     <p className="sub mb-2 mt-0">
                       {heatScale
-                        ? "Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is."
-                        : 'Mean expression as the object holds it, on one scale for every gene — so a row says how abundant that gene is.'}
+                        ? "Z-scored down each gene's own row, so a row says where that gene is highest, not how abundant it is."
+                        : 'Mean expression as the object holds it, on one scale for every gene, so a row says how abundant that gene is.'}
                     </p>
                     <Figure name={`set_genes_${slug(name)}`}
                       foot={{ title: `${name}: its genes, ${heatScale ? 'z-scored along each gene' : 'mean expression'}` }}>
@@ -838,7 +838,7 @@ function SetHeatmap({
 
   if (!cols.length || !v) {
     return (
-      <div className="empty mt-2">Every column is switched off — turn one back on above.</div>
+      <div className="empty mt-2">Every column is switched off: turn one back on, on the left.</div>
     )
   }
 
@@ -856,7 +856,7 @@ function SetHeatmap({
       <svg viewBox={`0 0 ${W} ${H}`} data-foot={JSON.stringify({ notes: [nNote(cols.map(c => ({ label: c.label, n: c.size })))] })} width={W} height={H}
         style={{ maxWidth: '100%' }}
         role="img"
-        aria-label={`Expression of ${genes.length} set genes across ${cols.length} populations`}>
+        aria-label={`Expression of ${genes.length} set genes across ${cols.length} cell types`}>
         {hTree && dendroLines(hTree, hAt.length * cw, treeT - 5).map((l, i) => (
           <line key={`c${i}`} x1={PL + l.x1} x2={PL + l.x2}
             y1={plotT - 3 - l.y1} y2={plotT - 3 - l.y2}
@@ -875,7 +875,7 @@ function SetHeatmap({
               width={cw} height={rh}
               className="gfill" style={onGround(rampColor((v[gi * cols.length + k] - lo) / span, ramp), rampColor((v[gi * cols.length + k] - lo) / span, ramp, 'dark'))}>
               <title>
-                {genes[gi]} in {cols[k].full} — {scale ? 'z ' : 'mean '}
+                {genes[gi]} in {cols[k].full}: {scale ? 'z ' : 'mean '}
                 {v[gi * cols.length + k].toFixed(2)}
                 {' · '}{cols[k].size.toLocaleString()} cells
               </title>
@@ -956,7 +956,7 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
   return (
     <div ref={box} className="mt-3 overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block' }} role="img"
-        aria-label="Module score by identity">
+        aria-label="Module score by cell type or group">
         {/* The axis says what it measures; it had no title. */}
         <text className="axis" transform={`rotate(-90 11 ${PT + PLOT / 2})`} x={11} y={PT + PLOT / 2}
           textAnchor="middle">Module score</text>

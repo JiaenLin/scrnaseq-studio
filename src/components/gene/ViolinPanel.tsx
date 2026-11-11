@@ -66,7 +66,7 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
   const foot: Foot = {
     notes: [
       nText,
-      'Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean, which is what the dot plot colours.'
+      'Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean.'
         + (points ? ' Each dot is one cell, up to 300 per group.' : '')
         + ' Bar under the axis: fraction of cells detecting the gene.',
     ],
@@ -228,7 +228,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean;
         </text>
         {maxPct < 0.12 && (
           <text className="axis" x={PL + 8 + textW(p.gene, 11.5, true)} y={11} style={{ fontSize: 10.5 }}>
-            barely detected here — max {(maxPct * 100).toFixed(0)}%
+            barely detected here: max {(maxPct * 100).toFixed(0)}%
           </text>
         )}
         {/* 'cond' only. It admitted 'both' as well, where `cats` is

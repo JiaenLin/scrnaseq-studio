@@ -28,8 +28,8 @@ export default function RunCard({ src }: { src: Source }) {
       ) : v.kind === 'absent' ? (
         <Said>
           This bundle carries no run section, so it cannot say which run produced the object. The
-          lab&rsquo;s converter writes one from what an .h5ad&rsquo;s uns records; a bundle written
-          before it did, by an exporter that does not, or from an .rds has none.
+          lab&rsquo;s converter writes one from an .h5ad&rsquo;s uns; an older bundle, another
+          exporter&rsquo;s, or one from an .rds has none.
         </Said>
       ) : v.kind === 'malformed' ? (
         <Said>

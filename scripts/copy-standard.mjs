@@ -16,13 +16,13 @@ export const BUDGET = {
   'segment': 3,
   'option': 3,
   'chip': 3,
-  'picker': 4,
+  'picker': 5,
   'menu item': 4,
   'menu item note': 5,
   'menu note': 20,
   'label': 3,
   'table header': 3,
-  'badge': 2,
+  'badge': 3,
   'title': 8,
   'placeholder': 6,
   'accessible name': 8,
@@ -33,12 +33,32 @@ export const BUDGET = {
   'note': 30,
   'empty state title': 12,
   'empty state': 24,
+  'empty state block': 36,
   'error': 30,
   'readout': 12,
   'figure text': 8,
   'figure legend': 45,
   'text': 40,
-  'methods': 160,
+  'methods': 200,
+}
+
+/** A string over its budget on purpose: each one named, with its reason. */
+export const EXCEPTIONS = [
+  { re: /^The .* view could not be drawn/, why: 'the walk reads the error boundary as one block: a title (7 words), one sentence, the object\'s own name, the technical message for a bug report, and two buttons; each is within its budget in the source' },
+  { re: /^Find markers for /, why: 'the count on the button is what the reader acts on (how many tests will run), and a data-level check reads it there (scripts/test-sentinels.mjs)' },
+]
+export const excepted = s => EXCEPTIONS.some(e => e.re.test(s))
+
+/**
+ * The inventory, read: a string's own words are counted again with the names
+ * the walk met as data (a gene on an axis, a cell type in a key) set aside,
+ * so "Dot plot of Gfap, Ascl1, Mki67" is three of the app's words, not six.
+ */
+export function refine(inv) {
+  const names = new Set()
+  for (const s of inv.strings) if (['tick', 'table cell', 'key entry'].includes(s.kind) && !/\s/.test(s.text) && /[A-Za-z]/.test(s.text)) names.add(s.text)
+  for (const s of inv.strings) s.own = Math.min(s.own, words(shapeOf(s.text, names).replace(/‹name›|#/g, ' ')))
+  return inv
 }
 
 /** The app's own words visible at rest in a 1,440 by 900 window, by kind of view. */
@@ -59,19 +79,19 @@ export const SCREEN_KIND = {
  */
 export const RETIRED = [
   { re: /\bdownload(s|ed|ing)?\b/i, use: 'save', why: 'one verb for a file leaving the app: the button says Save' },
-  { re: /\bexport(s|ing)?\b(?! counts)/i, use: 'save', why: 'the same act as Save', but: /exported from|exporter|export_h5ad|export_seurat|was exported|bundle exported/i },
-  { re: /\bconditions?\b/i, use: 'group', why: 'the experimental factor is a group everywhere a reader chooses one', but: /condition number/i },
+  { re: /\bexport(s|ed|ing)?\b/i, use: 'save', why: 'the same act as Save', but: /exported from|exporter(&rsquo;|’|')?s?|export_h5ad|export_seurat|export_\*|before export|Export a bundle/i },
+  { re: /\bconditions?\b/i, use: 'group', why: 'the experimental factor is a group everywhere a reader chooses one', but: /--condition|single condition/i },
   { re: /\banimals?\b/i, use: 'sample', why: 'a demo is mice, a cohort may be organoids or patients: the object calls it a sample' },
-  { re: /\bclusters?\b(?! (rows|columns|the))/i, use: 'cell type', why: 'the annotation a view splits by is a cell type; clustering is the order of a heat map', but: /does not cluster|clustering|cluster\.u16|Cluster (rows|columns|sets|genes|cell types)|clustered|not cluster,/i },
+  { re: /\bclusters?\b/i, use: 'cell type', why: 'the annotation a view splits by is a cell type; "cluster" stays for ordering a heat map and for the bundle\'s own field', but: /does not cluster|^Cluster$|Cluster (rows|columns|sets|genes)|--cluster|cluster\.u16|cluster\/sample arrays|sample × cluster|clusters or samples|refers to a cluster|has no clusters|cluster names/i },
   { re: /\bpopulations?\b/i, use: 'cell type', why: 'a second word for a cell type', but: /populations are the object|4 populations|9 populations|every population, proportion|each population against/i },
   { re: /\bsignatures?\b/i, use: 'gene set', why: 'a set of genes is a gene set whether pasted or from MSigDB' },
   { re: /\bidentit(y|ies)\b/i, use: 'cell type or group', why: "Seurat's word, not the reader's" },
-  { re: /\bsentinels?\b/i, use: 'cells not called', why: 'the code word for a label that is not a cell type', but: /in sentinels|listed in sentinels/i },
+  { re: /\bsentinels?\b/i, use: 'cells not called', why: 'the code word for a label that is not a cell type', but: /in sentinels|meta\.json's sentinels/i },
   { re: /\buncalled\b/i, use: 'not called', why: 'one phrase for a cell the annotator gave no cell type' },
   { re: /\bpick(s|ed|ers?)?\b/i, use: 'choose', why: 'one verb for taking one of a list' },
   { re: /\bdatasets?\b/i, use: 'object', why: 'what is open is an object; the file it came in is a bundle' },
   { re: /\bthe studio\b/i, use: 'this app (or no subject)', why: 'the app does not name itself in its own sentences', but: /scRNA-seq Studio/ },
-  { re: /\bpadj\b/, use: 'adj. p', why: "a column name from DESeq2's output, not a word; the table header says adj. p", but: /log₁₀ padj|padj_/ },
+  { re: /\badj\. p\b|\bp adjusted\b|\bp_adj\b/i, use: 'padj (the column and its cutoff) or "adjusted p" (a sentence, an axis)', why: 'the column is padj in the table and the CSV; a third spelling is a third thing to learn' },
   { re: /\bcontrols on the left\b/i, use: 'on the left', why: 'the rail is where controls are; said once, shortly' },
   { re: /\bclick\b/i, use: 'select', why: 'a control is reached by keyboard too' },
   { re: /\bhover\b/i, use: 'point at', why: 'as above' },

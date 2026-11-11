@@ -118,7 +118,7 @@ export default function SetEditor({ open, background, initial, onClose, onAdd }:
         <div className="flex items-start justify-between gap-4 border-b p-4"
           style={{ borderColor: 'var(--line)' }}>
           <div>
-            <div className="eyebrow">Gene sets · your own</div>
+            <div className="eyebrow">Your gene sets</div>
             <h2 className="card-title">Paste your gene sets</h2>
             <p className="sub">
               A Python or R dict, JSON, a GMT, <span className="mono">Name: gene, gene</span>{' '}
@@ -136,7 +136,7 @@ export default function SetEditor({ open, background, initial, onClose, onAdd }:
               onChange={e => setName(e.target.value)} />
             <span className="flex-1" />
             <label className="btn btn-quiet cursor-pointer">
-              or read a file…
+              Read a file…
               <input
                 type="file" accept=".gmt,.txt,.tsv,.json,.csv,.py,.R" className="sr-only"
                 onChange={async e => {
@@ -159,7 +159,7 @@ export default function SetEditor({ open, background, initial, onClose, onAdd }:
             // that accessible name, so the two were indistinguishable to
             // anything matching on it — a screen reader included.
             aria-label="Your gene sets"
-            placeholder={'pathway_genes = {\n    "TCA cycle": ["Cs", "Aco2", "Idh2", "Mdh2"],\n    "Glycolysis": ["Hk1", "Gpi1", "Aldoa", "Pkm"],\n}'}
+            placeholder={'pathway_genes = {\n    "TCA cycle": ["Cs", "Aco2", "Idh2"],\n}'}
             value={text}
             onChange={e => setText(e.target.value)}
           />
@@ -180,13 +180,13 @@ export default function SetEditor({ open, background, initial, onClose, onAdd }:
                 </span>
                 {coverage.found === 0 && (
                   <span className="tx-small" style={{ color: 'var(--warn)' }}>
-                    none of them — check the species and capitalisation
+                    none of them: check the species and capitalization
                   </span>
                 )}
               </div>
               <div className="scrollx mt-2" style={{ maxHeight: 190, border: 0 }}>
                 <table className="t">
-                  <thead><tr><th>Set</th><th className="num">Genes</th><th>Not in this object</th></tr></thead>
+                  <thead><tr><th>Set</th><th className="num">Genes</th><th>Not in object</th></tr></thead>
                   <tbody>
                     {coverage.rows.map(r => (
                       <tr key={r.name}>

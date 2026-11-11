@@ -9,7 +9,7 @@ import { useDark } from '../lib/theme.ts'
 import { ActionSlot } from '../lib/action-slot.ts'
 import { mitoTopOf, paintEmbedding } from '../lib/embed-paint.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
-import { SENTINEL_GREY, countText, populations, sentinelCount } from '../lib/sentinels.ts'
+import { NOT_CALLED, SENTINEL_GREY, countText, populations, sentinelCount } from '../lib/sentinels.ts'
 
 /**
  * The explorer (docs/DESIGN.md, "Layout"): the embedding owns the stage, what
@@ -218,7 +218,8 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
    */
   const KEY_W = 196
   const cellW = pw + 2 * EDGE, cellH = ph + NAME + EDGE
-  const extent = { w: fit.cols * cellW + KEY_W, h: Math.max(fit.rows * cellH, 2 * EDGE + 20 + legend.length * 18) }
+  const extent = { w: fit.cols * cellW + KEY_W, h: Math.max(fit.rows * cellH, 2 * EDGE + 20 + legend.length * 18
+    + (shown === 'type' && uncalled.total > 0 ? 18 + uncalled.by.length * 15 : 0)) }
   const redraw = (out: HTMLCanvasElement, W: number) => {
     const g = out.getContext('2d')
     if (!g) return
@@ -286,7 +287,26 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
         g.fillStyle = INK2
         g.textAlign = 'right'
         g.fillText(fmt(counts.get(label) ?? 0), kx + (KEY_W - 2 * EDGE) * s, ky)
+                g.textAlign = 'left'
+        ky += 18 * s
+      }
+      // The cells the annotator did not call: a row of the key with its count,
+      // then the annotator's own labels, so the file's key sums to its panels' n.
+      if (shown === 'type' && uncalled.total > 0) {
+        g.fillStyle = SENTINEL_GREY
+        g.fillRect(kx, ky - 8 * s, 8 * s, 8 * s)
+        g.font = `400 ${11 * s}px system-ui, sans-serif`
+        g.fillStyle = INK
+        g.fillText(NOT_CALLED, kx + 14 * s, ky)
+        g.fillStyle = INK2
+        g.textAlign = 'right'
+        g.fillText(fmt(uncalled.total), kx + (KEY_W - 2 * EDGE) * s, ky)
         g.textAlign = 'left'
+        g.font = `400 ${10.5 * s}px system-ui, sans-serif`
+        for (const b of uncalled.by) {
+          ky += 15 * s
+          g.fillText(`${b.name} ${fmt(b.n)}`, kx + 14 * s, ky)
+        }
         ky += 18 * s
       }
     } else {
@@ -384,12 +404,17 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
 
           {shown === 'type' && uncalled.total > 0 && (
             <section className="ins-section">
-              <p className="m-0 flex items-start gap-2 tx-small" style={{ color: 'var(--ink-2)' }}>
-                <i className="sw mt-[5px] flex-none" style={{ background: SENTINEL_GREY }} />
-                <span>
-                  Grey: {fmt(uncalled.total)} cells the annotator did not call ({countText(uncalled)}).
-                  They are drawn where they are, and are not a cell type.
-                </span>
+                            {/* A row of the key, with its count, so the key sums to the cells drawn
+                  (224 + 16 = 240); not a button, because it is not a cell type to isolate. */}
+              <div className="lg-row" data-not-called="">
+                                {/* `sw sw-off`: not the markup of a cell type's entry, which the
+                    sentinel tests read the legend by (a cell not called is not one). */}
+                <span><i className="sw sw-off" style={{ background: SENTINEL_GREY }} />{NOT_CALLED}</span>
+                <span className="num">{fmt(uncalled.total)}</span>
+              </div>
+              <p className="hint m-0">
+                                Drawn grey: {fmt(uncalled.total)} cells the annotator did not call ({countText(uncalled)}).
+                Not a cell type.
               </p>
             </section>
           )}
@@ -527,7 +552,7 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
           <dl className="mt-1 grid grid-cols-[auto_auto] gap-x-3 num" style={{ color: 'var(--ink-2)' }}>
             {d.multi && <><dt>Group</dt><dd className="m-0" style={{ color: 'var(--ink)' }}>{c.cond}</dd></>}
             <dt>Sample</dt><dd className="m-0" style={{ color: 'var(--ink)' }}>{c.s}</dd>
-            {mito && <><dt>% mito</dt><dd className="m-0" style={{ color: 'var(--ink)' }}>{Number(c.mito.toPrecision(7))}</dd></>}
+            {mito && <><dt>% mito</dt><dd className="m-0" style={{ color: 'var(--ink)' }}>{c.mito.toFixed(2)}</dd></>}
           </dl>
         </div>
       )}

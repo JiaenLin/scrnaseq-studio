@@ -76,7 +76,7 @@ export default function Figure({
   label?: string
 }) {
   const outer = useContext(SheetFoot)
-  const foot = ownFoot ?? (compact ? outer : undefined)
+    const foot = ownFoot ?? (compact ? outer?.panel ?? outer : undefined)
   const box = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
@@ -148,7 +148,7 @@ export default function Figure({
             aria-label={compact ? `Save ${name}` : undefined}
             aria-haspopup="menu"
             aria-expanded={open}
-            title={`Download ${name}`}
+            title={`Save ${name}`}
             disabled={busy}
             // A fixed width, so the label swapping to "…" while the PNG renders
             // does not shrink the trigger out from under the cursor.
@@ -156,16 +156,16 @@ export default function Figure({
             onClick={() => { if (!open) setSize(printSize(drawnPx())); setOpen(v => !v) }}
           >{busy ? '…' : compact ? <DownIcon /> : <><DownIcon />{label}</>}</button>
           <Popover open={open} anchor={trigger} align="right" role="menu"
-            label={`Download ${name}`} width={212} onClose={() => setOpen(false)}>
+            label={`Save ${name}`} width={212} onClose={() => setOpen(false)}>
             <div className="p-1.5 text-left">
               {vector && (
                 <MenuItem onClick={() => void save('svg')}
-                  title="SVG — vector" note="editable, no resampling" />
+                  title="SVG, vector" note="editable, no resampling" />
               )}
               <MenuItem onClick={() => void save(300)}
-                title="PNG — 300 dpi" note="the usual journal minimum" />
+                title="PNG, 300 dpi" note="the usual journal minimum" />
               <MenuItem onClick={() => void save(600)}
-                title="PNG — 600 dpi" note="line art and dense panels" />
+                title="PNG, 600 dpi" note="line art and dense panels" />
               {/* The width every format is saved at, once: counted from the
                   drawing by the function that sizes the file (`printSize`),
                   with the column it fits and the size its type prints at. It

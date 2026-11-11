@@ -169,11 +169,11 @@ export default function GeneSetSources({
                   disabled={lastStanding(s.source)}
                   style={{ opacity: lastStanding(s.source) ? 0.5 : 1 }}
                   title={lastStanding(s.source)
-                    ? 'The only collection left — turn another on, or add your own, before turning this off'
+                    ? 'The only collection left: turn another on, or add your own, before turning this off'
                     : `${s.nSets.toLocaleString()} sets · ${(s.bytes / 1e6).toFixed(2)} MB`
                     + (s.projected ? ' · human sets mapped through orthologs, not a mouse annotation' : '')
                     + (s.derived ? ` · assembled from ${s.derived.join(', ')}` : '')
-                    + (on ? '' : ' — not downloaded yet')}
+                    + (on ? '' : ', not loaded yet')}
                   onClick={() => toggle(s.source)}
                 >
                   <span
@@ -196,7 +196,7 @@ export default function GeneSetSources({
         </Popover>
       <p className="hint m-0">
         {lib.error
-          ? <span style={{ color: 'var(--warn)' }}>Could not load the gene sets — {lib.error}</span>
+          ? <span style={{ color: 'var(--warn)' }}>Could not load the gene sets:  {lib.error}</span>
           : lib.loading
             ? `Loading ${lib.total - lib.done} of ${lib.total} collection${lib.total === 1 ? '' : 's'}…`
             : !chosen.length
@@ -206,16 +206,15 @@ export default function GeneSetSources({
                 // in order to test against their OWN sets was told there was
                 // nothing selected while their sets sat enabled beside the
                 // sentence.
-                ? <>Your own sets only — <b>{mine.toLocaleString()}</b> set
+                ? <>Your own sets only: <b>{mine.toLocaleString()}</b> set
                     {mine === 1 ? '' : 's'} in {customSets.length} collection
-                    {customSets.length === 1 ? '' : 's'}. No MSigDB collection is on,
-                    so nothing else is tested or corrected across.</>
+                    {customSets.length === 1 ? '' : 's'}. No MSigDB collection is on.</>
                 : 'No collection selected.')
               : index
                 ? <>
                     MSigDB {index.release} · {nSets.toLocaleString()} sets, of which{' '}
                     <b>{index.sets.length.toLocaleString()}</b> contain a gene this contrast
-                    tested. Those are the ones tested, and the ones corrected across.
+                    tested: the ones tested and corrected across.
                   </>
                 : <>MSigDB · {nSets.toLocaleString()} sets in {chosen.length} collection
                     {chosen.length === 1 ? '' : 's'}
@@ -225,8 +224,7 @@ export default function GeneSetSources({
       {covered !== null && (
         <p className="hint m-0">
           These collections annotate {(covered * 100).toFixed(0)}% of the genes this object
-          measures. That fraction is the annotated background, and turning more collections on
-          raises it.
+          measures. That fraction is the annotated background.
         </p>
       )}
 
@@ -248,17 +246,15 @@ export default function GeneSetSources({
         const overlapping = s.derived!.filter(name => sources.includes(name))
         return (
           <p key={s.source} className="hint m-0">
-            <b>{s.source}</b> is a metabolic library assembled from{' '}
-            {s.derived!.join(', ')} — {s.nSets.toLocaleString()} sets under their own ids, so
-            they are tested whatever else is enabled.
+            <b>{s.source}</b> is assembled from{' '}
+            {s.derived!.join(', ')}: {s.nSets.toLocaleString()} sets under their own ids.
             {overlapping.length > 0 && (
               <>
                 {' '}
                 <span style={{ color: 'var(--warn)' }}>
-                  {overlapping.join(', ')} {overlapping.length === 1 ? 'is' : 'are'} on as well,
-                  so a term in both is tested twice and corrected across twice.
-                </span>{' '}
-                Switch {overlapping.length === 1 ? 'it' : 'them'} off to test metabolism alone.
+                  {overlapping.join(', ')} {overlapping.length === 1 ? 'is' : 'are'} on too: a term in
+                  both is tested twice.
+                </span>
               </>
             )}
           </p>
@@ -269,7 +265,7 @@ export default function GeneSetSources({
         <p className="hint m-0">
           {chosen.filter(s => s.projected).map(s => s.source).join(', ')} is human sets mapped
           through orthologs, not a {lib.manifest?.species[species]?.label.toLowerCase() ?? species}{' '}
-          annotation — MSigDB publishes no native one. Read it as a weaker claim than the rest.
+          annotation. Read it as a weaker claim.
         </p>
       )}
 
@@ -308,7 +304,7 @@ export default function GeneSetSources({
         {!customSets.length && (
           <span className="hint">
             Paste a Python dict, a GMT, or one <span className="mono">Name: a, b, c</span> per
-            line. They are tested and corrected exactly as MSigDB&rsquo;s are.
+            line. They are tested as MSigDB&rsquo;s are.
           </span>
         )}
       </RailGroup>
@@ -338,7 +334,7 @@ export default function GeneSetSources({
       {wrongSpecies && detected && (
         <p className="note note-warn mb-3">
           <b>These sets are for {lib.manifest?.species[species]?.label ?? species}, and this
-          object looks like {detected.species}</b> — {detected.why}. Matching ignores case, so
+          object looks like {detected.species}</b> ({detected.why}). Matching ignores case, so
           results will still appear; they will be answering a question about a different species.
         </p>
       )}

@@ -363,7 +363,7 @@ export async function readEntry(file: Blob, e: PartEntry): Promise<Uint8Array> {
   const head = await file.slice(e.start, e.start + 30).arrayBuffer()
   const h = dv(head)
   if (h.getUint32(0, true) !== 0x04034b50) {
-    throw new Error('this collection is damaged — a part is not where its index says')
+    throw new Error('this collection is damaged: a part is not where its index says')
   }
   const nameLen = h.getUint16(26, true)
   const extraLen = h.getUint16(28, true)

@@ -144,9 +144,9 @@ for (const [label, opts] of [['with no sentinels field', { sentinels: undefined 
     src, types: src.types, palKey: 'npg', go: true, want: new Set(),
     onGo: () => {}, onWant: () => {}, onRename: () => {}, onPickGene: () => {},
   })
-  check('Methods counts all five as populations', methods.includes('The 5 populations'), true)
+  check('Methods counts all five as populations', methods.includes('The 5 cell types'), true)
   check('and Markers tests all five',
-    [...markers.matchAll(/aria-label="Rename cluster ([^"]*)"/g)].map(m => m[1]), CLUSTERS)
+    [...markers.matchAll(/aria-label="Rename cell type ([^"]*)"/g)].map(m => m[1]), CLUSTERS)
   html[label] = { cells, comp, methods, overview, markers }
 }
 

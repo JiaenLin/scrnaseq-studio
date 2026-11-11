@@ -42,7 +42,7 @@ console.log('\nMETHODS, PSEUDOBULK: WHAT WAS DONE, AND NOTHING THAT WAS NOT')
     t.includes('considered differentially expressed'), false)
   check('nor that the studio "runs these tests"', t.includes('runs these tests'), false)
   check('it says the summed counts were exported for DESeq2',
-    /summed counts[^.]*were exported for DESeq2/.test(t), true)
+    /summed counts[^.]*were saved for DESeq2/.test(t), true)
   check('and, in so many words, that no test was run here', t.includes('No test was run here'), true)
   check('the design it describes is still the object\'s own (4 v 4 animals)',
     t.includes(`4 ${ctrl} and 4 ${cs} profiles`), true)
@@ -66,7 +66,7 @@ console.log('\nOVERVIEW: THE DESIGN NOTE OFFERS WHAT EXISTS')
   check('it no longer promises "pseudobulk DESeq2 tests between animals"',
     /DESeq2 tests/.test(t), false)
   check('nor "both tests"', /both tests/i.test(t), false)
-  check('it says the pseudobulk counts are exported for DESeq2', t.includes('exported for DESeq2'), true)
+  check('it says the pseudobulk counts are exported for DESeq2', t.includes('saved for DESeq2'), true)
   check('and that DESeq2 is not run here', t.includes('not run here'), true)
 }
 

@@ -348,8 +348,8 @@ export default function Coexpression(p: CoexprProps) {
           <>
             <input
               className="inp mono w-full" value={text}
-              placeholder="paste a signature — up to 500 genes"
-              title="paste a signature — up to 500 genes"
+              placeholder="paste genes, up to 500"
+              title="paste genes, up to 500"
               aria-label="Seed gene set"
               onChange={e => setText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); applyList() } }}
@@ -364,15 +364,15 @@ export default function Coexpression(p: CoexprProps) {
           disabled={k => k === 'bulk' && !hasBulk}
           options={[
             { k: 'pool', label: OVER_LABEL.pool,
-              title: 'Neighbouring cells averaged into equal-sized pools — the default, because it is what makes r mean what it looks like it means' },
+              title: 'Neighbouring cells averaged into equal-sized pools: the default' },
             { k: 'cell', label: OVER_LABEL.cell,
               title: 'Every cell its own observation. Dominated by shared zeros on a sparse matrix' },
             { k: 'group', label: OVER_LABEL.group,
-              title: 'One column per populated cell type × level, averaged from the cells — needs no counts table, so it works on any object' },
+              title: 'One column per cell type × level, averaged from the cells: works on any object' },
             { k: 'bulk', label: OVER_LABEL.bulk,
               title: hasBulk
-                ? 'Across the sample × cell type columns of the exporter’s pseudobulk table — summed RAW counts, which Cell type × group is not'
-                : 'This object carries no pseudobulk table: either it was exported without raw counts, or it is a collection too large to hold one. Cell type × group answers the same question from the cells themselves' },
+                ? 'Across the sample × cell type columns of the exporter’s pseudobulk table: summed raw counts'
+                : 'This object has no pseudobulk table. Cell type × group answers the same question from the cells' },
           ]} />
         {mode === 'pool' && (
           <>
@@ -384,7 +384,7 @@ export default function Coexpression(p: CoexprProps) {
                 a second list of rows: the rail holds every control of the view
                 without scrolling in a 900 px window. */}
             <label className="field">
-              <span className="glabel" title="A metacell may not span these — hdWGCNA's group.by">
+              <span className="glabel" title="A metacell may not span these: hdWGCNA's group.by">
                 never spanning
               </span>
               <select className="sel" value={within} onChange={e => setWithin(e.target.value as Within)}>
@@ -401,7 +401,7 @@ export default function Coexpression(p: CoexprProps) {
             options={[
               { k: 'cond', label: 'by group', title: 'One column per cell type × group' },
               { k: 'sample', label: 'by sample',
-                title: 'One column per cell type × sample — more columns, and the closest this gets to replicates' },
+                title: 'One column per cell type × sample: the closest this gets to replicates' },
             ]} />
         )}
       </RailGroup>
@@ -412,13 +412,11 @@ export default function Coexpression(p: CoexprProps) {
           disabled={k => k === 'spearman' && mode === 'cell'}
           options={[
             { k: 'pearson', label: 'Pearson',
-              title: 'Linear co-variation — what WGCNA and hdWGCNA use' },
+              title: 'Linear co-variation, as WGCNA and hdWGCNA use' },
             { k: 'spearman', label: 'Spearman',
               title: mode === 'cell'
-                ? 'Not offered per cell: most values are exactly zero, so the ranks are'
-                  + ' one huge tie block and r would describe the dropout pattern'
-                : 'Pearson on the ranks — monotone rather than linear, so one extreme'
-                  + ' pool cannot carry the correlation on its own' },
+                ? 'Not offered per cell: most values are zero, so the ranks are one tie block'
+                : 'Pearson on the ranks: monotone, so one extreme pool cannot carry the correlation' },
           ]} />
       </RailGroup>
 
@@ -438,7 +436,7 @@ export default function Coexpression(p: CoexprProps) {
 
       <RailGroup label="Ranked genes">
         <div className="field">
-          <span className="glabel" title="Seurat's min.pct — a gene detected in fewer cells is not ranked">
+          <span className="glabel" title="Seurat's min.pct: a gene detected in fewer cells is not ranked">
             Detected in at least
           </span>
           <Seg<string> value={String(minPctPc)} onChange={v => setMinPctPc(Number(v))}
@@ -454,8 +452,8 @@ export default function Coexpression(p: CoexprProps) {
           */}
           <span className="hint"
             title={axis && axis.nCells < nScope
-              ? `${fmt(nScope - axis.nCells)} of the ${fmt(nScope)} cells in scope sit in a`
-                + ' group too small to pool, so they are not in the correlation'
+              ? `${fmt(nScope - axis.nCells)} of the ${fmt(nScope)} cells in scope are in groups`
+                + ' too small to pool and are left out'
               : undefined}>
             of the {fmt(axis?.nCells ?? nScope)} cells
             {axis && axis.nCells < nScope ? ' that pool' : ' in scope'}
@@ -487,7 +485,7 @@ export default function Coexpression(p: CoexprProps) {
   ) : (
     <>
       <span className="stage-title">Co-expression</span>
-      <span className="stage-meta">Genes that move with a gene, or with a signature</span>
+      <span className="stage-meta">Genes that move with a gene, or with a gene set</span>
     </>
   )
 
@@ -506,18 +504,16 @@ export default function Coexpression(p: CoexprProps) {
         ) : failed ? (
           <Failed error={failed} onRetry={retry} what="The correlation" />
         ) : !seedGenes.length ? (
-          <Empty title={kind === 'gene' ? 'Search a gene in the controls on the left to correlate against.'
-            : 'Paste a signature in the controls on the left, or send one over from Gene sets.'}>
-            {corrName} r against every gene the object measures, over the axis chosen
-            on the left. Ranked by r — see the note under the figure for why there is no p-value.
+          <Empty title={kind === 'gene' ? 'Search a gene on the left to correlate against.'
+            : 'Paste genes on the left, or send a set from Gene sets.'}>
+            {corrName} r against every gene the object measures, ranked by r. No p-value: Methods says why.
           </Empty>
         ) : (mode === 'bulk' || mode === 'group') && nObs < 3 ? (
           <div className="empty">
-            This scope leaves {nObs} {unit} — too few to correlate over. A correlation
-            over two points is +1 or −1 whatever the data says.
+            This scope leaves {nObs} {unit}: too few to correlate over.
             {mode === 'group' && by === 'cond' && d.samples.length > d.conds.length
-              && ' Cutting the columns by sample instead would give more of them.'}
-            {' '}Widening the scope, or correlating over metacells, also works.
+              && ' Cutting the columns by sample gives more.'}
+            {' '}Widen the scope, or correlate over metacells.
           </div>
         ) : building ? (
           <div className="empty">Reading the seed…</div>
@@ -525,15 +521,14 @@ export default function Coexpression(p: CoexprProps) {
           <div className="empty">
             {seedGenes.length === 1
               ? 'That gene does not vary over this scope, so nothing can correlate with it.'
-              : 'None of these genes vary over this scope, so there is no signature to correlate with.'}
+              : 'None of these genes vary over this scope, so there is no set to correlate with.'}
           </div>
         ) : !armed ? (
           <div className="empty">
             <div className="card-title mb-1" style={{ color: 'var(--ink)', marginTop: 0 }}>
               {label} against every gene
             </div>
-            {axis && `${fmt(axis.n)} ${axis.pooled ? 'metacells' : 'cells'}`} in {scopeText} —
-            one pass over every gene in the object.
+            {axis && `${fmt(axis.n)} ${axis.pooled ? 'metacells' : 'cells'}`} in {scopeText} : one pass over every gene in the object.
             <div className="mt-3.5">
               <button className="btn btn-primary" onClick={() => p.onRan(key)}>Correlate</button>
             </div>
@@ -564,30 +559,17 @@ export default function Coexpression(p: CoexprProps) {
                     ? 'cell types or two samples' : 'cell types'}`
                   : ''}.
                 {mode === 'pool' && axis && axis.nCells < nScope && (
-                  <> {fmt(nScope - axis.nCells)} cells sat in a group too small to build a
-                    metacell from and are not in the correlation.</>
+                  <> {fmt(nScope - axis.nCells)} cells in groups too small to pool are left out.</>
                 )}
               </p>
               <CorrBars up={table.up} down={table.down} how={corrName} seed={label} n={`${fmt(nObs)} ${unit}`} />
               <p className="mt-4 tx-micro" style={{ color: 'var(--ink-3)', maxWidth: '68ch' }}>
-                <b>No p-value, deliberately.</b> With {fmt(nObs)} observations a correlation of
-                almost any size clears any threshold, and cells from one animal are not
-                independent draws — the same reason the studio separates Wilcoxon from
-                pseudobulk. Rank by r, and read the detection rate beside it.
-                {mode === 'cell' && ' Per cell, two sparsely detected genes also agree wherever'
-                  + ' they are both absent; metacells are the answer to that.'}
-                {mode === 'group' && ' These columns average values that are already'
-                  + ' log-normalised, which is a mean of logs — not the log of a mean that'
-                  + " summing raw counts would give. It answers the same question as the"
-                  + " exporter's pseudobulk table and is not the same quantity, which is why"
-                  + ' the two are separate modes. A column built from fewer than ten cells is'
-                  + ' dropped rather than drawn.'}
-                {mode === 'pool' && ' Metacells are pooled on the '
-                  + `${emb.key} embedding, which is a 2-D projection — neighbours there are`
-                  + ' close to, but not the same as, neighbours in expression space.'
-                  + ' hdWGCNA builds its metacells the same way but in a reduced space with'
-                  + ' many more components, which a bundle does not carry; the constraint'
-                  + ' on the left is its group.by, and a metacell holds at least ten cells.'}
+                <b>No p-value.</b> With {fmt(nObs)} observations almost any r clears a threshold, and
+                cells from one sample are not independent.
+                {mode === 'cell' && ' Per cell, two sparse genes also agree wherever both are absent.'}
+                {mode === 'group' && ' Columns are means of log-normalized values, not summed counts;'
+                  + ' one of fewer than ten cells is dropped.'}
+                {mode === 'pool' && ` Metacells are pooled on ${emb.key}, a 2-D projection, at least ten cells each.`}
               </p>
             </div>
             <Side title="Moves with the seed" rows={table.up} dir="up" onPick={p.onPickGene} />
@@ -682,12 +664,8 @@ function Coherence({ shape, n }: { shape: SetShape; n: number }) {
         )}
       </div>
       <p className="mt-1.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
-        Each member is standardised and turned the same way round before they are combined,
-        so members that move in opposite directions add to the signature rather than
-        cancelling in its mean. The combined score is the weighted mean of the members&rsquo;
-        own correlations.
-        {!strong && <b style={{ color: 'var(--warn)' }}>{' '}This set does not move as one
-          programme — read the combined score as a summary of its dominant arm.</b>}
+        Members are standardized and signed before they are combined, so opposite members add, not cancel. The score is the weighted mean of the members&rsquo; correlations.
+        {!strong && <b style={{ color: 'var(--warn)' }}>{' '}This set does not move as one programme: read the score as its dominant arm.</b>}
       </p>
     </div>
   )
@@ -793,7 +771,7 @@ function CorrBars({ up, down, how, seed, n }: {
                 <rect x={x0} y={y + 2.5} width={Math.max(1, w)} height={rh - 5} rx={1.5}
                   fill={row.r >= 0 ? UP_MARK : DOWN_MARK}
                   stroke={MARK_EDGE} strokeWidth={0.4}>
-                  <title>{row.gene} — r {row.r.toFixed(3)}</title>
+                  <title>{row.gene}: r {row.r.toFixed(3)}</title>
                 </rect>
               </g>
             )

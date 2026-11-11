@@ -414,7 +414,7 @@ export function demoSource(key: string): Source {
 
   return baseSource(d, types, makeGeneNames(DEMO_GENES, null), {
     label: spec.label,
-    source: `${spec.file} — a built-in demo object, not a file you opened`,
+    source: `${spec.file}: a built-in demo object, not a file you opened`,
     expression: 'log1p(CP10K)',
     hasRawCounts: true,
     embedding: 'X_umap',

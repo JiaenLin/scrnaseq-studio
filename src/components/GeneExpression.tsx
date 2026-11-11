@@ -212,7 +212,7 @@ export default function GeneExpression(p: GeneProps) {
               <span title={`Symbols come from ${names.aliasColumn ?? 'the object'} in the same file`
                 + `${names.duplicated > 0 ? `; ${names.duplicated} rows share a symbol and carry their accession` : ''}`
                 + `${names.missing > 0 ? `; ${names.missing} rows have no symbol` : ''}`}>
-                {' '}Indexed by <b>{names.idKind ?? 'accession'}s</b> — search either.
+                {' '}Indexed by <b>{names.idKind ?? 'accession'}s</b> : search either.
               </span>
             )}
           </p>
@@ -225,7 +225,7 @@ export default function GeneExpression(p: GeneProps) {
                 key={g}
                 className="inline-flex h-[--h-sm] items-center rounded-[--r-md] pl-2 pr-0.5 tx-small font-medium italic"
                 style={{ background: 'var(--press)', color: 'var(--ink)' }}
-                title={idOf(g) ? `${g} — ${idOf(g)}` : g}
+                title={idOf(g) ? `${g} (${idOf(g)})` : g}
               >
                 {g}
                 <button
@@ -241,7 +241,7 @@ export default function GeneExpression(p: GeneProps) {
           </div>
           {missing.length > 0 && (
             <p className="m-0 tx-small" style={{ color: 'var(--warn)' }}>
-              <b>Not in this object:</b> <span className="mono">{missing.join(', ')}</span> — check the
+              <b>Not in this object:</b> <span className="mono">{missing.join(', ')}</span>. Check the
               species and capitalisation (mouse <span className="mono">Ascl1</span> vs human{' '}
               <span className="mono">ASCL1</span>).
             </p>
@@ -277,7 +277,7 @@ export default function GeneExpression(p: GeneProps) {
           {p.plot === 'dot' ? (
             <>
               <Toggle on={p.dotScale} onChange={p.onDotScale}
-                title="Seurat scale = TRUE — z-score each gene across identities">Scale each gene</Toggle>
+                title="Seurat scale = TRUE: z-score each gene across the columns">Scale each gene</Toggle>
               {/* Diverging scales while the values are z-scores, sequential ones
                   while they are expression: raw expression starts at zero and has
                   no negative side, so it never goes on a scale whose point is the sign. */}
@@ -292,7 +292,7 @@ export default function GeneExpression(p: GeneProps) {
               <Toggle on={cluster} onChange={setCluster}
                 title="Order rows and columns by similarity, and draw the trees">Cluster rows &amp; genes</Toggle>
               <Toggle on={flipDot} onChange={setFlipDot}
-                title="Swap the axes — genes down the side, identities along the bottom">Transpose</Toggle>
+                title="Swap the axes: genes down the side, cell types along the bottom">Transpose</Toggle>
               <p className="hint m-0">{flipDot ? 'genes down the side' : 'genes along the bottom'}</p>
             </>
           ) : (
@@ -324,7 +324,7 @@ export default function GeneExpression(p: GeneProps) {
                     </select>
                   </Field>
                   <Toggle on={p.borders} onChange={p.onBorders}
-                    title="A ring around each cell — clearer at print size, slower on a large object">Cell borders</Toggle>
+                    title="A ring around each cell: clearer in print, slower on a large object">Cell borders</Toggle>
                 </>
               )}
               {p.plot === 'violin' && p.src.d.multi && p.groupBy === 'cond' && (
@@ -342,7 +342,7 @@ export default function GeneExpression(p: GeneProps) {
         <span className="stage-meta">{describe(p, ctName)}</span>
       </>}>
         {p.genes.length === 0
-          ? <div className="empty">Search for a gene in the controls on the left.</div>
+          ? <div className="empty">Search a gene on the left.</div>
           : p.plot === 'dot' ? <DotPlot {...p} ids={ids} cluster={cluster} flip={flipDot} />
           : p.plot === 'feature' ? <FeaturePlot {...p} />
           : <ViolinPanel {...p} ids={ids} />}
@@ -380,7 +380,7 @@ function CellFilter({ p }: { p: GeneProps }) {
   }
 
   return (
-    <RailGroup label="Cell types in these plots">
+    <RailGroup label="Cell types shown">
       <div className="flex flex-wrap items-center gap-2">
         <button className="btn btn-quiet" aria-expanded={open} onClick={() => setOpen(v => !v)}>
           {open ? '▾' : '▸'} {open ? 'Hide the list' : 'Choose'}
@@ -388,7 +388,7 @@ function CellFilter({ p }: { p: GeneProps }) {
         <span className="hint">
           {p.hidden.size === 0
             ? `all ${total}`
-            : `${shown} of ${total} — hiding ${[...p.hidden].slice(0, 3)
+            : `${shown} of ${total}, hiding ${[...p.hidden].slice(0, 3)
               .map(ti => p.types[ti]?.name).filter(Boolean).join(', ')}${
               p.hidden.size > 3 ? ` and ${p.hidden.size - 3} more` : ''}`}
         </span>

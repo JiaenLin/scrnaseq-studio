@@ -85,13 +85,13 @@ async function entryStart(file: Blob, e: PartEntry): Promise<number> {
   const head = await file.slice(e.start, e.start + 30).arrayBuffer()
   const h = new DataView(head)
   if (h.getUint32(0, true) !== 0x04034b50) {
-    fail(`the part ${e.name} is not where the collection index says — this file is damaged`)
+    fail(`the part ${e.name} is not where the collection index says: this file is damaged`)
   }
   return e.start + 30 + h.getUint16(26, true) + h.getUint16(28, true)
 }
 
 const need = (dir: Map<string, ZipEntry>, name: string, part: string): ZipEntry =>
-  dir.get(name) ?? fail(`part ${part} has no ${name} — rebuild this collection in the lab`)
+  dir.get(name) ?? fail(`part ${part} has no ${name}: rebuild this collection in the lab`)
 
 /** A typed view that copies, because a zip payload is not aligned. */
 const view = <T>(Ctor: new (b: ArrayBuffer) => T, bytes: Uint8Array): T =>
@@ -171,7 +171,7 @@ export async function openCollection(
       }
     } else if (gz.length !== geneBytes.length || !gz.every((b, k) => b === geneBytes![k])) {
       // Parts are pieces of one object; a different gene list means they are not.
-      fail(`part ${info.key} has a different gene list from the first part — `
+      fail(`part ${info.key} has a different gene list from the first part: `
         + 'these bundles are not pieces of one object and cannot be opened together')
     }
 
@@ -202,11 +202,11 @@ export async function openCollection(
     const chunk = need(dir, 'expr.chunk.bin', info.key)
     if (chunk.method !== 0) {
       fail(`part ${info.key} stores its expression chunks compressed, so single genes `
-        + 'cannot be read out of it — rebuild this collection in the lab')
+        + 'cannot be read out of it: rebuild this collection in the lab')
     }
     const chunkGenes = meta.chunkGenes ?? 0
     if (!Number.isInteger(chunkGenes) || chunkGenes < 1) {
-      fail(`part ${info.key} does not say how many genes are in a chunk — rebuild this collection in the lab`)
+      fail(`part ${info.key} does not say how many genes are in a chunk: rebuild this collection in the lab`)
     }
     const base = await payloadStart(file, chunk)
 
@@ -587,7 +587,7 @@ export async function openCollection(
     for (const gi of idxs) cost += costOf(gi)
     if (cost > GENE_BUDGET) {
       fail(`${names.length} genes come to ${(cost / (1 << 20)).toFixed(0)} MB of values, past `
-        + `the ${GENE_BUDGET >> 20} MB this object holds at once — a set this large has to be `
+        + `the ${GENE_BUDGET >> 20} MB this object holds at once: a set this large has to be `
         + 'read with withGenes, which streams it a window at a time')
     }
     hold(names)
@@ -771,8 +771,8 @@ function mergePseudobulk(
 
   if (columns.length * genes.length > PB_MAX_VALUES) {
     notes.push(`the summed raw counts across this object come to ${columns.length} `
-      + `sample × cluster columns over ${genes.length} genes, too large to hold in the browser — `
-      + 'the pseudobulk export is not offered, and the Wilcoxon test is unaffected')
+      + `sample × cluster columns over ${genes.length} genes, too large to hold in the browser: `
+      + 'the pseudobulk counts are not offered, and the Wilcoxon test is unaffected')
     return null
   }
 

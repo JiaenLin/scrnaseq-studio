@@ -31,7 +31,8 @@ export interface CollectionSet {
   id: string
   /** The same name made readable. What the screen shows. */
   name: string
-  /** Indices into `symbols`. */
+  
+/** Indices into `symbols`. */
   genes: Int32Array
 }
 
@@ -75,6 +76,32 @@ export interface Manifest {
   }>
 }
 
+/**
+ * A readable set name with its source's capitals put back.
+ *
+ * The library's names arrive lower-cased with one capital ("Dna repair",
+ * "E2f targets", "Tnfa signaling via nfkb"): MSigDB's systematic names are
+ * all capitals, so making them readable also flattened every acronym and gene
+ * symbol in them. A token that holds a digit, a Roman numeral and the
+ * acronyms below are written as the source has them; every other word is
+ * left as it is. A reader's own pasted names are never touched.
+ */
+const ACRONYM = new Map<string, string>([
+  'DNA', 'RNA', 'ATP', 'ADP', 'AMP', 'GTP', 'GDP', 'NAD', 'NADH', 'NADP', 'NADPH', 'FAD', 'ER', 'ROS', 'MHC', 'TCA',
+  'UV', 'ECM', 'MAPK', 'ERK', 'JNK', 'NFKB', 'TNF', 'TNFA', 'TGF', 'TGFB', 'EGF', 'EGFR', 'FGF', 'VEGF', 'PDGF', 'IGF',
+  'BMP', 'WNT', 'MYC', 'KRAS', 'RAS', 'AKT', 'MTOR', 'JAK', 'STAT', 'IFN', 'NK', 'HIV', 'UTR', 'GPCR', 'UPR', 'ERAD',
+  'AMPK', 'PKA', 'PKC', 'PPAR', 'HDL', 'LDL', 'TLR', 'BCR', 'TCR', 'GABA', 'NMDA', 'AMPA', 'SNARE', 'ESCRT', 'SUMO',
+  'GPI', 'ABC', 'HIF', 'ATR', 'ATM', 'CAMP', 'CGMP', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX',
+].map(a => [a, a]))
+for (const a of ['mRNA', 'tRNA', 'rRNA', 'miRNA', 'ncRNA', 'snRNA', 'siRNA', 'lncRNA', 'cAMP', 'cGMP']) ACRONYM.set(a.toUpperCase(), a)
+
+export function properName(name: string): string {
+  return name.replace(/[A-Za-z0-9]+/g, w => {
+    const up = w.toUpperCase()
+    if (ACRONYM.has(up)) return ACRONYM.get(up)!
+    return /\d/.test(w) && /[A-Za-z]/.test(w) ? up : w
+  })
+}
 /**
  * The compact format, parsed.
  *
@@ -122,7 +149,7 @@ export function parse(text: string): Collection {
           if (c === 44) { genes[k++] = v; v = 0 } else v = v * 10 + (c - 48)
         }
         genes[k] = v
-        sets.push({ id: text.slice(at, t1), name: text.slice(t1 + 1, t2), genes })
+                sets.push({ id: text.slice(at, t1), name: properName(text.slice(t1 + 1, t2)), genes })
       }
     }
     at = end + 1
@@ -385,7 +412,7 @@ const looksLikeDescription = (f: string): boolean =>
 
 export function parseSets(text: string, name = 'My sets'): Collection {
   const body = text.trim()
-  if (!body) throw new Error('nothing to read — paste your gene sets first')
+  if (!body) throw new Error('nothing to read: paste your gene sets first')
 
   const at = new Map<string, number>()
   const symbols: string[] = []

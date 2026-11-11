@@ -216,7 +216,11 @@ export default function DotPlot(
 
   return (
     <>
-      <Figure name="dotplot" className="mt-2" foot={{ notes: [nText] }}>
+            <Figure name="dotplot" className="mt-2" foot={{
+        title: `Expression of ${genes.length} gene${genes.length === 1 ? '' : 's'} by ${
+          p.groupBy === 'type' ? 'cell type' : p.groupBy === 'cond' ? 'group' : 'cell type and group'}`,
+        notes: [nText, `Dot size: fraction of cells detecting the gene. Colour: mean expression${p.dotScale ? ', z-scored per gene' : ''}.`],
+      }}>
         <div className="overflow-x-auto">
           {/* Fills the card, never squashes below its natural size — the same
               rule the other scrolling figures use. A fixed `width={W}` made this
@@ -235,7 +239,7 @@ export default function DotPlot(
             preserveAspectRatio="xMinYMid meet"
             style={{ minWidth: W }} role="img"
             aria-label={`Dot plot of ${genes.join(', ')}`
-              + ` — ${flip ? 'genes down the side' : 'genes along the bottom'}`}>
+              + `, ${flip ? 'genes down the side' : 'genes along the bottom'}`}>
             {/* The trees, drawn against the axes they order. The horizontal one
                 runs along x above the panel; the vertical one is the same shape
                 turned a quarter turn, which is why dendroLines returns spans
@@ -297,7 +301,7 @@ export default function DotPlot(
                     rampColor((cv[gi][ri] - lo) / (hi - lo), ramp, 'dark'))}
                   stroke={MARK_EDGE} strokeWidth={0.7}>
                   <title>
-                    {g} in {r.full} — {(pct * 100).toFixed(0)}% of cells,
+                    {g} in {r.full}: {(pct * 100).toFixed(0)}% of cells,
                     mean {avg[ri][gi].toFixed(2)}
                   </title>
                 </circle>
@@ -344,18 +348,17 @@ export default function DotPlot(
           claim, not the argument, which is in Methods. */}
       <p className="sub mt-2.5">
         {p.dotScale
-          ? <>Colour is <b>z-scored per gene</b> — where a gene is highest, not how much of it.
+          ? <>Colour is <b>z-scored per gene</b>: where it is highest, not how much.
             {spread?.widest && (
               spread.one
-                ? <> Across these {rows0.length} rows the mean runs{' '}
-                  <b>{spread.widest.lo.toFixed(2)} to {spread.widest.hi.toFixed(2)}</b>; the
-                  colours fill the scale whatever that range is, so read them as an order and
-                  not as a size.</>
-                : <> The scale is filled for every gene whatever its range: the widest here is{' '}
+                ? <> Here the mean runs{' '}
+                  <b>{spread.widest.lo.toFixed(2)} to {spread.widest.hi.toFixed(2)}</b>: read the
+                  colours as an order.</>
+                : <> Widest range:{' '}
                   <i>{spread.widest.gene}</i> at {spread.widest.lo.toFixed(2)}–
-                  {spread.widest.hi.toFixed(2)}, the narrowest{' '}
+                  {spread.widest.hi.toFixed(2)}; narrowest:{' '}
                   <i>{spread.narrowest!.gene}</i> at {spread.narrowest!.lo.toFixed(2)}–
-                  {spread.narrowest!.hi.toFixed(2)}. Turn scaling off to compare sizes.</>
+                  {spread.narrowest!.hi.toFixed(2)}.</>
             )}</>
           : <>Colour is the raw mean, on one scale for every gene.</>}
       </p>

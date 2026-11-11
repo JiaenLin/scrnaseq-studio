@@ -17,6 +17,12 @@ has, one to one, so nothing is cut at 1,280 px and no figure text is under 10 px
 cut inside a word, saved figures that did not stand alone, and a stated width that was true at one window only. The
 rules it added are under Charts: *Names under an axis*, *A saved figure's foot* and *Save* (the print scale).
 
+**Designer run 5 (W051)** was a pass over every word and every element, measured first. `scripts/inventory-design.mjs`
+walks the built app (153 states) and `scripts/inventory-report.mjs` writes [design/COPY.md](design/COPY.md) (the copy
+deck, with every changed string before and after) and [design/ELEMENTS.md](design/ELEMENTS.md) (every control's box
+and states). The standard it was brought to is **Words**, below; `scripts/test-copy.mjs` holds it in `npm test`. No
+screen was redesigned, and no number, label's meaning or Run-card field changed.
+
 ## Direction: the instrument
 
 The standard is the tools people use all day for dense, exact work, not a tidy viewer. Five commitments:
@@ -304,12 +310,20 @@ floating surface). Nothing on the page itself is rounded.
   title, a row label) does a single token wider than its line keep its first letters and an ellipsis, with the whole
   name in the element's `<title>` (`wrapAll`). Run 3's full-size type made the old wrap cut six of nine cell types at
   1,280 px ("Oligode / ndrocyt / e"); `scripts/test-names.mjs` holds the rule.
-- **A saved figure's foot.** A saved figure stands alone on a page, so every figure declares a foot
+- **A saved figure's foot (its legend).** A saved figure stands alone on a page, so every figure declares a foot
   (`<Figure foot>`, `lib/figure-foot.ts`): what is plotted, the key with n, what a mark means. Every Save writes it
   under the drawing in print ink, at the figure's own width, in all three formats; a sheet gets one foot and a panel
   saved from its corner carries the sheet's; a drawing that knows its own n says so on itself (`data-foot`). The
   same words are on screen where the layout has room (the legend line under the figure). Exempt only a figure whose
-  own drawing holds the key and n (Cells' painted key, the volcano's key). An axis carries its quantity on screen
+  own drawing holds the key and n (Cells' painted key). From run 5: the volcano's foot names its contrast, its cell
+  type, its test and its two cutoffs (they were in the file's name only); the dot plot's has a title line; a list of
+  groups with their n is wrapped between entries, so a name is never parted from its count (`wrapSpaces`); one panel
+  saved alone from a sheet carries the sheet's `panel` foot (its key and what a bar is: the whole sheet's legend was
+  as tall as a 1.8 in panel's plot), and a feature panel its own group's n; a sentence about a mean is not written
+  for a group of one sample. **Cells the annotator did not call** are named in every file that draws or leaves them
+  out: Cells' key has a row "Not called" with its count and the annotator's labels (the key then sums to the panels'
+  n), and Composition's and Markers' feet carry the sentence their screens show, from one function
+  (`notCalledNote`, `lib/sentinels.ts`). An axis carries its quantity on screen
   too: Composition's panels say "Share of sample", the co-expression axis names its seed, the score violins say
   "Module score". Ticks are round numbers inside the range (`breaksOf`), never fractions of the largest value.
 - **Figure ink.** An SVG figure's ink is `--fig-ink`, `--fig-line`, `--fig-grid`, `--fig-plate`, `--fig-summary`
@@ -354,8 +368,9 @@ number, a gene, a cell type) counts as none: the budget is for what the app says
 |---|---:|---|
 | tab | 2 | a noun, found by position after the first visit |
 | button, segment, option, chip, label, table header | 3 | a verb and its object, or a name; three words is the most read in one fixation |
-| picker's face, menu item | 4 | a name the reader chose, or chooses among others in a column |
-| badge | 2 | a state, never a sentence |
+| menu item | 4 | a name chosen among others in a column |
+| picker's face | 5 | a name the reader chose, with one qualifier ("cell_type from the file") |
+| badge | 3 | a state, never a sentence ("from your file") |
 | title (a section, a stage, a panel) | 8 | one line at 15 px in the narrowest stage |
 | placeholder | 6 | it vanishes on the first key: an example, not an instruction |
 | accessible name | 8 | heard in full before the next key press |
@@ -370,7 +385,7 @@ number, a gene, a cell type) counts as none: the budget is for what the app says
 | text on a figure | 8 | an axis title or one annotation |
 | a saved figure's legend | 45 | beside its key and n: a journal's legend for one panel runs two to three lines |
 | a paragraph of prose (Overview, a note under a result) | 40 | past that it is a method, and belongs in Methods |
-| a paragraph of Methods | 160 | a paper's methods paragraph; the one place a reader came to read |
+| a paragraph of Methods | 200 | a paper's methods paragraph; the one place a reader came to read; a longer one is two |
 
 **One screen at rest** (1,440 by 900, the app's own words in view): 160 on a view that is a figure, 220 on one that
 holds a table or a list, 520 on Methods. At the base the worst were Differential expression (312), Co-expression
@@ -380,13 +395,13 @@ holds a table or a list, 520 on Methods. At the base the worst were Differential
 
 | concept | term | retired |
 |---|---|---|
-| a file leaving the app | **Save** (a figure), **CSV** (a table, named by its format) | download, export ("export counts" stays: it is the pseudobulk table's own verb in the lab's tools) |
+| a file leaving the app | **Save** (a figure, the pseudobulk counts), **CSV** (a table, named by its format) | download, export ("exported from" and the exporter's own file names stay: they name the lab's tool) |
 | the experimental factor | **group** | condition |
 | one biological unit | **sample** | animal, mouse, replicate (as a noun for a sample) |
-| the annotation a view splits by | **cell type** | cluster (it stays only for ordering a heat map: "Cluster rows"), population, identity |
+| the annotation a view splits by | **cell type** | cluster (it stays for ordering a heat map, "Cluster", and where a message names the bundle's own field, `cluster.u16`), population, identity |
 | a named list of genes | **gene set** (a "set" after first use) | signature, pathway (unless it is the collection's own word), module (except "module score", the method's name) |
-| a cell the annotator gave no cell type | **cells not called**, then the annotator's own labels | sentinel, uncalled, unassigned, grey cells |
-| an adjusted p-value | **adj. p** in a head or a line, "adjusted p" in a sentence | padj, p_adj, q, FDR as a column name (FDR stays the name of the Benjamini-Hochberg cutoff) |
+| a cell the annotator gave no cell type | **Not called** as a key's row and a table's row ("Cells not called"); in a sentence, "cells the annotator did not call", then the annotator's own labels with their counts | sentinel, uncalled, unassigned, "Grey:" as their name |
+| an adjusted p-value | **padj** where it is the column or its cutoff (a table's head, the rail, a readout, the CSV: the name the reader will search for); "adjusted p" spelled out on an axis and in a sentence of Methods | adj. p, p adjusted, p_adj, q (FDR stays the name of the Benjamini-Hochberg cutoff) |
 | the thing that is open | **object** (what was analysed), **bundle** (the file it came in) | dataset, file (for the object), data |
 | this application | no subject, or **this app** | the studio, Studio (except the product's name on the landing page and in Methods) |
 | the left pane | **on the left** | the controls on the left, the rail, the sidebar |
@@ -408,6 +423,7 @@ in this app, in a table cell: no value. An ellipsis only on a control that opens
 | a count | whole, thousands separated | 34,367 cells |
 | n | "n = " with spaces, what is counted at first use; in a key "(n = 6,065)" | n = 34,367 cells |
 | a share | whole percent; one decimal under 10% in a table | 92%, 0.4% |
+| one cell's QC value in the readout | two decimals (it showed the float's seven significant digits) | 3.14 |
 | expression (log-normalized mean), log₂ fold change, r, a module score, a z-score | two decimals | 2.46, −0.61 |
 | a coordinate on an embedding | two decimals (the sixth decimal of a UMAP is not information) | 4.21, −7.03 |
 | p, adj. p | two significant digits; under 0.001 as 1.4e-5; an underflow as < 1e-308 | 0.021, 1.4e-5 |
@@ -536,7 +552,8 @@ forced duration on every element gave one to everything, the property defaulting
    column, and axe reports one scroll region there that cannot take focus (1,100 px).
 3. The score map is on the reader's sequential scale; a module score is signed and belongs on a diverging scale
    with zero in the middle (this page's own rule). It changes how the map reads, so it is the PI's.
-4. Gene-set names lose their case ("Dna repair", "E2f targets"): a wording rule for the PI. Gene search has no
+4. Done in run 5: a gene-set name keeps its acronyms ("DNA repair", "E2F targets"; `properName`, a list and a rule,
+   so a rare acronym outside the list is still lower-cased: say which when one is seen). Gene search has no
    suggestions; Co-expression's seed shows as a placeholder after a run.
 5. Enrichment's term detail and the Coherence block as flat sections (still wells); the rail on a 900 px window
    when Differential expression shows every note (it scrolls); the lab bundle's Overview selects on the stage.
@@ -547,6 +564,13 @@ forced duration on every element gave one to everything, the property defaulting
    Composition's foot counts the called cells only ("8 rows, 224 cells" on the lab fixture's 240); Markers' foot says
    "each cell type against the rest" over 224 cells, not that the 16 are on neither side. Every number is true; the
    cut is not named. `npm run test:export` saves from the replicated demo, which has no such cells.
+
+7. Done in run 5 (it was the verifier's item): a saved Cells, Composition or Markers figure names the cells the
+   annotator did not call. Left from run 5, in order: the n line on screen still wraps where the browser likes (the
+   saved file does not part a name from its count; the screen can); Methods' reading notes were shortened and
+   re-termed but not re-argued, and its longest paragraph is 196 words of a 200 budget; the offline-conversion
+   dialog and the messages of a malformed bundle were read in the source, not seen; the screen budget counts words,
+   not lines, so a 12 px rail hint of 20 words still takes three lines of a 208 px rail.
 
 **Do not get wrong:** `Card` must keep rendering `<section class="card">` (two tests split the page on it); a
 view's controls go through `<InRail>`, never by lifting its state into App; an action on a figure goes through
@@ -564,9 +588,24 @@ an axis goes through `lib/labels.ts` (`axisTicks`, `bandNames`, `wrapAll`), neve
 lines; a new figure declares a `foot` (the suite counts every `<Figure`); nothing passes a print width to
 `Figure` (it is counted from the drawing); a number in a foot is wrapped at spaces only ("4,598" is one word);
 before a change to `lib/labels.ts`, `lib/download.ts`, `Figure.tsx`, `Popover.tsx` or `svg-parts.tsx`, list the
-figures that use it and look at each at 1,280 and 1,440.
+figures that use it and look at each at 1,280 and 1,440. From run 5: the "Not called" row's swatch is `sw sw-off`,
+not `sw` (the sentinel tests read a cell type's entry by `<span><i class="sw" …>`, and a cell not called is not
+one); the sentence about cells not called comes from `notCalledNote`, never typed twice; a string a reader sees
+uses the terms of **Words** (the check fails on "cluster", "condition", "animal", "signature", "download", a dash
+between clauses); a figure's text takes figure ink (`AXIS_INK`), never `--ink-3`.
 
 ## Checking a change
+
+- **Words and elements.** `node scripts/test-copy.mjs` (in `npm test`) reads every string from the source through the
+  TypeScript parser, and the measured inventory (`docs/design/inventory/after.json`), and fails when a string is over
+  its kind's budget, a screen at rest is over its budget, a retired term is used, a saved figure has no legend, or the
+  lab fixture's files do not name the cells not called. `--list` prints every string, the furthest over first. After
+  a change to any string or control: `npm run build`, serve it, then
+  `CHROME=<chrome> node scripts/inventory-design.mjs <url> docs/design/inventory/after.json` and
+  `node scripts/inventory-report.mjs` (COPY.md and ELEMENTS.md are generated; the designer's reading of the boxes is
+  `docs/design/inventory/elements-notes.md`). `node scripts/copy-changes.mjs <base src>` lists what a change did to
+  each string. A new string over its budget on purpose is named in `EXCEPTIONS` (`scripts/copy-standard.mjs`) with
+  its reason; there is one (the Markers button, whose count a data-level check reads).
 
 - `CHROME=<chrome> node scripts/shot-design.mjs <url> docs/design/after` captures every screen at 1,280, 1,440 and
   1,920 px in both themes (synthetic objects only), growing the window to take a whole document view.

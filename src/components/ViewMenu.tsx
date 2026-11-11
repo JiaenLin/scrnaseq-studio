@@ -51,8 +51,8 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
         width={290} onClose={() => setOpen(false)}>
         <div className="p-3">
           <label className="block">
-            <span className="glabel">Clusters</span>
-            <select className="sel mt-1 w-full" value={palKey} aria-label="Cluster palette"
+            <span className="glabel">Cell types</span>
+            <select className="sel mt-1 w-full" value={palKey} aria-label="Cell type palette"
               onChange={e => onPal(e.target.value as PaletteKey)}>
               {Object.entries(PALETTES).map(([k, p]) =>
                 <option key={k} value={k}>{p.label}</option>)}
@@ -76,8 +76,7 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
             <span className="mt-1.5 block h-[15px] w-full rounded-[--r-sm]"
               style={{ background: rampCss(rampKey, dark ? 'dark' : 'light') }} />
             <span className="mt-1 block tx-micro" style={{ color: 'var(--ink-3)' }}>
-              Any quantity that starts at zero — feature plots, the dot plot&rsquo;s
-              size, enrichment significance.
+              From zero: feature plots, dot size, enrichment.
             </span>
           </label>
           <label className="mt-3 block">
@@ -89,7 +88,7 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
             <span className="mt-1.5 block h-[15px] w-full rounded-[--r-sm]"
               style={{ background: rampCss(rampDiv, dark ? 'dark' : 'light') }} />
             <span className="mt-1 block tx-micro" style={{ color: 'var(--ink-3)' }}>
-              z-scores and module scores — the dot plot, both gene-set heatmaps.
+              Signed: z-scores, module scores.
             </span>
           </label>
         </div>

@@ -531,7 +531,7 @@ export default function App() {
       const index = await readCollectionIndex(file)
       const next = index
         ? await openCollection(file, index, (phase, done, total) =>
-          setOpenNote(`${phase} — ${done} of ${total}`))
+          setOpenNote(`${phase}: ${done} of ${total}`))
         : bundleSource(parseBundle(await file.arrayBuffer()))
       /**
        * No genes are chosen for the reader.
@@ -635,18 +635,18 @@ export default function App() {
   // sentence each one used to be is in the tooltip, and the argument behind it
   // is in Methods.
   const chip: { cls: string; text: string; title: string } = !d.multi
-    ? { cls: 'mute', text: `1 condition · ${d.samples.length} sample${d.samples.length > 1 ? 's' : ''}`,
-      title: 'This object has one condition, so there is no contrast to run' }
+    ? { cls: 'mute', text: `1 group · ${d.samples.length} sample${d.samples.length > 1 ? 's' : ''}`,
+      title: 'This object has one group, so there is no contrast to run' }
     // Two arrays are never `===`, so this branch used to be unreachable and the
     // overlapping-groups case reached the tab body before anything said why.
     : sameOrOverlapping(ctrl, cs)
       ? { cls: 'bad', text: 'Groups overlap', title: 'A level on both sides puts the same cells in both groups' }
     : method === 'wilcox'
-      ? { cls: 'ok', text: 'Wilcoxon · per cell', title: 'Rank-sum across cells, as in Seurat FindMarkers — no replicates required' }
+      ? { cls: 'ok', text: 'Wilcoxon · per cell', title: 'Rank-sum across cells, as in Seurat FindMarkers: no replicates required' }
     : design.pbOK
       ? { cls: 'ok', text: `Pseudobulk · ${design.n0} v ${design.n1}`, title: `${design.n0} and ${design.n1} samples clear the cell floor` }
     : { cls: 'bad', text: `Pseudobulk · ${design.n0} v ${design.n1}`,
-      title: `Pseudobulk needs more than 3 samples per group — this has ${design.n0} and ${design.n1}` }
+      title: `Pseudobulk needs more than 3 samples per group: this has ${design.n0} and ${design.n1}` }
 
   // A blocked tab shows an explanation, not a view, so nothing above it is a
   // parameter of anything.
@@ -727,7 +727,7 @@ export default function App() {
               {!geneBusy && geneError && (
                 <span role="alert" className="truncate tx-small font-semibold"
                   style={{ color: 'var(--warn)', maxWidth: 340 }} title={geneError}>
-                  Could not read that gene — {geneError}
+                  Could not read that gene:  {geneError}
                 </span>
               )}
               {d.conds.length > 1 && (
@@ -790,7 +790,7 @@ export default function App() {
                     // the object cannot answer this, so the control says no.
                     disabled={off}
                     title={off
-                      ? 'This object has one condition, so there is nothing to contrast'
+                      ? 'This object has one group, so there is nothing to contrast'
                       : undefined}
                     className="viewtab"
                     onClick={() => setTab(id)}
@@ -837,14 +837,14 @@ export default function App() {
               // per cluster and reading the tables side by side, which is three
               // corrections and no pooled estimate.
               <PickMany label="Cell type" all={populationNames(types)} value={cts}
-                noun="cell types" empty="pick one" onChange={setCts} />
+                noun="cell types" empty="choose one" onChange={setCts} />
             )}
                 {needs.contrast && d.multi && (
                   <>
                 <PickMany label="Control" all={d.conds} value={ctrl} other={cs}
-                  empty="pick one" onChange={setCtrl} />
+                  empty="choose one" onChange={setCtrl} />
                 <PickMany label="Compare" lead="vs" all={d.conds} value={cs} other={ctrl}
-                  empty="pick one" onChange={setCs} />
+                  empty="choose one" onChange={setCs} />
                     {needs.runs && !armed && !NEEDS_RUN_HIDDEN.has(method) && (
                       <button className="btn btn-primary w-full" onClick={() => setDeRan(deKey)}>Run</button>
                     )}
@@ -929,12 +929,11 @@ export default function App() {
             escape={{ label: `Go to ${LABEL.get(escapeTo)}`, go: () => setTab(escapeTo) }}
             onRetry={() => setAttempt(a => a + 1)}
             note={<>
-              Nothing else moved. <b>{src.meta.label}</b> is still open, and a pass still
-              running is still running.
+              <b>{src.meta.label}</b> is still open, and a running pass keeps running.
             </>}
           >
             {crashTab() === tab ? <CrashOnRender tab={tab} /> : blocked ? (
-              <Empty title="One condition, so there is nothing to contrast">
+              <Empty title="One group, so there is nothing to contrast">
                 Markers and gene search work on any object.
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <button className="btn" onClick={() => setTab('markers')}>Go to Markers</button>

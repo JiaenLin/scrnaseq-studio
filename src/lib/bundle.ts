@@ -214,8 +214,7 @@ export function ambiguousNote(headers: readonly string[]): string {
   const one = headers.length === 1
   return `the summed raw counts are not offered: the pseudobulk column header${one ? '' : 's'} ${shown}${more} `
     + `can${one ? '' : ' each'} be read as more than one sample × cluster pair this object declares, so which sample's `
-    + `counts ${one ? 'it holds' : 'they hold'} is not in the file, and choosing would put one sample's `
-    + "counts under another's name"
+    + `counts ${one ? 'it holds' : 'they hold'} is not in the file`
 }
 
 export interface Bundle {
@@ -258,7 +257,7 @@ class BundleError extends Error {}
 const fail: (msg: string) => never = (msg) => { throw new BundleError(msg) }
 
 const need = (files: Record<string, Uint8Array>, name: string): Uint8Array =>
-  files[name] ?? fail(`the bundle has no ${name} — was it made by tools/export_*?`)
+  files[name] ?? fail(`the bundle has no ${name}: was it made by tools/export_*?`)
 
 /** A typed view that copies, because the unzip buffer is not aligned. */
 const view = <T>(
@@ -275,7 +274,7 @@ export function parseBundle(buf: ArrayBuffer): Bundle {
   try {
     files = unzipSync(new Uint8Array(buf))
   } catch {
-    return fail('this file is not a zip — open a bundle made by tools/export_h5ad.py or tools/export_seurat.R, not the .h5ad or .rds itself')
+    return fail('this file is not a zip: open a bundle made by tools/export_h5ad.py or tools/export_seurat.R, not the .h5ad or .rds itself')
   }
 
   const meta = JSON.parse(new TextDecoder().decode(need(files, 'meta.json'))) as BundleMeta

@@ -84,13 +84,19 @@ const collect = () => page.evaluate(() => {
     return out.join(' < ')
   }
   const numeric = s => !/[A-Za-zÀ-ɏ]/.test(s.replace(/\b(e|E)[-+]?\d+/g, ''))
+  const ownText = el => [...el.childNodes].filter(n => !(n.nodeType === 1 && n.tagName.toLowerCase() === 'title')).map(n => n.textContent).join('')
   const kindOf = el => {
     const svg = el.closest('svg')
     if (svg && !el.closest('button, .ico')) {
       if (el.closest('[data-foot]')) return 'figure legend'
-      const t = norm(el.textContent)
-      return numeric(t) ? 'tick' : 'figure text'
+      const t = norm(ownText(el))
+      // A name the figure had to wrap or shorten carries its whole form in a <title>: the object's word, not the app's.
+      return numeric(t) || el.querySelector(':scope > title') ? 'tick' : 'figure text'
     }
+    // What the lab's converter wrote into the bundle, shown as it wrote it: not this app's words.
+    if (/conversion/i.test(el.closest('.card, section')?.querySelector('.eyebrow, .card-title, h2, h3')?.textContent ?? '') && el.closest('li, td, dd')) return 'value'
+    if (el.closest('.demo-row')) return /tx-micro/.test(cls(el)) ? 'menu item note' : el.closest('.badge') ? 'badge' : 'menu item'
+    if (/tx-micro/.test(cls(el)) && el.closest('label') && !el.closest('button')) return 'help'
     if (el.closest('.tip')) return 'readout'
     if (el.closest('.menu-foot')) return 'menu note'
     if (el.closest('[role="tab"]')) return 'tab'
@@ -137,7 +143,7 @@ const collect = () => page.evaluate(() => {
     if (ph) push(el, ph, 'placeholder', 'placeholder')
     const al = el.getAttribute('aria-label')
     if (al && norm(al) !== norm(el.innerText ?? el.textContent) && !el.closest('svg[aria-hidden]')) push(el, al, 'accessible name', 'aria-label')
-    if (tag === 'text') { push(el, el.textContent, kindOf(el), 'text'); return }
+    if (tag === 'text') { push(el, ownText(el), kindOf(el), 'text'); return }
     if (tag === 'select') { push(el, el.selectedOptions[0]?.textContent, 'picker', 'text'); return }
     const direct = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())
     if (direct) { push(el, el.innerText ?? el.textContent, kindOf(el), 'text'); return }
@@ -214,9 +220,9 @@ const collect = () => page.evaluate(() => {
   }
   // The object's own names (genes, cell types, groups, samples, gene sets): data, not the app's words.
   const names = []
-  for (const el of document.querySelectorAll('td.mono, td .mono, .lg-row, [role="option"], .set-row, tbody th')) {
-    const t = norm(el.innerText ?? el.textContent).replace(/\s*[\d,]+$/, '')
-    if (t && t.length < 60) names.push(t)
+  for (const el of document.querySelectorAll('td.mono, td .mono, .mono, .lg-row, [role="option"], .set-row, tbody th, svg text:has(> title)')) {
+    const t = norm(el.tagName.toLowerCase() === 'text' ? el.querySelector('title').textContent : el.innerText ?? el.textContent).replace(/\s*[\d,]+$/, '')
+    if (t && t.length < 80) names.push(t)
   }
   return { texts, els, names }
 })
@@ -230,7 +236,7 @@ async function capture(name) {
   const view = name.split(/ \/ | > /)[0]
   const { texts, els, names } = await collect()
   for (const t of texts) { t.words = words(t.text); t.chars = t.text.length }
-  for (const n of names) { dataNames.add(n); for (const w of n.split(/\s+/)) if (/[A-Za-z]/.test(w) && w.length > 1 && !COMMON.has(w.toLowerCase())) dataNames.add(w) }
+  for (const n of names) { dataNames.add(n); for (const w of n.split(/[\s,]+/)) if (/[A-Za-z]/.test(w) && w.length > 1 && !COMMON.has(w.toLowerCase())) dataNames.add(w) }
   states.push({ name, view, texts })
   for (const e of els) elements.push({ view, state: name, ...e })
 }
@@ -315,7 +321,7 @@ async function sweepRail(name, { skip = /$^/ } = {}) {
 }
 
 /** Save the figure in the head line once (SVG where offered) and read the file's own words. */
-async function save(name, scope = 'main, .stage-head, header') {
+async function save(name) {
   const btns = page.locator('button[aria-haspopup="menu"]').locator('visible=true')
   const n = await btns.count()
   for (let i = 0; i < n; i++) {
@@ -574,7 +580,8 @@ for (const s of states) {
     const shape = shapeOf(t.text, dataNames)
     const own = words(shape.replace(/‹name›|#/g, ' '))
     t.data = DATA_KINDS.has(t.kind) || own === 0
-    if (t.inView && t.src === 'text') { app += own; data += t.words - own }
+    // A table's cell, a key's entry, a tick and a value are data whole: "higher in Reactivated" in 70 rows is not 140 of the app's words.
+    if (t.inView && t.src === 'text') { if (DATA_KINDS.has(t.kind)) data += t.words; else { app += own; data += t.words - own } }
     const k = `${t.kind}|${t.where}|${shape}`
     const row = strings.get(k)
     if (row) { row.n++; if (!row.views.includes(s.view)) row.views.push(s.view) }

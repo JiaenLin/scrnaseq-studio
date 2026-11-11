@@ -11,11 +11,11 @@
 // two documents is counted here, not typed.
 
 import fs from 'node:fs'
-import { BUDGET, RETIRED, SCREEN_BUDGET, SCREEN_KIND, retiredIn, words } from './copy-standard.mjs'
+import { BUDGET, EXCEPTIONS, RETIRED, SCREEN_BUDGET, SCREEN_KIND, excepted, refine, retiredIn, words } from './copy-standard.mjs'
 
 const DIR = 'docs/design/inventory'
 const read = f => (fs.existsSync(`${DIR}/${f}`) ? JSON.parse(fs.readFileSync(`${DIR}/${f}`, 'utf8')) : null)
-const before = read('before.json'), after = read('after.json'), changes = read('copy-changes.json') ?? []
+const before = refine(read('before.json')), after = read('after.json') && refine(read('after.json')), changes = read('copy-changes.json') ?? []
 const now = after ?? before
 const cell = s => String(s).replace(/\|/g, '\\|').replace(/\n/g, ' ')
 const fmt = n => n.toLocaleString('en-US')
@@ -35,7 +35,7 @@ const total = inv => {
     own: a.reduce((x, s) => x + s.own, 0), boxes: inv.boxes.reduce((x, b) => x + b.n, 0), saved: inv.saved.length,
   }
 }
-const over = s => s.own > (BUDGET[s.kind] ?? Infinity)
+const over = s => s.own > (BUDGET[s.kind === 'empty state' ? 'empty state block' : s.kind] ?? Infinity) && !excepted(s.text)
 
 // ───────────────────────── COPY.md ─────────────────────────
 const L = []
@@ -93,6 +93,7 @@ for (const [name, inv] of [['Before run 5', before], ...(after ? [['Now', after]
   L.push('')
 }
 
+L.push('## Over a budget on purpose', '', ...EXCEPTIONS.map(e => `- \`${e.re.source}\`: ${e.why}.`), '')
 L.push('## Retired terms, as drawn', '', '| retired | use | why | strings before | strings now |', '|---|---|---|---:|---:|')
 for (const r of RETIRED) {
   const count = inv => app(inv).filter(s => retiredIn(s.text).includes(r)).length
@@ -101,14 +102,14 @@ for (const r of RETIRED) {
 L.push('')
 
 if (changes.length) {
-  const cut = changes.filter(c => !c.after), same = changes.filter(c => c.after)
+  const cut = changes.filter(c => c.before && !c.after), same = changes.filter(c => c.before && c.after), fresh = changes.filter(c => !c.before)
   const wb = changes.reduce((x, c) => x + words(c.before), 0), wa = changes.reduce((x, c) => x + words(c.after ?? ''), 0)
   L.push('## Every string changed in run 5', '',
-    `${changes.length} strings in the source: ${same.length} reworded, ${cut.length} cut whole. Their words: ${fmt(wb)} before, ${fmt(wa)} after.`,
-    'As written in the source (a `{…}` is a slot the data fills). Words / characters.', '',
+    `${changes.length} strings in the source (\`node scripts/copy-changes.mjs\`, which pairs the source at the base with the source now): ${same.length} reworded, ${cut.length} cut whole, ${fresh.length} new (what a view or a saved file did not say). Their words: ${fmt(wb)} before, ${fmt(wa)} after.`,
+    'As written in the source (a `#` is a slot the data fills). Words / characters.', '',
     '| file | before | w / c | after | w / c | why |', '|---|---|---:|---|---:|---|')
   for (const c of changes) {
-    L.push(`| ${c.file.replace('src/', '').replace('components/', '')} | ${cell(c.before)} | ${words(c.before)} / ${c.before.length} | ${c.after ? cell(c.after) : '*(cut)*'} | ${c.after ? `${words(c.after)} / ${c.after.length}` : '0 / 0'} | ${c.why ?? ''} |`)
+    L.push(`| ${c.file.replace('src/', '').replace('components/', '')} | ${c.before ? cell(c.before) : '*(new)*'} | ${words(c.before)} / ${c.before.length} | ${c.after ? cell(c.after) : '*(cut)*'} | ${c.after ? `${words(c.after)} / ${c.after.length}` : '0 / 0'} | ${c.why ?? ''} |`)
   }
   L.push('')
 }

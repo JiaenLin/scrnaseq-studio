@@ -110,7 +110,7 @@ export function detectSpecies(display: readonly string[], other?: readonly strin
   if (!vote.support) {
     return {
       species: 'human', from: 'default', support: 0,
-      why: 'no accessions and no casing to read — assuming human',
+      why: 'no accessions and no casing to read: assuming human',
     }
   }
   return {

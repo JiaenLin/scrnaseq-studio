@@ -36,7 +36,7 @@ const no = (x: number | null | undefined) =>
  */
 const num = (x: number | null | undefined, fmt1: (v: number) => string) =>
   (x === null || x === undefined || !Number.isFinite(x)
-    ? <span title="Not tested — under the effect-size gate below.">—</span>
+    ? <span title="Not tested: under the effect-size gate below.">—</span>
     : fmt1(x))
 
 const cellVal = (r: DERow, k: SortKey): number | string | null => {
@@ -217,7 +217,7 @@ export default function DEGTable({
 
       {/* To the stage's bottom edge, the head sticky: the rows are the answer. */}
       <div ref={pane} className="tpane-body edge rows-kbd" tabIndex={0} role="region"
-        aria-label="Results. Arrow keys move through the rows, Enter opens the gene."
+        aria-label="Results. Arrow keys move, Enter opens the gene."
         onKeyDown={onRowKey}>
         <table className="t">
           <thead>
@@ -283,22 +283,17 @@ export default function DEGTable({
       )}
       {wilcox && nGenes > nRan && (
         <p className="tnote">
-          <b>{fmt(nRan)} of {fmt(nGenes)} genes were tested.</b> Seurat's own gates run
-          before the rank sum. A gene detected in under 10% of the cells on both sides
-          (<span className="mono">min.pct</span>) is dropped: with almost no cells
-          expressing it on either side there is nothing to compare.{' '}
+          <b>{fmt(nRan)} of {fmt(nGenes)} genes were tested.</b> Under 10% detected on both sides
+          (<span className="mono">min.pct</span>): dropped.{' '}
           {rows.length > nRan ? (
             <>
-              A gene changing by less than the effect-size gate
-              (<span className="mono">logfc.threshold</span>) is <b>kept but not tested</b> —
-              the {fmt(rows.length - nRan)} rows showing “—” are those. Their fold change
-              and detection rates are real and were computed either way; only the rank sum,
-              which is the slow half, was skipped. Lower the gate under{' '}
-              <i>What gets tested</i> to give them p-values too.
+              The {fmt(rows.length - nRan)} rows showing “—” are under{' '}
+              <span className="mono">logfc.threshold</span>: <b>kept, not tested</b>. Lower it
+              under <i>What gets tested</i>.
             </>
           ) : (
-            <>The effect-size gate (<span className="mono">logfc.threshold</span>) is at 0,
-              so every gene that cleared <span className="mono">min.pct</span> was tested.</>
+            <><span className="mono">logfc.threshold</span> is 0, so every gene past{' '}
+              <span className="mono">min.pct</span> was tested.</>
           )}
         </p>
       )}
@@ -307,8 +302,8 @@ export default function DEGTable({
       <footer className="stage-foot">
         <span className="truncate">
           {view.length > limit
-            && <>Showing {fmt(limit)} of {fmt(view.length)}; the CSV has every row. </>}
-          Click a row, or press Enter on it, to open that gene; a header sorts.
+            && <>{fmt(limit)} of {fmt(view.length)} shown; the CSV has all. </>}
+          Select a row to open its gene.
         </span>
       </footer>
     </>

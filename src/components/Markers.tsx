@@ -9,7 +9,7 @@ import { widestW } from '../lib/labels.ts'
 import { AXIS_INK, GHOST_INK, GRID_INK, MARK_EDGE, onGround, PRINT_LABEL } from '../lib/figure-ink.ts'
 import { useWidth } from '../lib/use-width.ts'
 import { ZERO_ON_DARK, mix, pal, type PaletteKey } from '../lib/palette.ts'
-import { countText, populations, sentinelCount } from '../lib/sentinels.ts'
+import { notCalledNote, populations, sentinelCount } from '../lib/sentinels.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { Card, Empty } from './Ui.tsx'
@@ -83,8 +83,8 @@ export default function Markers({
   const chosen = want.size ? [...want].sort((a, b) => a - b) : pops
   const wantKey = want.size ? chosen.join(',') : 'all'
   const uncalled = sentinelCount(src.d.cells, types)
-  const uncalledNote = uncalled.total > 0
-    ? `${uncalled.total.toLocaleString('en-US')} cells the annotator did not call (${countText(uncalled)}) are on neither side of any test.`
+    const uncalledNote = uncalled.total > 0
+    ? `${notCalledNote(uncalled, 'are on neither side of any test')}.`
     : null
 
   // One Wilcoxon per cluster against every other cell, all clusters in one pass
@@ -154,7 +154,7 @@ export default function Markers({
       <Card eyebrow="Markers · one vs rest">
         {failed
           ? <Failed error={failed} onRetry={retry} what="The marker pass" />
-          : <Progress pass={pass} title="One Wilcoxon per cluster, against every other cell" />}
+          : <Progress pass={pass} title="One Wilcoxon per cell type, against every other cell" />}
       </Card>
     )
   }
@@ -170,7 +170,7 @@ export default function Markers({
         <div>
           <TypePicker types={types} want={want} onWant={onWant} palKey={palKey} />
         </div>
-        <button className="btn btn-primary mt-3.5" onClick={() => onGo(true)}>
+                <button className="btn btn-primary mt-3.5" onClick={() => onGo(true)}>
           {want.size ? `Find markers for ${want.size} cell type${want.size > 1 ? 's' : ''}`
             : `Find markers for all ${pops.length}`}
         </button>
@@ -181,7 +181,7 @@ export default function Markers({
     )
   }
   if (!results) {
-    return <Card><Empty title="No markers to show">This object has no clusters to compare.</Empty></Card>
+    return <Card><Empty title="No markers to show">This object has no cell types to compare.</Empty></Card>
   }
 
   const rh = 34
@@ -247,11 +247,11 @@ export default function Markers({
       <Card
         eyebrow="Markers · one vs rest · a ranking, not a test"
         title={`${genes.length} genes across ${chosen.length} of ${pops.length} cell types`}
-        sub="Mean expression × fraction detected. Rename a cluster to rename it everywhere."
+        sub="Mean expression × fraction detected. Rename a cell type to rename it everywhere."
         right={<>
           <InRail>
             <RailGroup label="Markers">
-              <Field label="Top per cluster">
+              <Field label="Top genes">
                 <Steps value={topN} options={[3, 5, 8, 12]} onChange={setTopN} />
               </Field>
             </RailGroup>
@@ -274,7 +274,7 @@ export default function Markers({
         {!grid && !dotError && (
           <div role="status" className="note mt-4">
             <div className="flex items-baseline justify-between gap-3">
-              <span>Reading {genes.length} genes from the file — the dots arrive when it finishes.</span>
+              <span>Reading {genes.length} genes from the file: the dots arrive when it finishes.</span>
               <span style={{ color: 'var(--ink-3)' }}>the table below is already final</span>
             </div>
             {/* Indeterminate on purpose. The read is windowed by BYTES, not by
@@ -290,7 +290,7 @@ export default function Markers({
         )}
         <Figure name="cluster_markers" foot={{
           title: `Top ${topN} marker genes per cell type, each cell type against the rest`,
-          notes: [nText, 'A heavier ring marks one of that cell type\u2019s own top genes.'],
+          notes: [nText, 'A heavier ring marks one of that cell type\u2019s own top genes.', uncalledNote],
         }}>
           <div ref={figRef} className="figscroll" {...(scrolls
             ? { tabIndex: 0, role: 'group', 'aria-label': 'Marker gene dot plot, scrolls sideways' } : {})}>
@@ -341,7 +341,7 @@ export default function Markers({
                             mix(ZERO_ON_DARK, pal(ti, palKey), Math.min(1, m / 2.5)))}
                           stroke={own.has(g) ? pal(ti, palKey) : MARK_EDGE}
                           strokeWidth={own.has(g) ? 1.4 : 0.6}>
-                          <title>{g} in {t.name} — {(pct * 100).toFixed(0)}% of cells, mean {m.toFixed(2)}</title>
+                          <title>{g} in {t.name}: {(pct * 100).toFixed(0)}% of cells, mean {m.toFixed(2)}</title>
                         </circle>
                       )
                     })}
@@ -351,7 +351,7 @@ export default function Markers({
               <ColorBar
                 cx={PL + (W - PL) * 0.32} y={H - legendH + 22} w={150} h={11}
                 colors={[GHOST_INK, PRINT_LABEL]} darkColors={[ZERO_ON_DARK, '#C9CED6']} lo={0} hi={2.5}
-                title="Avg. Exp. · depth of cluster colour"
+                title="Mean expression · depth of the cell type's colour"
                 id="markers-bar"
               />
               <SizeKey cx={PL + (W - PL) * 0.78} y={H - legendH + 22}
@@ -371,12 +371,12 @@ export default function Markers({
         <div className="legend mt-2.5">
           {!grid && !dotError && <span style={{ color: 'var(--ink-3)' }}>reading these genes…</span>}
           {dotError && <span style={{ color: 'var(--bad)' }}>{dotError}</span>}
-          <span>a heavier ring marks one of that cluster&rsquo;s own top genes</span>
+          <span>a heavier ring marks one of that cell type&rsquo;s own top genes</span>
           <span style={{ color: 'var(--ink-3)' }}>{nText}</span>
         </div>
 
         <div className="mt-5">
-          <div className="eyebrow mb-2">Per cluster</div>
+          <div className="eyebrow mb-2">Per cell type</div>
           {/* 300, not 260: at 260 the open table was wider than its card, and the
               column clipped was the last one — which is the significance. It was
               already clipped before this column existed (padj wrapped onto two
@@ -390,7 +390,7 @@ export default function Markers({
                   <i className="sw" style={{ background: pal(ti, palKey) }} />
                   <input
                     className="inp flex-1 tx-small" defaultValue={t.name}
-                    aria-label={`Rename cluster ${t.key}`}
+                    aria-label={`Rename cell type ${t.key}`}
                     onBlur={e => onRename(ti, e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
                   />
@@ -439,7 +439,7 @@ export default function Markers({
           {/* The underflow argument is in Methods. What is left is what the
               numbers on screen do not say for themselves. */}
           <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
-            Counts are genes at padj &lt; {th.padj} and log₂FC ≥ {th.lfc}; click one for the list.
+            Counts are genes at padj &lt; {th.padj} and log₂FC ≥ {th.lfc}; select one for the list.
             {uncalledNote && <> {uncalledNote}</>}
           </p>
         </div>

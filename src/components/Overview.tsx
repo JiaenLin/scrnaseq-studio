@@ -34,7 +34,7 @@ function geneNaming(src: Source): string {
     n.missing ? `${n.missing} rows have no symbol and keep their ${n.idKind ?? 'accession'}` : '',
   ].filter(Boolean)
   return `matrix indexed by ${n.idKind ?? 'accession'}s; symbols shown, taken from `
-    + `${n.aliasColumn ?? 'the object'} in the same file — nothing is looked up`
+    + `${n.aliasColumn ?? 'the object'} in the same file; nothing is looked up`
     + (extra.length ? `. ${extra.join('; ')}` : '')
 }
 
@@ -55,22 +55,21 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
   const rows: [string, Kind, React.ReactNode][] = [
     ['Normalization', prov.normalization ? 'file' : 'none', prov.normalization ?? 'not recorded'],
     ['Clustering', prov.clustering ? 'file' : 'none', prov.clustering ?? 'not recorded'],
-    ...(uncalled.total > 0 ? [['Uncalled cells', 'file',
-      `${countText(uncalled)} — the annotator's labels for cells it did not call, listed `
-      + 'as sentinels in the file. Drawn grey on the embedding; not a cell type, so left out '
-      + 'of composition, legends, markers and every test.'] as [string, Kind, string]] : []),
+    ...(uncalled.total > 0 ? [['Cells not called', 'file',
+      `${countText(uncalled)}: the annotator's labels for cells it did not call. Drawn grey `
+      + 'on the embedding; not a cell type, so left out of composition, markers and every test.'] as [string, Kind, string]] : []),
     ['Batch integration', prov.integration ? 'file' : 'none', prov.integration ?? 'none recorded'],
     // Every embedding the object carried, not just the one it opens on — the
     // switcher only appears over a figure, so this is where a user finds out
     // there is more than one before going looking for it.
     ['Embedding', 'file', src.embeddings.length > 1
-      ? `${src.embeddings.map(e => e.key).join(', ')} — ${src.embeddings[0].key} opens by default, `
+      ? `${src.embeddings.map(e => e.key).join(', ')}; ${src.embeddings[0].key} opens by default, `
         + 'and any of them can be chosen wherever cells are drawn'
       : src.meta.embedding],
     ['Gene identifiers', 'file', geneNaming(src)],
     ['Expression', 'file', src.meta.expression],
     ['Raw counts', src.meta.hasRawCounts ? 'file' : 'none',
-      src.meta.hasRawCounts ? 'present — pseudobulk columns are in the bundle' : 'absent'],
+      src.meta.hasRawCounts ? 'present: pseudobulk columns are in the bundle' : 'absent'],
     ['Doublet calls', prov.doublets ? 'file' : 'none', prov.doublets ?? 'no doublet column found'],
     ['Ambient RNA', prov.ambient ? 'file' : 'none', prov.ambient ?? 'no SoupX / CellBender / DecontX record'],
     ['Differential expression', 'here',
@@ -87,7 +86,7 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
 
   return (
     <>
-      <Card eyebrow="Dataset" title="What is in this object">
+      <Card eyebrow="Object" title="What is in this object">
         <div
           // A hairline grid, not a box: a rule above and below, hairlines between.
           className="stats mt-3"
@@ -108,14 +107,13 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
           {nRep >= MIN_REPS_PB ? (
             // Not "both tests": the pseudobulk path sums counts and hands them
             // over, and the test is run wherever they are taken.
-            <><b>Wilcoxon runs here; pseudobulk counts can be exported.</b> Wilcoxon across
-            cells by default; with {nRep} samples a group, the counts summed per animal can be
-            exported for DESeq2, which is not run here.</>
+            <><b>Wilcoxon runs here; pseudobulk counts can be saved.</b> With {nRep} samples a group,
+            the counts summed per sample can be saved for DESeq2, which is not run here.</>
           ) : d.multi ? (
-            <><b>{nRep} sample per group, so Wilcoxon is the only test</b> — the normal case in
-            single-cell. Its p-values describe variation between cells, not between animals.</>
+            <><b>{nRep} sample per group, so Wilcoxon is the only test</b>, the normal case in
+            single-cell. Its p-values describe variation between cells, not between samples.</>
           ) : (
-            <><b>One condition, so there is no comparison to run.</b> Markers and gene search
+            <><b>One group, so there is no comparison to run.</b> Markers and gene search
             work normally.</>
           )}
         </div>
@@ -301,8 +299,8 @@ function RoleCard({ src, roles, onRoles }: {
 
   return (
     <Card
-      eyebrow="Columns" title="What counts as a cell type, and as a group"
-      sub="Every column you ticked in the lab travels in the bundle, so these can be re-pointed here without converting the file again."
+      eyebrow="Columns" title="The cell type and group columns"
+      sub="Every column you ticked in the lab is in the bundle, so these can be re-pointed without converting again."
     >
       <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
         <label className="flex flex-col gap-1">
@@ -311,7 +309,7 @@ function RoleCard({ src, roles, onRoles }: {
             onChange={e => onRoles({ ...roles, t: Number(e.target.value) })}>
             {tOpts.map(o => (
               <option key={o.at} value={o.at}>
-                {o.key}{o.levels ? ` — ${o.levels} levels` : ''}
+                {o.key}{o.levels ? `: ${o.levels} levels` : ''}
               </option>
             ))}
           </select>
@@ -321,22 +319,19 @@ function RoleCard({ src, roles, onRoles }: {
           <select className="sel" style={{ minWidth: 200 }} value={roles.g}
             onChange={e => onRoles({ ...roles, g: Number(e.target.value) })}>
             {gOpts.map(o => (
-              <option key={o.at} value={o.at}>{o.key} — {o.levels} levels</option>
+              <option key={o.at} value={o.at}>{o.key}: {o.levels} levels</option>
             ))}
           </select>
         </label>
       </div>
       <p className="mt-3 tx-micro" style={{ color: 'var(--ink-3)' }}>
-        Changing either clears the contrast, the group order and any renaming — those name
-        cell types and groups that the other column may not have.
+        Changing either clears the contrast, the group order and any renaming.
         {excluded > 0 && (
           <> {excluded} other column{excluded === 1 ? ' is' : 's are'} not offered as a group:
-            {' '}a group has to be the same for every cell of a sample, or the pseudobulk
-            design would count one animal on both sides of its own comparison.</>
+            {' '}a group must be the same for every cell of a sample.</>
         )}
         {roles.t >= 0 && src.meta.hasRawCounts && (
-          <> The pseudobulk export is keyed by the cell types the lab wrote, so it goes quiet
-            while a different column is standing in; the per-cell Wilcoxon is unaffected.</>
+          <> Pseudobulk counts follow the lab&rsquo;s cell types and are not offered under another column.</>
         )}
       </p>
     </Card>

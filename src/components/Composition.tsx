@@ -11,7 +11,7 @@ import { sheetSvgs } from '../lib/figure-pick.ts'
 import { groupInk, MARK_EDGE } from '../lib/figure-ink.ts'
 import { axisTicks, wrapAll, widestW } from '../lib/labels.ts'
 import { inkOn, pal, type PaletteKey } from '../lib/palette.ts'
-import { namesText, sentinelCount } from '../lib/sentinels.ts'
+import { notCalledNote, sentinelCount } from '../lib/sentinels.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Legend } from './Ui.tsx'
 import { InRail, RailGroup } from './Rail.tsx'
@@ -112,6 +112,8 @@ export default function Composition({ d, types, palKey }: {
     () => new Map(d.conds.map((c, i) => [c, i])), [d.conds])
   /** The annotator's uncalled cells: in no bar and no denominator, and said so. */
   const uncalled = useMemo(() => sentinelCount(d.cells, types), [d.cells, types])
+  /** The one sentence about them, the same on screen and in the saved figure. */
+  const leftOut = notCalledNote(uncalled, 'are not a cell type and are left out', 'names', table.nSentinel)
 
   /** Every row the user asked for, before the drawing cap. */
   const chosen = useMemo(() => {
@@ -199,7 +201,7 @@ export default function Composition({ d, types, palKey }: {
         // still be exported — and `fraction` is then exactly the pooled
         // percentage the figure refused. Withholding the counts would be worse
         // than exporting them; leaving the file unable to say which rows are
-        // several animals averaged together is what makes it dishonest.
+        // several samples averaged together is what makes it dishonest.
         body.push([...base, partNames[p], c, r.n, r.nSamples, (c / r.n).toFixed(6)])
       }
     }
@@ -258,7 +260,7 @@ export default function Composition({ d, types, palKey }: {
         {/* Pooling is drawn, not refused. The figure the reader asked for is
             the figure they get; what pooling costs is said in one line above it
             and the way to undo it is one button, not a page of argument. The
-            note stays because a percentage over several animals really is a
+            note stays because a percentage over several samples really is a
             different claim from one over a single animal — that is worth a
             sentence, and it was worth about fifteen too many. */}
         {violates && (
@@ -269,8 +271,8 @@ export default function Composition({ d, types, palKey }: {
                 ? <>All {table.rows.length.toLocaleString('en-US')} rows merge</>
                 : <>{table.pooledRows.toLocaleString('en-US')} of
                   {' '}{table.rows.length.toLocaleString('en-US')} rows merge</>}
-              {table.worstPool > 1 && <> up to {table.worstPool.toLocaleString('en-US')} animals</>}
-              , so the spread between animals is not visible here.
+              {table.worstPool > 1 && <> up to {table.worstPool.toLocaleString('en-US')} samples</>}
+              , so the spread between samples is not visible here.
             </span>
             {fixAxis && (
               <button className="btn btn-quiet" onClick={() => set({ rows: fixAxis.key, only: -1 })}>
@@ -284,7 +286,7 @@ export default function Composition({ d, types, palKey }: {
             {table.degenerate && (
               <div className="note mt-4">
                 <b>Every row falls in a single {partsLabel.toLowerCase()},</b> so each bar is one
-                solid block. Pick a different field for the bars.
+                solid block. Choose a different field for the bars.
               </div>
             )}
             {hidden > 0 && (
@@ -302,8 +304,7 @@ export default function Composition({ d, types, palKey }: {
               <div className="note mt-4">
                 {sparse && <>
                   <b>{table.rows.length.toLocaleString('en-US')} of{' '}
-                  {table.possible.toLocaleString('en-US')} combinations hold cells</b> — the rest
-                  were never collected.{' '}
+                  {table.possible.toLocaleString('en-US')} combinations hold cells</b> : the rest were never collected.{' '}
                 </>}
                 {thin > 0 && <>
                   {thin.toLocaleString('en-US')} row{thin === 1 ? '' : 's'} hold fewer than{' '}
@@ -317,7 +318,10 @@ export default function Composition({ d, types, palKey }: {
                 color: pal(i, palKey), label: n,
                 n: drawn.reduce((a, r) => a + table.counts[r.i * table.nParts + i], 0),
               }])),
-              notes: [`n is cells. ${drawn.length} row${drawn.length === 1 ? '' : 's'}, ${table.nCells.toLocaleString('en-US')} cells. The axis is the share of each row's cells.`],
+                            notes: [
+                `n is cells. ${drawn.length} row${drawn.length === 1 ? '' : 's'}, ${table.nCells.toLocaleString('en-US')} cells. The axis is the share of each row's cells.`,
+                leftOut && `${leftOut}.`,
+              ],
             }}>
               <StackedRows
                 rows={drawn} table={table} partNames={partNames} palKey={palKey}
@@ -329,10 +333,7 @@ export default function Composition({ d, types, palKey }: {
               items={partNames.flatMap((n, i) => (parts === 'type' && types[i]?.sentinel
                 ? [] : [[pal(i, palKey), n] as [string, string]]))}
               note={`${drawn.length} row${drawn.length === 1 ? '' : 's'} · ${table.nCells.toLocaleString('en-US')} cells`
-                + (table.nSentinel
-                  ? ` · ${table.nSentinel.toLocaleString('en-US')} cells the annotator did not call`
-                    + ` (${namesText(uncalled)}) are not a cell type and are left out`
-                  : '')}
+                                + (leftOut ? ` · ${leftOut}` : '')}
             />
           </>
         )}
@@ -342,7 +343,7 @@ export default function Composition({ d, types, palKey }: {
         <Card
           eyebrow="Per cell type" title="Proportion by group"
           sub={d.samples.length > d.conds.length
-            ? 'Its own y axis per panel. Dots are animals — overlap means the difference is not evidence.'
+            ? 'Its own y axis per panel. Dots are samples: overlap means the difference is not evidence.'
             : 'Its own y axis per panel. One sample per group, so there is no spread to show.'}
         >
           <InHead>
@@ -370,7 +371,21 @@ export default function Composition({ d, types, palKey }: {
                   { color: groupInk(0), label: 'range of the samples', mark: 'rule' as const },
                 ] : []),
               ],
-              notes: ['Bar: the mean of the group\u2019s samples. n is samples per group. Each panel has its own y axis.'],
+                            notes: [
+                d.samples.length > d.conds.length
+                  ? 'Bar: the mean of the group\u2019s samples. n is samples per group. Each panel has its own y axis.'
+                  : 'Bar: the group\u2019s one sample. n is samples per group. Each panel has its own y axis.',
+                                uncalled.total > 0 && `${notCalledNote(uncalled, 'are not a cell type and are left out', 'names')}.`,
+              ],
+              panel: {
+                key: d.conds.map((c, i) => ({ color: groupInk(i), label: c, n: d.samples.filter(s => s.cond === c).length })),
+                notes: [
+                  d.samples.length > d.conds.length
+                    ? 'Bar: mean of the samples (rings); line: their range. n: samples.'
+                    : 'Bar: the group\u2019s one sample. n: samples.',
+                  uncalled.total > 0 && `${uncalled.total.toLocaleString('en-US')} cells not called are left out.`,
+                ],
+              },
             }}
             sheet={{ svgs: () => sheetSvgs<SVGSVGElement>(sheet.current), cols: 3 }}>
           <div
@@ -491,7 +506,7 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
             <text className="axis" x={PL - 16} y={y + rowH / 2 + 4} textAnchor="end"
               style={{ fontSize: 11.5, fill: 'var(--ink)', fontWeight: 550 }}>
               {row.label}
-              <title>{row.label} — {r.n.toLocaleString('en-US')} cells</title>
+              <title>{row.label}: {r.n.toLocaleString('en-US')} cells</title>
             </text>
             {!hasGroup && (
               <rect x={PL - 9} y={y + 3} width={4} height={rowH - 6} rx={2} fill={row.color}>
@@ -511,7 +526,7 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
                   <g key={pi}>
                     <rect x={xa} y={y} width={Math.max(0, xb - xa)} height={rowH}
                       fill={pal(pi, palKey)} stroke={MARK_EDGE} strokeWidth={0.4}>
-                      <title>{pn} — {(p * 100).toFixed(1)}% ({c.toLocaleString('en-US')} cells)</title>
+                      <title>{pn}: {(p * 100).toFixed(1)}% ({c.toLocaleString('en-US')} cells)</title>
                     </rect>
                     {/* A number only where it fits; a clipped "1%" is worse than none. */}
                     {xb - xa > 30 && (
@@ -626,7 +641,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
             <g key={lab}>
               <rect x={cx - w / 2} y={Y(mean)} width={w} height={Math.max(0, H - PB - Y(mean))}
                 fill={col} opacity=".78" rx={2}>
-                <title>{t.name} · {lab} — {pctTxt(mean)}</title>
+                <title>{t.name} · {lab}: {pctTxt(mean)}</title>
               </rect>
               {vals.length > 1 && (
                 <>

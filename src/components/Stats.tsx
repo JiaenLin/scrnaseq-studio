@@ -136,9 +136,8 @@ const testing = (p: StatsProps) =>
 function MethodBar(p: StatsProps) {
   const d = designFor(p.src, p.tis, p.ctrl, p.cs)
   const why = p.tis.length > 1
-    ? 'Pseudobulk exports one cell type at a time — the counts are summed per'
-      + ' cluster and sample in the bundle, so pooling clusters would mean adding'
-      + ' those columns together rather than choosing between them.'
+    ? 'Pseudobulk counts are summed per cell type and sample in the bundle,'
+      + ' so they are saved one cell type at a time.'
     : !d.pbOK && p.ctrl !== p.cs && picked(p)
       ? `Pseudobulk needs more than ${MIN_REPS_PB - 1} samples per group; ${tName(p)} has ${d.n0} and ${d.n1}.`
       : ''
@@ -154,7 +153,7 @@ function MethodBar(p: StatsProps) {
           // before the card it opens, and this one named a test the studio
           // cannot fit. What pressing it does is sum counts per sample and
           // hand you the matrix, so that is what it says.
-          { k: 'pseudobulk', label: 'Pseudobulk · export counts', title: why },
+          { k: 'pseudobulk', label: 'Pseudobulk · save counts', title: why },
         ]}
       />
       <p className="hint m-0">
@@ -238,8 +237,8 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
         <Seg<SigBasis>
           value={p.sigBasis} onChange={p.onSigBasis}
           options={[
-            { k: 'padj', label: 'Bonferroni', title: 'padj — severe, and pinned to 1 for every gene with p above 1/n' },
-            { k: 'fdr', label: 'FDR', title: 'Benjamini–Hochberg — what the slider can actually move' },
+            { k: 'padj', label: 'Bonferroni', title: 'padj: severe, pinned to 1 for every gene with p above 1/n' },
+            { k: 'fdr', label: 'FDR', title: 'Benjamini–Hochberg: the cutoff the slider can move' },
           ]}
         />
       </div>
@@ -271,10 +270,9 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
       {p.method === 'wilcox' && p.lfcMin < p.gates.lfc && (
         <p className="hint m-0 flex flex-wrap items-center gap-2">
           <span>
-            Genes under <b>{p.gates.lfc}</b> log₂ are in the table with their fold change
-            and detection rates, and with no p — Seurat&rsquo;s{' '}
-            <span className="mono">logfc.threshold</span> skips the rank sum for them, so
-            this cutoff lists them but cannot call them significant.
+            Genes under <b>{p.gates.lfc}</b> log₂ are listed with no p:{' '}
+            <span className="mono">logfc.threshold</span> skips their test, so this cutoff cannot
+            call them significant.
           </span>
           <button className="btn btn-sm"
             title="Run the rank sum on them as well. This runs the test again."
@@ -286,12 +284,8 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
       {inert && (
         // A note about the cutoff, not an alarm: hint ink, the consequence in 600.
         <p className="hint m-0">
-          Bonferroni over the {fmt(p.nTested)} genes this object measures pins every gene
-          with p above{' '}
-          {ceiling.toExponential(1)} to exactly 1, so no cutoff above that admits another
-          row — <b>moving the slider here cannot change the count.</b> Cut on <b>FDR</b> for a
-          threshold that does something, or read the −log₁₀ padj column, which still
-          separates them.
+          Bonferroni pins every gene with p above {ceiling.toExponential(1)} to 1, so{' '}
+          <b>the slider cannot change the count.</b> Cut on <b>FDR</b> instead.
         </p>
       )}
 
@@ -310,18 +304,18 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
           <div className="flex flex-wrap items-center gap-2">
             <button className="btn btn-quiet" aria-expanded={openGates}
               onClick={() => setOpenGates(v => !v)}
-              title="Seurat's own pre-test filters — a gene that fails either is never tested">
+              title="Seurat's own pre-test filters: a gene that fails either is never tested">
               {openGates ? '▾' : '▸'} What gets tested
             </button>
             <span className="hint"
               style={{ color: wide || seurat ? 'var(--ink-3)' : 'var(--ink-2)' }}>
               {wide
-                ? `min.pct ${p.gates.pct}, no logfc.threshold — every gene detected in`
-                  + ' a tenth of either side is tested, so the slider above filters answers'
+                ? `min.pct ${p.gates.pct}, no logfc.threshold: every gene detected in`
+                  + ' a tenth of either side is tested'
                 : seurat
-                  ? `Seurat's defaults — min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
+                  ? `Seurat's defaults: min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
                   : `min.pct ${p.gates.pct}, logfc.threshold ${p.gates.lfc}`
-                    + ' — changing these re-runs the test'}
+                    + '; changing these re-runs the test'}
             </span>
           </div>
           {openGates && (
@@ -338,7 +332,7 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
                 <span className="mono tx-micro">logfc.threshold</span>
                 <input
                   className="inp w-16" type="number" min={0} max={5} step={0.05}
-                  aria-label="Minimum absolute log2 fold change to test a gene"
+                  aria-label="Minimum absolute log2 fold change tested"
                   value={p.gates.lfc}
                   onChange={e => p.onGates({ ...p.gates, lfc: Math.max(0, +e.target.value || 0) })} />
               </label>
@@ -356,12 +350,9 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
                 onClick={() => p.onGates(seurat ? DE_GATES : SEURAT_GATES)}
               >Seurat&rsquo;s defaults</button>
               <span className="hint">
-                These decide what the test looks at, and changing one runs it again. A gene
-                under <span className="mono">logfc.threshold</span> still gets a row, with
-                its fold change and no p; one under <span className="mono">min.pct</span>
-                {' '}gets none, because there is nothing to compare. Neither changes the
-                correction: Bonferroni multiplies by every gene the object measures, and
-                that is BH&rsquo;s <i>m</i> as well.
+                Changing one reruns the test. A gene under{' '}
+                <span className="mono">logfc.threshold</span> keeps its row with no p; one under{' '}
+                <span className="mono">min.pct</span> gets none.
               </span>
             </div>
           )}
@@ -393,16 +384,15 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   const missing = [
     p.tis.length ? '' : 'a cell type',
     p.ctrl.length ? '' : 'a control group',
-    p.cs.length ? '' : 'a group to compare it with',
+    p.cs.length ? '' : 'a group to compare',
   ].filter(Boolean)
   if (missing.length)
-    return <Empty title={`Pick ${missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]}.`}>
-      The pickers are in the controls on the left. Nothing is chosen for you, because a
-      contrast the studio guessed at looks exactly like one you asked for.
+    return <Empty title={`Choose ${missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]}.`}>
+      On the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for.
     </Empty>
 
   if (sameOrOverlapping(p.ctrl, p.cs))
-    return <Empty title="Pick two groups with no level in common">
+    return <Empty title="Choose two groups with no level in common">
       A level on both sides puts the same cells in both groups.
     </Empty>
 
@@ -433,7 +423,7 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
     if (n0 < MIN_CELLS_GROUP || n1 < MIN_CELLS_GROUP)
       return <Empty title={`Too few ${tName(p)} cells to test one of these groups`}>
         {n0} cell{n0 === 1 ? '' : 's'} in {condLabel(p.ctrl)}, {n1} in {condLabel(p.cs)}.
-        A rank-sum test needs at least {MIN_CELLS_GROUP} per group — Seurat&rsquo;s{' '}
+        A rank-sum test needs at least {MIN_CELLS_GROUP} per group: Seurat&rsquo;s{' '}
         <Mono>min.cells.group</Mono>.
       </Empty>
     return null
@@ -512,8 +502,7 @@ function PseudobulkPanel(p: StatsProps) {
     <>
       <div className="note mt-1">
         <b>The matrix is here; the model is not.</b> Counts are summed per sample within{' '}
-        {tName(p)} — the whole of the pseudobulk step. DESeq2 itself is not in the browser, so
-        take these to <code className="mono">DESeqDataSetFromMatrix</code>.
+        {tName(p)}. DESeq2 is not in the browser: take these to <code className="mono">DESeqDataSetFromMatrix</code>.
       </div>
       <div className="scrollx mt-3.5">
         <table className="t">
@@ -549,7 +538,7 @@ function PseudobulkPanel(p: StatsProps) {
         <span className="tx-small" style={{ color: 'var(--ink-3)' }}>
           {n0} {condLabel(p.ctrl)} · {n1} {condLabel(p.cs)}
           {(n0 < MIN_REPS_PB || n1 < MIN_REPS_PB)
-            && ` — fewer than ${MIN_REPS_PB} per group, so a between-animal test is not defensible here either`}
+            && `: fewer than ${MIN_REPS_PB} per group, so a between-sample test is not defensible here either`}
         </span>
       </div>
     </>
@@ -861,7 +850,13 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
       <div className="pane">
       {/* Fitted to the stage in both directions, and at most 1.25 times its
           own size, so its type does not grow with the window. */}
-      <Figure name={`volcano_${contrastLabel(p)}`} className="fitbox">
+            <Figure name={`volcano_${contrastLabel(p)}`} className="fitbox" foot={{
+        title: `${condLabel(p.cs)} vs ${condLabel(p.ctrl)} in ${tName(p)}`,
+        notes: [
+          'Wilcoxon rank-sum test across cells.',
+          `Dashed lines: ${p.sigBasis === 'fdr' ? 'FDR' : 'padj'} < ${p.padjMax} and |log₂FC| ≥ ${p.lfcMin}. Larger points are past both.`,
+        ],
+      }}>
         <svg
           viewBox={`0 0 ${W} ${H}`} role="img"
           aria-label={`Volcano plot for ${contrastLabel(p)}`}
@@ -979,12 +974,8 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
           under a plot whose dashed lines are the only thing needing a caption. */}
       <footer className="stage-foot">
         <span className="truncate">
-          Dashed lines are the cutoffs on the left.
-          {untested > 0 && (
-            <> {fmt(untested)} more genes are in the table with a fold change and no p —
-              under the effect-size gate, so the rank sum was skipped and they have no
-              height to be drawn at.</>
-          )}
+          Dashed lines are the cutoffs.
+          {untested > 0 && <> {fmt(untested)} genes with no p are in the table only.</>}
         </span>
       </footer>
       </div>
@@ -1010,7 +1001,7 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
                 <span className="num">{pTxt(read.padj)}</span></div>
             </>
           ) : (
-            <p className="hint m-0">Hover a point to read it, click to keep its name on the figure.</p>
+            <p className="hint m-0">Point at a gene to read it; select it to keep its name on the figure.</p>
           )}
         </div>
         <div className="ins-section">
@@ -1025,7 +1016,7 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
         </div>
         {pinned.length > 0 && (
           <div className="ins-section">
-            <div className="rail-label">Named on the figure</div>
+            <div className="rail-label">Named on figure</div>
             {pinned.map(g => {
               const r = rows.find(x => x.gene === g)
               return (

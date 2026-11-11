@@ -349,6 +349,12 @@ svg {
     height: var(--h-sm);
     padding: 0 var(--s2);
   }
+  /* A 24 px button keeps its height in a column that is short of room: Reset
+     in the rail measured 19.4 px (docs/design/ELEMENTS.md). */
+  .btn-sm,
+  .btn-quiet {
+    flex-shrink: 0;
+  }
   .btn-ghost {
     @apply border-0 bg-transparent underline underline-offset-4;
     color: var(--ink-3);
@@ -680,7 +686,8 @@ svg {
     color: inherit;
     cursor: pointer;
     font: inherit;
-    height: var(--h-md);
+    /* The head cell's hairline is part of its 28 px, as on a table whose heads do not sort (it measured 28.5). */
+    height: calc(var(--h-md) - 1px);
     padding: 0 var(--s2);
     text-align: inherit;
     white-space: nowrap;

@@ -133,6 +133,18 @@ export function sentinelCount(cells: readonly Cell[], types: readonly CellType[]
 export const countText = (s: SentinelCount): string =>
   s.by.map(b => `${b.name} ${b.n.toLocaleString('en-US')}`).join(', ')
 
+/** The key's name for these cells: one row, with their count, on screen and in a saved figure. */
+export const NOT_CALLED = 'Not called'
+
+/**
+ * The one sentence a figure that leaves these cells out carries, the same on
+ * screen and in its saved file: "16 cells the annotator did not call
+ * (EXCLUDED 10, UNRESOLVED 6) are on neither side of any test". `n` is the
+ * count the figure itself left out, when that is not the whole object's.
+ */
+export const notCalledNote = (s: SentinelCount, tail: string, names: 'counts' | 'names' = 'counts', n = s.total): string =>
+  (n > 0 ? `${n.toLocaleString('en-US')} cells the annotator did not call (${names === 'counts' ? countText(s) : namesText(s)}) ${tail}` : '')
+
 /** "EXCLUDED and UNRESOLVED" — the names alone. */
 export const namesText = (s: SentinelCount): string => {
   const names = s.by.map(b => b.name)

@@ -107,7 +107,7 @@ export default function PickMany({
             return (
               <button
                 key={c} role="option" aria-selected={on} disabled={taken}
-                className="flex w-full items-center gap-2 rounded-[--r-md] px-2 py-1.5 text-left tx-small hover:bg-[var(--sunk)]"
+                className="flex min-h-7 w-full items-center gap-2 rounded-[--r-md] px-2 py-1 text-left tx-small hover:bg-[var(--sunk)]"
                 style={{ opacity: taken ? 0.4 : 1 }}
                 title={taken ? 'already on the other side of this comparison' : undefined}
                 onClick={() => toggle(c)}

@@ -24,7 +24,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ViewBoundary
       what="studio"
-      escape={{ label: 'Reload the studio', go: () => window.location.reload() }}
+      escape={{ label: 'Reload', go: () => window.location.reload() }}
       note={<>
         This one got past the per-tab boundary, which means the failure is in the frame
         around the views rather than in one of them. Reloading is the way back, and it

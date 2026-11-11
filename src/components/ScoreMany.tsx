@@ -210,20 +210,20 @@ export default function ScoreMany({
           <RailGroup label="Figure">
             <Opts<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
             <Toggle on={scale} onChange={setScale}
-              title="z-score each signature across the columns shown, so a small signature and a large one can be compared">
-              Scale each signature
+              title="z-score each set across the columns shown, so a small set and a large one compare">
+              Scale each set
             </Toggle>
             <ColumnFilter types={types} conds={d.conds} groupBy={groupBy}
               hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
-              palKey={palKey} label="Columns in this figure" />
+              palKey={palKey} label="Columns shown" />
           </RailGroup>
         </InRail>
       )}
       <Stage fit head={<>
         {switcher}
-        <span className="stage-title">Which signature does each population express?</span>
+        <span className="stage-title">Which gene set does each cell type express?</span>
         <span className="stage-meta num">
-          {picked.length} chosen{picked.length >= MAX_SETS && ` — ${MAX_SETS} is the most`}
+          {picked.length} chosen{picked.length >= MAX_SETS && `, ${MAX_SETS} is the most`}
           {picked.length > chosen.length
             && `, ${picked.length - chosen.length} of them measure no gene in this object`}
         </span>
@@ -267,20 +267,18 @@ export default function ScoreMany({
             </div>
           </div>
 
-          <div className="read" tabIndex={0} role="region" aria-label="The signatures' scores">
+          <div className="read" tabIndex={0} role="region" aria-label="The gene sets' scores">
             {failed ? (
               <Failed error={failed} onRetry={retry} what="The module scores" />
             ) : chosen.length < 2 ? (
               <Empty title="Choose at least two sets in the list.">
-                One <b>AddModuleScore</b> per set, computed in a single pass over the matrix.
-                Every set keeps its own control genes, so the numbers are the ones scoring them
-                one at a time would give. One at a time is One set, which also draws it on
-                the embedding.
+                One <b>AddModuleScore</b> per set, each with its own control genes: the numbers are
+                the ones scoring them one at a time would give.
               </Empty>
             ) : !armed ? (
               <div className="empty">
                 <div className="card-title mb-1" style={{ color: 'var(--ink)', marginTop: 0 }}>
-                  {chosen.length} signatures
+                  {chosen.length} gene sets
                 </div>
                 One pass over every cell, whatever the number of sets.
                 <div className="mt-3.5">
@@ -288,13 +286,12 @@ export default function ScoreMany({
                 </div>
               </div>
             ) : waiting ? (
-              <Progress pass={pass ?? STARTING} title={`Scoring ${chosen.length} signatures`} />
+              <Progress pass={pass ?? STARTING} title={`Scoring ${chosen.length} gene sets`} />
             ) : grid ? (
               <>
                 <p className="sub m-0">
-                  One <b>AddModuleScore</b> per set, computed in a single pass over the matrix.
-                  Every set keeps its own control genes, so the numbers are the ones scoring
-                  them one at a time would give.
+                  One <b>AddModuleScore</b> per set, each with its own control genes: the numbers are
+                  the ones scoring them one at a time would give.
                 </p>
                 <Figure name="module_scores" className="mt-1" foot={{ title: 'Mean module score, one row per gene set' }}>
                   {/* The reader's DIVERGING scale, never their sequential one: a
@@ -315,9 +312,9 @@ export default function ScoreMany({
                 </InHead>
                 <p className="sub mt-2">
                   {scale
-                    ? <>Colour is <b>z-scored along each signature</b> — where that signature is
-                        highest, not how large it is.</>
-                    : <>Colour is the mean score of that signature in that population. Zero is the
+                    ? <>Colour is <b>z-scored along each set</b>: where that set is highest, not how
+                        large it is.</>
+                    : <>Colour is the mean score of that set in that cell type. Zero is the
                         reference: no higher than genes of comparable abundance.</>}
                 </p>
               </>
@@ -358,12 +355,12 @@ function ScoreGrid({ rows, cols, mean, scale, ramp }: {
     <div className="mt-2 overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ maxWidth: '100%' }}
         data-foot={JSON.stringify({ notes: [nNote(cols.map(c => ({ label: c.label, n: c.cells.length })))] })}
-        role="img" aria-label={`Mean module score of ${rows.length} signatures across ${cols.length} populations`}>
+        role="img" aria-label={`Mean module score: ${rows.length} gene sets across ${cols.length} cell types`}>
         {rows.map((r, si) => cols.map((col, k) => (
           <rect key={`${si}-${k}`} x={PL + k * cw} y={PT + si * rh} width={cw} height={rh}
             className="gfill" style={onGround(rampColor((mean[si * cols.length + k] - lo) / (hi - lo), ramp), rampColor((mean[si * cols.length + k] - lo) / (hi - lo), ramp, 'dark'))}>
             <title>
-              {r} in {col.full} — {scale ? 'z ' : ''}{mean[si * cols.length + k].toFixed(3)}
+              {r} in {col.full}: {scale ? 'z ' : ''}{mean[si * cols.length + k].toFixed(3)}
               {' · '}{col.cells.length.toLocaleString()} cells
             </title>
           </rect>
@@ -384,7 +381,7 @@ function ScoreGrid({ rows, cols, mean, scale, ramp }: {
         })}
         <ColorBar cx={W / 2} y={H - BAR_H + 22} w={170} h={10} ramp={ramp}
           lo={lo} hi={hi} id="scoremany"
-          title={scale ? 'z-score, along each signature' : 'mean module score'}
+          title={scale ? 'z-score, along each set' : 'mean module score'}
           breaks={scale ? [-2.5, 0, 2.5] : undefined} />
       </svg>
     </div>

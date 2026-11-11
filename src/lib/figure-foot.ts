@@ -56,8 +56,15 @@ export interface Foot {
   title?: string
   /** The key: one entry per colour or mark. */
   key?: FootKey[]
-  /** n, and what a mark means: one sentence each. */
+    /** n, and what a mark means: one sentence each. */
   notes?: (string | false | null | undefined)[]
+  /**
+   * What one panel of this sheet carries when it is saved alone from its
+   * corner: the panel has its own name and axis, and is a column wide or
+   * less, so the sheet's title and what is true only of the sheet are left
+   * out (the whole sheet's legend was as tall as a 1.8 in panel's plot).
+   */
+  panel?: Foot
 }
 
 export type FootItem =
@@ -116,13 +123,30 @@ export function layFoot(foot: Foot | undefined, width: number): { h: number; ite
   return items.length ? { h: y + PAD, items } : { h: 0, items }
 }
 
-/** Wrap a sentence at spaces only: "4,598" is one word, and a name's slash is not a line end here. */
-function wrapSpaces(s: string, width: number, px: number, bold: boolean): string[] {
+/**
+ * Wrap a sentence at spaces only: "4,598" is one word, and a name's slash is
+ * not a line end here. A list of entries ("qNSC / Quiescent 3,573 · …") is
+ * wrapped between entries, so a name is never parted from its count; only an
+ * entry wider than the whole line is wrapped at its own spaces.
+ */
+export function wrapSpaces(s: string, width: number, px: number, bold: boolean): string[] {
   const out: string[] = []
   let line = ''
-  for (const word of s.split(' ')) {
-    const next = line ? `${line} ${word}` : word
-    if (line && textW(next, px, bold) > width) { out.push(line); line = word } else line = next
+  const units = s.includes(' \u00b7 ') ? s.split(/(?<= \u00b7 )|(?<=: )/).map(u => u.trimEnd()) : s.split(' ')
+  for (const unit of units) {
+    const next = line ? `${line} ${unit}` : unit
+    if (!line || textW(next, px, bold) <= width) { line = next; continue }
+    out.push(line)
+    line = unit
+    if (textW(unit, px, bold) > width && unit.includes(' ')) {
+      const inner = unit.split(' ')
+      line = ''
+      for (const word of inner) {
+        const n2 = line ? `${line} ${word}` : word
+                // The dot that ends an entry stays with it.
+        if (line && word !== '\u00b7' && textW(n2, px, bold) > width) { out.push(line); line = word } else line = n2
+      }
+    }
   }
   if (line) out.push(line)
   return out

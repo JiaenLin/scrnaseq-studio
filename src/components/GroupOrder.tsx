@@ -67,8 +67,7 @@ export default function GroupOrder({ conds, custom, palKey, onChange, onReset }:
             ))}
           </ol>
           <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
-            Every figure that splits by group follows this. No statistic is recomputed —
-            Control and Compare are chosen by name and do not move.
+            Every figure that splits by group follows this. No statistic is recomputed: Control and Compare are chosen by name.
           </p>
         </div>
       </Popover>

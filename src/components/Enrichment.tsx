@@ -20,7 +20,7 @@ import { maxOf, niceStep, sci } from '../lib/chart.ts'
 import {
   combinedScore, condLabel, isSig, type Threshold } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
-import { onGround, MARK_EDGE } from '../lib/figure-ink.ts'
+import { onGround, MARK_EDGE, AXIS_INK } from '../lib/figure-ink.ts'
 import { ColorBar } from './svg-parts.tsx'
 import { rampColor, type RampKey } from '../lib/palette.ts'
 import { Empty } from './Ui.tsx'
@@ -213,8 +213,8 @@ export default function Enrichment({
         {index
           ? `Hypergeometric on ${query.length} genes ${dirLabel}, against an annotated `
             + `background of ${index.N.toLocaleString()} of the ${background.length.toLocaleString()} `
-            + `this object measures. ${results.length.toLocaleString()} sets overlapped the list; `
-            + `${nSig.toLocaleString()} reach padj < 0.05 after BH across all of them.`
+            + `genes measured. ${results.length.toLocaleString()} sets overlap the list; `
+            + `${nSig.toLocaleString()} reach padj < 0.05 (BH).`
           : 'Loading the gene sets…'}
       </p>
 
@@ -280,19 +280,17 @@ export default function Enrichment({
         <div className="mt-4">
           <Empty title="No set is enriched in this list">
             {query.length === 0
-              ? `No gene passes padj < ${threshold.padj} and |log₂FC| ≥ ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs on the left, or press Reset to return to the default for this test.`
+              ? `No gene passes padj < ${threshold.padj} and |log₂FC| ≥ ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs on the left, or press Reset.`
               : inRange.of === 0
                 ? 'No collection is loaded, so there was nothing to test against. Switch one on under Collections on the left.'
                 : inRange.n === 0
                   ? `${query.length} genes, but none of the ${inRange.of.toLocaleString()} sets `
-                    + `fall between ${minSize} and ${maxSize} genes — so nothing was tested. `
+                    + `fall between ${minSize} and ${maxSize} genes, so nothing was tested. `
                     + 'Widen the set size window on the left.'
                   : nInBg === 0
-                    ? `None of the ${query.length} genes in this list is in any of the `
-                      + `${inRange.n.toLocaleString()} sets tested, so there is nothing to be `
-                      + 'enriched. On a small collection of your own that usually means the '
-                      + 'species or the capitalisation differs from this object — the set '
-                      + 'editor lists which genes it could not find.'
+                    ? `None of the ${query.length} genes is in any of the `
+                      + `${inRange.n.toLocaleString()} sets tested. With your own sets, check `
+                      + 'species and capitalization in the set editor.'
                     : `${query.length} genes against ${inRange.n.toLocaleString()} sets, and nothing `
                       + 'reached significance. With a list this size that is a normal outcome, not an error.'}
           </Empty>
@@ -344,7 +342,7 @@ export default function Enrichment({
             showing {shown.length}
           </p>
           <p className="mono tx-micro" style={{ color: 'var(--ink-3)' }}>
-            fold = (k/n) ÷ (K/N) · click a bar for its member genes · the CSV has every set
+            fold = (k/n) ÷ (K/N) · select a bar for its member genes · the CSV has every set
           </p>
           {selected && (
             <TermDetail
@@ -392,7 +390,7 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
         <table className="t">
           <thead>
             <tr><th>Gene</th><th className="num">log&#8322;FC</th><th className="num">Combined</th>
-              <th className="num">Rank of {ranked.size}</th><th className="num">p adjusted</th><th>Direction</th></tr>
+              <th className="num">Rank of {ranked.size}</th><th className="num">padj</th><th>Direction</th></tr>
           </thead>
           <tbody>
             {members.map(({ gene, comb, rank, r }) => (
@@ -508,7 +506,7 @@ function Bars({ results, onPick, selected, metric, nQuery, rampKey }: {
       : metric === 'fold' ? `${r.foldEnrichment.toFixed(1)}\u00d7`
       : `${r.count}/${r.setSize}`
   const axisLabel =
-    metric === 'ratio' ? 'gene ratio — genes of this list that are in the set'
+    metric === 'ratio' ? 'gene ratio (list genes in the set)'
       : metric === 'fold' ? 'fold enrichment over the background'
       : 'genes of the set in this list'
   // r.nlpAdj, not -log10(padj). They agree everywhere padj is representable and
@@ -600,7 +598,7 @@ function Bars({ results, onPick, selected, metric, nQuery, rampKey }: {
                 stroke={MARK_EDGE} strokeWidth={on ? 1 : 0.4}
                 className="gfill" style={onGround(rampColor(Math.min(1, Math.max(0, at(r))), sigRamp), rampColor(Math.min(1, Math.max(0, at(r))), sigRamp, 'dark'))}>
                 <title>
-                  {r.name} — {r.count} of this list in a set of {r.setSize},
+                  {r.name}: {r.count} of this list in a set of {r.setSize},
                   {' '}{r.foldEnrichment.toFixed(2)}× enrichment,
                   {' '}adjusted p {r.padj > 0 ? r.padj.toExponential(1) : `<1e-308 (−log₁₀ ${nlp(r).toFixed(1)})`}
                 </title>
@@ -619,11 +617,11 @@ function Bars({ results, onPick, selected, metric, nQuery, rampKey }: {
         <ColorBar cx={(PL + W - PR) / 2} y={H - BAR_H + 16} w={220} h={11}
           ramp={sigRamp} lo={lo} hi={hi} id="ora-scale"
           title="−log₁₀ adjusted p" />
-        <text className="axis" x={(PL + W - PR) / 2} y={H - 4} textAnchor="middle"
-          style={{ fill: 'var(--ink-3)' }}>
+                <text className="axis" x={(PL + W - PR) / 2} y={H - 4} textAnchor="middle"
+          style={{ fill: AXIS_INK }}>
           {lo <= CUT
             ? `0.05 is ${CUT.toFixed(1)} on this scale`
-            : `every term drawn is past 0.05 — the scale starts at ${lo.toFixed(1)}`}
+            : `all terms past 0.05: scale starts at ${lo.toFixed(1)}`}
         </text>
       </svg>
     </div>

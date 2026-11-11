@@ -246,6 +246,53 @@ for (const [theme, width] of [['light', 1440], ['dark', 1440], ['light', 1280], 
   await ctx.close()
 }
 
+// From W051: an object with cells the annotator did not call (the lab fixture,
+// 16 of 240). Its screen said so and its files did not: grey points with no
+// key entry, a key that summed to 224 under panels of n = 120 + 120.
+console.log('\nA FILE NAMES THE CELLS THE ANNOTATOR DID NOT CALL')
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', acceptDownloads: true })
+  await ctx.addInitScript(() => {
+    window.__painted = null
+    const orig = CanvasRenderingContext2D.prototype.fillText
+    CanvasRenderingContext2D.prototype.fillText = function (t, ...r) { if (window.__painted) window.__painted.push(String(t)); return orig.call(this, t, ...r) }
+  })
+  const page = await ctx.newPage()
+  const settle = async (ms = 500) => { await page.waitForTimeout(ms); await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))) }
+  await page.goto(url, { waitUntil: 'networkidle' })
+  await page.setInputFiles('input[type=file]', path.resolve('testdata/lab/family-2x2.zip'))
+  await page.waitForSelector('[role="tablist"]', { timeout: 60_000 }); await settle(800)
+  // The words of one saved file: an SVG's own text, or what a canvas figure painted into its PNG.
+  const saved = async (nth, item) => {
+    await page.locator('button[aria-haspopup="menu"][title^="Save"]:not(.fig-corner-btn)').nth(nth).click(); await settle(300)
+    await page.evaluate(() => { window.__painted = [] })
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('.menu-in [role="menuitem"]', { hasText: item }).first().click()])
+    const f = path.join(out, `lab-${dl.suggestedFilename()}`); await dl.saveAs(f)
+    const painted = await page.evaluate(() => { const p = window.__painted; window.__painted = null; return p })
+    return (f.endsWith('.svg') ? fs.readFileSync(f, 'utf8').replace(/<[^>]+>/g, ' ') : painted.join(' | ')).replace(/\s+/g, ' ')
+  }
+  await page.getByRole('tab', { name: 'Cells', exact: true }).click(); await settle(900)
+  const cells = await saved(0, '300')
+  check("Cells: the saved key has a row 'Not called' with its count (16)", /Not called \| 16\b/.test(cells), cells.slice(-240))
+  check('Cells: and the annotator\'s own labels (EXCLUDED 10, UNRESOLVED 6)', /EXCLUDED 10/.test(cells) && /UNRESOLVED 6/.test(cells))
+  const key = [...cells.matchAll(/Type[A-D] \| (\d+)/g)].map(m => +m[1])
+  check(`Cells: the saved key sums to the cells drawn (${key.join(' + ')} + 16 = 240)`, key.length === 4 && key.reduce((a, b) => a + b, 0) + 16 === 240)
+  await page.getByRole('tab', { name: 'Composition', exact: true }).click(); await settle(900)
+  const comp = await saved(0, 'SVG')
+  check('Composition: the saved legend says 16 cells the annotator did not call are left out', /16 cells the annotator did not call \(EXCLUDED and UNRESOLVED\) are not a cell type and are left out/.test(comp), comp.slice(-300))
+  const onScreen = (await page.locator('main').innerText()).replace(/\s+/g, ' ')
+  check('Composition: in the words its screen shows', /16 cells the annotator did not call \(EXCLUDED and UNRESOLVED\) are not a cell type and are left out/.test(onScreen))
+  const sheet = await saved(1, 'SVG')
+  check('Composition, the sheet by group: its legend says so too', /16 cells the annotator did not call/.test(sheet), sheet.slice(-300))
+  await page.getByRole('tab', { name: 'Markers', exact: true }).click(); await settle(900)
+  const find = page.getByRole('button', { name: /^Find markers/ }).first()
+  if (await find.count()) await find.click()
+  await page.waitForSelector('main svg[role="img"]', { timeout: 60_000 }); await settle(900)
+  const mk = await saved(0, 'SVG')
+  check('Markers: the saved legend says they are on neither side of any test', /16 cells the annotator did not call \(EXCLUDED 10, UNRESOLVED 6\) are on neither side of any test/.test(mk), mk.slice(-300))
+  await ctx.close()
+}
+
 console.log('\nTYPE IN PRINT RANGE AT EVERY WINDOW')
 {
   const pts = Object.values(types)

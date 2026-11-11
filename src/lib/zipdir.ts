@@ -58,7 +58,7 @@ export async function readZipDir(
   for (let i = tail.byteLength - 22; i >= 0; i--) {
     if (t.getUint32(i, true) === 0x06054b50) { eocd = i; break }
   }
-  if (eocd < 0) fail('this part is not a zip — the collection is damaged')
+  if (eocd < 0) fail('this part is not a zip: the collection is damaged')
 
   const count = t.getUint16(eocd + 10, true)
   const dirSize = t.getUint32(eocd + 12, true)
@@ -98,7 +98,7 @@ export async function payloadStart(file: Blob, e: ZipEntry): Promise<number> {
   const head = await file.slice(e.headerAt, e.headerAt + 30).arrayBuffer()
   const h = dv(head)
   if (h.getUint32(0, true) !== 0x04034b50) {
-    fail(`${e.name} is not where the index says — this file is damaged`)
+    fail(`${e.name} is not where the index says: this file is damaged`)
   }
   return e.headerAt + 30 + h.getUint16(26, true) + h.getUint16(28, true)
 }
@@ -108,7 +108,7 @@ export async function readZipEntry(file: Blob, e: ZipEntry): Promise<Uint8Array>
   const from = await payloadStart(file, e)
   const raw = new Uint8Array(await file.slice(from, from + e.compressedSize).arrayBuffer())
   if (raw.length !== e.compressedSize) {
-    fail(`${e.name} is ${raw.length} bytes but the index says ${e.compressedSize} — this file is truncated`)
+    fail(`${e.name} is ${raw.length} bytes but the index says ${e.compressedSize}: this file is truncated`)
   }
   if (e.method === 0) return raw
   if (e.method !== 8) fail(`${e.name} uses compression method ${e.method}, which this reader does not know`)
