@@ -147,6 +147,8 @@ export const FIG_TYPE = {
   dense: 9,
   /** Axis ticks and most in-figure text. Matches the .axis class in index.css. */
   tick: 10.5,
+  /** A category's name on an axis (a cell type, a group): the interface's own floor. */
+  name: 11,
   /** A panel title, a row label, a key entry. */
   label: 11.5,
   /** An axis title, or a legend heading. */

@@ -9,9 +9,9 @@
 import { useMemo, useState } from 'react'
 import type { Identity } from '../../types.ts'
 import { density, maxOf, maxOfAll, quantiles } from '../../lib/chart.ts'
-import { axisTicks, textW, wrapAll } from '../../lib/labels.ts'
+import { axisTicks, bandNames, bandNeed, textW } from '../../lib/labels.ts'
 import {
-  DOWN_MARK, GHOST_INK, MARK_EDGE, SUMMARY_INK, TICK_INK, UP_MARK,
+  DOWN_MARK, FIG_TYPE, GHOST_INK, MARK_EDGE, SUMMARY_INK, TICK_INK, UP_MARK,
 } from '../../lib/figure-ink.ts'
 import { inConds } from '../../lib/stats.ts'
 import { mix } from '../../lib/palette.ts'
@@ -45,8 +45,18 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
   // the size it was set in. It was drawn 620 px wide and scaled into the
   // column: 7.6 px axis text at 1,280. A column narrower than a panel can be
   // read at means fewer columns, never a smaller drawing.
-  const GAP = 14, MIN_W = 300
-  const maxW = (p.cols <= 2 ? 620 : 400) * 1.25
+  const GAP = 14
+  // Grouped by cell type and group, a panel is first given the width at which
+  // every cell type's name sits upright under its block: a column goes before
+  // a name is turned, and a name is never cut inside a word (it was: six of
+  // nine at 1,280 px). With more types than any width holds, `bandNames`
+  // turns the row.
+  const typeNames = p.groupBy === 'both' ? [...new Set(p.ids.map(c => c.ti))].map(ti => p.types[ti].name) : []
+  const wantW = typeNames.length
+    ? PL0 + PR + typeNames.length * bandNeed(typeNames, FIG_TYPE.name, true)
+    : 0
+  const MIN_W = Math.max(300, Math.min(wantW, sheetW || wantW))
+  const maxW = Math.max((p.cols <= 2 ? 620 : 400) * 1.25, MIN_W)
   const fitCols = sheetW ? Math.max(1, Math.min(cols, Math.floor((sheetW + GAP) / (MIN_W + GAP)))) : cols
   const panelW = sheetW
     ? Math.max(MIN_W, Math.min(maxW, Math.floor((sheetW - GAP * (fitCols - 1)) / fitCols)))
@@ -82,12 +92,15 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
   )
 }
 
+/** A panel's left gutter (the y title and its ticks) and right margin. */
+const PL0 = 44, PR = 8
+
 function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean; width?: number }) {
   const both = p.groupBy === 'both'
   const cats = p.ids
   const per = cats.length
   const W = p.width ?? (p.cols <= 2 ? 620 : 400)
-  const PL0 = 44, PT = 20, PR = 8
+  const PT = 20
   const DET = 9 // strip for the detection bars
   const PLOT = (p.cols <= 2 ? 210 : 190) - 39
 
@@ -101,24 +114,45 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean;
    * had reserved 46. `svg { overflow: visible }` means it does not clip, it
    * paints — over the caption, and over the next panel down.
    */
-  const LAB_PX = per > 10 ? 10 : 10.5
-  const bw = (W - PL0 - PR) / per
+  // A category's name is never under the interface's floor (it was 10 px
+  // past ten categories).
+  const LAB_PX = FIG_TYPE.name
   const labels = cats.map(c => c.label)
+  // The cell types under a grouped axis, one block each, placed by position
+  // among the types this panel draws.
+  const blockTis = both ? [...new Set(cats.map(c => c.ti))] : []
+  const perBlock = per / Math.max(1, blockTis.length)
   // leftAnchor is where the FIRST tick sits: the one that reaches back past the
   // y axis when the names are long. It was 62 units off the left edge of the
   // box on a real annotation, and the margin below was 47 short as well —
   // because reserving a capped margin is not the same as fitting the label to
   // it. axisTicks does both, and picks the angle that keeps neighbours apart.
-  const tick = axisTicks(labels, {
-    band: bw, leftAnchor: PL0 + bw / 2, px: LAB_PX, deg: 42, startAt: 11,
-  })
-  // Grown by what the first tick reaches back past its own anchor, so a long
-  // name rotates into room that exists rather than off the left of the plate.
-  // The band was measured against PL0, which is the conservative direction:
-  // widening the gutter only narrows the band, and a narrower band is what
-  // makes axisTicks steepen — never the other way.
-  const PL = PL0 + tick.left
-  const PB = DET + (both ? 26 : 0) + tick.bottom
+  const fitAxis = (gutter: number) => {
+    const w = (W - gutter - PR) / per
+    const t = axisTicks(labels, {
+      band: w, leftAnchor: gutter + w / 2, px: LAB_PX, deg: 42, startAt: 11,
+    })
+    // Under the group names: on one line, wrapped at a space, or the whole
+    // row turned. Never cut inside a word (`bandNames`).
+    const b = both
+      ? bandNames(blockTis.map(ti => p.types[ti].name), {
+        band: w * perBlock, leftAnchor: gutter + (w * perBlock) / 2, px: FIG_TYPE.name, bold: true,
+        deg: t.rotate ? t.deg : 42,
+      })
+      : null
+    return { w, t, b, grow: Math.max(t.left, b?.left ?? 0) }
+  }
+  // Grown by what the first name reaches back past its own anchor, so a long
+  // name turns into room that exists rather than off the left of the plate;
+  // and the bands are then measured again inside the gutter they are drawn
+  // in. They were measured against the bare gutter and drawn from the grown
+  // one, so the last violin ran past the right edge by the difference.
+  const bare = fitAxis(PL0)
+  const fitted = bare.grow ? fitAxis(PL0 + bare.grow) : bare
+  const PL = PL0 + bare.grow
+  const bw = fitted.w, tick = fitted.t, band = fitted.b
+  const block = bw * perBlock
+  const PB = DET + tick.bottom + (band ? band.bottom : 0)
   const H = PT + PLOT + PB
 
   const series = cats.map(c => p.src.values(p.gene, c.ti, p.groupBy === 'type' ? null : c.cond))
@@ -176,7 +210,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean;
         role="img" aria-label={`${p.gene} expression`}>
         {/* What the axis measures, and in what: the object's own record of its
             scale, never a guess; relative to the control's mean when asked. */}
-        <text className="axis" transform={`rotate(-90 8 ${PT + PLOT / 2})`} x={8} y={PT + PLOT / 2}
+        <text className="axis" transform={`rotate(-90 11 ${PT + PLOT / 2})`} x={11} y={PT + PLOT / 2}
           textAnchor="middle" style={{ fontSize: 10.5 }}>{yTitle}</text>
         <text x={PL} y={11} style={{ fontSize: 11.5, fontWeight: 600, fill: 'var(--ink)', fontStyle: 'italic' }}>
           {p.gene}
@@ -243,25 +277,28 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean;
             position among them. It was placed by the type's index in the whole
             list, so a hidden type — or a sentinel, which is never drawn — left
             every later band one block to the right of its own violins. */}
-        {both && [...new Set(cats.map(c => c.ti))].map((ti, k) => {
+        {band && blockTis.map((ti, k) => {
           const t = p.types[ti]
-          const block = bw * p.src.d.conds.length
-          const x0 = PL + bw * k * p.src.d.conds.length
-          // Wrapped onto as many lines as the name needs. It was cut to the
-          // block width, so on a real annotation every band read "Cardiomyo…"
-          // and the figure had one label repeated across it.
-          const lines = wrapAll(t.name, block - 4, 9.5, true)
+          const x0 = PL + block * k
+          const mid = x0 + block / 2
+          const top = H - PB + DET + tick.bottom
+          const ink = { fontSize: FIG_TYPE.name, fill: 'var(--ink)', fontWeight: 600 }
           return (
             <g key={t.key}>
               {k > 0 && <line className="axgrid" x1={x0} x2={x0} y1={PT} y2={H - PB + DET + 2} />}
-              <text className="axis" x={x0 + block / 2} y={H - 4 - 11 * (lines.length - 1)}
-                textAnchor="middle"
-                style={{ fontSize: 10.5, fill: 'var(--ink)', fontWeight: 600 }}>
-                {lines.map((line, li) => (
-                  <tspan key={li} x={x0 + block / 2} dy={li === 0 ? 0 : 11}>{line}</tspan>
-                ))}
-                <title>{t.name}</title>
-              </text>
+              {band.rotate ? (
+                <text className="axis" data-name={t.name} transform={`rotate(${-band.deg} ${mid} ${top + 9})`}
+                  x={mid} y={top + 9} textAnchor="end" style={ink}>
+                  {t.name}<title>{t.name}</title>
+                </text>
+              ) : (
+                <text className="axis" data-name={t.name} x={mid} y={top + 10} textAnchor="middle" style={ink}>
+                  {band.lines[k].map((line, li) => (
+                    <tspan key={li} x={mid} dy={li === 0 ? 0 : band.lineH}>{line}</tspan>
+                  ))}
+                  <title>{t.name}</title>
+                </text>
+              )}
             </g>
           )
         })}

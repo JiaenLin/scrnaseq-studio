@@ -147,28 +147,37 @@ export function axisTicks(labels: readonly string[], o: {
   }
 }
 
+/** Where a name may be taken onto a new line: after a space, or after the punctuation compound annotations use. */
+const BREAK_AFTER = /(?<=[ /|,_-])/
+
 /**
- * Wrap onto as many lines as the text needs. Nothing is dropped.
+ * Wrap onto as many lines as the text needs, and never inside a word.
  *
  * Breaks on spaces, then on the punctuation compound annotations actually use
- * — "Cardiomyocyte/Working cardiomyocyte", "Immune|Myeloid" — and only then
- * inside a word, because a single token longer than the line has no break
- * point and leaving it to overflow is worse than splitting it.
+ * ("Cardiomyocyte/Working cardiomyocyte", "Immune|Myeloid"). It also broke
+ * INSIDE a word when one token was longer than the line, and under a grouped
+ * violin every cell type is one token in a narrow block: "Oligode / ndrocyt /
+ * e", six names of nine at 1,280 px. A name cut inside a word is not that
+ * name. A caller with a row of names in bands asks `bandNames`, which finds
+ * room or turns the row; here, where the box cannot grow sideways (a panel's
+ * title, a row label), a single token wider than the line keeps its first
+ * letters and an ellipsis, and the element carries the whole name in its
+ * `<title>`.
  */
 export function wrapAll(s: string, width: number, px = 10.5, bold = false): string[] {
   const per = px * (bold ? EM_BOLD : EM_NORMAL)
-  const room = Math.max(3, Math.floor(width / per))
+  const room = Math.max(3, Math.floor(width / per + 1e-6))
   if (s.length <= room) return [s]
   // Split into pieces that may end a line, keeping the delimiter with the piece
   // before it so "Endothelial/" reads as a continuation rather than a name.
-  const pieces = s.split(/(?<=[ /|,_-])/)
+  const pieces = s.split(BREAK_AFTER)
   const out: string[] = []
   let line = ''
   const push = () => { if (line) { out.push(line.trimEnd()); line = '' } }
   for (const piece of pieces) {
-    if (piece.length > room) {
+    if (piece.trimEnd().length > room) {
       push()
-      for (let i = 0; i < piece.length; i += room) out.push(piece.slice(i, i + room))
+      out.push(`${piece.slice(0, Math.max(1, room - 1))}…`)
       continue
     }
     if (line.length + piece.length > room) push()
@@ -176,6 +185,83 @@ export function wrapAll(s: string, width: number, px = 10.5, bold = false): stri
   }
   push()
   return out.length ? out : [s]
+}
+
+/**
+ * Wrap at break points only, onto lines no wider than `width`.
+ *
+ * Null when a single word is wider than the line: the caller finds room or
+ * turns the label. It never cuts the word and never shortens it.
+ */
+export function wrapWords(s: string, width: number, px = 10.5, bold = false): string[] | null {
+  const per = px * (bold ? EM_BOLD : EM_NORMAL)
+  const room = Math.floor(width / per + 1e-6)
+  if (s.length <= room) return [s]
+  const out: string[] = []
+  let line = ''
+  for (const piece of s.split(BREAK_AFTER)) {
+    if (piece.trimEnd().length > room) return null
+    if (line && (line + piece).trimEnd().length > room) { out.push(line.trimEnd()); line = '' }
+    line += piece
+  }
+  if (line) out.push(line.trimEnd())
+  return out
+}
+
+/** How a row of names under bands is set: upright (one line or wrapped), or the whole row turned. */
+export type BandNames =
+  | { rotate: false; lines: string[][]; lineH: number; bottom: number; left: number }
+  | { rotate: true; deg: number; lineH: number; bottom: number; left: number }
+
+/**
+ * A row of names under bands: the cell types under a grouped axis.
+ *
+ * In this order, and for the whole row at once, so a row is never half
+ * upright and half turned: every name on one line; wrapped at a space or at
+ * the punctuation of a compound name, on at most `maxLines` lines; the row
+ * turned to one angle, each name ending under the middle of its band. Never
+ * cut inside a word, never shortened. `bottom` is the depth the row needs and
+ * `left` what the first turned name reaches past the plot's left edge.
+ */
+export function bandNames(names: readonly string[], o: {
+  band: number
+  /** x of the first band's middle: the room a turned name has to its left. */
+  leftAnchor: number
+  px?: number; bold?: boolean; maxLines?: number; deg?: number; gap?: number
+}): BandNames {
+  const { band, leftAnchor, px = 11, bold = true, maxLines = 3, deg = 42, gap = 4 } = o
+  const lineH = Math.round(px * 1.18)
+  const wrapped = names.map(n => wrapWords(n, band - gap, px, bold))
+  if (wrapped.every(l => l !== null && l.length <= maxLines)) {
+    const rows = Math.max(1, ...wrapped.map(l => l!.length))
+    return { rotate: false, lines: wrapped as string[][], lineH, bottom: rows * lineH + 5, left: 0 }
+  }
+  const rad = (d: number) => (d * Math.PI) / 180
+  const widest = widestW(names, px, bold)
+  let a = 90
+  for (const cand of [deg, 55, 72, 90]) {
+    a = cand
+    if (band * Math.sin(rad(a)) >= px * 1.2) break
+  }
+  return {
+    rotate: true, deg: a, lineH,
+    bottom: Math.ceil(px + widest * Math.sin(rad(a)) + 6),
+    left: Math.max(0, Math.ceil(widest * Math.cos(rad(a)) - leftAnchor + 2)),
+  }
+}
+
+/** The narrowest band in which every name sits upright on at most `maxLines` lines. */
+export function bandNeed(
+  names: readonly string[], px = 11, bold = true, maxLines = 2, gap = 4,
+): number {
+  const per = px * (bold ? EM_BOLD : EM_NORMAL)
+  let need = 0
+  for (const n of names) {
+    let room = Math.max(1, ...n.split(BREAK_AFTER).map(p => p.trimEnd().length))
+    while (room < n.length && (wrapWords(n, room * per, px, bold)?.length ?? Infinity) > maxLines) room++
+    need = Math.max(need, Math.min(room, n.length) * per)
+  }
+  return Math.ceil(need + gap)
 }
 
 /** How many lines `wrapAll` needs, over several labels — for a margin. */
