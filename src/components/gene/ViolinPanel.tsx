@@ -17,7 +17,6 @@ import { inConds } from '../../lib/stats.ts'
 import { mix } from '../../lib/palette.ts'
 import Figure from '../Figure.tsx'
 import { InRail, RailGroup, Toggle } from '../Rail.tsx'
-import { SHEET_INCHES } from '../../lib/download.ts'
 import { sheetSvgs } from '../../lib/figure-pick.ts'
 import { breaksOf, fmtBreak } from '../../lib/breaks.ts'
 import { useWidth } from '../../lib/use-width.ts'
@@ -73,7 +72,7 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
       </InRail>
       {/* One Save for the figure, at the head line's right end: every panel
           on one sheet. A single panel saves from its own corner. */}
-      <Figure name="violins" label="Save all panels" inches={SHEET_INCHES}
+      <Figure name="violins" label="Save all panels"
         sheet={{ svgs: () => sheetSvgs<SVGSVGElement>(sheet.current), cols: fitCols }}>
       <div ref={sheet} className="grid gap-3.5"
         // Panels at their own size and at most 1.25 times it: the type does

@@ -6,7 +6,7 @@ import {
   refuses, rowAxes,
   type CompField, type CompTable,
 } from '../lib/composition.ts'
-import { downloadCsv, SHEET_INCHES } from '../lib/download.ts'
+import { downloadCsv } from '../lib/download.ts'
 import { sheetSvgs } from '../lib/figure-pick.ts'
 import { groupInk, MARK_EDGE } from '../lib/figure-ink.ts'
 import { axisTicks, wrapAll, widestW } from '../lib/labels.ts'
@@ -353,7 +353,7 @@ export default function Composition({ d, types, palKey }: {
           </InHead>
           {/* The sheet's drawings only: it took every svg in the grid, which
               since each panel drew its own download glyph was also the icons. */}
-          <Figure name="proportion_by_group" label="Save all panels" inches={SHEET_INCHES}
+          <Figure name="proportion_by_group" label="Save all panels"
             sheet={{ svgs: () => sheetSvgs<SVGSVGElement>(sheet.current), cols: 3 }}>
           <div
             ref={sheet}

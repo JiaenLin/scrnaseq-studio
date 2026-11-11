@@ -5,7 +5,6 @@ import type { Source } from '../lib/source.ts'
 import { embedExtent, fmt, hasSignal } from '../lib/chart.ts'
 import { EDGE, NAME, fitPanels } from '../lib/fit-panels.ts'
 import Figure from './Figure.tsx'
-import { FIGURE_INCHES, SHEET_INCHES } from '../lib/download.ts'
 import { useDark } from '../lib/theme.ts'
 import { ActionSlot } from '../lib/action-slot.ts'
 import { paintEmbedding } from '../lib/embed-paint.ts'
@@ -323,8 +322,7 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
         </header>
 
         <Figure name={`cells_${emb.key}_by_${shown}${panels.length > 1 ? '_split' : ''}`}
-          className="contents" redraw={redraw} extent={extent}
-          inches={panels.length > 1 ? SHEET_INCHES : FIGURE_INCHES}>
+          className="contents" redraw={redraw} extent={extent}>
         <div ref={boxRef} className="plots" data-panels={panels.length > 1 ? 'many' : undefined}
           style={{ gridTemplateColumns: `repeat(${fit.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${fit.rows}, minmax(0, 1fr))` }}>
           {panels.map((p, k) => (

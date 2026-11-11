@@ -20,7 +20,10 @@
 import fs from 'node:fs'
 import zlib from 'node:zlib'
 import { figureSvg, isDrawing, sheetSvgs } from '../src/lib/figure-pick.ts'
-import { pngWithDpi, scaleForDpi, FIGURE_INCHES, SHEET_INCHES } from '../src/lib/download.ts'
+import {
+  MIN_PRINT_PT, PRINT_PX_PER_IN, atPrintSize, pngWithDpi, printSize, scaleForDpi, FIGURE_INCHES, SHEET_INCHES,
+} from '../src/lib/download.ts'
+import { FIG_TYPE } from '../src/lib/figure-ink.ts'
 import {
   DIVERGING, PALETTES, RAMPS, SEQUENTIAL, ZERO_ON_DARK, inkOn, mix, pal, rampColor,
 } from '../src/lib/palette.ts'
@@ -164,6 +167,34 @@ console.log('\nA PNG SAYS ITS RESOLUTION')
   check('not a PNG, not touched', Buffer.from(pngWithDpi(new Uint8Array([1, 2, 3]), 300)).equals(Buffer.from([1, 2, 3])))
   check('one column is 3.5 in, a sheet 7: 300 dpi is 1,050 and 2,100 px',
     [Math.round(500 * scaleForDpi(500, 300)), Math.round(500 * scaleForDpi(500, 300, SHEET_INCHES)), FIGURE_INCHES], [1050, 2100, 3.5])
+}
+
+console.log('\nA SAVED FIGURE IS THE WIDTH ITS MENU SAYS, AND ITS TYPE IS IN PRINT RANGE')
+{
+  // Every figure was saved "3.5 in wide" whatever its drawn width: true only
+  // at one window (Markers' file was 3.80 in at 1,440 px, a Cells panel
+  // 3.69), with type from 2.3 pt (Markers) to 12.6 pt (a Composition panel).
+  const px = []; for (let w = 120; w <= 2600; w += 1) px.push(w)
+  const sizes = px.map(w => ({ w, ...printSize(w) }))
+  const pt = (s, type) => (type * 72 * s.inches) / s.w
+  check('the width is a multiple of 0.1 in at every drawn width', sizes.filter(s => Math.abs(s.inches * 10 - Math.round(s.inches * 10)) > 1e-9).length, 0)
+  check('at 300 and at 600 dpi the file is that width to the pixel',
+    sizes.filter(s => [300, 600].some(dpi => Math.round(s.w * scaleForDpi(s.w, dpi, s.inches)) !== Math.round(s.inches * dpi))).length, 0)
+  check('no floor on the scale: a 1,139 px drawing at "3.5 in" is 1,050 px, not 1,139', Math.round(1139 * scaleForDpi(1139, 300)), 1050)
+  check(`the smallest figure type (${FIG_TYPE.tick} px) never prints under ${MIN_PRINT_PT} pt`, sizes.filter(s => pt(s, FIG_TYPE.tick) < MIN_PRINT_PT - 1e-9).map(s => s.w).slice(0, 5), [])
+  check('and a figure title (13 px) never over 8.5 pt', sizes.filter(s => pt(s, 13) > 8.5).map(s => s.w).slice(0, 5), [])
+  check('up to two columns a figure is its own width at 120 px to the inch', [420, 493, 573, 760, 840].map(w => printSize(w).inches), [3.5, 4.1, 4.8, 6.3, 7])
+  check('420 px is one column and 840 px two', [printSize(420).fits, printSize(421).fits === 'one', printSize(840).fits, PRINT_PX_PER_IN], ['one', true, 'two', 120])
+  check('past two columns it stays at 7 in while its type holds 5 pt (to 1,058 px)', [900, 1000, 1058].map(w => [printSize(w).inches, printSize(w).fits]), [[7, 'two'], [7, 'two'], [7, 'two']])
+  check('wider still it keeps 5 pt and says it is wider than two columns', [1139, 1182].map(w => [printSize(w).inches, printSize(w).fits, printSize(w).pt]), [[7.6, 'wider', 5], [7.9, 'wider', 5.1]])
+  check('the stated type size is the size the scale gives', sizes.filter(s => Math.abs(s.pt - pt(s, FIG_TYPE.tick)) > 0.051).length, 0)
+  check('the width does not depend on the window, only on the drawing (the function takes nothing else)', printSize.length, 1)
+  const xml = '<svg viewBox="0 0 760 280" width="760" height="280" xmlns="http://www.w3.org/2000/svg"><svg x="1" width="5" height="5"/></svg>'
+  check('the vector file carries the same width, in inches, on its root only',
+    atPrintSize({ xml, w: 760, h: 280 }), '<svg viewBox="0 0 760 280" width="6.3in" height="2.321in" xmlns="http://www.w3.org/2000/svg"><svg x="1" width="5" height="5"/></svg>')
+  const fig = fs.readFileSync(new URL('../src/components/Figure.tsx', import.meta.url), 'utf8')
+  check('the menu and the file read one function, and no figure passes a width of its own',
+    [/setSize\(printSize\(drawnPx\(\)\)\)/.test(fig), /scaleForDpi\(shown, kind, printSize\(shown\)\.inches\)/.test(fig), /inches\??:/.test(fig), /FIGURE_INCHES|SHEET_INCHES/.test(fig)], [true, true, false, false])
 }
 
 console.log(failed ? `\n${failed} test(s) failed` : '\nAll export tests passed')

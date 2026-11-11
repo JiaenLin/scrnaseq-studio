@@ -769,6 +769,15 @@ svg {
   /* Menus that open from a control: anchored at the trigger, never from
      scale(0), and a transition (not a keyframe) so a quick second toggle
      retargets instead of replaying. */
+  /* A menu's closing note: what its choices have in common (a saved
+     figure's place on the page), under a hairline, in the hint's ink. */
+  .menu-foot {
+    margin: 4px 0 0;
+    padding: 6px 10px 4px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-3);
+    line-height: 1.4;
+  }
   .menu-in {
     transform-origin: top left;
     opacity: 1;

@@ -6,6 +6,9 @@
 // resolve `var(--ink)` against, so the export would come out black-on-black.
 // Everything visual is therefore inlined from the computed style before writing.
 
+import { FIG_TYPE } from './figure-ink.ts'
+import { footSvg, layFoot, paintFoot, type Foot } from './figure-foot.ts'
+
 const STYLE_PROPS = [
   'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-opacity',
   'opacity', 'font-size', 'font-family', 'font-weight', 'font-style', 'text-anchor',
@@ -71,9 +74,62 @@ export const FIGURE_INCHES = 3.5
 /** A figure of several panels is set across two columns: 183 mm at Nature. */
 export const SHEET_INCHES = 7
 
-/** The multiplier that renders a figure `px` wide at `dpi`, `inches` wide in print. */
+/**
+ * The multiplier that renders a figure `px` wide at `dpi`, `inches` wide in print.
+ *
+ * Exactly that, with no floor. It was `max(1, ...)`, so a drawing wider than
+ * the pixels its stated width holds was written one to one: Markers' "3.5 in"
+ * file was 3.80 in at a 1,440 px window and a one-panel Cells figure 3.69.
+ */
 export const scaleForDpi = (px: number, dpi: number, inches: number = FIGURE_INCHES): number =>
-  Math.max(1, (inches * dpi) / Math.max(1, px))
+  (inches * dpi) / Math.max(1, px)
+
+/**
+ * The print scale: this many CSS pixels of a drawing to one inch of page.
+ *
+ * One scale for every saved figure, so its type lands where a journal asks
+ * for it whatever the window was: 0.6 pt to the pixel, which sets the
+ * figures' 10.5 px ticks at 6.3 pt and their 11.5 px labels at 6.9. A 420 px
+ * drawing is one column (3.5 in) and an 840 px one is two (7 in). Every
+ * figure was "3.5 in wide" whatever its drawn width, which printed Markers'
+ * type at 2.3 pt and one Composition panel's at 12.6.
+ */
+export const PRINT_PX_PER_IN = 120
+
+/** The smallest type a saved figure may print: the floor journals set. */
+export const MIN_PRINT_PT = 5
+
+export interface PrintSize {
+  /** The file's width on the page, a multiple of 0.1 in. */
+  inches: number
+  mm: number
+  /** What the figures' smallest type (`FIG_TYPE.tick`) prints at, at that width. */
+  pt: number
+  fits: 'one' | 'two' | 'wider'
+}
+
+/**
+ * The width a drawing `px` wide is saved at, and what its type prints at.
+ *
+ * Its own width at the print scale, to 0.1 in. Past two columns it is set at
+ * two columns while its smallest type stays at 5 pt or more; wider than
+ * that, it keeps 5 pt and is wider than the page, and the menu says so. The
+ * menu's words and the file's size are both read from here, so they cannot
+ * disagree at any window.
+ */
+export function printSize(px: number): PrintSize {
+  const w = Math.max(1, px)
+  const own = w / PRINT_PX_PER_IN
+  const inches = own <= SHEET_INCHES + 0.05
+    ? Math.max(0.5, Math.round(own * 10) / 10)
+    : Math.max(SHEET_INCHES, Math.ceil(((w * MIN_PRINT_PT) / (FIG_TYPE.tick * 72)) * 10 - 1e-9) / 10)
+  return {
+    inches: +inches.toFixed(1),
+    mm: Math.round(inches * 25.4),
+    pt: Math.round(((FIG_TYPE.tick * 72 * inches) / w) * 10) / 10,
+    fits: inches <= FIGURE_INCHES ? 'one' : inches <= SHEET_INCHES ? 'two' : 'wider',
+  }
+}
 
 const CRC = (() => {
   const t = new Uint32Array(256)
@@ -163,24 +219,63 @@ function forceLightFigures<T>(read: () => T): T {
   }
 }
 
-/** Clone with every computed style inlined, on a white plate, ready to write. */
-function portableSvg(svg: SVGSVGElement): { xml: string; w: number; h: number } {
+/** A colour as print writes it: a custom property is read while the light theme is stamped. */
+const printColor = (c: string): string => {
+  const m = /^var\((--[\w-]+)\)$/.exec(c.trim())
+  return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || '#000000' : c
+}
+
+/** The interface's own face, so a foot is set in the figure's type. */
+const figureFamily = (): string => getComputedStyle(document.body).fontFamily
+
+/**
+ * Clone with every computed style inlined, on a white plate, ready to write;
+ * with the figure's foot under it (lib/figure-foot.ts) when it declares one.
+ */
+function portableSvg(svg: SVGSVGElement, foot?: Foot): { xml: string; w: number; h: number } {
   const clone = svg.cloneNode(true) as SVGSVGElement
-  forceLightFigures(() => inlineStyles(svg, clone))
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   const box = svg.viewBox.baseVal
   const w = box?.width || svg.clientWidth || 800
-  const h = box?.height || svg.clientHeight || 400
+  const h0 = box?.height || svg.clientHeight || 400
+  const x0 = box?.x ?? 0, y0 = box?.y ?? 0
+  const under = forceLightFigures(() => {
+    inlineStyles(svg, clone)
+    return footSvg(foot, w, y0 + h0, figureFamily(), printColor)
+  })
+  const h = h0 + under.h
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  clone.setAttribute('viewBox', `${x0} ${y0} ${w} ${h}`)
   clone.setAttribute('width', String(w))
   clone.setAttribute('height', String(h))
   const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-  bg.setAttribute('x', String(box?.x ?? 0))
-  bg.setAttribute('y', String(box?.y ?? 0))
+  bg.setAttribute('x', String(x0))
+  bg.setAttribute('y', String(y0))
   bg.setAttribute('width', String(w))
   bg.setAttribute('height', String(h))
   bg.setAttribute('fill', '#ffffff')
   clone.insertBefore(bg, clone.firstChild)
-  return { xml: new XMLSerializer().serializeToString(clone), w, h }
+  const xml = new XMLSerializer().serializeToString(clone)
+  // The foot is written as text, after the drawing: the last thing in the root.
+  return { xml: under.h ? xml.replace(/<\/svg>\s*$/, `${x0 ? `<g transform="translate(${x0} 0)">${under.xml}</g>` : under.xml}</svg>`) : xml, w, h }
+}
+
+/**
+ * A painted figure with its foot under it: the same strip a vector figure
+ * gets, at the canvas's scale (`k` backing pixels to a CSS pixel).
+ */
+export function canvasWithFoot(cv: HTMLCanvasElement, foot: Foot | undefined, k: number): HTMLCanvasElement {
+  const width = cv.width / k
+  const { h } = layFoot(foot, width)
+  if (!h) return cv
+  const out = document.createElement('canvas')
+  out.width = cv.width
+  out.height = cv.height + Math.round(h * k)
+  const ctx = out.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, out.width, out.height)
+  ctx.drawImage(cv, 0, 0)
+  forceLightFigures(() => paintFoot(ctx, foot, width, cv.height / k, k, figureFamily(), printColor))
+  return out
 }
 
 /**
@@ -197,10 +292,10 @@ function portableSvg(svg: SVGSVGElement): { xml: string; w: number; h: number } 
  * every coordinate rewritten, and any one that was missed would silently move.
  */
 export function sheetXml(
-  svgs: SVGSVGElement[], cols = 3, gap = 12,
+  svgs: SVGSVGElement[], cols = 3, gap = 12, foot?: Foot,
 ): { xml: string; w: number; h: number } | null {
   if (!svgs.length) return null
-  const parts = svgs.map(portableSvg)
+  const parts = svgs.map(v => portableSvg(v))
   const n = Math.min(cols, parts.length)
   const rows = Math.ceil(parts.length / n)
   // A uniform cell, so panels of slightly different heights still line up in a
@@ -208,7 +303,10 @@ export function sheetXml(
   const cw = Math.max(...parts.map(p => p.w))
   const ch = Math.max(...parts.map(p => p.h))
   const W = n * cw + (n + 1) * gap
-  const H = rows * ch + (rows + 1) * gap
+  const H0 = rows * ch + (rows + 1) * gap
+  // One foot for the sheet, under every panel: its key and n are the sheet's.
+  const under = forceLightFigures(() => footSvg(foot, W, H0 - gap + 2, figureFamily(), printColor))
+  const H = H0 + (under.h ? under.h - gap + 2 : 0)
 
   const inner = parts.map((p, i) => {
     const x = gap + (i % n) * (cw + gap)
@@ -224,16 +322,32 @@ export function sheetXml(
 
   const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" `
     + `viewBox="0 0 ${W} ${H}">`
-    + `<rect width="${W}" height="${H}" fill="#ffffff"/>${inner}</svg>`
+    + `<rect width="${W}" height="${H}" fill="#ffffff"/>${inner}${under.xml}</svg>`
   return { xml, w: W, h: H }
 }
 
+/**
+ * The vector file at its print size: the root's width and height in inches.
+ *
+ * They were bare numbers, which a browser reads as CSS pixels (96 to the
+ * inch) and Illustrator as points (72), so the same file was two sizes and
+ * neither was the width the menu named. The viewBox is untouched: the
+ * drawing is the same, placed on the page at the stated width.
+ */
+export function atPrintSize(file: { xml: string; w: number; h: number }): string {
+  const { inches } = printSize(file.w)
+  const high = +((inches * file.h) / Math.max(1, file.w)).toFixed(3)
+  return file.xml.replace(/^<svg\b[^>]*>/, tag => tag
+    .replace(/\swidth="[^"]*"/, ` width="${inches}in"`)
+    .replace(/\sheight="[^"]*"/, ` height="${high}in"`))
+}
+
 export function svgSheetToFile(
-  svgs: SVGSVGElement[], name: string, cols = 3, gap = 12,
+  svgs: SVGSVGElement[], name: string, cols = 3, gap = 12, foot?: Foot,
 ): void {
-  const sheet = sheetXml(svgs, cols, gap)
+  const sheet = sheetXml(svgs, cols, gap, foot)
   if (!sheet) return
-  const blob = new Blob([sheet.xml], { type: 'image/svg+xml;charset=utf-8' })
+  const blob = new Blob([atPrintSize(sheet)], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   triggerDownload(url, `${name}_sheet.svg`)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
@@ -241,9 +355,9 @@ export function svgSheetToFile(
 
 /** The same sheet as a PNG at `scale`, with its resolution written in. */
 export async function svgSheetToPng(
-  svgs: SVGSVGElement[], name: string, cols: number, scale: number, dpi?: number,
+  svgs: SVGSVGElement[], name: string, cols: number, scale: number, dpi?: number, foot?: Foot,
 ): Promise<void> {
-  const sheet = sheetXml(svgs, cols)
+  const sheet = sheetXml(svgs, cols, 12, foot)
   if (sheet) await xmlToPng(sheet, `${name}_sheet`, scale, dpi)
 }
 
@@ -256,8 +370,8 @@ export async function svgSheetToPng(
  * so for most of these figures this is the honest format and the PNG is the
  * convenience.
  */
-export function svgToFile(svg: SVGSVGElement, name: string): void {
-  const blob = new Blob([portableSvg(svg).xml], { type: 'image/svg+xml;charset=utf-8' })
+export function svgToFile(svg: SVGSVGElement, name: string, foot?: Foot): void {
+  const blob = new Blob([atPrintSize(portableSvg(svg, foot))], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   triggerDownload(url, `${name}.svg`)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
@@ -270,8 +384,10 @@ export function svgToFile(svg: SVGSVGElement, name: string): void {
  * the clone-inline-plate sequence, which is how the two exports of one figure
  * came to differ: the fix that forces light-mode ink landed in one of them.
  */
-export async function svgToPng(svg: SVGSVGElement, name: string, scale = 2, dpi?: number): Promise<void> {
-  await xmlToPng(portableSvg(svg), name, scale, dpi)
+export async function svgToPng(
+  svg: SVGSVGElement, name: string, scale = 2, dpi?: number, foot?: Foot,
+): Promise<void> {
+  await xmlToPng(portableSvg(svg, foot), name, scale, dpi)
 }
 
 async function xmlToPng(

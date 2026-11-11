@@ -1,8 +1,10 @@
 import { useRef, useState, type ReactNode } from 'react'
 import {
-  canvasToPng, FIGURE_INCHES, scaleForDpi, slug, svgSheetToFile, svgSheetToPng, svgToFile, svgToPng,
+  canvasToPng, canvasWithFoot, printSize, scaleForDpi, slug, svgSheetToFile, svgSheetToPng, svgToFile, svgToPng,
+  type PrintSize,
 } from '../lib/download.ts'
 import { figureSvg } from '../lib/figure-pick.ts'
+import type { Foot } from '../lib/figure-foot.ts'
 import Popover from './Popover.tsx'
 import { InHead } from './Stage.tsx'
 
@@ -22,7 +24,7 @@ import { InHead } from './Stage.tsx'
  * inside it.
  */
 export default function Figure({
-  name, children, className, right, redraw, extent, compact, sheet, inches = FIGURE_INCHES, label = 'Save',
+  name, children, className, right, redraw, extent, compact, sheet, foot, label = 'Save',
 }: {
   name: string
   children: ReactNode
@@ -57,8 +59,13 @@ export default function Figure({
    * beside buttons with the same glyph that opened a menu.
    */
   sheet?: { svgs: () => SVGSVGElement[]; cols: number }
-  /** The printed width the dpi is counted against: one column, or two for a sheet. */
-  inches?: number
+  /**
+   * What a reader of the file alone still needs, written under the drawing by
+   * every Save: what is plotted, the key with n, what a mark means
+   * (lib/figure-foot.ts). A figure that carries all of it in its own drawing
+   * declares none.
+   */
+  foot?: Foot
   /** The button's word, when "Save" alone would not say what is saved. */
   label?: string
 }) {
@@ -66,47 +73,56 @@ export default function Figure({
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  /** The width this figure is saved at, read from the drawing when the menu opens. */
+  const [size, setSize] = useState<PrintSize | null>(null)
 
   // The figure's own drawing: never the axis glyph beside a canvas, never the
   // drawn download icon of its own button (lib/figure-pick.ts).
   const svgIn = () => figureSvg<SVGSVGElement>(box.current, !!redraw)
   const canvasIn = () => box.current?.querySelector('canvas') as HTMLCanvasElement | null
 
+  /**
+   * The drawing's width in CSS pixels: what the print size is counted from.
+   * A sheet's is its panels tiled as the file tiles them (lib/download.ts).
+   */
+  const drawnPx = (): number => {
+    if (sheet) {
+      const svgs = sheet.svgs()
+      const n = Math.max(1, Math.min(sheet.cols, svgs.length))
+      const cw = Math.max(1, ...svgs.map(v => v.viewBox.baseVal?.width || v.clientWidth || 400))
+      return n * cw + (n + 1) * 12
+    }
+    const svg = svgIn()
+    if (svg) return svg.viewBox.baseVal?.width || svg.clientWidth || 800
+    const cv = canvasIn()
+    // The on-screen canvas is drawn at 2x its CSS box, so the width is the
+    // one the reader sees, not the backing store's.
+    return extent?.w ?? (cv ? cv.clientWidth || cv.width / 2 : 800)
+  }
+
   const save = async (kind: 'svg' | number) => {
     setOpen(false)
     const svg = svgIn()
     if (kind === 'svg') {
-      if (sheet) svgSheetToFile(sheet.svgs(), slug(name), sheet.cols)
-      else if (svg) svgToFile(svg, slug(name))
+      if (sheet) svgSheetToFile(sheet.svgs(), slug(name), sheet.cols, 12, foot)
+      else if (svg) svgToFile(svg, slug(name), foot)
       return
     }
     setBusy(true)
     try {
-      if (sheet) {
-        const svgs = sheet.svgs()
-        const n = Math.min(sheet.cols, svgs.length)
-        const cw = Math.max(1, ...svgs.map(v => v.viewBox.baseVal?.width || v.clientWidth || 400))
-        await svgSheetToPng(svgs, `${slug(name)}_${kind}dpi`, sheet.cols,
-          scaleForDpi(n * cw + (n + 1) * 12, kind, inches), kind)
-        return
-      }
-      if (svg) {
-        const w = svg.viewBox.baseVal?.width || svg.clientWidth || 800
-        await svgToPng(svg, `${slug(name)}_${kind}dpi`, scaleForDpi(w, kind, inches), kind)
-        return
-      }
+      // The same reading the menu printed: the file is that wide at this dpi.
+      const shown = drawnPx()
+      const s = scaleForDpi(shown, kind, printSize(shown).inches)
+      if (sheet) return await svgSheetToPng(sheet.svgs(), `${slug(name)}_${kind}dpi`, sheet.cols, s, kind, foot)
+      if (svg) return await svgToPng(svg, `${slug(name)}_${kind}dpi`, s, kind, foot)
       const cv = canvasIn()
       if (!cv) return
       if (!redraw) return canvasToPng(cv, slug(name))
-      // The on-screen canvas is already drawn at 2x its CSS box, so the dpi is
-      // measured against the size the reader sees, not the backing store.
-      const shown = extent?.w ?? (cv.clientWidth || cv.width / 2)
-      const s = scaleForDpi(shown, kind, inches)
       const out = document.createElement('canvas')
       out.width = Math.round(shown * s)
       out.height = Math.round((extent?.h ?? (cv.clientHeight || cv.height / 2)) * s)
       redraw(out, out.width, out.height)
-      canvasToPng(out, `${slug(name)}_${kind}dpi`, kind)
+      canvasToPng(canvasWithFoot(out, foot, s), `${slug(name)}_${kind}dpi`, kind)
     } finally {
       setBusy(false)
     }
@@ -129,7 +145,7 @@ export default function Figure({
             // A fixed width, so the label swapping to "…" while the PNG renders
             // does not shrink the trigger out from under the cursor.
             style={compact ? undefined : { minWidth: 64, textAlign: 'center' }}
-            onClick={() => setOpen(v => !v)}
+            onClick={() => { if (!open) setSize(printSize(drawnPx())); setOpen(v => !v) }}
           >{busy ? '…' : compact ? <DownIcon /> : <><DownIcon />{label}</>}</button>
           <Popover open={open} anchor={trigger} align="right" role="menu"
             label={`Download ${name}`} width={212} onClose={() => setOpen(false)}>
@@ -139,9 +155,22 @@ export default function Figure({
                   title="SVG — vector" note="editable, no resampling" />
               )}
               <MenuItem onClick={() => void save(300)}
-                title="PNG — 300 dpi" note={`${inches} in wide · the usual journal minimum`} />
+                title="PNG — 300 dpi" note="the usual journal minimum" />
               <MenuItem onClick={() => void save(600)}
-                title="PNG — 600 dpi" note={`${inches} in wide · line art and dense panels`} />
+                title="PNG — 600 dpi" note="line art and dense panels" />
+              {/* The width every format is saved at, once: counted from the
+                  drawing by the function that sizes the file (`printSize`),
+                  with the column it fits and the size its type prints at. It
+                  read "3.5 in wide" on every figure, whatever was drawn. */}
+              {size && (
+                <p className="menu-foot tx-micro">
+                  Saved {size.inches} in wide ({size.mm} mm):{' '}
+                  {size.fits === 'one' ? 'fits one column (3.5 in).'
+                    : size.fits === 'two' ? 'fits two columns (7 in).'
+                      : 'wider than two columns (7 in).'}
+                  {' '}Type prints at {size.pt} pt and up.
+                </p>
+              )}
             </div>
           </Popover>
         </div>

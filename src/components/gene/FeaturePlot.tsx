@@ -7,7 +7,6 @@ import { GHOST_INK, PRINT_PLATE } from '../../lib/figure-ink.ts'
 import Figure from '../Figure.tsx'
 import { geneIndex } from '../../lib/genes.ts'
 import { rampCss } from '../../lib/palette.ts'
-import { FIGURE_INCHES, SHEET_INCHES } from '../../lib/download.ts'
 import { useDark } from '../../lib/theme.ts'
 import { useWidth } from '../../lib/use-width.ts'
 import type { Cell } from '../../types.ts'
@@ -118,7 +117,7 @@ export default function FeaturePlot(p: GeneProps) {
 
   return (
     <Figure name={tiles.length > 1 ? 'feature_plots' : `${p.genes[0] ?? 'gene'}_feature`}
-      redraw={sheet} extent={extent} inches={perRow > 1 ? SHEET_INCHES : FIGURE_INCHES}
+      redraw={sheet} extent={extent}
       label={tiles.length > 1 ? 'Save all panels' : 'Save'}>
       <div ref={fitRef} className="grid gap-[18px]"
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, ${split ? '1fr' : `${size}px`}))` }}>
