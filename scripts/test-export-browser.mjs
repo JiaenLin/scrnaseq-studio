@@ -191,22 +191,29 @@ for (const [theme, width] of [['light', 1440], ['dark', 1440], ['light', 1280], 
   // Grouped by cell type and group: no cell type is cut inside a word, on
   // screen or in the file (six of nine were at 1,280 px, three at 1,440).
   await page.locator('aside.rail button', { hasText: 'Cell type × group' }).first().click(); await settle(1500)
-  const whole = `(t => { const name = t.getAttribute('data-name'); const lines = [...t.querySelectorAll('tspan')].map(s => s.textContent)
-    if (!lines.length) return [...t.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('') === name ? null : name
-    let at = 0
-    for (let i = 0; i < lines.length; i++) {
-      if (!name.startsWith(lines[i], at)) return name + ' <> ' + lines.join('|')
-      at += lines[i].length
-      if (i < lines.length - 1) { if (!' /|,_-'.includes(name[at - 1]) && name[at] !== ' ') return name + ' <> ' + lines.join('|'); while (name[at] === ' ') at++ }
+  /** Runs in a page: every `text[data-name]`, whether its lines rebuild its name with breaks only at break points. */
+  const names = () => {
+    const whole = t => {
+      const name = t.getAttribute('data-name'); const lines = [...t.querySelectorAll('tspan')].map(s => s.textContent)
+      if (!lines.length) return [...t.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('') === name ? null : name
+      let at = 0
+      for (let i = 0; i < lines.length; i++) {
+        if (!name.startsWith(lines[i], at)) return name + ' <> ' + lines.join('|')
+        at += lines[i].length
+        if (i < lines.length - 1) { if (!' /|,_-'.includes(name[at - 1]) && name[at] !== ' ') return name + ' <> ' + lines.join('|'); while (name[at] === ' ') at++ }
+      }
+      return at >= name.length ? null : name
     }
-    return at >= name.length ? null : name })`
-  const drawn = await page.evaluate(w => { const f = eval(w); const ts = [...document.querySelectorAll('main svg text[data-name]')]; return { n: ts.length, cut: ts.map(f).filter(Boolean), small: ts.filter(t => parseFloat(getComputedStyle(t).fontSize) * Math.hypot(t.getScreenCTM().a, t.getScreenCTM().b) < 10.99).length } }, whole)
+    const ts = [...document.querySelectorAll('svg text[data-name]')]
+    return { n: ts.length, cut: ts.map(whole).filter(Boolean), small: ts.filter(t => { const m = t.getScreenCTM(); return m && parseFloat(getComputedStyle(t).fontSize) * Math.hypot(m.a, m.b) < 10.99 }).length }
+  }
+  const drawn = await page.evaluate(names)
   check(`grouped violin${at}: ${drawn.n} cell-type names on screen, none cut inside a word, none under 11 px`, drawn.n >= 9 && drawn.cut.length === 0 && drawn.small === 0, JSON.stringify(drawn))
   await save('grouped violin corner svg', corner(), 'SVG', { marks: 20, texts: 20 })
   const gv = files[theme]['grouped violin corner svg'] && width === 1440 ? files[theme]['grouped violin corner svg'] : path.join(out, fs.readdirSync(out).filter(f => f.startsWith(`${theme}${width}__grouped violin corner svg__`))[0] || 'missing')
   if (fs.existsSync(gv)) {
     await probe.setContent(fs.readFileSync(gv, 'utf8'))
-    const saved = await probe.evaluate(w => { const f = eval(w); const ts = [...document.querySelectorAll('svg text[data-name]')]; return { n: ts.length, cut: ts.map(f).filter(Boolean) } }, whole)
+    const saved = await probe.evaluate(names)
     check(`grouped violin${at}: the same ${saved.n} names whole in the saved file`, saved.n >= 9 && saved.cut.length === 0, JSON.stringify(saved))
     await probe.goto('about:blank')
   } else check(`grouped violin${at}: the saved file`, false, gv)
