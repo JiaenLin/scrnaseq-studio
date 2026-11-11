@@ -7,12 +7,11 @@ page without guessing. `src/index.css` is the source of every value named here.
 **The rule over all of it:** the design changes how things look and where they sit, never what the data says. Every
 number is shown as recorded, every label keeps its words, and the Run card infers nothing.
 
-**Status (W037, designer run 2).** Built to this page: the frame, the tokens, the default palette, Cells (with
-Save), Differential expression (the table to the bottom edge, the volcano fitted with an inspector, Enrichment's
-controls in the rail), Co-expression, Gene sets (one set and several), Gene expression (every control in the rail,
-one Save, feature panels fitted, the violin's y axis titled), Composition and Markers (figures at their own
-size, actions in the head line), Overview's counts and tables, the landing page's rows. "What is left" at the
-end lists the rest in order. `docs/design/gallery.html` shows every screen before W037 and now.
+**Status (W037, designer run 3).** Every screen is built to this page. Run 3 closed an independent design review of
+run 2 (thirteen faults that had to go, then the rest in order): Save writes the figure on every path, in print ink on
+white from either theme; the dark theme reaches canvases, scales and exports; every figure is drawn at the width it
+has, one to one, so nothing is cut at 1,280 px and no figure text is under 10 px; the DE table works by keyboard.
+"What is left" at the end lists the rest in order. `docs/design/gallery.html` shows every screen before W037 and now.
 
 ## Direction: the instrument
 
@@ -52,8 +51,10 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
   demo badge; on the right the two settings that restyle every figure (Group order, Figure style).
 - **View bar.** The views as one tablist and one tab stop (arrows, Home, End). Groups (object / analysis /
   document) are divided by a 16 px hairline. The chosen tab is ink with a 2 px rule sitting on the bar's hairline.
-  At either end, a pane toggle (`.btn-icon`, `aria-pressed`): the rail on the left, the inspector on the right,
-  shown only when the view has that pane. Keys `[` and `]`. State is remembered in `localStorage` (the page works
+  At either end, a pane toggle (`.btn-icon`, `aria-pressed`): the rail on the left, the inspector on the right
+  (Cells, and the volcano, whose key pane closes the same way). The right one is shown only when the view has that
+  pane; the left one's place is always kept (`.btn-icon-slot` on a view with no rail), so the tabs start at the same
+  x on every view (they started 32 px further left on Overview and jumped on the first click). Keys `[` and `]`. State is remembered in `localStorage` (the page works
   without it). Closing a pane gives its width to the figure at once; it does not animate.
 - **Rail** (`aside.rail`, 232 px). Every control of the view, in groups (`.rail-group`, 20 px apart, a 600 label
   over its controls). Order: the contrast (cell type, control, vs, Run, the test's status); the gene-set library;
@@ -79,7 +80,8 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
 **Explorer** (Cells; to build the same way: the feature plot, the gene-set score map, the co-expression map).
 - Rail: what colours the cells (`.opt` rows), panels (a switch), then view-specific choices.
 - Stage: head line = the count at 600 (`34,367 cells`) and what is drawn (`Embedding · X_umap from your file`);
-  `.plots` = equal cells divided by hairlines, one per panel. Several panels: each block (its name `name  n = …`,
+  `.plots` = equal cells divided by hairlines, one per panel. The painter lists the theme among its inputs
+  (`useDark`, `lib/theme.ts`), so a system theme switch repaints the canvases at once. Several panels: each block (its name `name  n = …`,
   then its plot) hangs from the top of its cell, centred across, so the names run on one line under the head
   line and the slack is under the plots; one panel has no name and is centred both ways. Status line = the
   caption on the left, the isolated entry and `Show all` on the right. Save at the head line's right end.
@@ -105,14 +107,18 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
   (`.fill`): the table runs to the bottom edge with its head sticky, or the figure is fitted.
   - DE table: `.lead` (the count as the title, one sentence), `.ttools` (one 24 px row: filter, `Significant
     only`, the row count), `.tpane-body.edge` (the rows, edge to edge, first and last cells on the head line's
-    16 px), then the status line (what was cut, how to open a gene).
+    16 px), then the status line (what was cut, how to open a gene). By keyboard: the row pane is one tab stop
+    (`.rows-kbd`, a named region): arrows, Page Up and Down, Home and End move a row cursor and scroll with it,
+    Enter opens the gene; every sortable header is a button (`.th-sort`) inside its `th[aria-sort]`.
   - Volcano: `.explorer.in-fill` = the figure in a `.fitbox` (fitted both ways from container units, at most
     1.25 times its own size), a status line (the caption), and an inspector: Gene (the row of the point under
     the pointer, else of the gene clicked last), Key (the three classes with n), Named on the figure (each
     clicked gene; pressing one removes its name).
   - Co-expression: `.split` = a reading column (`.read`: the sentence, both ends on one axis at the figure's own
     size, the note on what a ranking cannot claim) and the two tables as panes (`.tpane`: a name with its count,
-    rows to the bottom edge).
+    rows to the bottom edge). The reading column keeps at least 440 px (the tables give way first) and the bars
+    are drawn at the width the column has, up to 650 px, one to one: at a fixed 520 px they were cut by 200 px
+    at 1,280, so every bar from r = 1.00 to 0.23 ended at the same edge.
   - Enrichment is a document: the count as the title, the sentence, the bars at their own size.
 - A first step that has not been taken is an empty state (`.empty`: the instruction as a title, one sentence of
   why), never a warning note. `.note` is only for something about the data that limits a claim.
@@ -124,19 +130,28 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
 - Stage: head line = the switch (One set / Several sets), the title, one sentence. Body `.split.split-list` = the
   list on the left as a pane (search field, then `.set-row` rows to the bottom edge: name, source, size; chosen =
   wash and an ink edge; several = a check box per row) and the result on the right as a document of sections
-  (`<Section>`: a title, a meta, its own actions at the right end, a hairline above).
+  (`<Section>`: a title, a meta, its own actions at the right end, a hairline above; one line, a long title gives
+  way with an ellipsis and its full text as its `title`, the actions never drop under it). The score map and its
+  table share a row (`.sect-pair`): the table keeps 320 to 420 px, the map takes the rest and is fitted between
+  280 and 560 px, painted by the feature plot's painter with its type in CSS pixels.
 
 **Composition** (a chart that is read row by row).
 - Rail: `Bars show`, `One row per`, `Limit to`. Stage: a section per figure, each with its actions at the right
   end of its head line. The bars are drawn at their own size (rows at a fixed height, type that does not grow
   with the window); the per-type panels are a grid of panels at their own width, saved as one sheet from the
   head line (`Save all panels`), and one panel saves from a glyph in its own corner that is drawn only while
-  the pointer or the keyboard is on that panel (`Figure compact`). Next: the key in an inspector with n per entry.
+  the pointer or the keyboard is on that panel (`Figure compact`). A group (a condition) is a grey
+  (`groupInk`, `--fig-g1` to `-g4`), never a palette colour: a hue on this view always means a cell type, and
+  the group's name is on the axis. A percentage on a segment is black or white, whichever reads on that fill
+  (`inkOn`, at least 4.58:1 on any colour). Next: the key in an inspector with n per entry.
 
 **Small multiples** (the violins, the feature plots, the per-type panels). One Save for the sheet at the head
-line; a panel's own Save in its corner on hover or focus; panels at their own size and at most 1.25 times it
-(violins), or fitted to the column up to the drawing's own 640 px (feature plots, whose names are drawn in the
-canvas and must be large enough to read). A y axis says what it measures and in what: the violin's reads
+line (`Save all panels`: the same menu of formats as any figure; `Figure sheet` for SVG panels, a `redraw` that
+composes every panel for canvas ones); a panel's own Save in its corner on hover or focus. A violin panel is
+drawn one to one at the width its column has (300 px to 1.25 times its own size); a column narrower than 300 px
+means fewer columns, never a smaller drawing. Feature plots are fitted to the column up to the drawing's own
+640 px, with their type set in CSS pixels whatever the panel's size. A y axis says what it measures and in what:
+the violin's reads
 `Expression · <the object's own record of its scale>`, or `Expression ÷ mean of <control>` when relative.
 
 **Prose** (Overview, Methods). No controls of their own: a reading column. Sections are hairline blocks; a
@@ -171,7 +186,9 @@ through `getComputedStyle`.
 
 Every text token is at least 4.5:1 on every ground it sits on (the lowest: `--ink-3`, 4.68:1 light and 4.91:1
 dark, on `--accent-soft`). `--ctl` is at least 3.18:1 light and 3.74:1 dark. Figure ink (`--fig-*`) is a separate
-system: a figure leaves for a white page and is forced to the light values on export.
+system: a figure leaves for a white page and is forced to the light values on export. The dark theme is every
+token on `:root:not([data-theme='light'])`, so the one attribute export stamps returns all of them to light at
+once; there is no second list of "the tokens figures use" to fall behind.
 
 **Type.** The system face (`system-ui`) and one mono for identifiers that must align (gene symbols in a table, file
 names). Numbers are tabular (`.num`), never mono. Five sizes, whole pixels: `--t-micro` 11 (badges, hints under a
@@ -223,8 +240,13 @@ floating surface). Nothing on the page itself is rounded.
 - **Icon** (`.ico`, `DownIcon`): a drawn 12 px glyph in the label's ink. Never a character from a symbol font:
   U+2B73 came from whatever fallback the machine had and read as three bars.
 - **Empty** (`.empty`): words where the figure will be; no box.
-- **Table** (`.t`): 12 px; head on `--bg`, 500, sticky; rows 28 px, hairlines, hover wash; numbers right-aligned
-  and tabular; gene symbols mono. No frame and no radius around it (`.scrollx` is only its scroll).
+- **Table** (`.t`): 12 px; head on `--bg`, 500, sticky; rows 28 px, hairlines, hover wash; gene symbols mono. A
+  numeric column is `.num` on its `th` and every `td`: right-aligned, tabular, in the interface's face at the
+  table's size (never mono, never a second size inside one row). No frame and no radius around it (`.scrollx`
+  is only its scroll).
+- **A figure wider than its stage** (`.figscroll`): fitted first (Markers' columns run from 21 px down to 15);
+  past that it scrolls sideways with a bar that is always drawn, is a tab stop with a name, and a line under it
+  says so. The saved file always has all of it.
 - **Key** (`.lg-row`): keep the markup `<span><i class="sw" style="background:…"></i>name</span>`; the sentinel
   tests read legends by it.
 - **Readout** (`.tip`): floats 14 px from the pointer, flips near the right edge, never takes the pointer.
@@ -246,7 +268,15 @@ floating surface). Nothing on the page itself is rounded.
   only cue: say so in the key. `npg` and the journal palettes stay as choices in Figure style; `npg` fails four
   gates on nine types (CVD ΔE 4.8, normal 7.5) and Okabe-Ito has eight colours.
 - **Magnitude.** One hue, light to dark (the reader's choice in Figure style); z-scores and signed scores on a
-  diverging scale with a neutral middle. Never a rainbow.
+  diverging scale with a neutral middle. Never a rainbow. **Low recedes on either ground:** on the dark paper a
+  scale starts from one grey a step above it (`ZERO_ON_DARK`, `#2B3038`) and gets lighter as the value rises
+  (`rampColor(f, key, 'dark')`: the same colours read from the other end, the part darker than that grey left
+  out; a diverging scale's middle is that grey, not white). The light-to-dark scale on the dark ground made
+  absence the brightest thing on screen. A canvas takes the ground from `useDark()`; an SVG mark carries both
+  values (`onGround(light, dark)` with `.gfill` or `.gstop`), so the screen follows the theme and the saved file
+  gets the light one. A key (`rampCss`, `ColorBar`) shows the scale as the marks wear it.
+- **A colour that is blended is a literal.** `mix()` refuses anything that is not `#rrggbb`: a custom property
+  handed to it drew Markers' colour legend as a flat black bar.
 - **Marks on an embedding.** Radius from the panel and the count: `min(3, max(0.7, (w / 760) · k))` CSS px with
   `k = clamp(0.8, (30,000 / cells)^0.25, 3.4)`, so ink density holds from 240 cells to 300,000 and from 1,280 to
   2,560 px. A 12 px clear margin inside the canvas, so no point is cut by an edge.
@@ -256,19 +286,28 @@ floating surface). Nothing on the page itself is rounded.
 - **Axes.** An embedding names its two dimensions by its key, once per figure (the bottom-left panel). Every other
   axis carries its quantity and unit. Grid lines are `--fig-grid`, behind the data.
 - **Small multiples.** One shared range, said in the status line. A panel's name and n sit directly above it.
-- **A figure's type does not grow with the window.** An SVG figure is drawn at its own size and at most 1.25 times
-  it (the volcano does this); wider than that, the space goes to more panels or stays empty.
+- **A figure's type does not grow or shrink with the window.** A figure is drawn one to one at the width it has
+  been given (`useWidth`, `lib/use-width.ts`: the violins, the co-expression bars, Markers' dot plot, the score
+  map), so its marks take the room there is and its type stays the size it was set in; or, where it is fitted
+  both ways (the volcano), at its own size and at most 1.25 times it. Never scaled down into a column, never
+  cut by one. Figure text is `FIG_TYPE` (10.5 ticks, 11.5 labels and titles) and never under 10 px on screen.
 - **Legend.** Always names what is plotted and gives n. Text wears ink, never the series colour.
 - **Figure ink.** An SVG figure's ink is `--fig-ink`, `--fig-line`, `--fig-grid`, `--fig-plate`, `--fig-summary`
   and `--fig-label` (`lib/figure-ink.ts` names them): light on the dark ground, black and the print greys on the
   light one, and stamped to the light values while a figure is exported, so a saved figure is the same file from
-  either theme. They were literals (`#000000`), so every SVG axis was invisible on the dark theme. A canvas that
-  is saved as painted keeps the `PRINT_` literals until it is repainted on export.
-- **Save.** One Save per figure, at the right end of the head line over it: the stage's head when the figure is
-  the stage, a section's head in a document. Cells saves the whole figure (every panel with its name and n, and
-  the key with n) repainted on white at 300 or 600 dpi. With no head line above (a view not rebuilt yet) the
-  Save is a row over the figure. The per-panel Save buttons of the small multiples stay until those views are
-  rebuilt.
+  either theme. They were literals (`#000000`), so every SVG axis was invisible on the dark theme. While a
+  figure is read for export nothing is in transition (`:root[data-exporting]`): a colour in transition reads as
+  the value it is leaving, and under reduced motion every element had a 120 ms transition on every property, so
+  figures saved from dark kept light ink on a white page. A file saved from dark is byte for byte the file saved
+  from light (`npm run test:export`). Every canvas figure is repainted for export in print ink on white
+  (`redraw`): Cells, the feature plots, the score map.
+- **Save.** One Save per figure, at the right end of the head line over it, and the last action there on every
+  view (CSV, then Save). Always a menu of formats: SVG where the figure is one, PNG at 300 and 600 dpi, each
+  saying the printed width the dpi is counted against (3.5 in for one panel, 7 in for a sheet); the PNG carries
+  its resolution (a pHYs chunk). What is saved is the figure's own drawing, chosen by `lib/figure-pick.ts`:
+  never an icon or a glyph in its box, never an SVG when the figure brings its own painter. Cells saves the whole
+  figure (every panel with its name and n, the axis glyph, the key with n; an isolated entry is isolated in the
+  key too) repainted on white. A figure that drops ticks, a legend or cells in its file is a wrong figure.
 
 ## States (every panel has all five)
 
@@ -296,7 +335,8 @@ triggers is animated.
 `--d-press` 140 ms (press, hover, colour), `--d-menu` 170 ms (a menu's entry: opacity and a 3% scale from its
 trigger, a transition so a second toggle retargets), `--d-panel` 220 ms (the determinate bar). Ease-out
 (`--ease-out`), never ease-in. Panes, tabs and anything from the keyboard do not animate. Under reduced motion,
-movement stops and colour changes stay.
+movement stops and colour changes stay: the three tokens become 120 ms and nothing else gets a transition (a
+forced duration on every element gave one to everything, the property defaulting to `all`).
 
 ## Rejected, and why
 
@@ -324,19 +364,31 @@ movement stops and colour changes stay.
 - *Collections as sixteen chips over the result.* Chosen rarely; one field and a list.
 - *A set picker as a dropdown.* The names are what is chosen between; the list stays on the stage.
 - *Literal black as figure ink.* Right on paper, invisible on the dark ground.
+- *Saving the first `svg` in a figure's box.* It was the axis glyph in Cells and the button's own icon in every
+  small multiple.
+- *One scale direction on both grounds.* Light to dark is right on white and puts absence on top on dark.
+- *A figure drawn at a fixed size and scaled or clipped into its column.* 7.6 px type, or bars that all end at
+  the column's edge.
+- *Groups in the first two palette colours.* They are the first two cell types' colours on the same figure.
+- *A Save that writes at once beside Saves that open a menu.* One glyph, one word, one behaviour.
 
 ## What is left, in order
 
-1. The key in an inspector for Composition, Markers and the Gene sets score map (they keep a legend under the
-   figure); the feature plot and the score map as explorers (isolate, the pointer readout).
-2. Canvas figures repainted in print ink on export from the dark theme (the feature plot does; the Gene sets
-   score map is saved as painted, so its ink stays the `PRINT_` literals on screen in both themes).
-3. Enrichment's term detail and the Coherence block as flat sections (they are still wells); Methods and the
-   Overview's remaining sections read through once more at 1,280 and 1,920.
-4. States seen on a large object: the row cut of the DE table and the label drop of a 300,000-cell embedding
-   are designed and written, but the synthetic demos are too small to show them.
-5. The rail on a 900 px window when Differential expression shows every note at once: it scrolls. A shorter
-   wording of the notes is a wording change and is the PI's.
+1. One place for the key pane: in Cells it is a full-height pane beside the head line, in the volcano it sits
+   under the head line (both now close with `]`), so Save is at a different x on the two. The head line should
+   span the stage on both. The key in an inspector for Composition, Markers and the score map; the feature plot
+   and the score map as explorers (isolate, the pointer readout; today only Cells has a readout).
+2. Round ticks everywhere (done for the violins and the co-expression bars; the volcano's x axis, Overview's QC,
+   the score violin and the dot plot's bar still divide the range). n per group on the violins and dot plots; n
+   in the volcano's own key, and a key for the nine colours in Composition's saved file.
+3. The score map is on the reader's sequential scale; a module score is signed and belongs on a diverging scale
+   with zero in the middle (this page's own rule). It changes how the map reads, so it is the PI's.
+4. Gene-set names lose their case ("Dna repair", "E2f targets"): a wording rule for the PI. Gene search has no
+   suggestions; the contrast pickers ignore arrow keys; Co-expression's seed shows as a placeholder after a run.
+5. Enrichment's term detail and the Coherence block as flat sections (still wells); the rail on a 900 px window
+   when Differential expression shows every note (it scrolls); the lab bundle's Overview selects on the stage.
+6. States seen on a large object (the DE table's row cut, the label drop of a 300,000-cell embedding): designed
+   and written, never seen, because the synthetic demos are small.
 
 **Do not get wrong:** `Card` must keep rendering `<section class="card">` (two tests split the page on it); a
 view's controls go through `<InRail>`, never by lifting its state into App; an action on a figure goes through
@@ -344,7 +396,12 @@ view's controls go through `<InRail>`, never by lifting its state into App; an a
 `Figure compact`, or every panel's Save lands in the head line; an SVG takes its ink from `lib/figure-ink.ts`
 (custom properties), a canvas that is saved as painted takes the `PRINT_` literals; the key's swatch markup stays; a new
 palette adds one check to the suite by itself (the suite loops over `PALETTES`); never quantise the screenshots (a
-256-colour PNG moved one swatch to two different colours in run A's record).
+256-colour PNG moved one swatch to two different colours in run A's record). From run 3: a decorative `svg`
+inside a figure's box is `aria-hidden` (that is how Save tells it from the drawing); a sheet is saved with
+`Figure sheet` and `sheetSvgs`, never `querySelectorAll('svg')`; a colour handed to `mix` or to a colour bar's
+ends is a literal; a canvas painter lists `useDark()` among its inputs; a data colour that differs by ground is
+`onGround`, never a dark value baked into an SVG (the file would carry it); a figure is drawn at `useWidth`'s
+width, not scaled into its column; a numeric column is `.num` on the head and the cells.
 
 ## Checking a change
 
@@ -358,6 +415,11 @@ palette adds one check to the suite by itself (the suite loops over `PALETTES`);
   hold them. `docs/design/gallery.html` reads `docs/design/gallery/before` (the studio at `099a085`, 1,440 px,
   full colour) and `docs/design/after`.
 - `node scripts/test-fit-panels.mjs` (in `npm test`) pins how panels share the stage.
+- `node scripts/test-export.mjs` (in `npm test`) pins what a Save writes and in what ink, as rules: which drawing
+  is saved, the light stamp and its transitions, literals in blends, scales on the dark ground, label ink on
+  fills, the PNG's resolution. `CHROME=<chrome> npm run test:export -- <url>` (needs `playwright-core`) writes
+  every Save in both themes and measures each file: it holds the figure's marks, no colour of the dark theme,
+  and the file from dark is byte for byte the file from light.
 - Panel sizes in a 900 px tall window (canvas, CSS px; `Replicated cohort`, measured on the page):
 
   | window | one panel | two panels | two panels, both panes closed |
