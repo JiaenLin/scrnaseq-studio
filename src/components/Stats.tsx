@@ -391,11 +391,11 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   const missing = [
     p.tis.length ? '' : 'a cell type',
     p.ctrl.length ? '' : 'a control group',
-    p.cs.length ? '' : 'a group to compare',
+    p.cs.length ? '' : `a group to compare against ${p.ctrl.length ? 'the control' : 'it'}`,
   ].filter(Boolean)
   if (missing.length)
     return <Empty title={`Choose ${missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]}.`}>
-      On the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for.
+      The three choices are on the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for.
     </Empty>
 
   if (sameOrOverlapping(p.ctrl, p.cs))
@@ -848,7 +848,7 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
             options={[{ k: '0', label: 'none' }, { k: '12', label: '12' }, { k: '25', label: '25' }]} />
           {pinned.length > 0 && (
             <button className="btn btn-quiet self-start" onClick={() => setPinned([])}>
-              Clear {pinned.length} clicked
+              Clear {pinned.length} selected name{pinned.length === 1 ? '' : 's'}
             </button>
           )}
         </RailGroup>
@@ -1023,7 +1023,7 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
         </div>
         {pinned.length > 0 && (
           <div className="ins-section">
-            <div className="rail-label">Named on figure</div>
+            <div className="rail-label">Names you selected</div>
             {pinned.map(g => {
               const r = rows.find(x => x.gene === g)
               return (

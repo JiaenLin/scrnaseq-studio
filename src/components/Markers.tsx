@@ -230,7 +230,7 @@ export default function Markers({
   // bound once it has underflowed, and the log-space significance beside it so
   // the export carries the resolution the screen shows.
   const saveCsv = () => downloadCsv(
-    'cluster_markers',
+    'markers',
     ['cluster', 'gene', 'log2FC', 'pct.1', 'pct.2', 'p', 'padj', 'neg_log10_padj'],
     perCluster.flatMap((rows, ti) => rows
       .filter(r => isSig(r, th) && r.lfc > 0)
@@ -288,7 +288,7 @@ export default function Markers({
             </div>
           </div>
         )}
-        <Figure name="cluster_markers" foot={{
+        <Figure name="markers" foot={{
           title: `Top ${topN} marker genes per cell type, each cell type against the rest`,
           notes: [nText, 'A heavier ring marks one of that cell type\u2019s own top genes.', uncalledNote],
         }}>

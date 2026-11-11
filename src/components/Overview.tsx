@@ -94,10 +94,10 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
         >
           <Stat value={fmt(d.nCells)} label="cells" />
           <Stat value={fmt(src.genes.length)} label="genes" />
-          <Stat value={d.samples.length} label="samples" />
+          <Stat value={d.samples.length} label={d.samples.length === 1 ? 'sample' : 'samples'} />
           <Stat value={d.conds.length} label={d.conds.length > 1 ? 'groups' : 'group'} />
-          <Stat value={populations(types).length} label="clusters" />
-          <Stat value={nRep} label="min replicates" />
+          <Stat value={populations(types).length} label={populations(types).length === 1 ? 'cell type' : 'cell types'} />
+          <Stat value={nRep} label="fewest samples per group" />
         </div>
 
         {/* Inside the card that states the design, not floating between two of

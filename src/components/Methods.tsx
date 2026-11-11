@@ -295,9 +295,9 @@ export default function Methods({
               <b>A gene set is signed before it is combined.</b> Seeding a correlation with
               the mean of a set&rsquo;s members cancels: a pathway holds members that move in
               opposite directions, and the mean is dominated by whichever are most abundant.
-              So the set is first correlated with itself, each member is standardised and
+              So the set is first correlated with itself, each member is standardized and
               given the sign of the leading eigenvector of that matrix (WGCNA&rsquo;s module eigengene), and the members are combined only then. Because each member is
-              standardised, the correlation against that composite <em>is</em> the weighted
+              standardized, the correlation against that composite <em>is</em> the weighted
               mean of the members&rsquo; own independent correlations, so one pass reports what
               testing every member separately would have said. How much of the set runs one
               way is reported with the result, since a combined score over a set that is

@@ -38,7 +38,7 @@ const NEEDS: [string, boolean, string][] = [
   ['Cell type', true, 'a categorical cell annotation: every view is per cell type'],
   ['Embedding', true, 'UMAP or t-SNE, two dimensions'],
   ['Expression', true, 'log-normalized, not scaled: z-scores are refused'],
-  ['Sample', false, 'which donor or run: without it, no spread between samples'],
+  ['Sample', false, 'the biological unit or run: without it, no spread between samples'],
   ['Group', false, 'the experimental factor: without it, no comparisons'],
   ['Raw counts', false, 'integer, before normalization: without them, no pseudobulk'],
 ]

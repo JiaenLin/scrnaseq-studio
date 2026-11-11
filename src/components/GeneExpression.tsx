@@ -243,7 +243,7 @@ export default function GeneExpression(p: GeneProps) {
           {missing.length > 0 && (
             <p className="m-0 tx-small" style={{ color: 'var(--warn)' }}>
               <b>Not in this object:</b> <span className="mono">{missing.join(', ')}</span>. Check the
-              species and capitalisation (mouse <span className="mono">Ascl1</span> vs human{' '}
+              species and capitalization (mouse <span className="mono">Ascl1</span> vs human{' '}
               <span className="mono">ASCL1</span>).
             </p>
           )}

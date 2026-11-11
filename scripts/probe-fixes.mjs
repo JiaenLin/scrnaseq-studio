@@ -135,7 +135,7 @@ console.log(`${NL}2 · CLICKING A VOLCANO POINT NAMES THE GENE`)
       [...document.querySelectorAll('svg[aria-label^="Volcano"] text')]
         .filter(t => getComputedStyle(t).fontWeight === '700').map(t => t.textContent))
     ok(bold.length === 1, `the clicked gene is named in bold: ${bold.join(', ') || 'none'}`)
-    const clear = page.getByRole('button', { name: /Clear 1 clicked/ })
+    const clear = page.getByRole('button', { name: /Clear 1 selected name/ })
     ok(await clear.count() === 1, 'and there is a way to clear it')
   }
 }

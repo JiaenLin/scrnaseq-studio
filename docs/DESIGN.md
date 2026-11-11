@@ -362,13 +362,18 @@ nothing the reader will do goes, and the reasoning behind a method lives in Meth
 beside the control.
 
 **Word budgets, per string.** A word is a run of characters holding a letter or a digit. A slot the data fills (a
-number, a gene, a cell type) counts as none: the budget is for what the app says.
+number, a gene, a cell type) counts as none: the budget is for what the app says. **A budget never outranks the
+claim.** A shorter string must claim exactly what the longer one claimed; a string is a whole phrase, with its
+article and its verb ("On the left." and "kept, not tested" are not); and where a budget and the truth disagree the
+truth is written and the budget moves, here, with its reason. Run 6 moved four: a button, label or table header
+(3 to 4), a menu item's note (5 to 12), an empty state's title (12 to 14) and a table view's screen (220 to 240).
 
 | kind | words | why this number |
 |---|---:|---|
 | tab | 2 | a noun, found by position after the first visit |
-| button, segment, option, chip, label, table header | 3 | a verb and its object, or a name; three words is the most read in one fixation |
+| button, segment, option, chip, label, table header | 4 | a verb and its object, or a name, with the article or preposition that makes it a phrase ("Not in this object", "Correlate against this set", "fewest samples per group"). Run 5 set 3, and 3 forced "Not in object", "Cells of" and "Correlate this set": run 6 moved it |
 | menu item | 4 | a name chosen among others in a column |
+| a menu item's note, a line under a choice in a menu | 12 | one whole clause saying what the choice is for ("A scale from zero, for feature plots, dot size and enrichment."); 5 forced "From zero: …" |
 | picker's face | 5 | a name the reader chose, with one qualifier ("cell_type from the file") |
 | badge | 3 | a state, never a sentence ("from your file") |
 | title (a section, a stage, a panel) | 8 | one line at 15 px in the narrowest stage |
@@ -379,7 +384,7 @@ number, a gene, a cell type) counts as none: the budget is for what the app says
 | help line under a control | 20 | three lines of the 208 px rail; a fourth pushes the next control off a 900 px window |
 | legend line under a figure | 24 | what a mark means and n, in one line of a 900 px stage (a list of groups with their n is data) |
 | note (a limit on a claim) | 30 | two sentences: the limit, and what to read instead |
-| empty state | 12 + 24 | the instruction is the title; one more sentence only if it says what will be drawn |
+| empty state | 14 + 24 | the instruction is the title, and it names every missing choice ("Choose a cell type, a control group and a group to compare against it." is 13; 12 forced "a group to compare"); one more sentence only if it says what will be drawn |
 | error | 30 | what happened, then what to do (below) |
 | readout | 12 | read while the pointer moves |
 | text on a figure | 8 | an axis title or one annotation |
@@ -397,8 +402,11 @@ holds a table or a list, 520 on Methods. At the base the worst were Differential
 |---|---|---|
 | a file leaving the app | **Save** (a figure, the pseudobulk counts), **CSV** (a table, named by its format) | download, export ("exported from" and the exporter's own file names stay: they name the lab's tool) |
 | the experimental factor | **group** | condition |
-| one biological unit | **sample** | animal, mouse, replicate (as a noun for a sample) |
-| the annotation a view splits by | **cell type** | cluster (it stays for ordering a heat map, "Cluster", and where a message names the bundle's own field, `cluster.u16`), population, identity |
+| one biological unit | **sample** | animal, mouse, donor, replicate (as a noun for a sample) |
+| the annotation a view splits by | **cell type**: the label of the object's annotation column, on every tile, key, picker and head | cluster (as that label), population, identity |
+| a clustering | **cluster**, only where the thing is one: Methods' caveat that markers of cell types that began as clusters are circular (there the clustering is the point), ordering a heat map ("Cluster"), the bundle's own field (`cluster.u16`), and `cluster` in the markers CSV, which is `FindAllMarkers`' own column | "cell type" for a clustering. An object whose annotation is an unannotated clustering (0, 1, 2 …) is still labelled "cell type": the app cannot tell, and no fixture has one |
+| what a figure's columns hold | the mode's own word: **cell types**, **groups** or **cell type × group columns** (`COLUMN_NOUN`, `lib/columns.ts`), in a head, a legend, a tooltip, a table's head and a CSV's; **column** where one sentence covers every mode ("Columns shown") | "cell type" over columns that may be groups; population, identity |
+| the mark of one sample on a bar | **ring** (it is drawn as one); the key's row beside the mark says what it is, "one sample" | dot, point (for that mark) |
 | a named list of genes | **gene set** (a "set" after first use) | signature, pathway (unless it is the collection's own word), module (except "module score", the method's name) |
 | a cell the annotator gave no cell type | **Not called** as a key's row and a table's row ("Cells not called"); in a sentence, "cells the annotator did not call", then the annotator's own labels with their counts | sentinel, uncalled, unassigned, "Grey:" as their name |
 | an adjusted p-value | **padj** where it is the column or its cutoff (a table's head, the rail, a readout, the CSV: the name the reader will search for); "adjusted p" spelled out on an axis and in a sentence of Methods | adj. p, p adjusted, p_adj, q (FDR stays the name of the Benjamini-Hochberg cutoff) |
@@ -406,7 +414,8 @@ holds a table or a list, 520 on Methods. At the base the worst were Differential
 | this application | no subject, or **this app** | the studio, Studio (except the product's name on the landing page and in Methods) |
 | the left pane | **on the left** | the controls on the left, the rail, the sidebar |
 | choosing from a list | **Choose** | pick, select (for a list) |
-| acting on a mark or a row | **Select** (it works by keyboard too) | click, tap, press (for a mark); hover is "point at" |
+| acting on a mark or a row | **Select** (it works by keyboard too) | click, clicked, tap, press (for a mark); hover is "point at" |
+| spelling | **-ize**: normalize, standardize, capitalization (the field writes log-normalized) | -ise, -isation |
 | starting a computation | the verb of the result: **Run** (a test), **Find markers**, **Score**, **Correlate** | compute, calculate, go |
 | a fraction of cells with a count above zero | **detected in** n% | expressed in, pct, positive (except "positive cells drawn last") |
 

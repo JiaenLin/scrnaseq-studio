@@ -532,7 +532,7 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
         role="img"
         aria-label={`${fmt(d.cells.length)} cells on the embedding`
           + `${cond ? `, ${cond} only` : ''}, coloured by ${colorBy}`
-          + `${labels ? `, with ${populations(types).length} cluster names` : ''}`}
+          + `${labels ? `, with ${populations(types).length} cell type names` : ''}`}
         ref={ref} width={Math.round(w * 2)} height={Math.round(h * 2)}
         style={{ width: w, height: h }}
       />

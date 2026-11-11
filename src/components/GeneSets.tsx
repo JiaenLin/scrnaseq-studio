@@ -460,7 +460,7 @@ export default function GeneSets({
                   <Section title="Score by cell type or group">
                     <div className="scrollx" style={{ maxHeight: 420 }}>
                       <table className="t">
-                        <thead><tr><th>Cells of</th><th className="num">Cells</th><th className="num">Median</th><th className="num">Mean</th></tr></thead>
+                        <thead><tr><th>{COLUMN_NOUN[groupBy].head}</th><th className="num">Cells</th><th className="num">Median</th><th className="num">Mean</th></tr></thead>
                         <tbody>
                           {ids.map((id, k) => {
                             const s = stats[k]
@@ -487,7 +487,7 @@ export default function GeneSets({
                     <InHead>
                       <CsvButton onClick={() => downloadCsv(
                         `module_score_${slug(name)}`,
-                        ['identity', 'cells', 'median', 'mean', 'q1', 'q3'],
+                        [COLUMN_NOUN[groupBy].csv, 'cells', 'median', 'mean', 'q1', 'q3'],
                         ids.map((id, k) => {
                           const st = stats[k]
                           return [id.full, st.n, st.med.toFixed(4), st.mean.toFixed(4),
@@ -519,14 +519,14 @@ export default function GeneSets({
                   <InHead>
                     <button className="btn btn-quiet" onClick={() => onCorrelate(used)}
                       title="Find the genes that move with this set, and against it">
-                      Correlate this set
+                      Correlate against this set
                     </button>
                   </InHead>
                 </Section>
 
                 <Section title="Score per cell"
                   meta={modes.find(m => m.k === groupBy)?.label}>
-                  <Figure name={`module_score_by_identity_${slug(name)}`} foot={{
+                  <Figure name={`module_score_per_cell_${slug(name)}`} foot={{
                     title: `Module score per cell · ${name}`,
                     notes: [
                       nNote(ids.map((c, i) => ({ label: groupBy === 'both' ? pairName(c.full) : c.label, n: perId[i].length }))),

@@ -186,7 +186,7 @@ export default function SetEditor({ open, background, initial, onClose, onAdd }:
               </div>
               <div className="scrollx mt-2" style={{ maxHeight: 190, border: 0 }}>
                 <table className="t">
-                  <thead><tr><th>Set</th><th className="num">Genes</th><th>Not in object</th></tr></thead>
+                  <thead><tr><th>Set</th><th className="num">Genes</th><th>Not in this object</th></tr></thead>
                   <tbody>
                     {coverage.rows.map(r => (
                       <tr key={r.name}>

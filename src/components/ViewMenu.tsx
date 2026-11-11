@@ -76,7 +76,7 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
             <span className="mt-1.5 block h-[15px] w-full rounded-[--r-sm]"
               style={{ background: rampCss(rampKey, dark ? 'dark' : 'light') }} />
             <span className="mt-1 block tx-micro" style={{ color: 'var(--ink-3)' }}>
-              From zero: feature plots, dot size, enrichment.
+              A scale from zero, for feature plots, dot size and enrichment.
             </span>
           </label>
           <label className="mt-3 block">
@@ -88,7 +88,7 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
             <span className="mt-1.5 block h-[15px] w-full rounded-[--r-sm]"
               style={{ background: rampCss(rampDiv, dark ? 'dark' : 'light') }} />
             <span className="mt-1 block tx-micro" style={{ color: 'var(--ink-3)' }}>
-              Signed: z-scores, module scores.
+              A signed scale, for z-scores and module scores.
             </span>
           </label>
         </div>

@@ -195,7 +195,7 @@ console.log('\nDIFFERENTIAL EXPRESSION AND SCOPES: TYPES ONLY')
   const over = textOf(render(C.Overview, {
     src, types: src.types, palKey: 'npg', roles: { t: -1, g: -1 }, onRoles: () => {},
   }))
-  check('Overview counts the three types as the clusters', /\b3\s*clusters\b/.test(over), true)
+  check('Overview counts the three types as the clusters', /\b3\s*cell types\b/.test(over), true)
   check('and states the sentinel cells', over.includes(`EXCLUDED ${T.reduce((a, r) => a + r[0], 0)}`), true)
 }
 

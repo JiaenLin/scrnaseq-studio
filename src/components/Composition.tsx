@@ -343,7 +343,7 @@ export default function Composition({ d, types, palKey }: {
         <Card
           eyebrow="Per cell type" title="Proportion by group"
           sub={d.samples.length > d.conds.length
-            ? 'Its own y axis per panel. Dots are samples: overlap means the difference is not evidence.'
+            ? 'Its own y axis per panel. Rings are samples: overlap means the difference is not evidence.'
             : 'Its own y axis per panel. One sample per group, so there is no spread to show.'}
         >
           <InHead>
@@ -401,7 +401,7 @@ export default function Composition({ d, types, palKey }: {
           </Figure>
           <Legend
             items={d.conds.map((c, i) => [groupInk(i), c])}
-            note={d.samples.length > d.conds.length ? '· bar = mean · dots = individual samples' : undefined}
+            note={d.samples.length > d.conds.length ? '· bar: mean of the samples · ring: one sample' : undefined}
           />
         </Card>
       )}

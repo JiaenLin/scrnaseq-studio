@@ -283,12 +283,12 @@ export default function DEGTable({
       )}
       {wilcox && nGenes > nRan && (
         <p className="tnote">
-          <b>{fmt(nRan)} of {fmt(nGenes)} genes were tested.</b> Under 10% detected on both sides
-          (<span className="mono">min.pct</span>): dropped.{' '}
+          <b>{fmt(nRan)} of {fmt(nGenes)} genes were tested.</b> Genes under{' '}
+          <span className="mono">min.pct</span> on both sides are dropped.{' '}
           {rows.length > nRan ? (
             <>
               The {fmt(rows.length - nRan)} rows showing “—” are under{' '}
-              <span className="mono">logfc.threshold</span>: <b>kept, not tested</b>. Lower it
+              <span className="mono">logfc.threshold</span>: <b>kept, but not tested</b>. Lower it
               under <i>What gets tested</i>.
             </>
           ) : (
