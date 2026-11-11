@@ -20,7 +20,7 @@ import { maxOf, niceStep, sci } from '../lib/chart.ts'
 import {
   combinedScore, condLabel, isSig, type Threshold } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
-import { MARK_EDGE } from '../lib/figure-ink.ts'
+import { onGround, MARK_EDGE } from '../lib/figure-ink.ts'
 import { ColorBar } from './svg-parts.tsx'
 import { rampColor, type RampKey } from '../lib/palette.ts'
 import { Empty } from './Ui.tsx'
@@ -390,8 +390,8 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
       <div className="scrollx" style={{ maxHeight: 320 }}>
         <table className="t">
           <thead>
-            <tr><th>Gene</th><th>log&#8322;FC</th><th>Combined</th>
-              <th>Rank of {ranked.size}</th><th>p adjusted</th><th>Direction</th></tr>
+            <tr><th>Gene</th><th className="num">log&#8322;FC</th><th className="num">Combined</th>
+              <th className="num">Rank of {ranked.size}</th><th className="num">p adjusted</th><th>Direction</th></tr>
           </thead>
           <tbody>
             {members.map(({ gene, comb, rank, r }) => (
@@ -401,9 +401,9 @@ function TermDetail({ selected, ranked, ctrl, cs, onClose, onPickGene }: {
                 <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--up)' : 'var(--down)' }}>
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
-                <td className="num mono tx-micro">{comb.toFixed(1)}</td>
+                <td className="num">{comb.toFixed(1)}</td>
                 <td className="num" style={{ color: 'var(--ink-2)' }}>{rank}</td>
-                <td className="num mono tx-micro">{sci(r.padj)}</td>
+                <td className="num">{sci(r.padj)}</td>
                 <td className="whitespace-nowrap">
                   {r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`}
                 </td>
@@ -597,7 +597,7 @@ function Bars({ results, onPick, selected, metric, nQuery, rampKey }: {
               </text>
               <rect x={PL} y={y + 3} width={Math.max(1, X(value(r)) - PL)} height={rowH - 6} rx={3}
                 stroke={MARK_EDGE} strokeWidth={on ? 1 : 0.4}
-                fill={rampColor(Math.min(1, Math.max(0, at(r))), sigRamp)}>
+                className="gfill" style={onGround(rampColor(Math.min(1, Math.max(0, at(r))), sigRamp), rampColor(Math.min(1, Math.max(0, at(r))), sigRamp, 'dark'))}>
                 <title>
                   {r.name} — {r.count} of this list in a set of {r.setSize},
                   {' '}{r.foldEnrichment.toFixed(2)}× enrichment,

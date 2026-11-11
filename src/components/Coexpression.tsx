@@ -1,3 +1,5 @@
+import { breaksOf, fmtBreak } from '../lib/breaks.ts'
+import { useWidth } from '../lib/use-width.ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
@@ -736,6 +738,10 @@ function Side({ title, rows, dir, onPick }: {
  * length of the bars on the left against the right.
  */
 function CorrBars({ up, down, how }: { up: CorrRow[]; down: CorrRow[]; how: string }) {
+  // Drawn at the width its column has. At its own fixed 520 px the column cut
+  // it by 200 px at 1,280: every bar from r = 1.00 down to 0.23 ended at the
+  // same edge, which reads as equal, and the 0.50 and 1.00 ticks were gone.
+  const [boxRef, boxW] = useWidth()
   const SHOW = 12
   const rows = [...up.slice(0, SHOW), ...down.slice(0, SHOW).reverse()]
   if (!rows.length) return null
@@ -743,28 +749,28 @@ function CorrBars({ up, down, how }: { up: CorrRow[]; down: CorrRow[]; how: stri
   // At 26 it held one, and they were both written at H-4: "Pearson r" landed
   // on top of the 0.00 tick, which is the one tick a diverging axis needs.
   const rh = 15, PT = 16, PB = 40, PR = 44
-  const PL = Math.max(70, widestW(rows.map(r => r.gene), 10, false) + 12)
-  const W = Math.max(520, PL + 360 + PR)
+  const PL = Math.max(70, widestW(rows.map(r => r.gene), 10.5, false) + 12)
+  const W = boxW ? Math.max(PL + 160 + PR, Math.min(650, boxW)) : Math.max(520, PL + 360 + PR)
   const H = PT + rows.length * rh + PB
   const span = Math.max(0.05, ...rows.map(r => Math.abs(r.r)))
   const mid = PL + (W - PL - PR) / 2
   const half = (W - PL - PR) / 2
   const X = (r: number) => mid + (r / span) * half
+  // Round numbers inside the range, not fractions of the largest r.
+  const ticks = breaksOf(-span, span, W < 440 ? 3 : 5).filter(v => Math.abs(v) <= span + 1e-9)
 
   return (
     <Figure name="coexpression" className="mt-3">
-      <div className="overflow-x-auto">
-        {/* At its own size, and at most 1.25 times it: the type does not grow
-            with the window. */}
+      <div ref={boxRef} className="overflow-x-auto">
+        {/* One to one: the bars take the room there is, the type stays its size. */}
         <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
-          preserveAspectRatio="xMinYMid meet" role="img"
-          style={{ width: `min(100%, ${W * 1.25}px)`, height: 'auto', minWidth: W }}
+          role="img" style={{ display: 'block' }}
           aria-label={`Top correlated and anti-correlated genes`}>
-          {[-span, -span / 2, 0, span / 2, span].map(v => (
+          {ticks.map(v => (
             <g key={v}>
               <line className="axgrid" x1={X(v)} x2={X(v)} y1={PT - 4} y2={PT + rows.length * rh} />
               <text className="axis" x={X(v)} y={H - PB + 20} textAnchor="middle"
-                style={{ fontSize: 10 }}>{v.toFixed(2)}</text>
+                style={{ fontSize: 10.5 }}>{fmtBreak(v)}</text>
             </g>
           ))}
           {rows.map((row, i) => {
@@ -774,7 +780,7 @@ function CorrBars({ up, down, how }: { up: CorrRow[]; down: CorrRow[]; how: stri
             return (
               <g key={row.gene}>
                 <text x={PL - 8} y={y + rh / 2 + 3.4} textAnchor="end"
-                  style={{ fontSize: 10, fill: AXIS_INK, fontStyle: 'italic' }}>{row.gene}</text>
+                  style={{ fontSize: 10.5, fill: AXIS_INK, fontStyle: 'italic' }}>{row.gene}</text>
                 <rect x={x0} y={y + 2.5} width={Math.max(1, w)} height={rh - 5} rx={1.5}
                   fill={row.r >= 0 ? UP_MARK : DOWN_MARK}
                   stroke={MARK_EDGE} strokeWidth={0.4}>
@@ -786,7 +792,7 @@ function CorrBars({ up, down, how }: { up: CorrRow[]; down: CorrRow[]; how: stri
           <line x1={mid} x2={mid} y1={PT - 4} y2={PT + rows.length * rh}
             stroke={AXIS_INK} strokeWidth={0.9} />
           <text className="axis" x={mid} y={H - 5} textAnchor="middle"
-            style={{ fontSize: 10, fontWeight: 600 }}>{how} r</text>
+            style={{ fontSize: 10.5, fontWeight: 600 }}>{how} r</text>
         </svg>
       </div>
     </Figure>

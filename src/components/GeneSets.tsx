@@ -7,7 +7,6 @@ import {
   aggregateColumns, finePartition, scoreColumns, zByRow, type Column,
 } from '../lib/columns.ts'
 import ColumnFilter from './ColumnFilter.tsx'
-import { drawLabels } from '../lib/canvas-label.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
 import { dendroLines, orderRows } from '../lib/cluster.ts'
 import { ColorBar } from './svg-parts.tsx'
@@ -18,8 +17,10 @@ import GeneSetSources from './GeneSetSources.tsx'
 import {
   averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
 } from '../lib/score.ts'
-import { AXIS_INK, PRINT_INK, PRINT_LABEL } from '../lib/figure-ink.ts'
-import { drawColorBar } from '../lib/feature-plot.ts'
+import { onGround, AXIS_INK, PRINT_PLATE } from '../lib/figure-ink.ts'
+import { drawFeature, panelHeight, type FeatureDraw } from '../lib/feature-plot.ts'
+import { useDark } from '../lib/theme.ts'
+import { useWidth } from '../lib/use-width.ts'
 import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { Empty, Mono, Seg } from './Ui.tsx'
@@ -450,15 +451,13 @@ export default function GeneSets({
               <>
                 <div className="sect-pair">
                   <Section title={`${name} on the embedding`}>
-                    <Figure name={`module_score_${slug(name)}`}>
-                      <ScoreMap d={d} types={types} xy={emb.xy} scores={scoreOf} rampKey={rampKey} />
-                    </Figure>
+                    <ScoreMap d={d} types={types} xy={emb.xy} scores={scoreOf} rampKey={rampKey} name={name} />
                   </Section>
 
                   <Section title="Score by identity">
                     <div className="scrollx" style={{ maxHeight: 420 }}>
                       <table className="t">
-                        <thead><tr><th>Identity</th><th>Cells</th><th>Median</th><th>Mean</th></tr></thead>
+                        <thead><tr><th>Identity</th><th className="num">Cells</th><th className="num">Median</th><th className="num">Mean</th></tr></thead>
                         <tbody>
                           {ids.map((id, k) => {
                             const s = stats[k]
@@ -569,79 +568,61 @@ export default function GeneSets({
   )
 }
 
-function ScoreMap({ d, types, xy, scores, rampKey }: {
-  d: Dataset; types: CellType[]; xy: Float32Array; scores: Float32Array; rampKey: RampKey
+function ScoreMap({ d, types, xy, scores, rampKey, name }: {
+  d: Dataset; types: CellType[]; xy: Float32Array; scores: Float32Array; rampKey: RampKey; name: string
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
-  const size = 420
+  // Fitted to its column, between a size its names can be read at and the
+  // drawing's own. It was 420 px squeezed to whatever a shared row left it:
+  // 268 px at 1,440 with names about 4 px tall, 188 px at 1,280.
+  const [boxRef, boxW] = useWidth()
+  const size = boxW ? Math.max(280, Math.min(560, boxW)) : 420
+  const dark = useDark()
 
-  useEffect(() => {
-    const cv = ref.current
-    if (!cv) return
-    const g = cv.getContext('2d')
-    if (!g) return
-    g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()
-    g.fillRect(0, 0, cv.width, cv.height)
-    const { x0, x1, y0, y1 } = embedExtent(xy)
-    // The embedding keeps the square; the bar strip is added below it, never
-    // taken out of it. Scaling the cells to the full canvas would stretch every
-    // map vertically by the height of its own legend.
-    const plotH = cv.width
-
-    // Typed throughout. `Array.from(scores)` boxed 292 495 doubles into a JS
-    // array before sorting them, and the copy cost more than the sort.
+  // The feature plot's painter: the same marks, the same order (high cells
+  // last, so a small positive population is not buried), the same names and
+  // the scale on the figure, where an exported file still carries it. A module
+  // score has no natural units, so the numbers at the ends are its anchor.
+  const spec = useMemo((): FeatureDraw => {
+    // Typed throughout: boxing 292,495 doubles to sort them cost more than the sort.
     const sorted = scores.slice().sort()
     const lo = sorted[Math.floor(sorted.length * 0.01)]
     const hi = sorted[Math.floor(sorted.length * 0.99)]
-    const span = hi - lo || 1
-
-    // Same ordering rule as the feature plot: high cells last, so a small
-    // positive population is not buried under the negative majority.
-    const idx = new Int32Array(d.nCells)
-    for (let i = 0; i < idx.length; i++) idx[i] = i
-    idx.sort((a, b) => scores[a] - scores[b])
-    for (const i of idx) {
-      g.fillStyle = rampColor((scores[i] - lo) / span, rampKey)
-      g.beginPath()
-      g.arc(((xy[2 * i] - x0) / (x1 - x0)) * cv.width,
-        (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * plotH, 1.9, 0, 6.284)
-      g.fill()
-    }
-    g.font = '600 17px system-ui'
-    g.lineWidth = 3.5
     const at = clusterCentroids(xy, d, types.length)
-    // Cell types only: a sentinel's cells are scored and drawn like any cell,
-    // but a name at their median would mark a population that is not there.
-    drawLabels(g, types.flatMap((t, ti) => (t.sentinel ? [] : [{
-      name: t.name,
-      x: ((at[ti].x - x0) / (x1 - x0)) * cv.width,
-      y: (1 - (at[ti].y - y0) / (y1 - y0)) * plotH,
-    }])), { fill: PRINT_LABEL, halo: 'rgba(255,255,255,.9)' })
+    return {
+      xy, extent: embedExtent(xy), vals: scores, cells: d.cells, cond: null,
+      visible: () => true, top: hi, floor: lo, ramp: rampKey,
+      // Cell types only: a name at a sentinel's median would mark a population that is not there.
+      labels: types.flatMap((t, ti) => (t.sentinel ? [] : [{ name: t.name, x: at[ti].x, y: at[ti].y }])),
+      borders: false, silhouette: false, background: PRINT_PLATE,
+      title: name, subtitle: null, plainTitle: true, barLabel: 'Module score',
+    }
+  }, [d, types, xy, scores, rampKey, name])
 
-    // The scale, on the figure. It was an HTML strip beside the canvas, so an
-    // exported score map had colours and no way to read them — and this one is
-    // worse than a feature plot, because a module score has no natural units
-    // and the numbers at the ends are the only thing that anchors it.
-    const unit = cv.width / 640
-    const barW = Math.min(cv.width * 0.55, 170 * unit)
-    drawColorBar(g, {
-      x: (cv.width - barW) / 2, y: cv.height - BAR_U * unit + 16 * unit,
-      w: barW, h: 9 * unit,
-      ramp: rampKey, lo, hi, ink: PRINT_INK,
-      label: 'Module score', unit,
-    })
-  }, [d, types, xy, scores, rampKey])
+  useEffect(() => {
+    const cv = ref.current
+    const g = cv?.getContext('2d')
+    if (!cv || !g) return
+    const background = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || PRINT_PLATE
+    // On screen the section's head line names the set; the file carries the name itself.
+    drawFeature(g, cv.width, cv.height, { ...spec, title: '', background, px: 2 }, dark)
+  }, [spec, dark, size])
 
   return (
-    <canvas
-      role="img" aria-label="Module score on the embedding"
-      ref={ref} width={size * 2} height={size * 2 + Math.round(BAR_U * (size * 2) / 640)}
-      style={{ width: '100%', maxWidth: size, height: 'auto', borderRadius: 'var(--r-md)' }} />
+    // Saved repainted in print ink on white at the dpi asked for, from either theme.
+    <Figure name={`module_score_${slug(name)}`} redraw={(out, w, h) => {
+      const g = out.getContext('2d')
+      if (g) drawFeature(g, w, h, { ...spec, px: w / Math.max(1, ref.current?.clientWidth || size) }, false)
+    }}>
+      <div ref={boxRef}>
+        <canvas
+          role="img" aria-label="Module score on the embedding"
+          ref={ref} width={size * 2} height={panelHeight(size * 2, 2)}
+          style={{ display: 'block', width: size, maxWidth: '100%', height: 'auto' }} />
+      </div>
+    </Figure>
   )
 }
-
-/** Height of the colour-bar strip, in the same 640-wide units as the drawing. */
-const BAR_U = 46
 
 function SetHeatmap({
   src, genes, d, types, groupBy, palKey, keepT, keepC, rampDiv, rampSeq, scale, flip, cluster,
@@ -880,7 +861,7 @@ function SetHeatmap({
           return (
             <rect key={`${gi}-${k}`} x={PL + hj * cw} y={plotT + vi * rh}
               width={cw} height={rh}
-              fill={rampColor((v[gi * cols.length + k] - lo) / span, ramp)}>
+              className="gfill" style={onGround(rampColor((v[gi * cols.length + k] - lo) / span, ramp), rampColor((v[gi * cols.length + k] - lo) / span, ramp, 'dark'))}>
               <title>
                 {genes[gi]} in {cols[k].full} — {scale ? 'z ' : 'mean '}
                 {v[gi * cols.length + k].toFixed(2)}

@@ -95,6 +95,32 @@ export const PRINT_PLATE = '#FFFFFF'
  */
 export const GHOST_INK = '#E2E5EA'
 
+/**
+ * A group (a condition) on a figure that also colours cell types.
+ *
+ * Greys, never the categorical palette. Groups took the palette's first two
+ * colours, which are the first two cell types': in Composition a blue tick
+ * beside a sample meant "Quiescent" and a blue segment in the same row meant
+ * "qNSC", and a blue qNSC swatch sat over blue Quiescent bars. A group is
+ * told apart by its name on the axis and by the depth of its grey; a hue on
+ * that figure always means a cell type. Custom properties, so they follow the
+ * theme on screen and are print values in a saved file. Past four groups the
+ * greys repeat and the names on the axis are the cue.
+ */
+export const groupInk = (i: number): string => `var(--fig-g${(((i % 4) + 4) % 4) + 1})`
+
+/**
+ * A data colour that depends on the ground it is drawn on, for an SVG mark.
+ *
+ * The pale end of a scale is pale against white; on the dark ground it was
+ * the brightest thing in the figure (a dot plot's non-marker dots were solid
+ * white). The mark carries both values and the stylesheet picks one by theme
+ * (`.gfill`, `.gstop` in index.css), so the screen follows the theme and a
+ * saved file, read under the light stamp, gets the print value.
+ */
+export const onGround = (light: string, dark: string) =>
+  ({ '--gl': light, '--gd': dark }) as Record<string, string>
+
 /** A row label on a figure — darker than interface ink, lighter than the axis. */
 export const LABEL_INK = 'var(--fig-label)'
 

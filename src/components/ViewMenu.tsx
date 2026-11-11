@@ -3,6 +3,7 @@ import {
   DIVERGING, PALETTES, RAMPS, rampCss, SEQUENTIAL, type PaletteKey, type RampKey,
 } from '../lib/palette.ts'
 import Popover from './Popover.tsx'
+import { useDark } from '../lib/theme.ts'
 
 /**
  * Figure style, for the whole studio, from wherever you are looking.
@@ -35,6 +36,8 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
   onRampDiv: (k: RampKey) => void
 }) {
   const [open, setOpen] = useState(false)
+  // A scale is previewed as it is drawn on this ground.
+  const dark = useDark()
   const trigger = useRef<HTMLButtonElement>(null)
 
   return (
@@ -71,7 +74,7 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
               {SEQUENTIAL.map(k => <option key={k} value={k}>{RAMPS[k].label}</option>)}
             </select>
             <span className="mt-1.5 block h-[15px] w-full rounded-[--r-sm]"
-              style={{ background: rampCss(rampKey) }} />
+              style={{ background: rampCss(rampKey, dark ? 'dark' : 'light') }} />
             <span className="mt-1 block tx-micro" style={{ color: 'var(--ink-3)' }}>
               Any quantity that starts at zero — feature plots, the dot plot&rsquo;s
               size, enrichment significance.
@@ -84,7 +87,7 @@ export default function ViewMenu({ palKey, rampKey, rampDiv, onPal, onRamp, onRa
               {DIVERGING.map(k => <option key={k} value={k}>{RAMPS[k].label}</option>)}
             </select>
             <span className="mt-1.5 block h-[15px] w-full rounded-[--r-sm]"
-              style={{ background: rampCss(rampDiv) }} />
+              style={{ background: rampCss(rampDiv, dark ? 'dark' : 'light') }} />
             <span className="mt-1 block tx-micro" style={{ color: 'var(--ink-3)' }}>
               z-scores and module scores — the dot plot, both gene-set heatmaps.
             </span>

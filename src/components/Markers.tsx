@@ -6,8 +6,9 @@ import { dotAt, dotGrid, type DotGrid } from '../lib/dots.ts'
 import { downloadCsv } from '../lib/download.ts'
 import { maxOf } from '../lib/chart.ts'
 import { widestW } from '../lib/labels.ts'
-import { AXIS_INK, GHOST_INK, GRID_INK, LABEL_INK, MARK_EDGE } from '../lib/figure-ink.ts'
-import { mix, pal, type PaletteKey } from '../lib/palette.ts'
+import { AXIS_INK, GHOST_INK, GRID_INK, MARK_EDGE, onGround, PRINT_LABEL } from '../lib/figure-ink.ts'
+import { useWidth } from '../lib/use-width.ts'
+import { ZERO_ON_DARK, mix, pal, type PaletteKey } from '../lib/palette.ts'
 import { countText, populations, sentinelCount } from '../lib/sentinels.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
@@ -53,6 +54,8 @@ export default function Markers({
   onPickGene: (g: string) => void
 }) {
   const [topN, setTopN] = useState(5)
+  // The room the dot plot has, so its columns can be fitted to it.
+  const [figRef, figW] = useWidth()
   const [open, setOpen] = useState<number | null>(null)
 
   /**
@@ -179,7 +182,7 @@ export default function Markers({
     return <Card><Empty title="No markers to show">This object has no clusters to compare.</Empty></Card>
   }
 
-  const cw = 21, rh = 34
+  const rh = 34
   /**
    * The label gutter is measured from the cluster names.
    *
@@ -207,10 +210,19 @@ export default function Markers({
   // the final label was cut off — on a marker plot, where that column is the one
   // a reader is most likely to be looking for.
   const lean = Math.ceil(Math.cos(52 * Math.PI / 180) * maxOf(genes.map(g => g.length)) * 5.4)
+  // Columns fitted to the stage, from 21 px down to 15: at 1,280 the figure
+  // was 139 px wider than the stage and its last five genes and the size
+  // key's "100" were cut, with nothing to say it scrolled. Under 15 px the
+  // names collide, so past that it scrolls and says so.
+  const CW = 21, CW_MIN = 15
+  const cw = figW && genes.length
+    ? Math.max(CW_MIN, Math.min(CW, Math.floor(((figW - PL - 24 - lean) / genes.length) * 10) / 10))
+    : CW
   const W = Math.max(PL + genes.length * cw + 24 + lean, PL + 430)
+  const scrolls = figW > 0 && W > figW + 1
   const plotB = PT + chosen.length * rh
   const H = plotB + 16 + legendH
-  const dotR = (f: number) => +(2 + f * 7.5).toFixed(2)
+  const dotR = (f: number) => +(2 + f * (cw / 2 - 3)).toFixed(2)
 
   // Same columns and same two rules as the table above it: the adjusted p as a
   // bound once it has underflowed, and the log-space significance beside it so
@@ -275,9 +287,10 @@ export default function Markers({
           </div>
         )}
         <Figure name="cluster_markers">
-          <div className="overflow-x-auto">
-            <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
-              style={{ minWidth: W }} role="img"
+          <div ref={figRef} className="figscroll" {...(scrolls
+            ? { tabIndex: 0, role: 'group', 'aria-label': 'Marker gene dot plot, scrolls sideways' } : {})}>
+            <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
+              style={{ display: 'block' }} role="img"
               aria-label="Marker gene dot plot">
               {/* Grid behind, axes in black. Same reasoning as the gene tab's
                   dot plot: on paper the interface's greys read as faint. */}
@@ -318,7 +331,9 @@ export default function Markers({
                       return (
                         <circle key={g} cx={PL + cw * (gi + 0.5)} cy={y}
                           r={dotR(pct)}
-                          fill={mix(GHOST_INK, pal(ti, palKey), Math.min(1, m / 2.5))}
+                          className="gfill" style={onGround(
+                            mix(GHOST_INK, pal(ti, palKey), Math.min(1, m / 2.5)),
+                            mix(ZERO_ON_DARK, pal(ti, palKey), Math.min(1, m / 2.5)))}
                           stroke={own.has(g) ? pal(ti, palKey) : MARK_EDGE}
                           strokeWidth={own.has(g) ? 1.4 : 0.6}>
                           <title>{g} in {t.name} — {(pct * 100).toFixed(0)}% of cells, mean {m.toFixed(2)}</title>
@@ -330,7 +345,7 @@ export default function Markers({
               })}
               <ColorBar
                 cx={PL + (W - PL) * 0.32} y={H - legendH + 22} w={150} h={11}
-                colors={[GHOST_INK, LABEL_INK]} lo={0} hi={2.5}
+                colors={[GHOST_INK, PRINT_LABEL]} darkColors={[ZERO_ON_DARK, '#C9CED6']} lo={0} hi={2.5}
                 title="Avg. Exp. · depth of cluster colour"
                 id="markers-bar"
               />
@@ -338,6 +353,11 @@ export default function Markers({
                 title="Percent Expressed" radius={dotR} />
             </svg>
           </div>
+          {scrolls && (
+            <p className="figscroll-note">
+              {genes.length} genes are wider than the stage: scroll the figure sideways for the rest. The saved file has all of it.
+            </p>
+          )}
         </Figure>
         {/* The size and colour keys are inside the figure now. What is left here
             is state, not key: whether the values are still being read, and what

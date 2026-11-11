@@ -6,15 +6,16 @@ import {
   refuses, rowAxes,
   type CompField, type CompTable,
 } from '../lib/composition.ts'
-import { downloadCsv, svgSheetToFile } from '../lib/download.ts'
-import { MARK_EDGE, PLATE } from '../lib/figure-ink.ts'
+import { downloadCsv, SHEET_INCHES } from '../lib/download.ts'
+import { sheetSvgs } from '../lib/figure-pick.ts'
+import { groupInk, MARK_EDGE } from '../lib/figure-ink.ts'
 import { axisTicks, wrapAll, widestW } from '../lib/labels.ts'
-import { pal, type PaletteKey } from '../lib/palette.ts'
+import { inkOn, pal, type PaletteKey } from '../lib/palette.ts'
 import { namesText, sentinelCount } from '../lib/sentinels.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Legend } from './Ui.tsx'
 import { InRail, RailGroup } from './Rail.tsx'
-import Figure, { CsvButton, DownIcon } from './Figure.tsx'
+import Figure, { CsvButton } from './Figure.tsx'
 import { InHead } from './Stage.tsx'
 
 /**
@@ -127,7 +128,7 @@ export default function Composition({ d, types, palKey }: {
       const color = outer
         ? pal(r.keys[0], palKey)
         : innerField === 'sample'
-          ? pal(condAt.get(d.samples[innerKey]?.cond ?? '') ?? 0, palKey)
+          ? groupInk(condAt.get(d.samples[innerKey]?.cond ?? '') ?? 0)
           : pal(innerKey, palKey)
       out.push({ i, label, group: outer ? outerNames[r.keys[0]] ?? '' : null, color })
     })
@@ -341,13 +342,6 @@ export default function Composition({ d, types, palKey }: {
             {/* One file for the whole small multiple. Each panel can still be
                 saved on its own; nine clicks and nine files to reassemble is
                 not what somebody putting a figure together wants. */}
-            <button
-              className="btn btn-quiet"
-              title="Every panel above, tiled into one SVG"
-              onClick={() => svgSheetToFile(
-                [...(sheet.current?.querySelectorAll('svg') ?? [])] as SVGSVGElement[],
-                'proportion_by_group', 3)}
-            ><DownIcon />Save all panels</button>
             <CsvButton
               onClick={() => downloadCsv(
                 'composition_type_by_group_per_sample',
@@ -357,6 +351,10 @@ export default function Composition({ d, types, palKey }: {
               )}
             />
           </InHead>
+          {/* The sheet's drawings only: it took every svg in the grid, which
+              since each panel drew its own download glyph was also the icons. */}
+          <Figure name="proportion_by_group" label="Save all panels" inches={SHEET_INCHES}
+            sheet={{ svgs: () => sheetSvgs<SVGSVGElement>(sheet.current), cols: 3 }}>
           <div
             ref={sheet}
             className="grid gap-3"
@@ -367,8 +365,9 @@ export default function Composition({ d, types, palKey }: {
             {types.map((t, ti) => (t.sentinel ? null
               : <TypeFacet key={t.key} d={d} t={t} ti={ti} palKey={palKey} />))}
           </div>
+          </Figure>
           <Legend
-            items={d.conds.map((c, i) => [pal(i, palKey), c])}
+            items={d.conds.map((c, i) => [groupInk(i), c])}
             note={d.samples.length > d.conds.length ? '· bar = mean · dots = individual samples' : undefined}
           />
         </Card>
@@ -499,7 +498,7 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
                     {/* A number only where it fits; a clipped "1%" is worse than none. */}
                     {xb - xa > 30 && (
                       <text x={(xa + xb) / 2} y={y + rowH / 2 + 3.5} textAnchor="middle"
-                        style={{ fontSize: 10, fill: PLATE, fontWeight: 650 }}>
+                        style={{ fontSize: 10.5, fill: inkOn(pal(pi, palKey)), fontWeight: 600 }}>
                         {(p * 100).toFixed(0)}%
                       </text>
                     )}
@@ -599,7 +598,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
         {per.map((vals, ci) => {
           const mean = vals.reduce((a, b) => a + b, 0) / vals.length
           const cx = PL + bw * (ci + 0.5)
-          const col = pal(ci, palKey)
+          const col = groupInk(ci)
           const w = Math.min(46, bw * 0.56)
           const lab = d.conds[ci]
           return (

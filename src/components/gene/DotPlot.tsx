@@ -5,7 +5,7 @@ import type { Identity } from '../../types.ts'
 import { dendroLines, orderRows } from '../../lib/cluster.ts'
 import { maxOfAll } from '../../lib/chart.ts'
 import { axisTicks, widestW } from '../../lib/labels.ts'
-import { AXIS_INK, GRID_INK, MARK_EDGE } from '../../lib/figure-ink.ts'
+import { onGround, AXIS_INK, GRID_INK, MARK_EDGE } from '../../lib/figure-ink.ts'
 import { rampColor, symmetricRange } from '../../lib/palette.ts'
 import Figure from '../Figure.tsx'
 import { ColorBar, SizeKey } from '../svg-parts.tsx'
@@ -289,7 +289,9 @@ export default function DotPlot(
                 // Without it a z-scored plot is mostly pale dots with no border,
                 // and the reader cannot tell a small faint dot from the page.
                 <circle key={`${r.full}-${g}`} cx={X(h)} cy={Y(v)} r={radius(pct)}
-                  fill={rampColor((cv[gi][ri] - lo) / (hi - lo), ramp)}
+                  className="gfill" style={onGround(
+                    rampColor((cv[gi][ri] - lo) / (hi - lo), ramp),
+                    rampColor((cv[gi][ri] - lo) / (hi - lo), ramp, 'dark'))}
                   stroke={MARK_EDGE} strokeWidth={0.7}>
                   <title>
                     {g} in {r.full} — {(pct * 100).toFixed(0)}% of cells,

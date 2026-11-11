@@ -18,7 +18,7 @@
 // the colour actually changes, so "this dot is about a 2" is a comparison
 // against a mark rather than an estimate.
 
-import { AXIS_INK, FRAME_INK, MARK_EDGE, SUMMARY_INK, TICK_INK } from '../lib/figure-ink.ts'
+import { AXIS_INK, FRAME_INK, MARK_EDGE, onGround, SUMMARY_INK, TICK_INK } from '../lib/figure-ink.ts'
 import { breaksOf, fmtBreak } from '../lib/breaks.ts'
 import { fit, textW, widestW } from '../lib/labels.ts'
 import { mix as mixHex, rampColor, type RampKey } from '../lib/palette.ts'
@@ -33,7 +33,7 @@ const STOPS = 24
  * and are centred on it, and every caller getting the same arithmetic slightly
  * wrong is how a row of legends ends up not quite lined up.
  */
-export function ColorBar({ cx, y, w, h, ramp, colors, lo, hi, title, id, breaks }: {
+export function ColorBar({ cx, y, w, h, ramp, colors, darkColors, lo, hi, title, id, breaks }: {
   cx: number; y: number; w: number; h: number
   lo: number; hi: number; title: string; id: string
   /** A named ramp… */
@@ -47,22 +47,28 @@ export function ColorBar({ cx, y, w, h, ramp, colors, lo, hi, title, id, breaks 
    * authoritative.
    */
   colors?: [string, string]
+  /** The same two ends as they are drawn on the dark ground (the screen only). */
+  darkColors?: [string, string]
   /** Override the automatic breaks — for a fixed scale like a z-score. */
   breaks?: number[]
 }) {
   const x = cx - w / 2
   const at = (f: number) => (colors ? mixHex(colors[0], colors[1], f) : rampColor(f, ramp ?? 'blue'))
+  const atDark = (f: number) => (colors
+    ? mixHex((darkColors ?? colors)[0], (darkColors ?? colors)[1], f)
+    : rampColor(f, ramp ?? 'blue', 'dark'))
   const ticks = (breaks ?? breaksOf(lo, hi)).filter(v => v >= lo && v <= hi)
   const pos = (v: number) => x + (hi > lo ? (v - lo) / (hi - lo) : 0) * w
 
   return (
     <g>
       <text x={cx} y={y - 7} textAnchor="middle"
-        style={{ fontSize: 11.5, fontWeight: 700, fill: AXIS_INK }}>{title}</text>
+        style={{ fontSize: 11.5, fontWeight: 600, fill: AXIS_INK }}>{title}</text>
       <defs>
         <linearGradient id={id} x1="0" x2="1" y1="0" y2="0">
           {Array.from({ length: STOPS + 1 }, (_v, i) => (
-            <stop key={i} offset={`${(i / STOPS) * 100}%`} stopColor={at(i / STOPS)} />
+            <stop key={i} offset={`${(i / STOPS) * 100}%`} className="gstop"
+              style={onGround(at(i / STOPS), atDark(i / STOPS))} />
           ))}
         </linearGradient>
       </defs>

@@ -14,7 +14,7 @@ import type { Cell } from '../types.ts'
 import { breaksOf, fmtBreak } from './breaks.ts'
 import { drawLabels } from './canvas-label.ts'
 import { FRAME_INK, TICK_INK } from './figure-ink.ts'
-import { rampColor, type RampKey } from './palette.ts'
+import { rampColor, type Ground, type RampKey } from './palette.ts'
 
 export interface FeatureDraw {
   /** Interleaved x,y per cell. */
@@ -57,11 +57,23 @@ export interface FeatureDraw {
    */
   title: string
   subtitle: string | null
+  /**
+   * Canvas pixels per CSS pixel of the panel as it is shown (2 on screen, the
+   * dpi scale on export). Type is set in CSS pixels through it, so a name is
+   * the same size on a 280 px panel as on a 640 px one. It was sized from the
+   * panel's width: a 268 px score map carried 4 px names and a 3 px scale.
+   * Left out, the panel is taken to be 640 px wide, as it always was.
+   */
+  px?: number
+  /** What the colour bar measures. Left out, "Expression". */
+  barLabel?: string
+  /** A title that is not a gene symbol is not set in italics. */
+  plainTitle?: boolean
 }
 
 /** Grey for cells that are present but not part of this panel. */
 const GHOST = '#E2E5EA'
-const GHOST_DARK = '#2A2F3A'
+export const GHOST_DARK = '#20242B'
 
 /** Title and colour-bar strips, in the same 640-wide units as everything else. */
 const TOP_U = 22, BOT_U = 46
@@ -73,7 +85,7 @@ const TOP_U = 22, BOT_U = 46
  * than take them out of the plot — otherwise every UMAP is quietly squashed
  * vertically, which is a distortion of the data and not a layout detail.
  */
-export const panelHeight = (w: number): number => Math.round(w + ((TOP_U + BOT_U) * w) / 640)
+export const panelHeight = (w: number, px: number = w / 640): number => Math.round(w + (TOP_U + BOT_U) * px)
 
 export function drawFeature(
   ctx: CanvasRenderingContext2D, W: number, H: number, o: FeatureDraw, dark = false,
@@ -81,11 +93,13 @@ export function drawFeature(
   ctx.fillStyle = o.background
   ctx.fillRect(0, 0, W, H)
 
-  const unit0 = W / 640
+  // Type and the strips that hold it are in CSS pixels; marks follow the panel.
+  const tu = o.px ?? W / 640
+  const ground: Ground = dark ? 'dark' : 'light'
   // Strips for the title and the colour bar, as a fraction of the panel so an
   // export at four times the size keeps the same proportions.
-  const TOP = TOP_U * unit0
-  const BOT = BOT_U * unit0
+  const TOP = TOP_U * tu
+  const BOT = BOT_U * tu
   const PH = Math.max(1, H - TOP - BOT)
 
   const { x0, x1, y0, y1 } = o.extent
@@ -135,22 +149,25 @@ export function drawFeature(
       ctx.arc(px, py, r + 0.55 * unit, 0, 6.283185)
       ctx.fill()
     }
-    ctx.fillStyle = rampColor(Math.min(1, Math.max(0, (o.vals[i] - o.floor) / span)), o.ramp)
+    ctx.fillStyle = rampColor(Math.min(1, Math.max(0, (o.vals[i] - o.floor) / span)), o.ramp, ground)
     ctx.beginPath()
     ctx.arc(px, py, r, 0, 6.283185)
     ctx.fill()
   }
 
   if (o.labels) {
-    ctx.font = `600 ${Math.round(17 * unit)}px system-ui, sans-serif`
-    ctx.lineWidth = 3.5 * unit
+    // The embedding's own rule (Cells): 11 to 14 px by the panel's width.
+    const namePx = Math.max(11, Math.min(14, Math.round(W / tu / 52))) * tu
+    ctx.font = `600 ${Math.round(namePx)}px system-ui, sans-serif`
+    ctx.lineWidth = Math.max(3, namePx * 0.28)
+    ctx.lineJoin = 'round'
     drawLabels(ctx, o.labels.map(l => ({
       name: l.name,
       x: (l.x - x0) * sx,
       y: TOP + PH - (l.y - y0) * sy,
     })), {
       fill: dark ? '#E6EAF2' : '#334155',
-      halo: dark ? 'rgba(0,0,0,.85)' : 'rgba(255,255,255,.9)',
+      halo: dark ? 'rgba(17,19,23,.9)' : 'rgba(255,255,255,.9)',
     })
   }
 
@@ -159,21 +176,21 @@ export function drawFeature(
   // Title: the gene, in italic the way a gene symbol is set in print, with the
   // group beside it when the panel is one of a split.
   ctx.textAlign = 'left'
-  ctx.font = `italic 600 ${Math.round(13 * unit)}px system-ui, sans-serif`
+  ctx.font = `${o.plainTitle ? '' : 'italic '}600 ${Math.round(13 * tu)}px system-ui, sans-serif`
   ctx.fillStyle = ink
-  ctx.fillText(o.title, 2 * unit, 14 * unit)
+  ctx.fillText(o.title, 2 * tu, 14 * tu)
   if (o.subtitle) {
     const w = ctx.measureText(o.title).width
-    ctx.font = `${Math.round(12 * unit)}px system-ui, sans-serif`
+    ctx.font = `${Math.round(12 * tu)}px system-ui, sans-serif`
     ctx.fillStyle = dark ? '#9AA4B5' : '#4A5568'
-    ctx.fillText(o.subtitle, 2 * unit + w + 7 * unit, 14 * unit)
+    ctx.fillText(o.subtitle, 2 * tu + w + 7 * tu, 14 * tu)
   }
 
-  const barW = Math.min(W * 0.55, 170 * unit)
+  const barW = Math.min(W * 0.7, 200 * tu)
   drawColorBar(ctx, {
-    x: (W - barW) / 2, y: H - BOT + 14 * unit,
-    w: barW, h: 9 * unit,
-    ramp: o.ramp, lo: o.floor, hi: o.top, label: 'Expression', ink, unit,
+    x: (W - barW) / 2, y: H - BOT + 18 * tu,
+    w: barW, h: 9 * tu,
+    ramp: o.ramp, lo: o.floor, hi: o.top, label: o.barLabel ?? 'Expression', ink, unit: tu, ground,
   })
 }
 
@@ -189,10 +206,12 @@ export function drawFeature(
 export function drawColorBar(ctx: CanvasRenderingContext2D, o: {
   x: number; y: number; w: number; h: number
   ramp: RampKey; lo: number; hi: number; label: string; ink: string; unit: number
+  /** The ground the bar is drawn on, so it shows the scale as the marks wear it. */
+  ground?: Ground
 }): void {
   const { x, y, w, h, unit, ink } = o
   for (let i = 0; i < w; i++) {
-    ctx.fillStyle = rampColor(i / (w - 1), o.ramp)
+    ctx.fillStyle = rampColor(i / (w - 1), o.ramp, o.ground)
     ctx.fillRect(x + i, y, 1.5, h)
   }
 
@@ -214,12 +233,12 @@ export function drawColorBar(ctx: CanvasRenderingContext2D, o: {
   ctx.lineWidth = 0.9 * unit
   ctx.strokeRect(x, y, w, h)
 
-  ctx.font = `${Math.round(10 * unit)}px system-ui, sans-serif`
+  ctx.font = `${Math.round(10.5 * unit)}px system-ui, sans-serif`
   ctx.fillStyle = ink
   ctx.textAlign = 'center'
-  for (const v of ticks) ctx.fillText(fmtBreak(v), pos(v), y + h + 11 * unit)
+  for (const v of ticks) ctx.fillText(fmtBreak(v), pos(v), y + h + 12 * unit)
   ctx.textAlign = 'center'
-  ctx.font = `700 ${Math.round(11 * unit)}px system-ui, sans-serif`
+  ctx.font = `600 ${Math.round(11 * unit)}px system-ui, sans-serif`
   ctx.fillText(o.label, x + w / 2, y - 5 * unit)
   ctx.textAlign = 'left'
 }

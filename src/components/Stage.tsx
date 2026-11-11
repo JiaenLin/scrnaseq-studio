@@ -52,7 +52,7 @@ export function Section({ title, meta, children }: {
     <ActionSlot.Provider value={slot}>
       <section className="sect">
         <div className="sect-head">
-          <h3 className="stage-title">{title}</h3>
+          <h3 className="stage-title" title={title}>{title}</h3>
           {meta && <span className="stage-meta">{meta}</span>}
           <div ref={setSlot} className="stage-actions" />
         </div>

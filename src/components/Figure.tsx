@@ -1,5 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { canvasToPng, scaleForDpi, slug, svgToFile, svgToPng } from '../lib/download.ts'
+import {
+  canvasToPng, FIGURE_INCHES, scaleForDpi, slug, svgSheetToFile, svgSheetToPng, svgToFile, svgToPng,
+} from '../lib/download.ts'
+import { figureSvg } from '../lib/figure-pick.ts'
 import Popover from './Popover.tsx'
 import { InHead } from './Stage.tsx'
 
@@ -18,7 +21,9 @@ import { InHead } from './Stage.tsx'
  * so by not offering vector rather than by handing over an SVG with a bitmap
  * inside it.
  */
-export default function Figure({ name, children, className, right, redraw, extent, compact }: {
+export default function Figure({
+  name, children, className, right, redraw, extent, compact, sheet, inches = FIGURE_INCHES, label = 'Save',
+}: {
   name: string
   children: ReactNode
   className?: string
@@ -45,27 +50,49 @@ export default function Figure({ name, children, className, right, redraw, exten
    * on the stage; the whole sheet is saved from the head line.
    */
   compact?: boolean
+  /**
+   * The figure is a sheet of SVG panels (a small multiple): Save tiles every
+   * panel's own drawing, `cols` across, into one file, in the same three
+   * formats as any other figure. It was a button that wrote an SVG at once
+   * beside buttons with the same glyph that opened a menu.
+   */
+  sheet?: { svgs: () => SVGSVGElement[]; cols: number }
+  /** The printed width the dpi is counted against: one column, or two for a sheet. */
+  inches?: number
+  /** The button's word, when "Save" alone would not say what is saved. */
+  label?: string
 }) {
   const box = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const svgIn = () => box.current?.querySelector('svg') as SVGSVGElement | null
+  // The figure's own drawing: never the axis glyph beside a canvas, never the
+  // drawn download icon of its own button (lib/figure-pick.ts).
+  const svgIn = () => figureSvg<SVGSVGElement>(box.current, !!redraw)
   const canvasIn = () => box.current?.querySelector('canvas') as HTMLCanvasElement | null
 
   const save = async (kind: 'svg' | number) => {
     setOpen(false)
     const svg = svgIn()
     if (kind === 'svg') {
-      if (svg) svgToFile(svg, slug(name))
+      if (sheet) svgSheetToFile(sheet.svgs(), slug(name), sheet.cols)
+      else if (svg) svgToFile(svg, slug(name))
       return
     }
     setBusy(true)
     try {
+      if (sheet) {
+        const svgs = sheet.svgs()
+        const n = Math.min(sheet.cols, svgs.length)
+        const cw = Math.max(1, ...svgs.map(v => v.viewBox.baseVal?.width || v.clientWidth || 400))
+        await svgSheetToPng(svgs, `${slug(name)}_${kind}dpi`, sheet.cols,
+          scaleForDpi(n * cw + (n + 1) * 12, kind, inches), kind)
+        return
+      }
       if (svg) {
         const w = svg.viewBox.baseVal?.width || svg.clientWidth || 800
-        await svgToPng(svg, `${slug(name)}_${kind}dpi`, scaleForDpi(w, kind))
+        await svgToPng(svg, `${slug(name)}_${kind}dpi`, scaleForDpi(w, kind, inches), kind)
         return
       }
       const cv = canvasIn()
@@ -74,18 +101,18 @@ export default function Figure({ name, children, className, right, redraw, exten
       // The on-screen canvas is already drawn at 2x its CSS box, so the dpi is
       // measured against the size the reader sees, not the backing store.
       const shown = extent?.w ?? (cv.clientWidth || cv.width / 2)
-      const s = scaleForDpi(shown, kind)
+      const s = scaleForDpi(shown, kind, inches)
       const out = document.createElement('canvas')
       out.width = Math.round(shown * s)
       out.height = Math.round((extent?.h ?? (cv.clientHeight || cv.height / 2)) * s)
       redraw(out, out.width, out.height)
-      canvasToPng(out, `${slug(name)}_${kind}dpi`)
+      canvasToPng(out, `${slug(name)}_${kind}dpi`, kind)
     } finally {
       setBusy(false)
     }
   }
 
-  const vector = !!svgIn()
+  const vector = !!sheet || !!svgIn()
 
   const actions = (
       <div className={compact ? 'fig-corner' : 'fig-actions'}>
@@ -103,7 +130,7 @@ export default function Figure({ name, children, className, right, redraw, exten
             // does not shrink the trigger out from under the cursor.
             style={compact ? undefined : { minWidth: 64, textAlign: 'center' }}
             onClick={() => setOpen(v => !v)}
-          >{busy ? '…' : compact ? <DownIcon /> : <><DownIcon />Save</>}</button>
+          >{busy ? '…' : compact ? <DownIcon /> : <><DownIcon />{label}</>}</button>
           <Popover open={open} anchor={trigger} align="right" role="menu"
             label={`Download ${name}`} width={212} onClose={() => setOpen(false)}>
             <div className="p-1.5 text-left">
@@ -112,9 +139,9 @@ export default function Figure({ name, children, className, right, redraw, exten
                   title="SVG — vector" note="editable, no resampling" />
               )}
               <MenuItem onClick={() => void save(300)}
-                title="PNG — 300 dpi" note="the usual journal minimum" />
+                title="PNG — 300 dpi" note={`${inches} in wide · the usual journal minimum`} />
               <MenuItem onClick={() => void save(600)}
-                title="PNG — 600 dpi" note="line art and dense panels" />
+                title="PNG — 600 dpi" note={`${inches} in wide · line art and dense panels`} />
             </div>
           </Popover>
         </div>

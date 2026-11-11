@@ -9,7 +9,7 @@
 import type { CellType, ColorBy, Dataset } from '../types.ts'
 import { drawLabels } from './canvas-label.ts'
 import { clusterCentroids, embedExtent } from './chart.ts'
-import { pal, rampColor, type PaletteKey, type RampKey } from './palette.ts'
+import { pal, rampColor, type Ground, type PaletteKey, type RampKey } from './palette.ts'
 import { SENTINEL_GREY, sentinelMask } from './sentinels.ts'
 
 export interface EmbedPaint {
@@ -40,6 +40,8 @@ export interface EmbedPaint {
    */
   keep?: (cell: number) => boolean
   mute?: string
+  /** The ground the canvas sits on; a continuous colour starts from it. Left out, white. */
+  ground?: Ground
 }
 
 /**
@@ -105,7 +107,7 @@ export function paintEmbedding(g: CanvasRenderingContext2D, o: EmbedPaint): void
         : colorBy === 'type' ? (sent && sent[c.t] ? SENTINEL_GREY : pal(c.t, palKey))
         : colorBy === 'cond' ? pal(d.conds.indexOf(c.cond), palKey)
         : colorBy === 'sample' ? pal(d.samples.findIndex(s => s.id === c.s), palKey)
-        : rampColor(mitoTop > 0 ? Math.min(1, c.mito / mitoTop) : 0, rampKey)
+        : rampColor(mitoTop > 0 ? Math.min(1, c.mito / mitoTop) : 0, rampKey, o.ground)
       g.beginPath()
       g.arc(sx(xy[2 * i]), sy(xy[2 * i + 1]), r, 0, 6.284)
       g.fill()

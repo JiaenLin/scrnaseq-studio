@@ -37,6 +37,12 @@ function inlineStyles(src: Element, dst: Element) {
     // depend on where it is opened.
     if (dst.hasAttribute(p)) dst.setAttribute(p, v)
   }
+  // A gradient stop's colour is its own property, and only a stop has one
+  // worth writing: a themed stop (`.gstop`) has it from the stylesheet alone.
+  if (src.tagName.toLowerCase() === 'stop') {
+    const v = cs.getPropertyValue('stop-color')
+    if (v) { decl.push(`stop-color:${v}`); dst.setAttribute('stop-color', v) }
+  }
   if (decl.length) dst.setAttribute('style', decl.join(';'))
   const s = src.children, t = dst.children
   for (let i = 0; i < s.length; i++) inlineStyles(s[i], t[i])
@@ -62,9 +68,64 @@ function triggerDownload(href: string, filename: string) {
  */
 export const FIGURE_INCHES = 3.5
 
-/** The multiplier that renders a figure `px` wide at `dpi`. */
-export const scaleForDpi = (px: number, dpi: number): number =>
-  Math.max(1, (FIGURE_INCHES * dpi) / Math.max(1, px))
+/** A figure of several panels is set across two columns: 183 mm at Nature. */
+export const SHEET_INCHES = 7
+
+/** The multiplier that renders a figure `px` wide at `dpi`, `inches` wide in print. */
+export const scaleForDpi = (px: number, dpi: number, inches: number = FIGURE_INCHES): number =>
+  Math.max(1, (inches * dpi) / Math.max(1, px))
+
+const CRC = (() => {
+  const t = new Uint32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    t[n] = c >>> 0
+  }
+  return t
+})()
+const crc32 = (b: Uint8Array): number => {
+  let c = 0xffffffff
+  for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8)
+  return (c ^ 0xffffffff) >>> 0
+}
+
+/**
+ * Write the resolution into a PNG (a pHYs chunk after the header).
+ *
+ * A canvas writes none, so a file named "300dpi" opened at 72 in every
+ * program that reads the field, and a journal's preflight reads the field,
+ * not the name.
+ */
+export function pngWithDpi(png: Uint8Array, dpi: number): Uint8Array {
+  const IHDR_END = 8 + 4 + 4 + 13 + 4
+  if (png.length < IHDR_END || png[12] !== 0x49 || png[13] !== 0x48) return png
+  const ppm = Math.round(dpi / 0.0254)
+  const chunk = new Uint8Array(4 + 4 + 9 + 4)
+  const v = new DataView(chunk.buffer)
+  v.setUint32(0, 9)
+  chunk.set([0x70, 0x48, 0x59, 0x73], 4) // pHYs
+  v.setUint32(8, ppm)
+  v.setUint32(12, ppm)
+  chunk[16] = 1 // the unit is the metre
+  v.setUint32(17, crc32(chunk.subarray(4, 17)))
+  const out = new Uint8Array(png.length + chunk.length)
+  out.set(png.subarray(0, IHDR_END), 0)
+  out.set(chunk, IHDR_END)
+  out.set(png.subarray(IHDR_END), IHDR_END + chunk.length)
+  return out
+}
+
+function savePng(cv: HTMLCanvasElement, filename: string, dpi?: number): void {
+  const b64 = cv.toDataURL('image/png').split(',')[1]
+  const raw = atob(b64)
+  let bytes: Uint8Array = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+  if (dpi) bytes = pngWithDpi(bytes, dpi)
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/png' }))
+  triggerDownload(url, filename)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
 
 /**
  * Read the figure as if the app were in light mode, whatever it is in.
@@ -82,12 +143,23 @@ export const scaleForDpi = (px: number, dpi: number): number =>
 function forceLightFigures<T>(read: () => T): T {
   const root = document.documentElement
   const had = root.getAttribute('data-theme')
+  // Transitions off first. A computed colour that is in transition reads as
+  // the value it is leaving: under reduced motion every element carried a
+  // 120 ms transition on every property, so the stamp reached the root and
+  // every mark still read the dark theme's ink (measured: --fig-ink #000 on
+  // the root, fill rgb(231, 233, 236) on each tick label). The exported
+  // figure had white text on a white page.
+  root.setAttribute('data-exporting', '')
   root.setAttribute('data-theme', 'light')
   try {
     return read()
   } finally {
     if (had === null) root.removeAttribute('data-theme')
     else root.setAttribute('data-theme', had)
+    // Settle back to the reader's theme while transitions are still off, so
+    // the figure on screen does not fade from print ink to its own.
+    void getComputedStyle(root).color
+    root.removeAttribute('data-exporting')
   }
 }
 
@@ -124,10 +196,10 @@ function portableSvg(svg: SVGSVGElement): { xml: string; w: number; h: number } 
  * system intact — re-parenting their children into a shared space would need
  * every coordinate rewritten, and any one that was missed would silently move.
  */
-export function svgSheetToFile(
-  svgs: SVGSVGElement[], name: string, cols = 3, gap = 12,
-): void {
-  if (!svgs.length) return
+export function sheetXml(
+  svgs: SVGSVGElement[], cols = 3, gap = 12,
+): { xml: string; w: number; h: number } | null {
+  if (!svgs.length) return null
   const parts = svgs.map(portableSvg)
   const n = Math.min(cols, parts.length)
   const rows = Math.ceil(parts.length / n)
@@ -153,10 +225,26 @@ export function svgSheetToFile(
   const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" `
     + `viewBox="0 0 ${W} ${H}">`
     + `<rect width="${W}" height="${H}" fill="#ffffff"/>${inner}</svg>`
-  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
+  return { xml, w: W, h: H }
+}
+
+export function svgSheetToFile(
+  svgs: SVGSVGElement[], name: string, cols = 3, gap = 12,
+): void {
+  const sheet = sheetXml(svgs, cols, gap)
+  if (!sheet) return
+  const blob = new Blob([sheet.xml], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   triggerDownload(url, `${name}_sheet.svg`)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/** The same sheet as a PNG at `scale`, with its resolution written in. */
+export async function svgSheetToPng(
+  svgs: SVGSVGElement[], name: string, cols: number, scale: number, dpi?: number,
+): Promise<void> {
+  const sheet = sheetXml(svgs, cols)
+  if (sheet) await xmlToPng(sheet, `${name}_sheet`, scale, dpi)
 }
 
 /**
@@ -182,8 +270,13 @@ export function svgToFile(svg: SVGSVGElement, name: string): void {
  * the clone-inline-plate sequence, which is how the two exports of one figure
  * came to differ: the fix that forces light-mode ink landed in one of them.
  */
-export async function svgToPng(svg: SVGSVGElement, name: string, scale = 2): Promise<void> {
-  const { xml, w, h } = portableSvg(svg)
+export async function svgToPng(svg: SVGSVGElement, name: string, scale = 2, dpi?: number): Promise<void> {
+  await xmlToPng(portableSvg(svg), name, scale, dpi)
+}
+
+async function xmlToPng(
+  { xml, w, h }: { xml: string; w: number; h: number }, name: string, scale: number, dpi?: number,
+): Promise<void> {
   const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   try {
@@ -200,14 +293,14 @@ export async function svgToPng(svg: SVGSVGElement, name: string, scale = 2): Pro
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, cv.width, cv.height)
     ctx.drawImage(img, 0, 0, cv.width, cv.height)
-    triggerDownload(cv.toDataURL('image/png'), `${name}.png`)
+    savePng(cv, `${name}.png`, dpi)
   } finally {
     URL.revokeObjectURL(url)
   }
 }
 
-export function canvasToPng(cv: HTMLCanvasElement, name: string): void {
-  triggerDownload(cv.toDataURL('image/png'), `${name}.png`)
+export function canvasToPng(cv: HTMLCanvasElement, name: string, dpi?: number): void {
+  savePng(cv, `${name}.png`, dpi)
 }
 
 const csvCell = (v: unknown): string => {

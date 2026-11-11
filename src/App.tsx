@@ -675,7 +675,8 @@ export default function App() {
 
   // A fitted view fills the stage and has a key beside it; a document view scrolls.
   const fitted = cellsRail
-  const hasInspector = fitted
+  // The volcano has a key pane of its own, under the same toggle and the same key.
+  const hasInspector = fitted || (tab === 'de' && deView === 'volcano' && !blocked)
 
   const escapeTo: TabId = tab === 'overview' ? 'cells' : 'overview'
 
@@ -735,7 +736,10 @@ export default function App() {
           * tabs, which a screen reader cannot walk through.
           */}
         <div className="viewbar">
-        {hasRail && (
+        {/* The toggle's place is kept on a view with no rail (Overview, Methods):
+            without it the whole tab strip started 32 px further left there and
+            jumped on the first click anyone makes. */}
+        {hasRail ? (
           <button type="button" className="btn-icon" aria-pressed={railOpen}
             aria-label="Controls" title={`${railOpen ? 'Hide' : 'Show'} the controls  [`}
             onClick={() => setRailOpen(v => !v)}>
@@ -745,7 +749,7 @@ export default function App() {
               {railOpen && <rect x="2.5" y="3.5" width="3" height="9" fill="currentColor" opacity="0.35" />}
             </svg>
           </button>
-        )}
+        ) : <span className="btn-icon-slot" aria-hidden />}
         <div className="viewtabs" role="tablist" aria-label="Views of this object"
           onKeyDown={e => {
             const order = TABS.map(([id]) => id).filter(id => d.multi || !NEEDS_CONTRAST.has(id))
@@ -948,7 +952,7 @@ export default function App() {
                   })
                 }} />
             ) : tab === 'de' ? (
-              <Differential {...statsProps} view={deView} onView={setDeView}
+              <Differential {...statsProps} view={deView} onView={setDeView} inspector={inspOpen}
                 enrichment={rows => (
                   <Enrichment rows={rows} threshold={{ padj: padjMax, lfc: lfcMin, basis: sigBasis }}
                     ctrl={ctrl} cs={cs} background={src.genes} rampKey={rampKey}

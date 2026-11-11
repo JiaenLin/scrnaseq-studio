@@ -5,6 +5,8 @@ import type { Source } from '../lib/source.ts'
 import { embedExtent, fmt, hasSignal } from '../lib/chart.ts'
 import { EDGE, NAME, fitPanels } from '../lib/fit-panels.ts'
 import Figure from './Figure.tsx'
+import { FIGURE_INCHES, SHEET_INCHES } from '../lib/download.ts'
+import { useDark } from '../lib/theme.ts'
 import { ActionSlot } from '../lib/action-slot.ts'
 import { paintEmbedding } from '../lib/embed-paint.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
@@ -197,10 +199,11 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
       {withCount && <span className="num">{fmt(counts.get(label) ?? 0)}</span>}
     </button>
   )
+  const dark = useDark()
   const ramp = (
     <div className="legend">
       <span style={{ color: 'var(--ink-2)' }}>low</span>
-      <span className="inline-block h-[8px] w-[120px] rounded-[2px]" style={{ background: rampCss(rampKey) }} />
+      <span className="inline-block h-[8px] w-[120px] rounded-[2px]" style={{ background: rampCss(rampKey, dark ? 'dark' : 'light') }} />
       <span style={{ color: 'var(--ink-2)' }}>high</span>
     </div>
   )
@@ -243,6 +246,22 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
         g.fillStyle = INK2
         g.fillText(`n = ${fmt(d.nPerCond[p])}`, x + EDGE * s + used + 8 * s, y - 6 * s)
       }
+      // The axis glyph, once, where the screen has it: the file names its
+      // two dimensions too.
+      if (k === axisAt) {
+        const ax = x + 4.5 * s, ay = y + (ph - 4.5) * s
+        g.strokeStyle = INK2
+        g.lineWidth = s
+        g.beginPath()
+        g.moveTo(ax, ay - 39.5 * s); g.lineTo(ax, ay); g.lineTo(ax + 39.5 * s, ay)
+        g.moveTo(ax - 3 * s, ay - 35.5 * s); g.lineTo(ax, ay - 40.5 * s); g.lineTo(ax + 3 * s, ay - 35.5 * s)
+        g.moveTo(ax + 35.5 * s, ay - 3 * s); g.lineTo(ax + 40.5 * s, ay); g.lineTo(ax + 35.5 * s, ay + 3 * s)
+        g.stroke()
+        g.font = `400 ${11 * s}px system-ui, sans-serif`
+        g.fillStyle = INK2
+        g.fillText(`${emb.key} 2`, ax + 6.5 * s, ay - 32.5 * s)
+        g.fillText(`${emb.key} 1`, ax + 45.5 * s, ay + 3.5 * s)
+      }
     })
     // The key: what the colours mean, with n, as on the screen.
     const kx = (fit.cols * cellW + EDGE) * s
@@ -253,10 +272,12 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
     ky += 20 * s
     if (legend.length) {
       for (const [color, label] of legend) {
-        g.fillStyle = color
+        // An isolated entry: the others are set aside in the key as on the plot.
+        const aside = isolated !== null && label !== isolated
+        g.fillStyle = aside ? '#cfd4da' : color
         g.fillRect(kx, ky - 8 * s, 8 * s, 8 * s)
         g.font = `400 ${11 * s}px system-ui, sans-serif`
-        g.fillStyle = INK
+        g.fillStyle = aside ? INK2 : INK
         g.textAlign = 'left'
         g.fillText(label, kx + 14 * s, ky)
         g.fillStyle = INK2
@@ -302,7 +323,8 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
         </header>
 
         <Figure name={`cells_${emb.key}_by_${shown}${panels.length > 1 ? '_split' : ''}`}
-          className="contents" redraw={redraw} extent={extent}>
+          className="contents" redraw={redraw} extent={extent}
+          inches={panels.length > 1 ? SHEET_INCHES : FIGURE_INCHES}>
         <div ref={boxRef} className="plots" data-panels={panels.length > 1 ? 'many' : undefined}
           style={{ gridTemplateColumns: `repeat(${fit.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${fit.rows}, minmax(0, 1fr))` }}>
           {panels.map((p, k) => (
@@ -438,6 +460,9 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
   const ref = useRef<HTMLCanvasElement>(null)
   const [tip, setTip] = useState<{ x: number; y: number; i: number } | null>(null)
   const nearest = useNearest(d, xy, cond, w, h)
+  // The painter reads the theme's tokens, so the theme is one of its inputs:
+  // a canvas painted in light stayed white on the dark stage after a switch.
+  const dark = useDark()
 
   useEffect(() => {
     const cv = ref.current
@@ -457,8 +482,9 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
       radius, pad: 2 * EDGE,
       labelPx: 2 * labelSize(w),
       keep, mute: css.getPropertyValue('--line-2').trim(),
+      ground: dark ? 'dark' : 'light',
     })
-  }, [d, types, xy, cond, colorBy, palKey, rampKey, labels, w, h, keep])
+  }, [d, types, xy, cond, colorBy, palKey, rampKey, labels, w, h, keep, dark])
 
   const c = tip ? d.cells[tip.i] : null
   return (

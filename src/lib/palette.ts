@@ -138,15 +138,23 @@ export function symmetricRange(lo: number, hi: number): [number, number] {
   return [-m, m]
 }
 
-const hex = (s: string) => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16))
+const hex = (s: string) => {
+  // A colour here is a literal. A custom property (`var(--fig-label)`) cannot
+  // be read by arithmetic: it parsed to NaN, and Markers' colour legend was a
+  // flat black bar on screen and in every export. Loud, not wrong.
+  if (!/^#[0-9a-fA-F]{6}$/.test(s)) throw new TypeError(`a colour to blend must be #rrggbb, got "${s}"`)
+  return [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16))
+}
+
+const blend = (a: number[], b: number[], f: number): number[] => {
+  const t = Math.max(0, Math.min(1, f))
+  return a.map((x, i) => Math.round(x + (b[i] - x) * t))
+}
+const css = (c: number[]) => `rgb(${c[0]},${c[1]},${c[2]})`
 
 /** Linear RGB blend. `f` is clamped, so callers need not. */
 export function mix(a: string, b: string, f: number): string {
-  const t = Math.max(0, Math.min(1, f))
-  const [r1, g1, b1] = hex(a)
-  const [r2, g2, b2] = hex(b)
-  const c = (x: number, y: number) => Math.round(x + (y - x) * t)
-  return `rgb(${c(r1, r2)},${c(g1, g2)},${c(b1, b2)})`
+  return css(blend(hex(a), hex(b), f))
 }
 
 /**
@@ -168,14 +176,84 @@ export function pal(i: number, key: PaletteKey = 'npg'): string {
   return '#' + ch(0) + ch(8) + ch(4)
 }
 
-/** Continuous ramp sampled at `f` in [0,1]. */
-export function rampColor(f: number, key: RampKey = 'seurat'): string {
-  const cols = RAMPS[key].cols
+/** The ground a colour is drawn on. A figure is exported on 'light', always. */
+export type Ground = 'light' | 'dark'
+
+/**
+ * "None of it", on the dark ground: one step above the paper (#111317).
+ *
+ * Every scale here runs light to dark, because on white it is the low end
+ * that should recede. On the dark ground the same colours put the low end,
+ * the near-white one, on top: a feature plot's cells with no expression were
+ * the brightest thing on the screen. So on the dark ground a scale starts
+ * from this grey and gets lighter as the value rises; low recedes on either
+ * ground. The file a figure is saved to is always painted for white.
+ */
+export const ZERO_ON_DARK = '#2B3038'
+
+const sample = (cols: string[], f: number): number[] => {
   const x = Math.max(0, Math.min(1, f)) * (cols.length - 1)
   const i = Math.min(cols.length - 2, Math.floor(x))
-  return mix(cols[i], cols[i + 1], x - i)
+  return blend(hex(cols[i]), hex(cols[i + 1]), x - i)
 }
 
-/** Five stops, for a CSS gradient preview of a ramp. */
-export const rampCss = (key: RampKey): string =>
-  `linear-gradient(90deg,${[0, 0.25, 0.5, 0.75, 1].map(f => rampColor(f, key)).join(',')})`
+/** Continuous ramp sampled at `f` in [0,1], for the ground it is drawn on. */
+export function rampColor(f: number, key: RampKey = 'seurat', ground: Ground = 'light'): string {
+  const cols = RAMPS[key].cols
+  const t = Math.max(0, Math.min(1, f))
+  if (ground === 'light') return css(sample(cols, t))
+  const zero = hex(ZERO_ON_DARK)
+  if (DIVERGING.includes(key)) {
+    // The neutral middle is the ground's grey, not white; each side rises to
+    // its own hue at a lightness that reads on the dark paper.
+    const u = Math.abs(2 * t - 1)
+    return css(blend(zero, hex(t < 0.5 ? cols[1] : cols[cols.length - 2]), Math.pow(u, 0.8)))
+  }
+  // The same colours, read from the other end, leaving the grey gradually.
+  return css(blend(sample(cols, (1 - t) * litSpan(key)), zero, Math.pow(1 - t, 3)))
+}
+
+const lumOf = (c: number[]): number => {
+  const [r, g, b] = c.map(v => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4) })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/**
+ * How much of a scale is lighter than the dark ground's grey.
+ *
+ * mako, rocket and magma end in near-black, darker than the paper they would
+ * be drawn on: read from that end, the lowest values were holes in the
+ * ground and the scale got darker before it got lighter. The part of a scale
+ * that is darker than the grey it starts from is left out on the dark ground.
+ */
+const spans = new Map<RampKey, number>()
+function litSpan(key: RampKey): number {
+  const known = spans.get(key)
+  if (known !== undefined) return known
+  const cols = RAMPS[key].cols
+  const floor = lumOf(hex(ZERO_ON_DARK)) * 1.15
+  let p = 1
+  while (p > 0 && lumOf(sample(cols, p)) < floor) p -= 1 / 64
+  spans.set(key, p)
+  return p
+}
+
+/**
+ * The ink for a label set ON a filled mark: black or white, whichever reads.
+ *
+ * The palette sits in a middle band of lightness so that it works on both
+ * grounds, which is exactly where neither the light plate nor the dark one is
+ * sure to reach 4.5:1 on it (the stacked bars' percentages measured 3.0 to
+ * 3.6 on nine fills). Against any colour the contrasts with black and with
+ * white multiply to 21, so the better of the two is always at least 4.58.
+ */
+export function inkOn(fill: string): '#000000' | '#ffffff' {
+  const lin = hex(fill).map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) })
+  const L = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+  return (L + 0.05) / 0.05 >= 1.05 / (L + 0.05) ? '#000000' : '#ffffff'
+}
+
+/** Stops for a CSS gradient preview of a ramp, as it is drawn on that ground. */
+export const rampCss = (key: RampKey, ground: Ground = 'light'): string =>
+  `linear-gradient(90deg,${[0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]
+    .map(f => rampColor(f, key, ground)).join(',')})`

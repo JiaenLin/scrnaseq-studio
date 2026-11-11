@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { DERow } from '../types.ts'
 import {
   combinedScore, condLabel, isSig, type SigBasis } from '../lib/stats.ts'
@@ -125,6 +125,31 @@ export default function DEGTable({
     })
   }, [rows, q, sigOnly, sort, asc, padjMax, lfcMin, sigBasis])
 
+  /**
+   * The rows by keyboard. The pane is one tab stop: arrows, Page Up and Down,
+   * Home and End move a cursor through the rows and scroll with it, Enter
+   * opens the gene. It was a scroll region that could not take focus at all,
+   * so a keyboard could neither scroll the answer nor open a row of it.
+   */
+  const pane = useRef<HTMLDivElement>(null)
+  const [cur, setCur] = useState(-1)
+  useEffect(() => { setCur(-1) }, [q, sigOnly, sort, asc, rows])
+  const shownN = Math.min(limit, view.length)
+  const onRowKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || !shownN) return
+    const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1
+      : e.key === 'PageDown' ? 10 : e.key === 'PageUp' ? -10 : 0
+    let next: number
+    if (step) next = Math.max(0, Math.min(shownN - 1, cur < 0 ? 0 : cur + step))
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = shownN - 1
+    else if (e.key === 'Enter' && cur >= 0 && view[cur]) { e.preventDefault(); onPickGene(view[cur].gene); return }
+    else return
+    e.preventDefault()
+    setCur(next)
+    pane.current?.querySelector(`tbody tr:nth-child(${next + 1})`)?.scrollIntoView({ block: 'nearest' })
+  }
+
   const clickSort = (k: SortKey) => {
     if (k === sort) setAsc(!asc)
     // Ascending is the useful default for p-values and names, descending for effects.
@@ -191,24 +216,29 @@ export default function DEGTable({
       </div>
 
       {/* To the stage's bottom edge, the head sticky: the rows are the answer. */}
-      <div className="tpane-body edge">
+      <div ref={pane} className="tpane-body edge rows-kbd" tabIndex={0} role="region"
+        aria-label="Results. Arrow keys move through the rows, Enter opens the gene."
+        onKeyDown={onRowKey}>
         <table className="t">
           <thead>
             <tr>
               {cols.map(([k, lab, num]) => (
-                <th
-                  key={k} className={`cursor-pointer select-none ${num ? 'text-right' : ''}`}
-                  aria-sort={sort === k ? (asc ? 'ascending' : 'descending') : 'none'}
-                  onClick={() => clickSort(k)}
-                >{lab}{sort === k ? (asc ? ' ▲' : ' ▼') : ''}</th>
+                // A header sorts, so it is a button: reachable and pressable by key.
+                <th key={k} className={num ? 'num' : undefined}
+                  aria-sort={sort === k ? (asc ? 'ascending' : 'descending') : 'none'}>
+                  <button type="button" className="th-sort" onClick={() => clickSort(k)}>
+                    {lab}{sort === k ? (asc ? ' ▲' : ' ▼') : ''}
+                  </button>
+                </th>
               ))}
               <th>Direction</th>
             </tr>
           </thead>
           <tbody>
-            {view.slice(0, limit).map(r => (
+            {view.slice(0, limit).map((r, ri) => (
               <tr
                 key={r.gene} className="cursor-pointer" title={`Open ${r.gene} in Gene expression`}
+                data-cur={ri === cur ? '' : undefined} aria-current={ri === cur ? 'true' : undefined}
                 onClick={() => onPickGene(r.gene)}
               >
                 <td className="mono font-semibold italic">{r.gene}</td>
@@ -223,13 +253,13 @@ export default function DEGTable({
                 <td className="num font-semibold" style={{ color: r.lfc > 0 ? 'var(--up)' : 'var(--down)' }}>
                   {r.lfc > 0 ? '+' : ''}{r.lfc.toFixed(2)}
                 </td>
-                <td className="num mono tx-micro">{num(combinedScore(r.lfc, r.nlp), v => v.toFixed(1))}</td>
-                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{num(r.p, pTxt)}</td>
-                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>{num(r.padj, pTxt)}</td>
-                <td className="num mono tx-micro" style={{ color: 'var(--ink-3)' }}>
+                <td className="num">{num(combinedScore(r.lfc, r.nlp), v => v.toFixed(1))}</td>
+                <td className="num" style={{ color: 'var(--ink-3)' }}>{num(r.p, pTxt)}</td>
+                <td className="num" style={{ color: 'var(--ink-3)' }}>{num(r.padj, pTxt)}</td>
+                <td className="num" style={{ color: 'var(--ink-3)' }}>
                   {num(r.fdr, pTxt)}
                 </td>
-                <td className="num mono tx-micro font-semibold">{num(r.nlp, nlpTxt)}</td>
+                <td className="num">{num(r.nlp, nlpTxt)}</td>
                 <td className="whitespace-nowrap">{r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`}</td>
               </tr>
             ))}
@@ -278,7 +308,7 @@ export default function DEGTable({
         <span className="truncate">
           {view.length > limit
             && <>Showing {fmt(limit)} of {fmt(view.length)}; the CSV has every row. </>}
-          Click a row to open that gene, a header to sort.
+          Click a row, or press Enter on it, to open that gene; a header sorts.
         </span>
       </footer>
     </>

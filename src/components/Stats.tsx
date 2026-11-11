@@ -68,6 +68,13 @@ export interface StatsProps {
 const tName = (p: StatsProps) => typesLabel(p.ts.map(t => t.name))
 const contrastLabel = (p: StatsProps) =>
   `${condLabel(p.cs)} vs ${condLabel(p.ctrl)} · ${tName(p)}`
+/**
+ * Whether there is a contrast to speak of. Before both groups and a cell type
+ * are picked the head line read "vs · —" and the rail "— has 0 and 0": the
+ * parts of a sentence with nothing in them.
+ */
+const picked = (p: StatsProps) =>
+  p.ts.length > 0 && condLabel(p.cs) !== '' && condLabel(p.ctrl) !== ''
 
 /**
  * The contrast, computed.
@@ -131,7 +138,7 @@ function MethodBar(p: StatsProps) {
     ? 'Pseudobulk exports one cell type at a time — the counts are summed per'
       + ' cluster and sample in the bundle, so pooling clusters would mean adding'
       + ' those columns together rather than choosing between them.'
-    : !d.pbOK && p.ctrl !== p.cs
+    : !d.pbOK && p.ctrl !== p.cs && picked(p)
       ? `Pseudobulk needs more than ${MIN_REPS_PB - 1} samples per group; ${tName(p)} has ${d.n0} and ${d.n1}.`
       : ''
   return (
@@ -569,6 +576,8 @@ const VIEWS: { k: DEView; label: string }[] = [
  */
 export function Differential(p: StatsProps & {
   view: DEView
+  /** Whether the key pane is open (the view bar's toggle, `]`). The volcano has one. */
+  inspector?: boolean
   onView: (v: DEView) => void
   /** Enrichment is wired in App — it needs the gene universe and the palette. */
   enrichment: (rows: DERow[]) => React.ReactNode
@@ -593,7 +602,7 @@ export function Differential(p: StatsProps & {
       </InRail>
       <Stage fit={fit} head={<>
         <Seg<DEView> value={p.view} onChange={p.onView} options={VIEWS} />
-        <span className="stage-meta">{contrastLabel(p)}</span>
+        {picked(p) && <span className="stage-meta">{contrastLabel(p)}</span>}
       </>}>
         {blocked ?? (failed ? <Failed error={failed} onRetry={retry} what="This contrast" />
           : pass ? <Progress pass={pass} title={testing(p)} /> : de && (
@@ -637,7 +646,7 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
   )
 }
 
-function Volcano(p: StatsProps & { de: DEResult }) {
+function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
   const [hover, setHover] = useState<DERow | null>(null)
   /**
    * Genes the reader has clicked, named on the figure and kept there.
@@ -824,7 +833,7 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           )}
         </RailGroup>
       </InRail>
-      <div className="explorer in-fill">
+      <div className="explorer in-fill" data-inspector={p.inspector === false ? 'closed' : undefined}>
       <div className="pane">
       {/* Fitted to the stage in both directions, and at most 1.25 times its
           own size, so its type does not grow with the window. */}

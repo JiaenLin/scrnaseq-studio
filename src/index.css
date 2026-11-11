@@ -116,10 +116,21 @@
   --fig-plate: #ffffff;
   --fig-summary: #1f2430;
   --fig-label: #334155;
+  /* Groups, where a hue already means a cell type (lib/figure-ink.ts). */
+  --fig-g1: #2f3744;
+  --fig-g2: #9aa3b0;
+  --fig-g3: #636c7b;
+  --fig-g4: #c7ccd4;
 }
 
+/* The dark theme is every token, on a root that has not been stamped light.
+   Export stamps `data-theme='light'` while it reads a figure's computed
+   colours (lib/download.ts), and with this selector the stamp returns every
+   token to its light value at once: there is no list of "the tokens figures
+   happen to use" to fall behind. A figure leaves in print ink on white,
+   whatever theme it is saved from. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0d0f12;
     --surface: #111317;
     --sunk: #1a1d23;
@@ -149,26 +160,10 @@
     --fig-plate: #111317;
     --fig-summary: #e7e9ec;
     --fig-label: #b0b6c0;
-  }
-
-  /* Export stamps this on the root while it reads the computed colours, so a
-     figure saved from dark mode carries the ink it will be printed with. The
-     interface ink flips too, because four figures paint their largest text
-     with interface tokens; backgrounds and accents are not what a figure is
-     made of, and its plate is painted white by portableSvg regardless. */
-  :root[data-theme='light'] {
-    --fig-ink: #000000;
-    --fig-line: #000000;
-    --fig-grid: #dcdfe4;
-    --fig-plate: #ffffff;
-    --fig-summary: #1f2430;
-    --fig-label: #334155;
-    --ink: #15181d;
-    --ink-2: #474e5a;
-    --ink-3: #626b79;
-    --surface: #ffffff;
-    --line: #e2e5e9;
-    --line-2: #cfd4da;
+    --fig-g1: #e1e4e8;
+    --fig-g2: #6f7785;
+    --fig-g3: #a8afba;
+    --fig-g4: #4a515d;
   }
 }
 
@@ -357,6 +352,11 @@ svg {
   .ico {
     vertical-align: -1.5px;
     @apply inline-block flex-none;
+  }
+  /* The place of a pane toggle on a view that has no such pane. */
+  .btn-icon-slot {
+    flex: none;
+    width: 28px;
   }
   .btn-icon {
     background: transparent;
@@ -650,6 +650,83 @@ svg {
   }
   .t tr:hover td {
     background: var(--hover);
+  }
+  /* Numbers line up: right-aligned under a right-aligned head, tabular, and
+     in the interface's own face at the table's own size. They were
+     left-aligned in every table, and one row of the DE table set them in
+     three faces at two sizes. */
+  .t th.num,
+  .t td.num {
+    text-align: right;
+  }
+  .t td.num {
+    font-family: inherit;
+    font-size: var(--t-small);
+  }
+  /* A header that sorts is a button that looks like its header. */
+  .t th:has(> .th-sort) {
+    padding: 0;
+  }
+  .th-sort {
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    height: var(--h-md);
+    padding: 0 var(--s2);
+    text-align: inherit;
+    white-space: nowrap;
+    width: 100%;
+  }
+  .th-sort:focus-visible {
+    outline-offset: -2px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .th-sort:hover {
+      color: var(--ink);
+    }
+  }
+  .tpane-body.edge .t th:first-child > .th-sort {
+    padding-left: var(--s4);
+  }
+  /* Rows walked by keyboard: the pane is the tab stop, the cursor is a row. */
+  .rows-kbd:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .rows-kbd .t tbody tr {
+    scroll-margin-top: var(--h-md);
+  }
+  /* The lighter wash: tertiary text in the row still reads on it (the edge
+     is the cursor's cue). */
+  .rows-kbd:focus .t tr[data-cur] td {
+    background: var(--hover);
+  }
+  .rows-kbd:focus .t tr[data-cur] td:first-child {
+    box-shadow: inset 2px 0 0 var(--ink);
+  }
+  /* A figure wider than the stage scrolls sideways and shows that it does:
+     a bar that is always drawn, not one that appears once it is scrolled. */
+  .figscroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .figscroll::-webkit-scrollbar {
+    height: 8px;
+  }
+  .figscroll::-webkit-scrollbar-track {
+    background: var(--sunk);
+    border-radius: 4px;
+  }
+  .figscroll::-webkit-scrollbar-thumb {
+    background: var(--ctl);
+    border-radius: 4px;
+  }
+  .figscroll-note {
+    color: var(--ink-3);
+    font-size: var(--t-small);
+    margin: var(--s1) 0 0;
   }
 
   .legend {
@@ -1000,6 +1077,26 @@ svg {
   .explorer[data-inspector='closed'] {
     grid-template-columns: minmax(0, 1fr);
   }
+  .explorer[data-inspector='closed'] > .inspector {
+    display: none;
+  }
+  /* A data colour that depends on the ground (lib/figure-ink.ts, onGround):
+     the light value everywhere, the dark one on a dark root that has not been
+     stamped for export. */
+  .gfill {
+    fill: var(--gl);
+  }
+  .gstop {
+    stop-color: var(--gl);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .gfill {
+      fill: var(--gd);
+    }
+    :root:not([data-theme='light']) .gstop {
+      stop-color: var(--gd);
+    }
+  }
   .pane {
     min-height: 0;
     min-width: 0;
@@ -1044,8 +1141,10 @@ svg {
   .fig-actions {
     @apply mb-1.5 flex items-center justify-end gap-1.5;
   }
+  /* Save is the last action of a head line on every view: CSV, then Save. */
   .stage-actions > .fig-actions {
     margin: 0;
+    order: 9;
   }
   /* One cluster's markers: a block between hairlines, never a well. */
   .mk-item {
@@ -1133,7 +1232,8 @@ svg {
   .split {
     display: grid;
     flex: 1 1 0;
-    grid-template-columns: minmax(0, 1fr);
+    /* The reading column keeps room for its figure; the tables give way first. */
+    grid-template-columns: minmax(min(440px, 100%), 1fr);
     grid-auto-columns: minmax(232px, 340px);
     grid-auto-flow: column;
     min-height: 0;
@@ -1219,6 +1319,13 @@ svg {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
   }
+  /* On a chosen row's wash the source reads in the next ink up (4.39:1 in
+     tertiary). */
+  .set-row[aria-selected='true'] .set-src,
+  .set-row[aria-checked='true'] .set-src,
+  .set-row[aria-pressed='true'] .set-src {
+    color: var(--ink-2);
+  }
   .set-src {
     color: var(--ink-3);
     font-size: var(--t-micro);
@@ -1243,10 +1350,11 @@ svg {
     border-color: var(--sel);
   }
   /* Two sections side by side: a figure and the table that reads it out. */
+  /* A map and its table: the map takes up to its own size, the table the rest. */
   .sect-pair {
     column-gap: var(--s5);
     display: grid;
-    grid-template-columns: minmax(0, auto) minmax(260px, 560px);
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 420px);
   }
   .sect-pair > .sect {
     border-top: 0;
@@ -1322,7 +1430,19 @@ svg {
     column-gap: var(--s3);
     min-height: var(--h-md);
     margin-bottom: var(--s2);
-    @apply flex flex-wrap items-center;
+    @apply flex items-center;
+  }
+  /* One line: a long name gives way (its full text is its title), the
+     actions never drop under it. */
+  .sect-head > .stage-title,
+  .sect-head > .stage-meta {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sect-head > .stage-title {
+    flex: 0 1 auto;
   }
   .stage-foot {
     border-top: 1px solid var(--line);
@@ -1419,8 +1539,13 @@ svg {
     margin: 0;
     width: auto;
   }
-  .lg-dim {
-    opacity: 0.45;
+  /* Set aside, not switched off: the row is still a button and its words are
+     still read (4.5:1), so it is the swatch that fades, never the text. */
+  .lg-row.lg-dim {
+    color: var(--ink-3);
+  }
+  .lg-row.lg-dim .sw {
+    opacity: 0.35;
   }
   /* The readout under the pointer. Never in the way of the pointer itself. */
   .tip {
@@ -1538,6 +1663,14 @@ svg {
   }
 }
 
+/* While a figure is read for export (lib/download.ts) nothing is in
+   transition, so every computed colour is the one it will have. */
+:root[data-exporting] *,
+:root[data-exporting] *::before,
+:root[data-exporting] *::after {
+  transition: none !important;
+}
+
 /**
  * Reduced motion means gentler, not none.
  *
@@ -1548,12 +1681,22 @@ svg {
  * sliding bar stops sliding, while opacity and colour keep working.
  */
 @media (prefers-reduced-motion: reduce) {
+  /* The declared transitions keep working, at one short duration. This was
+     `transition-duration: 120ms !important` on every element, which gave a
+     transition to everything that never had one (the property defaults to
+     `all`): every colour on the page, figure ink included, took 120 ms to
+     follow a theme change, and an export that read a figure's colours in the
+     same tick read the ones it was leaving. */
+  :root {
+    --d-press: 120ms;
+    --d-menu: 120ms;
+    --d-panel: 120ms;
+  }
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 120ms !important;
     scroll-behavior: auto !important;
   }
   .btn:active,

@@ -3,7 +3,7 @@ import type { CellType, GroupBy } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import { scoreColumns, zByRow, type Column } from '../lib/columns.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
-import { AXIS_INK } from '../lib/figure-ink.ts'
+import { onGround, AXIS_INK } from '../lib/figure-ink.ts'
 import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { ColorBar } from './svg-parts.tsx'
 import type { LibraryState } from '../lib/genesets.ts'
@@ -358,7 +358,7 @@ function ScoreGrid({ rows, cols, mean, scale, ramp }: {
         role="img" aria-label={`Mean module score of ${rows.length} signatures across ${cols.length} populations`}>
         {rows.map((r, si) => cols.map((col, k) => (
           <rect key={`${si}-${k}`} x={PL + k * cw} y={PT + si * rh} width={cw} height={rh}
-            fill={rampColor((mean[si * cols.length + k] - lo) / (hi - lo), ramp)}>
+            className="gfill" style={onGround(rampColor((mean[si * cols.length + k] - lo) / (hi - lo), ramp), rampColor((mean[si * cols.length + k] - lo) / (hi - lo), ramp, 'dark'))}>
             <title>
               {r} in {col.full} — {scale ? 'z ' : ''}{mean[si * cols.length + k].toFixed(3)}
               {' · '}{col.cells.length.toLocaleString()} cells

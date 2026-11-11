@@ -6,19 +6,21 @@
 // you wanted. The seams were already drawn in that file as comment banners;
 // this is those banners made real.
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Identity } from '../../types.ts'
 import { density, maxOf, maxOfAll, quantiles } from '../../lib/chart.ts'
-import { axisTicks, wrapAll } from '../../lib/labels.ts'
+import { axisTicks, textW, wrapAll } from '../../lib/labels.ts'
 import {
   DOWN_MARK, GHOST_INK, MARK_EDGE, SUMMARY_INK, TICK_INK, UP_MARK,
 } from '../../lib/figure-ink.ts'
 import { inConds } from '../../lib/stats.ts'
 import { mix } from '../../lib/palette.ts'
-import Figure, { DownIcon } from '../Figure.tsx'
+import Figure from '../Figure.tsx'
 import { InRail, RailGroup, Toggle } from '../Rail.tsx'
-import { InHead } from '../Stage.tsx'
-import { svgSheetToFile } from '../../lib/download.ts'
+import { SHEET_INCHES } from '../../lib/download.ts'
+import { sheetSvgs } from '../../lib/figure-pick.ts'
+import { breaksOf, fmtBreak } from '../../lib/breaks.ts'
+import { useWidth } from '../../lib/use-width.ts'
 import { condLabel } from '../../lib/stats.ts'
 import type { GeneProps } from '../GeneExpression.tsx'
 
@@ -37,8 +39,18 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
    * 0 for large objects.
    */
   const [points, setPoints] = useState(false)
-  /** The grid, so the head line's Save can find every panel's SVG. */
-  const sheet = useRef<HTMLDivElement>(null)
+  /** The grid: the head line's Save finds every panel's SVG in it, and its width sets theirs. */
+  const [sheet, sheetW] = useWidth()
+  // A panel is drawn one to one at the width its column has, so its type is
+  // the size it was set in. It was drawn 620 px wide and scaled into the
+  // column: 7.6 px axis text at 1,280. A column narrower than a panel can be
+  // read at means fewer columns, never a smaller drawing.
+  const GAP = 14, MIN_W = 300
+  const maxW = (p.cols <= 2 ? 620 : 400) * 1.25
+  const fitCols = sheetW ? Math.max(1, Math.min(cols, Math.floor((sheetW + GAP) / (MIN_W + GAP)))) : cols
+  const panelW = sheetW
+    ? Math.max(MIN_W, Math.min(maxW, Math.floor((sheetW - GAP * (fitCols - 1)) / fitCols)))
+    : undefined
   return (
     <>
       <InRail>
@@ -51,19 +63,15 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
       </InRail>
       {/* One Save for the figure, at the head line's right end: every panel
           on one sheet. A single panel saves from its own corner. */}
-      <InHead>
-        <button className="btn btn-quiet" title="Every panel, tiled into one SVG"
-          onClick={() => svgSheetToFile(
-            [...(sheet.current?.querySelectorAll('svg[role="img"]') ?? [])] as SVGSVGElement[],
-            'violins', cols)}
-        ><DownIcon />Save all panels</button>
-      </InHead>
+      <Figure name="violins" label="Save all panels" inches={SHEET_INCHES}
+        sheet={{ svgs: () => sheetSvgs<SVGSVGElement>(sheet.current), cols: fitCols }}>
       <div ref={sheet} className="grid gap-3.5"
         // Panels at their own size and at most 1.25 times it: the type does
         // not grow with the window.
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, ${(p.cols <= 2 ? 620 : 400) * 1.25}px))` }}>
-        {p.genes.map(g => <Facet key={g} {...p} gene={g} cols={cols} points={points} />)}
+        style={{ gridTemplateColumns: `repeat(${fitCols}, minmax(0, ${maxW}px))` }}>
+        {p.genes.map(g => <Facet key={g} {...p} gene={g} cols={cols} points={points} width={panelW} />)}
       </div>
+      </Figure>
       <div className="legend mt-3">
         <span>violin + box = per-cell distribution</span>
         <span>solid tick = median · dashed = mean, which is what the dot plot colours</span>
@@ -74,12 +82,12 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
   )
 }
 
-function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean }) {
+function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean; width?: number }) {
   const both = p.groupBy === 'both'
   const cats = p.ids
   const per = cats.length
-  const W = p.cols <= 2 ? 620 : 400
-  const PL0 = 40, PT = 20, PR = 8
+  const W = p.width ?? (p.cols <= 2 ? 620 : 400)
+  const PL0 = 44, PT = 20, PR = 8
   const DET = 9 // strip for the detection bars
   const PLOT = (p.cols <= 2 ? 210 : 190) - 39
 
@@ -93,7 +101,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
    * had reserved 46. `svg { overflow: visible }` means it does not clip, it
    * paints — over the caption, and over the next panel down.
    */
-  const LAB_PX = per > 10 ? 9 : 10
+  const LAB_PX = per > 10 ? 10 : 10.5
   const bw = (W - PL0 - PR) / per
   const labels = cats.map(c => c.label)
   // leftAnchor is where the FIRST tick sits: the one that reaches back past the
@@ -164,16 +172,17 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
 
   return (
     <Figure name={`${p.gene}_violin`} compact>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${p.gene} expression`}>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
+        role="img" aria-label={`${p.gene} expression`}>
         {/* What the axis measures, and in what: the object's own record of its
             scale, never a guess; relative to the control's mean when asked. */}
         <text className="axis" transform={`rotate(-90 8 ${PT + PLOT / 2})`} x={8} y={PT + PLOT / 2}
-          textAnchor="middle" style={{ fontSize: 9.5 }}>{yTitle}</text>
-        <text x={PL} y={11} style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)', fontStyle: 'italic' }}>
+          textAnchor="middle" style={{ fontSize: 10.5 }}>{yTitle}</text>
+        <text x={PL} y={11} style={{ fontSize: 11.5, fontWeight: 600, fill: 'var(--ink)', fontStyle: 'italic' }}>
           {p.gene}
         </text>
         {maxPct < 0.12 && (
-          <text className="axis" x={PL + 6 + p.gene.length * 5.5} y={11} style={{ fontSize: 9.5 }}>
+          <text className="axis" x={PL + 8 + textW(p.gene, 11.5, true)} y={11} style={{ fontSize: 10.5 }}>
             barely detected here — max {(maxPct * 100).toFixed(0)}%
           </text>
         )}
@@ -189,12 +198,13 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
             {dl > 0 ? '+' : ''}{dl.toFixed(1)}
           </text>
         )}
-        {[0, 0.5, 1].map(f => {
-          const t = lo + (hi - lo) * f
+        {/* Round numbers inside the range, not fractions of the largest value
+            ("2.7" stood for 2.75). */}
+        {breaksOf(lo, hi, 4).filter(t => t >= lo && t <= hi).map(t => {
           return (
-            <g key={f}>
+            <g key={t}>
               <line className="axgrid" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} />
-              <text className="axis" x={PL - 5} y={Y(t) + 3.5} textAnchor="end">{t.toFixed(1)}</text>
+              <text className="axis" x={PL - 5} y={Y(t) + 3.5} textAnchor="end">{fmtBreak(t)}</text>
             </g>
           )
         })}
@@ -246,7 +256,7 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
               {k > 0 && <line className="axgrid" x1={x0} x2={x0} y1={PT} y2={H - PB + DET + 2} />}
               <text className="axis" x={x0 + block / 2} y={H - 4 - 11 * (lines.length - 1)}
                 textAnchor="middle"
-                style={{ fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>
+                style={{ fontSize: 10.5, fill: 'var(--ink)', fontWeight: 600 }}>
                 {lines.map((line, li) => (
                   <tspan key={li} x={x0 + block / 2} dy={li === 0 ? 0 : 11}>{line}</tspan>
                 ))}
