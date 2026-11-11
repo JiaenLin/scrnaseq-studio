@@ -173,7 +173,7 @@ export function wrapAll(s: string, width: number, px = 10.5, bold = false): stri
   const pieces = s.split(BREAK_AFTER)
   const out: string[] = []
   let line = ''
-  const push = () => { if (line) { out.push(line.trimEnd()); line = '' } }
+  const push = () => { if (line.trim()) out.push(line.trim()); line = '' }
   for (const piece of pieces) {
     if (piece.trimEnd().length > room) {
       push()
