@@ -19,7 +19,7 @@ import {
   averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
 } from '../lib/score.ts'
 import { onGround, AXIS_INK, FIG_TYPE, PRINT_PLATE } from '../lib/figure-ink.ts'
-import { nNote } from '../lib/figure-foot.ts'
+import { nNote, pairName } from '../lib/figure-foot.ts'
 import { drawFeature, panelHeight, type FeatureDraw } from '../lib/feature-plot.ts'
 import { useDark } from '../lib/theme.ts'
 import { useWidth } from '../lib/use-width.ts'
@@ -528,7 +528,7 @@ export default function GeneSets({
                   <Figure name={`module_score_by_identity_${slug(name)}`} foot={{
                     title: `Module score per cell · ${name}`,
                     notes: [
-                      nNote(ids.map((c, i) => ({ label: groupBy === 'both' ? c.full : c.label, n: perId[i].length }))),
+                      nNote(ids.map((c, i) => ({ label: groupBy === 'both' ? pairName(c.full) : c.label, n: perId[i].length }))),
                       'Violin: the per-cell distribution. Bar: quartiles; tick: median. Dashed line: zero, the reference.',
                     ],
                   }}>

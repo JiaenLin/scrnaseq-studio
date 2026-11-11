@@ -26,11 +26,18 @@ export function cellsOf(d: Pick<Dataset, 'grid' | 'samples'>, ti: number, cond: 
   return n
 }
 
+/**
+ * A type-and-group identity as a foot names it: "qNSC / Quiescent". The axis
+ * writes it "qNSC · Quiescent", and a foot separates its entries with that
+ * same dot, so the pair read as two entries.
+ */
+export const pairName = (full: string): string => full.replace(' · ', ' / ')
+
 /** n for each identity an axis draws, named as the axis names it. */
 export const idCounts = (
   d: Pick<Dataset, 'grid' | 'samples'>, ids: readonly Identity[], groupBy: GroupBy,
 ): { label: string; n: number }[] => ids.map(id => ({
-  label: groupBy === 'both' ? id.full : id.label,
+  label: groupBy === 'both' ? pairName(id.full) : id.label,
   n: cellsOf(d, id.ti, groupBy === 'type' ? null : id.cond),
 }))
 

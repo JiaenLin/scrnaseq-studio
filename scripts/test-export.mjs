@@ -233,7 +233,7 @@ console.log('\nA SAVED FIGURE STANDS ALONE: ITS FOOT HOLDS THE KEY AND N')
   check('an axis by type counts every group; by group or both, its own', [
     idCounts(d, [{ label: 'T0', full: 'T0', color: '', ti: 0, cond: 'Q' }], 'type'),
     idCounts(d, [{ label: 'R', full: 'T0 · R', color: '', ti: 0, cond: 'R' }], 'both'),
-  ], [[{ label: 'T0', n: 23 }], [{ label: 'T0 · R', n: 18 }]])
+  ], [[{ label: 'T0', n: 23 }], [{ label: 'T0 / R', n: 18 }]])
   // Every figure in the studio: it declares a foot, or it is a panel of a
   // sheet (and carries the sheet's), or its own drawing holds the key and n.
   const OWN = { cells_: 'the painted key with n', volcano_: 'the key with n, in the drawing' }
