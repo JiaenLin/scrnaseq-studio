@@ -49,9 +49,22 @@
   /* Radius. A three-step nesting ladder, from ten ad-hoc values: a card holds
      a panel holds a control, and each is rounder than the thing inside it.
      Pills stay fully round — they are a different shape, not a bigger radius. */
-  --r-lg: 14px; /* cards, dialogs, the dropzone */
-  --r-md: 10px; /* panels, notes, empty, menus, buttons, selects, canvases */
-  --r-sm: 6px;  /* badges, swatches, checkboxes, menu items */
+  --r-lg: 10px; /* cards, dialogs, the dropzone */
+  --r-md: 6px;  /* panels, notes, empty, menus, buttons, selects, canvases */
+  --r-sm: 4px;  /* badges, swatches, checkboxes, menu items */
+
+  /* Control height. One per size, so a button, a select, a chip and a
+     segmented control set side by side share an edge top and bottom. */
+  --h-sm: 28px; /* chips, segments, small buttons, the rail's pickers */
+  --h-md: 32px; /* buttons, selects, inputs */
+
+  /* The shell (docs/DESIGN.md, "Layout"). Two bars, a control rail on the
+     left, the figure in the middle, an inspector on the right. */
+  --bar-h: 48px;
+  --tabs-h: 40px;
+  --chrome-h: calc(var(--bar-h) + var(--tabs-h));
+  --rail-w: 272px;
+  --inspector-w: 296px;
 
   /* Motion. The built-in CSS easings are too weak to feel intentional; these are
      the strong variants. Never ease-in on UI — it delays the exact moment the
@@ -68,17 +81,23 @@
      Redefined in dark: a near-black shadow on a near-black card is nothing. */
   --shadow-menu: 0 10px 30px rgba(15, 23, 42, 0.16);
 
-  --bg: #f8fafc;
+  /* Colour. Every text token is at least 4.5:1 on every surface it can sit
+     on, in both themes, measured by scripts/measure-design.mjs. --ink-3 was
+     2.3-2.6:1 here and 3.1-4.0:1 in dark, which is why the tabs, captions and
+     table heads read as disabled. */
+  --bg: #f6f7f9;
   --surface: #ffffff;
-  --sunk: #f1f5f9;
-  --line: #e2e8f0;
-  --line-2: #cbd5e1;
+  --sunk: #eef1f5;
+  --line: #dfe3ea;
+  --line-2: #c5ccd6;
   --ink: #0f172a;
-  --ink-2: #475569;
-  --ink-3: #94a3b8;
-  --accent: #6366f1;
-  --accent-soft: #eef2ff;
+  --ink-2: #424e60;
+  --ink-3: #5d6b7e;
+  --accent: #4f46e5;
+  --accent-soft: #eef0fe;
   --accent-ink: #4338ca;
+  /* Text on an accent fill. White on the dark theme's light indigo was 2.9:1. */
+  --text-on-accent: #ffffff;
   /**
    * The colour of a SELECTED thing — an active tab, a pressed chip, a chosen
    * segment, a progress bar.
@@ -92,11 +111,11 @@
    * indigo on this page means "press this".
    */
   --sel: var(--ink);
-  --warn: #b45309;
-  --warn-soft: #fffbeb;
-  --warn-line: #fde68a;
+  --warn: #a14a07;
+  --warn-soft: #fff8e6;
+  --warn-line: #f3d58a;
   --good: #047857;
-  --good-soft: #ecfdf5;
+  --good-soft: #eafaf2;
   --bad: #b91c1c;
   /**
    * Direction of change, as TEXT.
@@ -126,22 +145,25 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b1120;
-    --surface: #0f172a;
-    --sunk: #1e293b;
-    --line: #1e293b;
-    --line-2: #334155;
-    --ink: #e2e8f0;
-    --ink-2: #94a3b8;
-    --ink-3: #64748b;
-    --accent: #818cf8;
-    --accent-soft: rgba(99, 102, 241, 0.15);
+    /* Opaque, so a soft fill reads the same over every surface. --line was
+       --sunk's own value, so a sunk panel had no edge at all. */
+    --bg: #0b0f19;
+    --surface: #111827;
+    --sunk: #1a2333;
+    --line: #263044;
+    --line-2: #364156;
+    --ink: #e5e9f0;
+    --ink-2: #aab6c6;
+    --ink-3: #8a97ab;
+    --accent: #8b93f8;
+    --accent-soft: #1c2140;
     --accent-ink: #a5b4fc;
-    --warn: #fbbf24;
-    --warn-soft: rgba(251, 191, 36, 0.1);
-    --warn-line: rgba(251, 191, 36, 0.3);
+    --text-on-accent: #0b0f19;
+    --warn: #f5b83d;
+    --warn-soft: #2a2414;
+    --warn-line: #5c4a1c;
     --good: #34d399;
-    --good-soft: rgba(16, 185, 129, 0.12);
+    --good-soft: #0f2a24;
     --bad: #f87171;
     --up: #f87171;
     --down: #60a5fa;
@@ -179,11 +201,11 @@
     --fig-line: #000000;
     --fig-grid: #dcdfe4;
     --ink: #0f172a;
-    --ink-2: #475569;
-    --ink-3: #94a3b8;
+    --ink-2: #424e60;
+    --ink-3: #5d6b7e;
     --surface: #ffffff;
-    --line: #e2e8f0;
-    --line-2: #cbd5e1;
+    --line: #dfe3ea;
+    --line-2: #c5ccd6;
   }
 }
 
@@ -266,10 +288,8 @@ svg {
   /* An uppercase micro-label: the eyebrow's size and tracking without its
      colour, for the places that need the shape but set their own ink. */
   .tx-label {
-    font-size: var(--t-micro);
+    font-size: var(--t-small);
     font-weight: 600;
-    letter-spacing: var(--tr-label);
-    text-transform: uppercase;
   }
 
   .card {
@@ -287,13 +307,13 @@ svg {
    * cannot learn a distinction that only exists as 700 versus 600. One style,
    * two names, because the two words read differently in the markup.
    */
+  /* Sentence case, as written in the source. Uppercase tracked micro-labels
+     were on every card and control and read as a second row of headings. */
   .eyebrow,
   .glabel {
     color: var(--ink-3);
-    font-size: var(--t-micro);
-    font-weight: 600;
-    letter-spacing: var(--tr-label);
-    text-transform: uppercase;
+    font-size: var(--t-small);
+    font-weight: 400;
   }
   /* A card's title. 16 against a 14 body: the old 14.5 was half a pixel of
      hierarchy, which is why every card read as one undifferentiated block. */
@@ -315,8 +335,10 @@ svg {
     background: var(--surface);
     border-radius: var(--r-md);
     font-size: var(--t-body);
-    font-weight: 600;
-    padding: 7px var(--s3);
+    font-weight: 500;
+    height: var(--h-md);
+    padding: 0 var(--s3);
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap;
     transition: transform var(--d-press) var(--ease-out),
       border-color var(--d-press) ease, background-color var(--d-press) ease;
   }
@@ -338,13 +360,14 @@ svg {
   .btn-primary {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
   }
   /* For a button that lives in the control bar, so it matches the height of the
      selects it sits beside rather than setting the bar's height on its own. */
   .btn-sm {
     font-size: var(--t-small);
-    padding: var(--s1) var(--s3);
+    height: var(--h-sm);
+    padding: 0 var(--s3);
   }
   /**
    * An ACTION that is not the main one on its card — Save, CSV, Reset, Clear.
@@ -357,9 +380,9 @@ svg {
    */
   .btn-quiet {
     color: var(--ink-2);
-    font-weight: 500;
     font-size: var(--t-small);
-    padding: var(--s1) var(--s2);
+    height: var(--h-sm);
+    padding: 0 var(--s2);
   }
   .btn-ghost {
     @apply border-0 bg-transparent underline underline-offset-4;
@@ -374,7 +397,9 @@ svg {
     border-radius: 9999px;
     font-size: var(--t-small);
     font-weight: 500;
-    padding: 3px var(--s3);
+    height: var(--h-sm);
+    padding: 0 var(--s3);
+    @apply inline-flex items-center whitespace-nowrap;
     transition: transform var(--d-press) var(--ease-out),
       border-color var(--d-press) ease, color var(--d-press) ease,
       background-color var(--d-press) ease;
@@ -450,6 +475,7 @@ svg {
     border: 1px solid var(--line-2);
     background: var(--surface);
     border-radius: var(--r-md);
+    height: var(--h-sm);
     @apply inline-flex overflow-hidden;
   }
   .seg button {
@@ -461,7 +487,8 @@ svg {
        with nothing behind it. Never switch weight on select — the glyphs
        re-measure and the whole row shifts. */
     font-weight: 500;
-    padding: 5px var(--s3);
+    height: 100%;
+    padding: 0 var(--s3);
     transition: transform var(--d-press) var(--ease-out),
       background-color var(--d-press) ease, color var(--d-press) ease;
   }
@@ -488,6 +515,13 @@ svg {
     font-size: var(--t-body);
     padding: 5px var(--s2);
     @apply outline-none;
+  }
+  select.sel,
+  button.sel,
+  input.inp {
+    height: var(--h-md);
+    padding-top: 0;
+    padding-bottom: 0;
   }
   .sel:focus-visible,
   .inp:focus-visible {
@@ -614,14 +648,13 @@ svg {
     @apply w-full border-collapse;
   }
   .t th {
-    color: var(--ink-3);
+    color: var(--ink-2);
     background: var(--sunk);
     border-bottom: 1px solid var(--line);
-    font-size: var(--t-micro);
+    font-size: var(--t-small);
     font-weight: 600;
-    letter-spacing: var(--tr-label);
     padding: 6px var(--s2);
-    @apply sticky top-0 whitespace-nowrap text-left uppercase;
+    @apply sticky top-0 whitespace-nowrap text-left;
   }
   .t td {
     border-bottom: 1px solid var(--line);
@@ -712,6 +745,234 @@ svg {
     transition: transform var(--d-panel) linear;
     width: 100%;
     height: 100%;
+  }
+
+  /* ---------------------------------------------------------------------
+     The shell (docs/DESIGN.md, "Layout"). One frame for every view: a sticky
+     head (the identity bar over the view tabs); under it the control rail on
+     the left and the stage. An explorer view splits the stage into the figure
+     and an inspector on the right. Nothing in the frame is sized by its data,
+     so nothing moves when data arrives.
+     --------------------------------------------------------------------- */
+  .shell-head {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    @apply sticky top-0 z-30;
+  }
+  .appbar {
+    height: var(--bar-h);
+    padding: 0 var(--s4);
+    @apply flex items-center gap-3;
+  }
+  .viewtabs {
+    height: var(--tabs-h);
+    padding: 0 var(--s2);
+    @apply flex items-stretch gap-4 overflow-x-auto;
+  }
+  .viewtab {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-2);
+    font-size: var(--t-body);
+    font-weight: 500;
+    padding: 2px var(--s3) 0;
+    @apply whitespace-nowrap;
+    transition: color var(--d-press) ease, border-color var(--d-press) ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .viewtab:hover:not(:disabled) {
+      color: var(--ink);
+    }
+  }
+  .viewtab[aria-selected='true'] {
+    border-bottom-color: var(--sel);
+    color: var(--ink);
+  }
+  .viewtab:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+  .viewtab:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .work {
+    display: grid;
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+    min-height: calc(100dvh - var(--chrome-h));
+  }
+  .work[data-rail='none'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail {
+    align-self: start;
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    max-height: calc(100dvh - var(--chrome-h));
+    min-height: calc(100dvh - var(--chrome-h));
+    padding: var(--s4);
+    top: var(--chrome-h);
+    @apply sticky flex flex-col gap-5 overflow-y-auto;
+  }
+  .rail-group {
+    @apply flex flex-col gap-2;
+  }
+  .rail-label {
+    color: var(--ink);
+    font-size: var(--t-small);
+    font-weight: 600;
+  }
+  /* A labelled control in the rail: the label over a full-width control. */
+  .rail .pick {
+    flex: none;
+    @apply flex-col items-stretch gap-1;
+  }
+  .rail .pick .sel {
+    flex: none; /* a column's flex-basis would override the control height */
+    max-width: none !important;
+    width: 100%;
+  }
+  /* A one-of-many choice in the rail: full-width rows, the chosen one inked. */
+  .opts {
+    @apply flex flex-col gap-0.5;
+  }
+  .opt {
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-md);
+    color: var(--ink-2);
+    font-size: var(--t-small);
+    font-weight: 500;
+    height: var(--h-sm);
+    padding: 0 var(--s2);
+    @apply flex w-full items-center justify-between text-left;
+    transition: background-color var(--d-press) ease, color var(--d-press) ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .opt:hover:not([aria-pressed='true']) {
+      background: var(--sunk);
+      color: var(--ink);
+    }
+  }
+  /* Chosen: a sunk fill AND an ink edge, so the state is never colour alone.
+     A full ink fill here outweighed the figure it controls. */
+  .opt[aria-pressed='true'] {
+    background: var(--sunk);
+    box-shadow: inset 2px 0 0 var(--sel);
+    color: var(--ink);
+  }
+  /* An on/off setting reads as a switch, not as one more choice in a list. */
+  .opt.opt-toggle[aria-pressed='true'] {
+    background: transparent;
+    box-shadow: none;
+  }
+  .switch {
+    background: var(--line-2);
+    border-radius: 9999px;
+    height: 16px;
+    width: 28px;
+    @apply relative flex-none;
+    transition: background-color var(--d-press) ease;
+  }
+  .switch::after {
+    background: var(--surface);
+    border-radius: 9999px;
+    content: '';
+    height: 12px;
+    left: 2px;
+    top: 2px;
+    width: 12px;
+    @apply absolute;
+    transition: transform var(--d-press) var(--ease-out);
+  }
+  [aria-pressed='true'] > .switch {
+    background: var(--sel);
+  }
+  [aria-pressed='true'] > .switch::after {
+    transform: translateX(12px);
+  }
+  .stage {
+    min-width: 0;
+    padding: var(--s5);
+  }
+  /* A view that is still a document of cards keeps a reading column. */
+  .column {
+    margin: 0 auto;
+    max-width: 1180px;
+  }
+
+  /* An explorer: the figure owns the stage, and its details sit beside it. */
+  .explorer {
+    display: grid;
+    gap: var(--s5);
+    grid-template-columns: minmax(0, 1fr) var(--inspector-w);
+    @apply items-start;
+  }
+  .explorer > .card {
+    margin-bottom: 0;
+  }
+  .inspector {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: var(--s4);
+    top: calc(var(--chrome-h) + var(--s5));
+    @apply sticky flex flex-col gap-4;
+  }
+  .ins-section {
+    @apply flex flex-col gap-2;
+  }
+  .ins-section + .ins-section {
+    border-top: 1px solid var(--line);
+    padding-top: var(--s4);
+  }
+  .lg-row {
+    color: var(--ink);
+    font-size: var(--t-small);
+    min-height: 24px;
+    @apply flex items-center justify-between gap-3;
+  }
+  .lg-row > span:first-child {
+    @apply inline-flex min-w-0 items-center gap-2;
+  }
+  .lg-row > .num {
+    color: var(--ink-2);
+  }
+  /* The readout under the pointer. Never in the way of the pointer itself. */
+  .tip {
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-menu);
+    color: var(--ink);
+    font-size: var(--t-small);
+    padding: var(--s2) var(--s3);
+    @apply pointer-events-none absolute z-10 whitespace-nowrap;
+  }
+
+  /* Narrow: the inspector folds under the figure, then the rail over the stage. */
+  @media (max-width: 1279px) {
+    .explorer {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .inspector {
+      position: static;
+    }
+  }
+  @media (max-width: 1023px) {
+    .work {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .rail {
+      border-bottom: 1px solid var(--line);
+      border-right: 0;
+      max-height: none;
+      min-height: 0;
+      position: static;
+    }
+    .stage {
+      padding: var(--s4);
+    }
   }
 
   .prose-methods {

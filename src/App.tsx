@@ -16,7 +16,7 @@ import type { PaletteKey, RampKey } from './lib/palette.ts'
 import PickMany from './components/PickMany.tsx'
 import Landing from './components/Landing.tsx'
 import Overview from './components/Overview.tsx'
-import Cells from './components/Cells.tsx'
+import Cells, { CellsControls } from './components/Cells.tsx'
 import Composition from './components/Composition.tsx'
 import Markers from './components/Markers.tsx'
 import { Differential, type StatsProps } from './components/Stats.tsx'
@@ -635,6 +635,10 @@ export default function App() {
   // reads no part of the selection, so it cannot be broken by whatever broke the
   // view you are leaving — and it needs no contrast, so it is never the blocked
   // tab either. From Overview itself, Cells, on the same reasoning.
+  // The rail is there when the view has something to choose.
+  const cellsRail = !blocked && tab === 'cells'
+  const hasRail = cellsRail || showEmb || showLib || needs.ct || needs.contrast
+
   const escapeTo: TabId = tab === 'overview' ? 'cells' : 'overview'
 
   const chipStyle = chip.cls === 'ok'
@@ -645,128 +649,116 @@ export default function App() {
 
   return (
     <>
-      <header className="sticky top-0 z-30" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--line)' }}>
-        <div className="wrap">
-          {/**
-            * One identity line.
-            *
-            * This was two stacked columns — product name over a strapline on
-            * the left, object name over a mono source line on the right — and
-            * on a real object it fell apart. `developing_mouse_nervous_system`
-            * is thirty-one unbroken characters and its source line repeats the
-            * name twice more in ~100 characters of monospace, so at the width
-            * people actually work at the right column outgrew the left and the
-            * two competed for the same job: saying what you are looking at.
-            *
-            * So: the mark that closes the object, the product name once and
-            * quietly, then the object — which is the fact on this screen and
-            * gets the weight. The source detail is provenance and Overview has
-            * a whole table of it, so here it is the tooltip.
-            */}
-          <div className="flex items-center gap-2.5 py-2">
-            <button
-              // Ink ground, surface text — the pair inverts together, so the
-              // mark stays legible in either theme. `text-white` on --ink was
-              // white on near-white once the page went dark.
-              className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[--r-sm] border-0 tx-micro font-bold"
-              style={{ background: 'var(--ink)', color: 'var(--surface)' }}
-              title="Close this object and open another"
-              onClick={() => setOpened(null)}
-            >sc</button>
-            <span className="flex-none tx-small" style={{ color: 'var(--ink-3)' }}>
-              scRNA-seq Studio
-            </span>
-            <span aria-hidden className="flex-none" style={{ color: 'var(--ink-3)' }}>/</span>
-            <span className="min-w-0 truncate tx-body font-semibold" title={src.meta.source}>
-              {src.meta.label}
-            </span>
-            {src.meta.isDemo && <span className="badge badge-none flex-none">demo</span>}
-          </div>
-          <div className="flex items-end gap-6 overflow-x-auto" role="tablist"
-            aria-label="Views of this object">
-            {GROUPS.map(g => (
-              // The group name is not drawn. Two uppercase words sitting above
-              // the tabs read as two more tabs — a row of labels competing with
-              // the row it labels — and the gap between groups already says the
-              // same thing without spending a line on it. The name stays as the
-              // group's accessible name, so the structure survives for a reader
-              // who cannot see the spacing.
-              <div key={g.name || 'doc'} role="group" aria-label={g.name || 'Document'}
-                className="flex flex-none">
-                <div className="flex gap-0.5">
-                  {g.tabs.map(([id, label]) => {
-                    const off = !d.multi && NEEDS_CONTRAST.has(id)
-                    return (
-                      <button
-                        key={id} role="tab" aria-selected={tab === id}
-                        aria-controls={`panel-${id}`} id={`tab-${id}`}
-                        // Dimmed-and-clickable was an invitation to a dead end:
-                        // the object cannot answer this, so the control says no
-                        // rather than taking you somewhere that explains it did.
-                        disabled={off}
-                        title={off
-                          ? 'This object has one condition, so there is nothing to contrast'
-                          : undefined}
-                        className="whitespace-nowrap border-0 bg-transparent px-[11px] py-1.5 tx-body font-medium disabled:cursor-not-allowed disabled:opacity-40"
-                        style={{
-                          color: tab === id ? 'var(--ink)' : 'var(--ink-3)',
-                          borderBottom: `2px solid ${tab === id ? 'var(--sel)' : 'transparent'}`,
-                          transition: 'color var(--d-press) ease',
-                        }}
-                        onClick={() => setTab(id)}
-                      >{label}</button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+      <header className="shell-head">
+        {/**
+          * One identity line, and the two settings that apply to every figure.
+          *
+          * The mark that closes the object, the product name once and quietly,
+          * then the object — the fact on this screen, so it gets the weight. The
+          * source detail is provenance and Overview has a whole table of it, so
+          * here it is the tooltip. Group order and Figure style restyle every
+          * figure in every view, so they sit with the object, not with a view.
+          */}
+        <div className="appbar">
+          <button
+            // Ink ground, surface text — the pair inverts together, so the
+            // mark stays legible in either theme.
+            className="grid h-[28px] w-[28px] flex-none place-items-center rounded-[--r-md] border-0 tx-micro font-semibold"
+            style={{ background: 'var(--ink)', color: 'var(--surface)' }}
+            title="Close this object and open another"
+            onClick={() => setOpened(null)}
+          >sc</button>
+          <span className="flex-none tx-small" style={{ color: 'var(--ink-2)' }}>
+            scRNA-seq Studio
+          </span>
+          <span aria-hidden className="flex-none" style={{ color: 'var(--line-2)' }}>/</span>
+          <span className="min-w-0 truncate tx-body font-semibold" title={src.meta.source}>
+            {src.meta.label}
+          </span>
+          {src.meta.isDemo && <span className="badge badge-none flex-none">demo</span>}
+          <span className="ml-auto flex flex-none items-center gap-2">
+              {geneBusy && (
+                <span className="tx-small" style={{ color: 'var(--ink-2)' }}>reading gene…</span>
+              )}
+              {!geneBusy && geneError && (
+                <span role="alert" className="truncate tx-small font-semibold"
+                  style={{ color: 'var(--warn)', maxWidth: 340 }} title={geneError}>
+                  Could not read that gene — {geneError}
+                </span>
+              )}
+              {d.conds.length > 1 && (
+                <GroupOrder conds={d.conds} custom={condOrder.length > 0} palKey={palKey}
+                  onChange={setCondOrder} onReset={() => setCondOrder([])} />
+              )}
+              <ViewMenu palKey={palKey} rampKey={rampKey} rampDiv={rampDiv}
+                onPal={setPalKey} onRamp={setRampKey} onRampDiv={setRampDiv} />
+          </span>
         </div>
         {/**
-          * The control bar, INSIDE the sticky header rather than a second
-          * sticky layer under it.
-          *
-          * It used to be its own `sticky` element pinned at a hard-coded
-          * `top: 96` that had to match the header's measured height, and it
-          * appeared and disappeared with the tab — so the page jumped 54px
-          * vertically on most navigations and the two layers could overlap
-          * whenever a long project name wrapped. One sticky block cannot
-          * misalign with itself, and one that is always there cannot jump.
-          *
-          * A fixed height, and one order that never changes: what is being
-          * looked at, then what it is being compared with, then the action
-          * that completes them. Controls a tab does not use are left out —
-          * a Control/Compare pair over an unfiltered view is not clutter, it
-          * is a claim that the figure below is showing that contrast.
+          * The views, as one row of tabs, and ONE stop in the tab order: the
+          * arrow keys move between them (the WAI-ARIA tabs pattern). It was ten
+          * Tab presses to get past them to the view. The gap between groups
+          * says Object / Analysis / Document; each tab is described by its
+          * group's name, so the structure survives for a reader who cannot see
+          * the spacing — without a role="group" between the tablist and its
+          * tabs, which a screen reader cannot walk through.
           */}
-        <div style={{ background: 'var(--sunk)', borderTop: '1px solid var(--line)' }}>
-          <div className="wrap flex items-center gap-2.5" style={{ height: 42 }}>
-            {/**
-              * The scroller is this inner group ONLY.
-              *
-              * `overflow-x-auto` sat on the whole bar, and an overflow on one
-              * axis makes the other a clipping context too — so the Figure
-              * style popover, anchored inside it, lost 187px of itself to a
-              * 46px-tall strip. The controls still scroll when they have to;
-              * the things that open menus are outside the box that clips.
-              */}
-            {/**
-              * The controls SHRINK; they do not scroll away.
-              *
-              * They were `flex-none` inside a scroller, which on a real object
-              * meant they never gave way: a cell type called "Cardiomyocyte/
-              * Working cardiomyocyte EXCLUDED" plus two long group names simply
-              * overflowed, and the first thing pushed out of sight was Run —
-              * the button the whole row exists to reach. A select truncates its
-              * own text with an ellipsis and every one of these carries a title,
-              * so shrinking costs a few characters and scrolling cost the
-              * action.
-              *
-              * The scroller stays as the last resort for a genuinely narrow
-              * window, after everything has already given what it can.
-              */}
-            <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-x-auto py-2">
-            {needs.ct && (
+        <div className="viewtabs" role="tablist" aria-label="Views of this object"
+          onKeyDown={e => {
+            const order = TABS.map(([id]) => id).filter(id => d.multi || !NEEDS_CONTRAST.has(id))
+            const at = order.indexOf(tab)
+            const next = e.key === 'ArrowRight' ? order[(at + 1) % order.length]
+              : e.key === 'ArrowLeft' ? order[(at - 1 + order.length) % order.length]
+              : e.key === 'Home' ? order[0]
+              : e.key === 'End' ? order[order.length - 1] : null
+            if (!next) return
+            e.preventDefault()
+            setTab(next)
+            document.getElementById(`tab-${next}`)?.focus()
+          }}>
+          {GROUPS.map(g => (
+            <div key={g.name || 'doc'} className="flex flex-none">
+              <span id={`tabgroup-${g.name || 'doc'}`} hidden>{g.name || 'Document'}</span>
+              {g.tabs.map(([id, label]) => {
+                const off = !d.multi && NEEDS_CONTRAST.has(id)
+                return (
+                  <button
+                    key={id} role="tab" aria-selected={tab === id}
+                    aria-controls={`panel-${id}`} id={`tab-${id}`}
+                    aria-describedby={`tabgroup-${g.name || 'doc'}`}
+                    tabIndex={tab === id ? 0 : -1}
+                    // Dimmed-and-clickable was an invitation to a dead end:
+                    // the object cannot answer this, so the control says no.
+                    disabled={off}
+                    title={off
+                      ? 'This object has one condition, so there is nothing to contrast'
+                      : undefined}
+                    className="viewtab"
+                    onClick={() => setTab(id)}
+                  >{label}</button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      </header>
+
+      {/**
+        * The rail: every control of the view in one column, grouped by task —
+        * the contrast, the gene-set library, the embedding, then the view's
+        * own. It replaces the control bar under the tabs, which held what was
+        * being compared while each view kept its other controls in its card.
+        * A view with nothing to choose has no rail and gives the width to its
+        * stage. The rail never depends on data, so it never moves when data
+        * arrives.
+        */}
+      <div className="work" data-rail={hasRail ? undefined : 'none'}>
+        {hasRail && (
+          <aside className="rail" aria-label="Controls for this view">
+            {(needs.ct || needs.contrast) && (
+              <div className="rail-group" role="group" aria-labelledby="rail-contrast">
+                <div className="rail-label" id="rail-contrast">Contrast</div>
+                {needs.ct && (
               // The same control as the two beside it, because it is the same
               // kind of decision: which populations does this contrast run
               // over. It was a `<select>`, which can only hold one and always
@@ -776,25 +768,34 @@ export default function App() {
               <PickMany label="Cell type" all={populationNames(types)} value={cts}
                 noun="cell types" empty="pick one" onChange={setCts} />
             )}
-            {showEmb && (
-              <>
-                {needs.ct && <div className="gsep" />}
-                <label className="flex min-w-0 items-center gap-1.5">
-                  <span className="glabel flex-none">Embedding</span>
-                  <select className="sel min-w-0 flex-1" style={{ maxWidth: 170 }} value={emb.key}
-                    onChange={e => setEmbKey(e.target.value)}>
-                    {src.embeddings.map(x => <option key={x.key}>{x.key}</option>)}
-                  </select>
-                </label>
-              </>
+                {needs.contrast && d.multi && (
+                  <>
+                <PickMany label="Control" all={d.conds} value={ctrl} other={cs}
+                  empty="pick one" onChange={setCtrl} />
+                <PickMany label="Compare" lead="vs" all={d.conds} value={cs} other={ctrl}
+                  empty="pick one" onChange={setCs} />
+                    {needs.runs && !armed && !NEEDS_RUN_HIDDEN.has(method) && (
+                      <button className="btn btn-primary w-full" onClick={() => setDeRan(deKey)}>Run</button>
+                    )}
+                  </>
+                )}
+              {needs.contrast && (
+                <span
+                  className="self-start inline-flex items-center gap-[7px] whitespace-nowrap rounded-full px-[11px] py-1 tx-micro font-semibold"
+                  style={{ ...chipStyle, borderWidth: 1, borderStyle: 'solid' }}
+                  title={chip.title}
+                >
+                  <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
+                  {chip.text}
+                </span>
+              )}
+              </div>
             )}
             {showLib && (
-              <>
-                {(needs.ct || showEmb) && <div className="gsep" />}
-                <label className="flex flex-none items-center gap-1.5">
-                  <span className="glabel">Gene sets</span>
+              <label className="pick flex">
+                <span className="glabel rail-label">Gene sets</span>
                   <select
-                    className="sel flex-none" value={species ?? ''}
+                    className="sel" value={species ?? ''}
                     aria-label="Species for the gene set library"
                     title={detected ? `Detected: ${detected.why}` : undefined}
                     onChange={e => changeSpecies(e.target.value as Species)}
@@ -806,69 +807,26 @@ export default function App() {
                         select shows the detected species rather than blank. */}
                     {!lib.manifest && species && <option value={species}>{species}</option>}
                   </select>
-                </label>
-              </>
+              </label>
             )}
-            {needs.contrast && d.multi && (
-              <>
-                {(needs.ct || showEmb || showLib) && <div className="gsep" />}
-                {/* One contrast, drawn as one: CONTROL [a] VS [b]. Two
-                    uppercase nouns read as two unrelated pickers and cost 63px
-                    that the names themselves needed. */}
-                <PickMany label="Control" all={d.conds} value={ctrl} other={cs}
-                  empty="pick one" onChange={setCtrl} />
-                <PickMany label="Compare" lead="vs" all={d.conds} value={cs} other={ctrl}
-                  empty="pick one" onChange={setCs} />
-                {/* The action belongs at the end of the decision it completes:
-                    cell type, control, compare, run. */}
-                {needs.runs && !armed && !NEEDS_RUN_HIDDEN.has(method) && (
-                  <button className="btn btn-primary btn-sm flex-none"
-                    onClick={() => setDeRan(deKey)}>Run</button>
-                )}
-              </>
+            {showEmb && (
+              <label className="pick flex">
+                <span className="glabel rail-label">Embedding</span>
+                <select className="sel" value={emb.key} onChange={e => setEmbKey(e.target.value)}>
+                    {src.embeddings.map(x => <option key={x.key}>{x.key}</option>)}
+                </select>
+              </label>
             )}
+            {cellsRail && (
+              <CellsControls d={d} colorBy={colorBy} split={split}
+                onColorBy={setColorBy} onSplit={setSplit} />
+            )}
+          </aside>
+        )}
 
-            </div>
-
-            <span className="flex flex-none items-center gap-2.5">
-              {geneBusy && (
-                <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>reading gene…</span>
-              )}
-              {!geneBusy && geneError && (
-                <span role="alert" className="truncate tx-micro font-semibold"
-                  style={{ color: 'var(--warn)', maxWidth: 340 }} title={geneError}>
-                  Could not read that gene — {geneError}
-                </span>
-              )}
-              {/* The badge reads the contrast, so it travels with it — over
-                  Cells or Composition it would describe a test nothing ran. */}
-              {needs.contrast && (
-                <span
-                  className="inline-flex items-center gap-[7px] whitespace-nowrap rounded-full px-[11px] py-1 tx-micro font-semibold"
-                  style={{ ...chipStyle, borderWidth: 1, borderStyle: 'solid' }}
-                  title={chip.title}
-                >
-                  <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
-                  {chip.text}
-                </span>
-              )}
-              {/* Only where there is an order to change: one group has no
-                  arrangement, and a menu that cannot do anything is worse than
-                  no menu. */}
-              {d.conds.length > 1 && (
-                <GroupOrder conds={d.conds} custom={condOrder.length > 0} palKey={palKey}
-                  onChange={setCondOrder} onReset={() => setCondOrder([])} />
-              )}
-              <ViewMenu palKey={palKey} rampKey={rampKey} rampDiv={rampDiv}
-                onPal={setPalKey} onRamp={setRampKey} onRampDiv={setRampDiv} />
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <main className="pb-16 pt-5" id={`panel-${tab}`} role="tabpanel"
+      <main className="stage" id={`panel-${tab}`} role="tabpanel"
         aria-labelledby={`tab-${tab}`} tabIndex={-1}>
-        <div className="wrap">
+        <div className={cellsRail ? undefined : 'column'}>
           {/*
             One tab's work, and the only thing a bad render is allowed to take
             with it. Boundary.tsx carries the argument for why it sits HERE and
@@ -911,8 +869,7 @@ export default function App() {
             ) : tab === 'cells' ? (
               <Cells src={src} types={types} emb={emb}
                 colorBy={colorBy}
-                split={split} palKey={palKey} rampKey={rampKey}
-                onColorBy={setColorBy} onSplit={setSplit} />
+                split={split} palKey={palKey} rampKey={rampKey} />
             ) : tab === 'composition' ? (
               <Composition d={d} types={types} palKey={palKey} />
             ) : tab === 'markers' ? (
@@ -979,6 +936,7 @@ export default function App() {
           </ViewBoundary>
         </div>
       </main>
+      </div>
     </>
   )
 }

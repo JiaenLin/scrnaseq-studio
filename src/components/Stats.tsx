@@ -391,7 +391,7 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   if (missing.length)
     return <div className="note mt-3.5">
       <b>Pick {missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]}.</b>{' '}
-      The pickers are in the bar above. Nothing is chosen for you, because a
+      The pickers are in the controls on the left. Nothing is chosen for you, because a
       contrast the studio guessed at looks exactly like one you asked for.
     </div>
 

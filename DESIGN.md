@@ -478,7 +478,7 @@ would weight a part of forty cells the same as one of four thousand — which on
 annotation, where cell type × group is wildly unbalanced, is not a rounding difference.
 
 With no figure on the tab reading it any more, the shared **Cell type** selector is gone
-from the bar above it. A control nothing reads is how "across groups" came to mean "across
+from the controls beside it. A control nothing reads is how "across groups" came to mean "across
 the groups of one cluster" in the first place.
 
 One thing went away rather than being fixed: the single-set card's "My own genes" textarea,
@@ -724,9 +724,11 @@ meant one input giving two answers depending on whether it happened to be strict
 
 ### 3.1 The global bar — set once, applies everywhere
 
-> **Status: shipped, as amended.** The bar is in `src/App.tsx`. Each control is offered only
-> above the tabs whose answer it changes (`needsOf`), and there is no `design.ts`: the design is
-> `designFor` in `src/lib/stats.ts`.
+> **Status: shipped, as amended; moved by W037.** The selection is held in `src/App.tsx`. Since
+> W037 its controls sit in the left rail with the view's own, grouped by task, and Group order and
+> Figure style sit in the identity bar ([docs/DESIGN.md](docs/DESIGN.md), "Layout"). Each control is
+> offered only beside the views whose answer it changes (`needsOf`), and there is no `design.ts`:
+> the design is `designFor` in `src/lib/stats.ts`.
 
 The lesson from the 23-arm bulk stress test: selection belongs to the app, not the
 tab. Single-cell adds one axis, so the bar carries three controls:
@@ -746,7 +748,7 @@ control/compare selectors at all, because offering a comparison that cannot exis
 is how a user ends up reading a number that means nothing. The status chip always
 names the test in force and why it is the one available.
 
-Two view settings sit at the far end of the bar, on the same reasoning as the
+Two view settings sit at the right end of the identity bar, on the same reasoning as the
 selection: they move every figure in the studio, so a control living on one tab would
 be a setting you change in one place and walk somewhere else to see. **Figure style**
 is the palette and the expression ramp. **Group order** is the order the group levels

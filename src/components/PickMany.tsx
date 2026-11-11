@@ -75,7 +75,7 @@ export default function PickMany({
     // cell-type select, which had a 220px appetite — and the pickers were left
     // on their floor while it kept 146. The three controls that hold a NAME now
     // share what is left equally.
-    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+    <div className="pick flex min-w-0 flex-1 items-center gap-1.5">
       <span className="glabel flex-none">{lead ?? label}</span>
       <button
         ref={trigger}
