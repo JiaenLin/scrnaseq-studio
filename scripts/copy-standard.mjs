@@ -106,9 +106,10 @@ export const ACRONYMS = ['DNA', 'RNA', 'E2F', 'MYC', 'G2M', 'KRAS', 'TNFA', 'NFK
 
 /** A string's shape: its numbers and the object's own names set aside, so one sentence is counted once. */
 export const shapeOf = (s, names) => {
-  let t = String(s).replace(/[-−]?\d[\d,.]*(e[-+]?\d+)?%?/g, '#')
+  // Names first: "Ascl1" is a gene, not "Ascl" and a number.
+  let t = String(s)
   if (names?.size) t = t.split(/(\s+|[,;:()/·×])/).map(w => (names.has(w) ? '‹name›' : w)).join('')
-  return t
+  return t.replace(/(?<![\p{L}\d])[-\u2212]?\d[\d,.]*(e[-+]?\d+)?%?/gu, '#')
 }
 
 export const retiredIn = s => RETIRED.filter(r => {

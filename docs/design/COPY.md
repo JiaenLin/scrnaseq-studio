@@ -31,7 +31,7 @@ states of a large object (a table cut at N rows), a collection opened from a fol
 | … the app's own | 963 | 963 |
 | … data (cells, ticks, key entries, values) | 250 | 250 |
 | words in the app's distinct strings | 7,333 | 6,725 |
-| … the app's own words in them | 6,120 | 5,612 |
+| … the app's own words in them | 5,787 | 5,277 |
 | controls measured | 7,124 | 7,126 |
 | files saved and read | 22 | 22 |
 
@@ -63,7 +63,7 @@ The app's own words per string. "Over" is the number of distinct strings over th
 
 | kind | budget | strings before | longest before | over before | strings now | longest now | over now |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| accessible name | 8 | 109 | 13 | 4 | 109 | 13 | 3 |
+| accessible name | 8 | 109 | 11 | 1 | 109 | 8 | 0 |
 | badge | 3 | 7 | 2 | 0 | 7 | 2 | 0 |
 | button | 3 | 58 | 5 | 2 | 60 | 3 | 0 |
 | chip | 3 | 5 | 4 | 3 | 4 | 2 | 0 |
@@ -471,7 +471,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### Overview
 
-25 strings, 130 words (115 the app's own).
+25 strings, 130 words (112 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -492,18 +492,18 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | text | Per sample, and after the filtering your pipeline applied. | 9 | 8 | 58 | 12 |
 | stage | text | Total counts | 2 | 2 | 12 | 12 |
 | stage (aria-label) | accessible name | Total counts per sample | 4 | 3 | 23 | 13 |
-| stage | figure text | 11k | 1 | 1 | 3 | 10.5 |
+| stage | figure text | 11k | 1 | 0 | 3 | 10.5 |
 | stage | text | Genes detected | 2 | 2 | 14 | 12 |
 | stage (aria-label) | accessible name | Genes detected per sample | 4 | 3 | 25 | 13 |
 | stage | text | Mitochondrial % | 1 | 1 | 15 | 12 |
 | stage (aria-label) | accessible name | Mitochondrial % per sample | 3 | 2 | 26 | 13 |
 | stage | text | box = median and IQR · violin = density · n = 34,367 cells | 9 | 3 | 58 | 11 |
-| stage (svg title) | tooltip | SVZ_Q1 | 1 | 1 | 6 |  |
-| stage (svg title) | tooltip | SVZ_R1 | 1 | 1 | 6 |  |
+| stage (svg title) | tooltip | SVZ_Q1 | 1 | 0 | 6 |  |
+| stage (svg title) | tooltip | SVZ_R1 | 1 | 0 | 6 |  |
 
 ### Cells
 
-53 strings, 176 words (154 the app's own).
+53 strings, 176 words (152 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -552,8 +552,8 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | key pane (title) | tooltip | Show every cell again | 4 | 4 | 21 | 12 |
 | head line (title) | tooltip | Save cells_X_umap_by_cond_split | 2 | 2 | 31 | 12 |
 | head line (title) | tooltip | Save cells_X_umap_by_sample_split | 2 | 2 | 33 | 12 |
-| key pane (title) | tooltip | Show only SVZ_Q1 | 3 | 3 | 16 | 12 |
-| key pane (title) | tooltip | Show only SVZ_R1 | 3 | 3 | 16 | 12 |
+| key pane (title) | tooltip | Show only SVZ_Q1 | 3 | 2 | 16 | 12 |
+| key pane (title) | tooltip | Show only SVZ_R1 | 3 | 2 | 16 | 12 |
 | head line (title) | tooltip | Save cells_X_umap_by_mito_split | 2 | 2 | 31 | 12 |
 | tabs (title) | tooltip | Show the key ] | 3 | 3 | 14 | 13 |
 | head line (aria-label) | accessible name | Cell type | 2 | 2 | 9 | 13 |
@@ -563,7 +563,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### Composition
 
-31 strings, 118 words (96 the app's own).
+31 strings, 118 words (92 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -589,11 +589,11 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage (aria-label) | accessible name | qNSC proportion by group | 4 | 3 | 24 | 13 |
 | stage | figure text | Share of sample | 3 | 2 | 15 | 10.5 |
 | stage | legend | · bar = mean · dots = individual samples | 5 | 5 | 40 | 12 |
-| stage (svg title) | tooltip | Q1: 3,704 cells | 3 | 1 | 15 |  |
-| stage (svg title) | tooltip | Q1 | 1 | 1 | 2 |  |
+| stage (svg title) | tooltip | Q1: 3,704 cells | 3 | 0 | 15 |  |
+| stage (svg title) | tooltip | Q1 | 1 | 0 | 2 |  |
 | stage (svg title) | tooltip | qNSC: 19.4% (719 cells) | 4 | 0 | 23 |  |
-| stage (svg title) | tooltip | R1: 5,331 cells | 3 | 1 | 15 |  |
-| stage (svg title) | tooltip | R1 | 1 | 1 | 2 |  |
+| stage (svg title) | tooltip | R1: 5,331 cells | 3 | 0 | 15 |  |
+| stage (svg title) | tooltip | R1 | 1 | 0 | 2 |  |
 | menu (aria-label) | accessible name | Save composition_type_by_sample | 2 | 2 | 31 | 13 |
 | menu | menu item | SVG, vector | 2 | 2 | 11 | 12 |
 | menu | menu item note | editable, no resampling | 3 | 3 | 23 | 11 |
@@ -601,7 +601,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### Markers
 
-92 strings, 443 words (291 the app's own).
+92 strings, 443 words (178 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -613,94 +613,94 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | text | Mean expression × fraction detected. Rename a cell type to rename it everywhere. | 12 | 10 | 80 | 12 |
 | stage (title) | tooltip | Save cluster_markers | 2 | 2 | 20 | 12 |
 | stage (aria-label) | accessible name | Marker gene dot plot | 4 | 4 | 20 | 13 |
-| stage | figure text | Aqp4 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | Id3 | 1 | 1 | 3 | 10.5 |
-| stage | figure text | Thbs4 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Mcm2 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | Ccnd2 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Ascl1 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Sox2 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | Mki67 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Ube2c | 1 | 2 | 5 | 10.5 |
-| stage | figure text | Ccnb1 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Top2a | 1 | 2 | 5 | 10.5 |
-| stage | figure text | Dlx2 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | Sp8 | 1 | 1 | 3 | 10.5 |
-| stage | figure text | Nrxn3 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Tubb3 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Mt1 | 1 | 1 | 3 | 10.5 |
-| stage | figure text | Slc1a3 | 1 | 2 | 6 | 10.5 |
-| stage | figure text | Ntsr2 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Plp1 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | Cx3cr1 | 1 | 2 | 6 | 10.5 |
-| stage | figure text | C1qa | 1 | 2 | 4 | 10.5 |
-| stage | figure text | P2ry12 | 1 | 2 | 6 | 10.5 |
-| stage | figure text | Pecam1 | 1 | 1 | 6 | 10.5 |
-| stage | figure text | Cldn5 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Flt1 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | Rgs5 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | Ly6c1 | 1 | 2 | 5 | 10.5 |
-| stage | figure text | Kcnj8 | 1 | 1 | 5 | 10.5 |
-| stage | figure text | Higd1b | 1 | 2 | 6 | 10.5 |
+| stage | figure text | Aqp4 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | Id3 | 1 | 0 | 3 | 10.5 |
+| stage | figure text | Thbs4 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Mcm2 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | Ccnd2 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Ascl1 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Sox2 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | Mki67 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Ube2c | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Ccnb1 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Top2a | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Dlx2 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | Sp8 | 1 | 0 | 3 | 10.5 |
+| stage | figure text | Nrxn3 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Tubb3 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Mt1 | 1 | 0 | 3 | 10.5 |
+| stage | figure text | Slc1a3 | 1 | 0 | 6 | 10.5 |
+| stage | figure text | Ntsr2 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Plp1 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | Cx3cr1 | 1 | 0 | 6 | 10.5 |
+| stage | figure text | C1qa | 1 | 0 | 4 | 10.5 |
+| stage | figure text | P2ry12 | 1 | 0 | 6 | 10.5 |
+| stage | figure text | Pecam1 | 1 | 0 | 6 | 10.5 |
+| stage | figure text | Cldn5 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Flt1 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | Rgs5 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | Ly6c1 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Kcnj8 | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Higd1b | 1 | 0 | 6 | 10.5 |
 | stage | figure text | Mean expression · depth of the cell type's colour | 8 | 7 | 49 | 11.5 |
 | stage | figure text | Percent Expressed | 2 | 2 | 17 | 11.5 |
 | stage | legend | a heavier ring marks one of that cell type’s own top genes | 12 | 11 | 58 | 12 |
 | stage | legend | n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · Pericyte 72 | 21 | 2 | 166 | 12 |
 | stage (aria-label) | accessible name | Rename cell type qNSC | 4 | 3 | 21 | 13 |
-| stage | text | Gfap, Aqp4, Hopx, Id3, Thbs4 | 5 | 3 | 28 | 11 |
-| stage | text | Mcm2, Ccnd2, Ascl1, Egfr, Sox2 | 5 | 4 | 30 | 11 |
-| stage | text | Cenpf, Mki67, Ube2c, Ccnb1, Top2a | 5 | 6 | 33 | 11 |
-| stage | text | Dlx2, Dcx, Sp8, Nrxn3, Tubb3 | 5 | 4 | 28 | 11 |
-| stage | text | Mt1, Slc1a3, Agt, Ntsr2, Clu | 5 | 4 | 28 | 11 |
+| stage | text | Gfap, Aqp4, Hopx, Id3, Thbs4 | 5 | 1 | 28 | 11 |
+| stage | text | Mcm2, Ccnd2, Ascl1, Egfr, Sox2 | 5 | 1 | 30 | 11 |
+| stage | text | Cenpf, Mki67, Ube2c, Ccnb1, Top2a | 5 | 1 | 33 | 11 |
+| stage | text | Dlx2, Dcx, Sp8, Nrxn3, Tubb3 | 5 | 1 | 28 | 11 |
+| stage | text | Mt1, Slc1a3, Agt, Ntsr2, Clu | 5 | 2 | 28 | 11 |
 | stage | text | Mog, Mbp, Plp1, Sox10, Cnp | 5 | 2 | 26 | 11 |
-| stage | text | Cx3cr1, C1qa, Ctss, P2ry12, Hexb | 5 | 6 | 32 | 11 |
-| stage | text | Pecam1, Cldn5, Flt1, Rgs5, Ly6c1 | 5 | 6 | 32 | 11 |
+| stage | text | Cx3cr1, C1qa, Ctss, P2ry12, Hexb | 5 | 2 | 32 | 11 |
+| stage | text | Pecam1, Cldn5, Flt1, Rgs5, Ly6c1 | 5 | 0 | 32 | 11 |
 | stage | text | Anpep, Kcnj8, Pdgfrb, Vtn, Higd1b | 5 | 3 | 33 | 11 |
 | stage | text | Counts are genes at padj < 0.05 and log₂FC ≥ 0.25; select one for the list. | 14 | 10 | 75 | 11 |
 | stage (svg title) | tooltip | Gfap in qNSC: 92% of cells, mean 2.46 | 8 | 3 | 37 |  |
-| stage (svg title) | tooltip | Aqp4 in qNSC: 92% of cells, mean 2.26 | 8 | 4 | 37 |  |
-| stage (svg title) | tooltip | Id3 in qNSC: 85% of cells, mean 1.77 | 8 | 4 | 36 |  |
-| stage (svg title) | tooltip | Thbs4 in qNSC: 80% of cells, mean 1.33 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Mcm2 in qNSC: 11% of cells, mean 0.01 | 8 | 4 | 37 |  |
-| stage (svg title) | tooltip | Ccnd2 in qNSC: 14% of cells, mean 0.02 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Ascl1 in qNSC: 16% of cells, mean 0.03 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Sox2 in qNSC: 18% of cells, mean 0.03 | 8 | 4 | 37 |  |
-| stage (svg title) | tooltip | Mki67 in qNSC: 17% of cells, mean 0.03 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Ube2c in qNSC: 18% of cells, mean 0.04 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Ccnb1 in qNSC: 17% of cells, mean 0.03 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Top2a in qNSC: 21% of cells, mean 0.06 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Dlx2 in qNSC: 12% of cells, mean 0.02 | 8 | 4 | 37 |  |
-| stage (svg title) | tooltip | Sp8 in qNSC: 12% of cells, mean 0.02 | 8 | 4 | 36 |  |
-| stage (svg title) | tooltip | Nrxn3 in qNSC: 15% of cells, mean 0.03 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Tubb3 in qNSC: 17% of cells, mean 0.03 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Mt1 in qNSC: 13% of cells, mean 0.02 | 8 | 4 | 36 |  |
-| stage (svg title) | tooltip | Slc1a3 in qNSC: 15% of cells, mean 0.02 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Ntsr2 in qNSC: 14% of cells, mean 0.02 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Plp1 in qNSC: 15% of cells, mean 0.03 | 8 | 4 | 37 |  |
-| stage (svg title) | tooltip | Cx3cr1 in qNSC: 8% of cells, mean 0.01 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | C1qa in qNSC: 10% of cells, mean 0.01 | 8 | 5 | 37 |  |
-| stage (svg title) | tooltip | P2ry12 in qNSC: 12% of cells, mean 0.01 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Pecam1 in qNSC: 11% of cells, mean 0.01 | 8 | 4 | 39 |  |
-| stage (svg title) | tooltip | Cldn5 in qNSC: 13% of cells, mean 0.02 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Flt1 in qNSC: 14% of cells, mean 0.02 | 8 | 4 | 37 |  |
-| stage (svg title) | tooltip | Rgs5 in qNSC: 14% of cells, mean 0.02 | 8 | 4 | 37 |  |
-| stage (svg title) | tooltip | Ly6c1 in qNSC: 15% of cells, mean 0.03 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Kcnj8 in qNSC: 11% of cells, mean 0.01 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Higd1b in qNSC: 16% of cells, mean 0.03 | 8 | 5 | 39 |  |
+| stage (svg title) | tooltip | Aqp4 in qNSC: 92% of cells, mean 2.26 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | Id3 in qNSC: 85% of cells, mean 1.77 | 8 | 3 | 36 |  |
+| stage (svg title) | tooltip | Thbs4 in qNSC: 80% of cells, mean 1.33 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Mcm2 in qNSC: 11% of cells, mean 0.01 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | Ccnd2 in qNSC: 14% of cells, mean 0.02 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Ascl1 in qNSC: 16% of cells, mean 0.03 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Sox2 in qNSC: 18% of cells, mean 0.03 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | Mki67 in qNSC: 17% of cells, mean 0.03 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Ube2c in qNSC: 18% of cells, mean 0.04 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Ccnb1 in qNSC: 17% of cells, mean 0.03 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Top2a in qNSC: 21% of cells, mean 0.06 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Dlx2 in qNSC: 12% of cells, mean 0.02 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | Sp8 in qNSC: 12% of cells, mean 0.02 | 8 | 3 | 36 |  |
+| stage (svg title) | tooltip | Nrxn3 in qNSC: 15% of cells, mean 0.03 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Tubb3 in qNSC: 17% of cells, mean 0.03 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Mt1 in qNSC: 13% of cells, mean 0.02 | 8 | 3 | 36 |  |
+| stage (svg title) | tooltip | Slc1a3 in qNSC: 15% of cells, mean 0.02 | 8 | 3 | 39 |  |
+| stage (svg title) | tooltip | Ntsr2 in qNSC: 14% of cells, mean 0.02 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Plp1 in qNSC: 15% of cells, mean 0.03 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | Cx3cr1 in qNSC: 8% of cells, mean 0.01 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | C1qa in qNSC: 10% of cells, mean 0.01 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | P2ry12 in qNSC: 12% of cells, mean 0.01 | 8 | 3 | 39 |  |
+| stage (svg title) | tooltip | Pecam1 in qNSC: 11% of cells, mean 0.01 | 8 | 3 | 39 |  |
+| stage (svg title) | tooltip | Cldn5 in qNSC: 13% of cells, mean 0.02 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Flt1 in qNSC: 14% of cells, mean 0.02 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | Rgs5 in qNSC: 14% of cells, mean 0.02 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | Ly6c1 in qNSC: 15% of cells, mean 0.03 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Kcnj8 in qNSC: 11% of cells, mean 0.01 | 8 | 3 | 38 |  |
+| stage (svg title) | tooltip | Higd1b in qNSC: 16% of cells, mean 0.03 | 8 | 3 | 39 |  |
 | menu (aria-label) | accessible name | Save cluster_markers | 2 | 2 | 20 | 13 |
 | stage | text | Gfap, Aqp4, Hopx | 3 | 1 | 16 | 11 |
-| stage | text | Mcm2, Ccnd2, Ascl1 | 3 | 3 | 18 | 11 |
-| stage | text | Cenpf, Mki67, Ube2c | 3 | 3 | 19 | 11 |
-| stage | text | Dlx2, Dcx, Sp8 | 3 | 2 | 14 | 11 |
-| stage | text | Mt1, Slc1a3, Agt | 3 | 3 | 16 | 11 |
+| stage | text | Mcm2, Ccnd2, Ascl1 | 3 | 0 | 18 | 11 |
+| stage | text | Cenpf, Mki67, Ube2c | 3 | 1 | 19 | 11 |
+| stage | text | Dlx2, Dcx, Sp8 | 3 | 1 | 14 | 11 |
+| stage | text | Mt1, Slc1a3, Agt | 3 | 1 | 16 | 11 |
 | stage | text | Mog, Mbp, Plp1 | 3 | 1 | 14 | 11 |
-| stage | text | Cx3cr1, C1qa, Ctss | 3 | 4 | 18 | 11 |
-| stage | text | Pecam1, Cldn5, Flt1 | 3 | 3 | 19 | 11 |
+| stage | text | Cx3cr1, C1qa, Ctss | 3 | 1 | 18 | 11 |
+| stage | text | Pecam1, Cldn5, Flt1 | 3 | 0 | 19 | 11 |
 | stage | text | Anpep, Kcnj8, Pdgfrb | 3 | 1 | 20 | 11 |
 
 ### Differential expression
 
-262 strings, 1,528 words (1,182 the app's own).
+262 strings, 1,528 words (1,156 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -766,34 +766,34 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage (title) | tooltip | Open Cdk1 in Gene expression | 5 | 4 | 28 | 12 |
 | stage (title) | tooltip | Open Ascl1 in Gene expression | 5 | 4 | 29 | 12 |
 | stage (title) | tooltip | Open Sox11 in Gene expression | 5 | 4 | 29 | 12 |
-| stage (title) | tooltip | Open Top2a in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open S100b in Gene expression | 5 | 5 | 29 | 12 |
+| stage (title) | tooltip | Open Top2a in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open S100b in Gene expression | 5 | 4 | 29 | 12 |
 | stage (title) | tooltip | Open Hes5 in Gene expression | 5 | 4 | 28 | 12 |
-| stage (title) | tooltip | Open Cdkn1a in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open Cdkn1a in Gene expression | 5 | 4 | 30 | 12 |
 | stage (title) | tooltip | Open Ccnd1 in Gene expression | 5 | 4 | 29 | 12 |
-| stage (title) | tooltip | Open Ube2c in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Cdkn1b in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open Ube2c in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Cdkn1b in Gene expression | 5 | 4 | 30 | 12 |
 | stage (title) | tooltip | Open Ccnb1 in Gene expression | 5 | 4 | 29 | 12 |
 | stage (title) | tooltip | Open Mki67 in Gene expression | 5 | 4 | 29 | 12 |
 | stage (title) | tooltip | Open Egr1 in Gene expression | 5 | 4 | 28 | 12 |
 | stage (title) | tooltip | Open Sparcl1 in Gene expression | 5 | 4 | 31 | 12 |
 | stage (title) | tooltip | Open Notch1 in Gene expression | 5 | 4 | 30 | 12 |
-| stage (title) | tooltip | Open Nr4a2 in Gene expression | 5 | 5 | 29 | 12 |
+| stage (title) | tooltip | Open Nr4a2 in Gene expression | 5 | 4 | 29 | 12 |
 | stage (title) | tooltip | Open Dlx2 in Gene expression | 5 | 4 | 28 | 12 |
 | stage (title) | tooltip | Open Nrxn3 in Gene expression | 5 | 4 | 29 | 12 |
 | stage (title) | tooltip | Open Sp8 in Gene expression | 5 | 4 | 27 | 12 |
 | stage (title) | tooltip | Open Tubb3 in Gene expression | 5 | 4 | 29 | 12 |
-| stage (title) | tooltip | Open B2m in Gene expression | 5 | 5 | 27 | 12 |
-| stage (title) | tooltip | Open Rpl13a in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open B2m in Gene expression | 5 | 4 | 27 | 12 |
+| stage (title) | tooltip | Open Rpl13a in Gene expression | 5 | 4 | 30 | 12 |
 | stage (title) | tooltip | Open Rgs5 in Gene expression | 5 | 4 | 28 | 12 |
 | stage (title) | tooltip | Open Ntsr2 in Gene expression | 5 | 4 | 29 | 12 |
 | stage (title) | tooltip | Open Plp1 in Gene expression | 5 | 4 | 28 | 12 |
-| stage (title) | tooltip | Open Ly6c1 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Slc1a3 in Gene expression | 5 | 5 | 30 | 12 |
-| stage (title) | tooltip | Open Higd1b in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open Ly6c1 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Slc1a3 in Gene expression | 5 | 4 | 30 | 12 |
+| stage (title) | tooltip | Open Higd1b in Gene expression | 5 | 4 | 30 | 12 |
 | stage (title) | tooltip | Open Flt1 in Gene expression | 5 | 4 | 28 | 12 |
-| stage (title) | tooltip | Open P2ry12 in Gene expression | 5 | 5 | 30 | 12 |
-| stage (title) | tooltip | Open C1qa in Gene expression | 5 | 5 | 28 | 12 |
+| stage (title) | tooltip | Open P2ry12 in Gene expression | 5 | 4 | 30 | 12 |
+| stage (title) | tooltip | Open C1qa in Gene expression | 5 | 4 | 28 | 12 |
 | stage (title) | tooltip | Open Mt1 in Gene expression | 5 | 4 | 27 | 12 |
 | stage (title) | tooltip | Open Cldn5 in Gene expression | 5 | 4 | 29 | 12 |
 | stage (title) | tooltip | Open Kcnj8 in Gene expression | 5 | 4 | 29 | 12 |
@@ -812,9 +812,9 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail | segment | none | 1 | 1 | 4 | 12 |
 | head line (title) | tooltip | Save volcano_Reactivated vs Quiescent · qNSC | 5 | 3 | 44 | 12 |
 | stage (aria-label) | accessible name | Volcano plot for Reactivated vs Quiescent · qNSC | 7 | 4 | 48 | 13 |
-| stage | figure text | Cdk1 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | S100b | 1 | 2 | 5 | 10.5 |
-| stage | figure text | Egr1 | 1 | 1 | 4 | 10.5 |
+| stage | figure text | Cdk1 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | S100b | 1 | 0 | 5 | 10.5 |
+| stage | figure text | Egr1 | 1 | 0 | 4 | 10.5 |
 | stage | figure text | log₂ fold change · Reactivated vs Quiescent | 6 | 4 | 43 | 11.5 |
 | stage | figure text | −log₁₀ adjusted p | 3 | 2 | 17 | 11.5 |
 | stage | figure text | larger = past both cutoffs | 4 | 4 | 26 | 10.5 |
@@ -829,7 +829,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | menu (aria-label) | accessible name | Save volcano_Reactivated vs Quiescent · qNSC | 5 | 3 | 44 | 13 |
 | rail | button | Clear 1 clicked | 3 | 2 | 15 | 12 |
 | key pane | label | Named on figure | 3 | 3 | 15 | 12 |
-| key pane (title) | tooltip | Remove Id3's name from the figure | 6 | 7 | 33 | 12 |
+| key pane (title) | tooltip | Remove Id3's name from the figure | 6 | 6 | 33 | 12 |
 | rail | label | Gene sets | 2 | 2 | 9 | 12 |
 | rail (title) | tooltip | Detected: 100% of symbols are title case (Gfap) | 8 | 6 | 47 | 13 |
 | rail (aria-label) | accessible name | Species for the gene set library | 6 | 6 | 32 | 13 |
@@ -898,8 +898,8 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail (placeholder) | placeholder | one gene, or paste a list… | 6 | 5 | 26 | 12 |
 | rail (aria-label) | accessible name | Search a gene or paste a gene list | 8 | 6 | 34 | 12 |
 | rail | help | One gene, or paste up to 100. Case and separator do not matter. | 13 | 11 | 63 | 11 |
-| rail (title) | tooltip | Id3 | 1 | 1 | 3 | 12 |
-| rail | help | Id3 × | 1 | 1 | 5 | 12 |
+| rail (title) | tooltip | Id3 | 1 | 0 | 3 | 12 |
+| rail | help | Id3 × | 1 | 0 | 5 | 12 |
 | rail (aria-label) | accessible name | Plot | 1 | 1 | 4 | 13 |
 | rail | label | Plot | 1 | 1 | 4 | 12 |
 | rail | option | Violin panel | 2 | 2 | 12 | 13 |
@@ -926,12 +926,12 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | head line (title) | tooltip | Save violins | 2 | 2 | 12 | 12 |
 | head line | button | Save all panels | 3 | 3 | 15 | 12 |
 | stage (aria-label) | accessible name | Id3 expression | 2 | 1 | 14 | 13 |
-| stage | figure text | Expression · log1p(CP10K) | 2 | 3 | 25 | 10.5 |
+| stage | figure text | Expression · log1p(CP10K) | 2 | 1 | 25 | 10.5 |
 | stage | legend | violin + box = per-cell distribution | 4 | 2 | 36 | 12 |
 | stage | legend | solid tick = median · dashed = mean, which is what the dot plot colours | 12 | 11 | 71 | 12 |
 | stage | legend | bar under the axis = fraction of cells detecting the gene | 10 | 9 | 57 | 12 |
 | stage (svg title) | tooltip | mean 1.77 | 2 | 1 | 9 |  |
-| stage (svg title) | tooltip | 85% of cells detect Id3 | 5 | 3 | 23 |  |
+| stage (svg title) | tooltip | 85% of cells detect Id3 | 5 | 2 | 23 |  |
 | rail (title) | tooltip | Seurat scale = TRUE: z-score each gene across the columns | 9 | 7 | 57 | 13 |
 | rail | option | Scale each gene | 3 | 3 | 15 | 13 |
 | rail | label | Colour | 1 | 1 | 6 | 12 |
@@ -943,10 +943,10 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail | help | genes along the bottom | 4 | 4 | 22 | 11 |
 | head line | status | Dot size is the fraction detected; colour is the mean, z-scored down each gene. | 14 | 14 | 79 | 12 |
 | head line (title) | tooltip | Save dotplot | 2 | 2 | 12 | 12 |
-| stage (aria-label) | accessible name | Dot plot of Id3, genes along the bottom | 8 | 8 | 39 | 13 |
+| stage (aria-label) | accessible name | Dot plot of Id3, genes along the bottom | 8 | 7 | 39 | 13 |
 | stage | figure text | Avg. Exp. (z-scored) | 3 | 3 | 20 | 11.5 |
 | stage | text | Colour is z-scored per gene: where it is highest, not how much. Here the mean runs 0.01 to 1.77: read the colours as an order. | 25 | 22 | 126 | 12 |
-| stage (svg title) | tooltip | Id3 | 1 | 1 | 3 |  |
+| stage (svg title) | tooltip | Id3 | 1 | 0 | 3 |  |
 | rail | picker | Two-colour · blue | 2 | 2 | 17 | 13 |
 | rail (title) | tooltip | Expression mapped to the top of the colour scale | 9 | 8 | 48 | 12 |
 | rail | label | Scale to | 2 | 2 | 8 | 12 |
@@ -954,7 +954,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail (title) | tooltip | A ring around each cell: clearer in print, slower on a large object | 13 | 12 | 67 | 13 |
 | rail | option | Cell borders | 2 | 2 | 12 | 13 |
 | head line | status | On the embedding, one panel per gene. | 7 | 7 | 37 | 12 |
-| head line (title) | tooltip | Save Id3_feature | 2 | 3 | 16 | 12 |
+| head line (title) | tooltip | Save Id3_feature | 2 | 2 | 16 | 12 |
 | stage (aria-label) | accessible name | Id3 expression on the embedding | 5 | 4 | 31 | 13 |
 | stage | legend | 0 · not detected | 3 | 1 | 16 | 12 |
 | stage | legend | 99th pct | 2 | 2 | 8 | 12 |
@@ -969,57 +969,57 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### Gene expression
 
-57 strings, 345 words (271 the app's own).
+57 strings, 345 words (224 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
 | rail | error | Not in this object: Zzzz9. Check the species and capitalisation (mouse Ascl1 vs human ASCL1). | 15 | 14 | 93 | 12 |
-| rail (title) | tooltip | Ascl1 | 1 | 1 | 5 | 12 |
-| rail | help | Ascl1 × | 1 | 1 | 7 | 12 |
-| rail (title) | tooltip | Mki67 | 1 | 1 | 5 | 12 |
-| rail | help | Mki67 × | 1 | 1 | 7 | 12 |
-| rail (title) | tooltip | Plp1 | 1 | 1 | 4 | 12 |
-| rail | help | Plp1 × | 1 | 1 | 6 | 12 |
-| rail (title) | tooltip | Cx3cr1 | 1 | 2 | 6 | 12 |
-| rail | help | Cx3cr1 × | 1 | 2 | 8 | 12 |
+| rail (title) | tooltip | Ascl1 | 1 | 0 | 5 | 12 |
+| rail | help | Ascl1 × | 1 | 0 | 7 | 12 |
+| rail (title) | tooltip | Mki67 | 1 | 0 | 5 | 12 |
+| rail | help | Mki67 × | 1 | 0 | 7 | 12 |
+| rail (title) | tooltip | Plp1 | 1 | 0 | 4 | 12 |
+| rail | help | Plp1 × | 1 | 0 | 6 | 12 |
+| rail (title) | tooltip | Cx3cr1 | 1 | 0 | 6 | 12 |
+| rail | help | Cx3cr1 × | 1 | 0 | 8 | 12 |
 | rail | button | Clear all | 2 | 2 | 9 | 12 |
 | stage (aria-label) | accessible name | Ascl1 expression | 2 | 1 | 16 | 13 |
 | stage (aria-label) | accessible name | Mki67 expression | 2 | 1 | 16 | 13 |
 | stage (aria-label) | accessible name | Plp1 expression | 2 | 1 | 15 | 13 |
-| stage (aria-label) | accessible name | Cx3cr1 expression | 2 | 2 | 17 | 13 |
+| stage (aria-label) | accessible name | Cx3cr1 expression | 2 | 1 | 17 | 13 |
 | stage (svg title) | tooltip | 92% of cells detect Gfap | 5 | 2 | 24 |  |
-| stage (svg title) | tooltip | 16% of cells detect Ascl1 | 5 | 3 | 25 |  |
-| stage (svg title) | tooltip | 17% of cells detect Mki67 | 5 | 3 | 25 |  |
-| stage (svg title) | tooltip | 15% of cells detect Plp1 | 5 | 3 | 24 |  |
-| stage (svg title) | tooltip | 8% of cells detect Cx3cr1 | 5 | 4 | 25 |  |
+| stage (svg title) | tooltip | 16% of cells detect Ascl1 | 5 | 2 | 25 |  |
+| stage (svg title) | tooltip | 17% of cells detect Mki67 | 5 | 2 | 25 |  |
+| stage (svg title) | tooltip | 15% of cells detect Plp1 | 5 | 2 | 24 |  |
+| stage (svg title) | tooltip | 8% of cells detect Cx3cr1 | 5 | 2 | 25 |  |
 | menu (aria-label) | accessible name | Save violins | 2 | 2 | 12 | 13 |
 | stage | figure text | barely detected here: max 9% | 5 | 4 | 28 | 10.5 |
-| stage (aria-label) | accessible name | Dot plot of Id3, Gfap, Ascl1, Mki67, Dcx, Plp1, Cx3cr1, genes along the bottom | 14 | 13 **over** | 78 | 13 |
-| stage | text | Colour is z-scored per gene: where it is highest, not how much. Widest range: Ascl1 at 0.02–6.72; narrowest: Id3 at 0.01–1.77. | 21 | 18 | 126 | 12 |
-| stage (svg title) | tooltip | Ascl1 | 1 | 1 | 5 |  |
-| stage (svg title) | tooltip | Mki67 | 1 | 1 | 5 |  |
-| stage (svg title) | tooltip | Plp1 | 1 | 1 | 4 |  |
-| stage (svg title) | tooltip | Cx3cr1 | 1 | 2 | 6 |  |
+| stage (aria-label) | accessible name | Dot plot of Id3, Gfap, Ascl1, Mki67, Dcx, Plp1, Cx3cr1, genes along the bottom | 14 | 8 | 78 | 13 |
+| stage | text | Colour is z-scored per gene: where it is highest, not how much. Widest range: Ascl1 at 0.02–6.72; narrowest: Id3 at 0.01–1.77. | 21 | 17 | 126 | 12 |
+| stage (svg title) | tooltip | Ascl1 | 1 | 0 | 5 |  |
+| stage (svg title) | tooltip | Mki67 | 1 | 0 | 5 |  |
+| stage (svg title) | tooltip | Plp1 | 1 | 0 | 4 |  |
+| stage (svg title) | tooltip | Cx3cr1 | 1 | 0 | 6 |  |
 | menu (aria-label) | accessible name | Save dotplot | 2 | 2 | 12 | 13 |
-| stage | text | Colour is z-scored per gene: where it is highest, not how much. Widest range: Id3 at 0.91–2.37; narrowest: Cx3cr1 at 0.01–0.01. | 21 | 19 | 127 | 12 |
-| stage (svg title) | tooltip | Id3 in qNSC · Quiescent: 93% of cells, mean 2.37 | 9 | 4 | 48 |  |
+| stage | text | Colour is z-scored per gene: where it is highest, not how much. Widest range: Id3 at 0.91–2.37; narrowest: Cx3cr1 at 0.01–0.01. | 21 | 17 | 127 | 12 |
+| stage (svg title) | tooltip | Id3 in qNSC · Quiescent: 93% of cells, mean 2.37 | 9 | 3 | 48 |  |
 | stage (svg title) | tooltip | Gfap in qNSC · Quiescent: 96% of cells, mean 3.02 | 9 | 3 | 49 |  |
-| stage (svg title) | tooltip | Ascl1 in qNSC · Quiescent: 10% of cells, mean 0.01 | 9 | 4 | 50 |  |
-| stage (svg title) | tooltip | Mki67 in qNSC · Quiescent: 14% of cells, mean 0.02 | 9 | 4 | 50 |  |
-| stage (svg title) | tooltip | Plp1 in qNSC · Quiescent: 16% of cells, mean 0.03 | 9 | 4 | 49 |  |
-| stage (svg title) | tooltip | Cx3cr1 in qNSC · Quiescent: 8% of cells, mean 0.01 | 9 | 5 | 50 |  |
+| stage (svg title) | tooltip | Ascl1 in qNSC · Quiescent: 10% of cells, mean 0.01 | 9 | 3 | 50 |  |
+| stage (svg title) | tooltip | Mki67 in qNSC · Quiescent: 14% of cells, mean 0.02 | 9 | 3 | 50 |  |
+| stage (svg title) | tooltip | Plp1 in qNSC · Quiescent: 16% of cells, mean 0.03 | 9 | 3 | 49 |  |
+| stage (svg title) | tooltip | Cx3cr1 in qNSC · Quiescent: 8% of cells, mean 0.01 | 9 | 3 | 50 |  |
 | head line | status | Dot size is the fraction detected; colour is the mean. | 10 | 10 | 54 | 12 |
 | stage | figure text | Avg. Exp. | 2 | 2 | 9 | 11.5 |
 | stage | text | Colour is the raw mean, on one scale for every gene. | 11 | 10 | 52 | 12 |
-| stage (aria-label) | accessible name | Dot plot of Dcx, Ascl1, Mki67, Cx3cr1, Plp1, Id3, Gfap, genes along the bottom | 14 | 13 **over** | 78 | 13 |
+| stage (aria-label) | accessible name | Dot plot of Dcx, Ascl1, Mki67, Cx3cr1, Plp1, Id3, Gfap, genes along the bottom | 14 | 8 | 78 | 13 |
 | rail | help | genes down the side | 4 | 4 | 19 | 11 |
-| stage (aria-label) | accessible name | Dot plot of Dcx, Ascl1, Mki67, Cx3cr1, Plp1, Id3, Gfap, genes down the side | 14 | 13 **over** | 75 | 13 |
+| stage (aria-label) | accessible name | Dot plot of Dcx, Ascl1, Mki67, Cx3cr1, Plp1, Id3, Gfap, genes down the side | 14 | 8 | 75 | 13 |
 | head line (title) | tooltip | Save feature_plots | 2 | 2 | 18 | 12 |
 | stage (aria-label) | accessible name | Gfap expression on the embedding | 5 | 3 | 32 | 13 |
 | stage (aria-label) | accessible name | Ascl1 expression on the embedding | 5 | 4 | 33 | 13 |
 | stage (aria-label) | accessible name | Mki67 expression on the embedding | 5 | 4 | 33 | 13 |
 | stage (aria-label) | accessible name | Plp1 expression on the embedding | 5 | 4 | 32 | 13 |
-| stage (aria-label) | accessible name | Cx3cr1 expression on the embedding | 5 | 5 | 34 | 13 |
+| stage (aria-label) | accessible name | Cx3cr1 expression on the embedding | 5 | 4 | 34 | 13 |
 | menu (aria-label) | accessible name | Save feature_plots | 2 | 2 | 18 | 13 |
 | head line | status | On the embedding, one panel per gene, split by group on that gene's scale. | 14 | 14 | 74 | 12 |
 | stage (aria-label) | accessible name | Id3 expression on the embedding, Quiescent only | 7 | 5 | 47 | 13 |
@@ -1027,13 +1027,13 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage (aria-label) | accessible name | Ascl1 expression on the embedding, Quiescent only | 7 | 5 | 49 | 13 |
 | stage (aria-label) | accessible name | Mki67 expression on the embedding, Quiescent only | 7 | 5 | 49 | 13 |
 | stage (aria-label) | accessible name | Plp1 expression on the embedding, Quiescent only | 7 | 5 | 48 | 13 |
-| stage (aria-label) | accessible name | Cx3cr1 expression on the embedding, Quiescent only | 7 | 6 | 50 | 13 |
+| stage (aria-label) | accessible name | Cx3cr1 expression on the embedding, Quiescent only | 7 | 5 | 50 | 13 |
 | stage | legend | · each gene on its own scale · positive cells drawn last · n = 34,367 cells: Quiescent 14,920 · Reactivated 19,447 | 17 | 11 | 114 | 12 |
 | stage | legend | the other groups , kept as the outline | 7 | 7 | 38 | 12 |
 
 ### Gene sets
 
-130 strings, 689 words (551 the app's own).
+130 strings, 689 words (547 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -1108,7 +1108,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | head line | status | 1 of 200 genes found in this object | 8 | 6 | 35 | 12 |
 | head line (title) | tooltip | Find the genes that move with this set, and against it | 11 | 11 | 54 | 12 |
 | head line | button | Correlate this set | 3 | 3 | 18 | 12 |
-| stage | chip | Sparcl1 | 1 | 1 | 7 | 12 |
+| stage | chip | Sparcl1 | 1 | 0 | 7 | 12 |
 | stage | text | Select a gene to see whether it carries the score on its own. 100 control genes per set gene, drawn from 24 expression bins. Not measured: Abca1, Abcb8, Acaa2, Acadl, Acadm, Acads, Acly, Aco2 +191. | 35 | 25 | 197 | 11 |
 | head line (title) | tooltip | Score per cell | 3 | 3 | 14 | 13 |
 | head line | title | Score per cell | 3 | 3 | 14 | 13 |
@@ -1131,10 +1131,10 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | head line (title) | tooltip | Save set_genes_Adipogenesis | 2 | 2 | 27 | 12 |
 | stage | text | Z-scored down each gene's own row, so a row says where that gene is highest, not how abundant it is. | 20 | 18 | 100 | 12 |
 | stage (aria-label) | accessible name | Expression of 1 set genes across 9 cell types | 9 | 6 | 45 | 13 |
-| stage | figure legend | Sparcl1 | 1 | 1 | 7 | 10.5 |
+| stage | figure legend | Sparcl1 | 1 | 0 | 7 | 10.5 |
 | stage | figure legend | z-score, down each gene | 4 | 4 | 23 | 11.5 |
-| stage (svg title) | tooltip | Sparcl1 in TAP: z -1.18 · 4,511 cells | 7 | 4 | 37 |  |
-| stage (svg title) | tooltip | Sparcl1 | 1 | 1 | 7 |  |
+| stage (svg title) | tooltip | Sparcl1 in TAP: z -1.18 · 4,511 cells | 7 | 3 | 37 |  |
+| stage (svg title) | tooltip | Sparcl1 | 1 | 0 | 7 |  |
 | head line | title | Which gene set does each cell type express? | 8 | 8 | 43 | 13 |
 | head line | status | 0 chosen | 2 | 1 | 8 | 12 |
 | stage (placeholder) | placeholder | search 10,434 sets to add… | 5 | 4 | 26 | 13 |
@@ -1170,7 +1170,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### Co-expression
 
-155 strings, 582 words (540 the app's own).
+155 strings, 582 words (432 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -1222,12 +1222,12 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage (aria-label) | accessible name | Summary and figure | 3 | 3 | 18 | 13 |
 | stage | text | 71 genes ranked by Pearson r over 258 metacells in every cell type, averaged from 34,329 cells, none spanning two cell types or two samples. 38 cells in groups too small to pool are left out. | 36 | 30 | 191 | 12 |
 | stage (aria-label) | accessible name | Top correlated and anti-correlated genes | 5 | 5 | 40 | 13 |
-| stage | figure text | Cdkn1b | 1 | 2 | 6 | 10.5 |
-| stage | figure text | Sparcl1 | 1 | 1 | 7 | 10.5 |
-| stage | figure text | Cdkn1a | 1 | 2 | 6 | 10.5 |
-| stage | figure text | Hes5 | 1 | 1 | 4 | 10.5 |
-| stage | figure text | Notch1 | 1 | 1 | 6 | 10.5 |
-| stage | figure text | Nr4a2 | 1 | 2 | 5 | 10.5 |
+| stage | figure text | Cdkn1b | 1 | 0 | 6 | 10.5 |
+| stage | figure text | Sparcl1 | 1 | 0 | 7 | 10.5 |
+| stage | figure text | Cdkn1a | 1 | 0 | 6 | 10.5 |
+| stage | figure text | Hes5 | 1 | 0 | 4 | 10.5 |
+| stage | figure text | Notch1 | 1 | 0 | 6 | 10.5 |
+| stage | figure text | Nr4a2 | 1 | 0 | 5 | 10.5 |
 | stage | figure text | Pearson r with Gfap | 4 | 3 | 19 | 10.5 |
 | stage | text | No p-value. With 258 observations almost any r clears a threshold, and cells from one sample are not independent. Metacells are pooled on X_umap, a 2-D projection, at least ten cells each. | 32 | 26 | 188 | 11 |
 | stage | title | Moves with the seed 25 | 5 | 3 | 22 | 12 |
@@ -1235,87 +1235,87 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | table header | Detected | 1 | 1 | 8 | 12 |
 | stage (title) | tooltip | Open Gfap | 2 | 1 | 9 | 12 |
 | stage (title) | tooltip | a member of the seed set | 6 | 4 | 24 | 11 |
-| stage (title) | tooltip | Open Aqp4 | 2 | 2 | 9 | 12 |
-| stage | button | Aqp4 | 1 | 1 | 4 | 12 |
-| stage (title) | tooltip | Open Thbs4 | 2 | 2 | 10 | 12 |
-| stage | button | Thbs4 | 1 | 1 | 5 | 12 |
-| stage (title) | tooltip | Open Id3 | 2 | 2 | 8 | 12 |
-| stage | button | Id3 | 1 | 1 | 3 | 12 |
-| stage (title) | tooltip | Open S100b | 2 | 3 | 10 | 12 |
-| stage | button | S100b | 1 | 2 | 5 | 12 |
-| stage (title) | tooltip | Open Cdkn1b | 2 | 3 | 11 | 12 |
-| stage | button | Cdkn1b | 1 | 2 | 6 | 12 |
-| stage (title) | tooltip | Open Sparcl1 | 2 | 2 | 12 | 12 |
-| stage | button | Sparcl1 | 1 | 1 | 7 | 12 |
-| stage (title) | tooltip | Open Cdkn1a | 2 | 3 | 11 | 12 |
-| stage | button | Cdkn1a | 1 | 2 | 6 | 12 |
-| stage (title) | tooltip | Open Hes5 | 2 | 2 | 9 | 12 |
-| stage | button | Hes5 | 1 | 1 | 4 | 12 |
-| stage (title) | tooltip | Open Notch1 | 2 | 2 | 11 | 12 |
-| stage | button | Notch1 | 1 | 1 | 6 | 12 |
-| stage (title) | tooltip | Open Nr4a2 | 2 | 3 | 10 | 12 |
-| stage | button | Nr4a2 | 1 | 2 | 5 | 12 |
+| stage (title) | tooltip | Open Aqp4 | 2 | 1 | 9 | 12 |
+| stage | button | Aqp4 | 1 | 0 | 4 | 12 |
+| stage (title) | tooltip | Open Thbs4 | 2 | 1 | 10 | 12 |
+| stage | button | Thbs4 | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Id3 | 2 | 1 | 8 | 12 |
+| stage | button | Id3 | 1 | 0 | 3 | 12 |
+| stage (title) | tooltip | Open S100b | 2 | 1 | 10 | 12 |
+| stage | button | S100b | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Cdkn1b | 2 | 1 | 11 | 12 |
+| stage | button | Cdkn1b | 1 | 0 | 6 | 12 |
+| stage (title) | tooltip | Open Sparcl1 | 2 | 1 | 12 | 12 |
+| stage | button | Sparcl1 | 1 | 0 | 7 | 12 |
+| stage (title) | tooltip | Open Cdkn1a | 2 | 1 | 11 | 12 |
+| stage | button | Cdkn1a | 1 | 0 | 6 | 12 |
+| stage (title) | tooltip | Open Hes5 | 2 | 1 | 9 | 12 |
+| stage | button | Hes5 | 1 | 0 | 4 | 12 |
+| stage (title) | tooltip | Open Notch1 | 2 | 1 | 11 | 12 |
+| stage | button | Notch1 | 1 | 0 | 6 | 12 |
+| stage (title) | tooltip | Open Nr4a2 | 2 | 1 | 10 | 12 |
+| stage | button | Nr4a2 | 1 | 0 | 5 | 12 |
 | stage (title) | tooltip | Open Sox9 | 2 | 2 | 9 | 12 |
 | stage | button | Sox9 | 1 | 1 | 4 | 12 |
-| stage (title) | tooltip | Open B2m | 2 | 3 | 8 | 12 |
-| stage | button | B2m | 1 | 2 | 3 | 12 |
-| stage (title) | tooltip | Open Rpl13a | 2 | 3 | 11 | 12 |
-| stage | button | Rpl13a | 1 | 2 | 6 | 12 |
-| stage (title) | tooltip | Open Higd1b | 2 | 3 | 11 | 12 |
-| stage | button | Higd1b | 1 | 2 | 6 | 12 |
-| stage (title) | tooltip | Open Kcnj8 | 2 | 2 | 10 | 12 |
-| stage | button | Kcnj8 | 1 | 1 | 5 | 12 |
+| stage (title) | tooltip | Open B2m | 2 | 1 | 8 | 12 |
+| stage | button | B2m | 1 | 0 | 3 | 12 |
+| stage (title) | tooltip | Open Rpl13a | 2 | 1 | 11 | 12 |
+| stage | button | Rpl13a | 1 | 0 | 6 | 12 |
+| stage (title) | tooltip | Open Higd1b | 2 | 1 | 11 | 12 |
+| stage | button | Higd1b | 1 | 0 | 6 | 12 |
+| stage (title) | tooltip | Open Kcnj8 | 2 | 1 | 10 | 12 |
+| stage | button | Kcnj8 | 1 | 0 | 5 | 12 |
 | stage | title | Moves against it 25 | 4 | 3 | 19 | 12 |
-| stage (title) | tooltip | Open Mcm5 | 2 | 2 | 9 | 12 |
-| stage | button | Mcm5 | 1 | 1 | 4 | 12 |
-| stage (title) | tooltip | Open Cdk1 | 2 | 2 | 9 | 12 |
-| stage | button | Cdk1 | 1 | 1 | 4 | 12 |
-| stage (title) | tooltip | Open Egr1 | 2 | 2 | 9 | 12 |
-| stage | button | Egr1 | 1 | 1 | 4 | 12 |
-| stage (title) | tooltip | Open Ccnd1 | 2 | 2 | 10 | 12 |
-| stage | button | Ccnd1 | 1 | 1 | 5 | 12 |
-| stage (title) | tooltip | Open Tubb3 | 2 | 2 | 10 | 12 |
-| stage | button | Tubb3 | 1 | 1 | 5 | 12 |
-| stage (title) | tooltip | Open Nrxn3 | 2 | 2 | 10 | 12 |
-| stage | button | Nrxn3 | 1 | 1 | 5 | 12 |
-| stage (title) | tooltip | Open Sp8 | 2 | 2 | 8 | 12 |
-| stage | button | Sp8 | 1 | 1 | 3 | 12 |
-| stage (title) | tooltip | Open Dlx2 | 2 | 2 | 9 | 12 |
-| stage | button | Dlx2 | 1 | 1 | 4 | 12 |
+| stage (title) | tooltip | Open Mcm5 | 2 | 1 | 9 | 12 |
+| stage | button | Mcm5 | 1 | 0 | 4 | 12 |
+| stage (title) | tooltip | Open Cdk1 | 2 | 1 | 9 | 12 |
+| stage | button | Cdk1 | 1 | 0 | 4 | 12 |
+| stage (title) | tooltip | Open Egr1 | 2 | 1 | 9 | 12 |
+| stage | button | Egr1 | 1 | 0 | 4 | 12 |
+| stage (title) | tooltip | Open Ccnd1 | 2 | 1 | 10 | 12 |
+| stage | button | Ccnd1 | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Tubb3 | 2 | 1 | 10 | 12 |
+| stage | button | Tubb3 | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Nrxn3 | 2 | 1 | 10 | 12 |
+| stage | button | Nrxn3 | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Sp8 | 2 | 1 | 8 | 12 |
+| stage | button | Sp8 | 1 | 0 | 3 | 12 |
+| stage (title) | tooltip | Open Dlx2 | 2 | 1 | 9 | 12 |
+| stage | button | Dlx2 | 1 | 0 | 4 | 12 |
 | stage (title) | tooltip | Open Ascl2 | 2 | 2 | 10 | 12 |
 | stage | button | Ascl2 | 1 | 1 | 5 | 12 |
-| stage (title) | tooltip | Open Ccnb1 | 2 | 2 | 10 | 12 |
-| stage | button | Ccnb1 | 1 | 1 | 5 | 12 |
-| stage (title) | tooltip | Open Ube2c | 2 | 3 | 10 | 12 |
-| stage | button | Ube2c | 1 | 2 | 5 | 12 |
-| stage (title) | tooltip | Open Mki67 | 2 | 2 | 10 | 12 |
-| stage | button | Mki67 | 1 | 1 | 5 | 12 |
-| stage (title) | tooltip | Open Top2a | 2 | 3 | 10 | 12 |
-| stage | button | Top2a | 1 | 2 | 5 | 12 |
-| stage (title) | tooltip | Open Ntsr2 | 2 | 2 | 10 | 12 |
-| stage | button | Ntsr2 | 1 | 1 | 5 | 12 |
-| stage (title) | tooltip | Open Slc1a3 | 2 | 3 | 11 | 12 |
-| stage | button | Slc1a3 | 1 | 2 | 6 | 12 |
-| stage (title) | tooltip | Open Mt1 | 2 | 2 | 8 | 12 |
-| stage | button | Mt1 | 1 | 1 | 3 | 12 |
+| stage (title) | tooltip | Open Ccnb1 | 2 | 1 | 10 | 12 |
+| stage | button | Ccnb1 | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Ube2c | 2 | 1 | 10 | 12 |
+| stage | button | Ube2c | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Mki67 | 2 | 1 | 10 | 12 |
+| stage | button | Mki67 | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Top2a | 2 | 1 | 10 | 12 |
+| stage | button | Top2a | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Ntsr2 | 2 | 1 | 10 | 12 |
+| stage | button | Ntsr2 | 1 | 0 | 5 | 12 |
+| stage (title) | tooltip | Open Slc1a3 | 2 | 1 | 11 | 12 |
+| stage | button | Slc1a3 | 1 | 0 | 6 | 12 |
+| stage (title) | tooltip | Open Mt1 | 2 | 1 | 8 | 12 |
+| stage | button | Mt1 | 1 | 0 | 3 | 12 |
 | stage (svg title) | tooltip | Gfap: r 1.000 | 3 | 1 | 13 |  |
-| stage (svg title) | tooltip | Aqp4: r 0.996 | 3 | 2 | 13 |  |
-| stage (svg title) | tooltip | Thbs4: r 0.994 | 3 | 2 | 14 |  |
-| stage (svg title) | tooltip | Id3: r 0.990 | 3 | 2 | 12 |  |
-| stage (svg title) | tooltip | S100b: r 0.266 | 3 | 3 | 14 |  |
-| stage (svg title) | tooltip | Cdkn1b: r 0.253 | 3 | 3 | 15 |  |
-| stage (svg title) | tooltip | Sparcl1: r 0.250 | 3 | 2 | 16 |  |
-| stage (svg title) | tooltip | Cdkn1a: r 0.232 | 3 | 3 | 15 |  |
-| stage (svg title) | tooltip | Hes5: r 0.231 | 3 | 2 | 13 |  |
-| stage (svg title) | tooltip | Notch1: r 0.205 | 3 | 2 | 15 |  |
-| stage (svg title) | tooltip | Nr4a2: r 0.198 | 3 | 3 | 14 |  |
-| stage (svg title) | tooltip | Nrxn3: r -0.213 | 3 | 2 | 15 |  |
-| stage (svg title) | tooltip | Tubb3: r -0.213 | 3 | 2 | 15 |  |
-| stage (svg title) | tooltip | Ccnd1: r -0.222 | 3 | 2 | 15 |  |
-| stage (svg title) | tooltip | Egr1: r -0.239 | 3 | 2 | 14 |  |
-| stage (svg title) | tooltip | Sox11: r -0.241 | 3 | 2 | 15 |  |
-| stage (svg title) | tooltip | Cdk1: r -0.248 | 3 | 2 | 14 |  |
-| stage (svg title) | tooltip | Mcm5: r -0.287 | 3 | 2 | 14 |  |
+| stage (svg title) | tooltip | Aqp4: r 0.996 | 3 | 1 | 13 |  |
+| stage (svg title) | tooltip | Thbs4: r 0.994 | 3 | 1 | 14 |  |
+| stage (svg title) | tooltip | Id3: r 0.990 | 3 | 1 | 12 |  |
+| stage (svg title) | tooltip | S100b: r 0.266 | 3 | 1 | 14 |  |
+| stage (svg title) | tooltip | Cdkn1b: r 0.253 | 3 | 1 | 15 |  |
+| stage (svg title) | tooltip | Sparcl1: r 0.250 | 3 | 1 | 16 |  |
+| stage (svg title) | tooltip | Cdkn1a: r 0.232 | 3 | 1 | 15 |  |
+| stage (svg title) | tooltip | Hes5: r 0.231 | 3 | 1 | 13 |  |
+| stage (svg title) | tooltip | Notch1: r 0.205 | 3 | 1 | 15 |  |
+| stage (svg title) | tooltip | Nr4a2: r 0.198 | 3 | 1 | 14 |  |
+| stage (svg title) | tooltip | Nrxn3: r -0.213 | 3 | 1 | 15 |  |
+| stage (svg title) | tooltip | Tubb3: r -0.213 | 3 | 1 | 15 |  |
+| stage (svg title) | tooltip | Ccnd1: r -0.222 | 3 | 1 | 15 |  |
+| stage (svg title) | tooltip | Egr1: r -0.239 | 3 | 1 | 14 |  |
+| stage (svg title) | tooltip | Sox11: r -0.241 | 3 | 1 | 15 |  |
+| stage (svg title) | tooltip | Cdk1: r -0.248 | 3 | 1 | 14 |  |
+| stage (svg title) | tooltip | Mcm5: r -0.287 | 3 | 1 | 14 |  |
 | menu (aria-label) | accessible name | Save coexpression | 2 | 2 | 17 | 13 |
 | rail (title) | tooltip | paste genes, up to 500 | 5 | 4 | 22 | 12 |
 | rail (placeholder) | placeholder | paste genes, up to 500 | 5 | 4 | 22 | 12 |
@@ -1369,7 +1369,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### The wild-type demo (what the replicated demo did not show)
 
-17 strings, 270 words (235 the app's own).
+17 strings, 270 words (221 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -1380,9 +1380,9 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | legend | 1 row · 3,730 cells | 4 | 1 | 19 | 12 |
 | stage (svg title) | tooltip | WT: 3,730 cells | 3 | 0 | 15 |  |
 | stage (svg title) | tooltip | WT | 1 | 0 | 2 |  |
-| stage | text | Ascl1, Mcm2, Ccnd2, Egfr, Sox2 | 5 | 4 | 30 | 11 |
-| stage | text | Cenpf, Mki67, Ccnb1, Top2a, Ube2c | 5 | 6 | 33 | 11 |
-| stage | text | Pecam1, Cldn5, Rgs5, Flt1, Ly6c1 | 5 | 6 | 32 | 11 |
+| stage | text | Ascl1, Mcm2, Ccnd2, Egfr, Sox2 | 5 | 1 | 30 | 11 |
+| stage | text | Cenpf, Mki67, Ccnb1, Top2a, Ube2c | 5 | 1 | 33 | 11 |
+| stage | text | Pecam1, Cldn5, Rgs5, Flt1, Ly6c1 | 5 | 0 | 32 | 11 |
 | stage | text | Kcnj8, Anpep, Pdgfrb, Vtn, Higd1b | 5 | 3 | 33 | 11 |
 | rail | help | No genes selected yet. | 4 | 4 | 22 | 12 |
 | stage | empty state | Search a gene on the left. | 6 | 5 | 26 | 13 |
@@ -1393,7 +1393,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### The time-course demo (what the replicated demo did not show)
 
-17 strings, 335 words (296 the app's own).
+17 strings, 335 words (289 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -1409,15 +1409,15 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage (svg title) | tooltip | 0 h | 2 | 1 | 3 |  |
 | stage (svg title) | tooltip | qNSC · 0 h: 24% | 4 | 1 | 15 |  |
 | menu (aria-label) | accessible name | Save composition_type_by_cond | 2 | 2 | 29 | 13 |
-| stage | text | Dlx2, Sp8, Dcx, Nrxn3, Tubb3 | 5 | 4 | 28 | 11 |
-| stage | text | Cx3cr1, C1qa, P2ry12, Hexb, Ctss | 5 | 6 | 32 | 11 |
+| stage | text | Dlx2, Sp8, Dcx, Nrxn3, Tubb3 | 5 | 1 | 28 | 11 |
+| stage | text | Cx3cr1, C1qa, P2ry12, Hexb, Ctss | 5 | 2 | 32 | 11 |
 | stage | text | Anpep, Kcnj8, Vtn, Higd1b, Pdgfrb | 5 | 3 | 33 | 11 |
 | stage | methods | This object was processed elsewhere and read from a bundle exported from SVZ_timecourse_4tp.h5ad · 0.8 GB · AnnData 0.10.8: a built-in demo object, not a file you opened. Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 9 cell types are the object’s own labels, taken from its leiden, resolution 1.0 annotation1. Inter-sample variation was corrected with harmony2, as recorded in the object. Cells are drawn on the embedding the object carries (X_umap3), computed before export and never recomputed here. Everything between the counts and those labels is unknown to this app: how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not carried in the file, and are not guessed at here. The cell types are reported as qNSC, aNSC, TAP, Neuroblast, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte. | 146 | 129 | 941 | 13 |
 | stage | methods | Differential expression between and within was tested with a Wilcoxon rank-sum test across cells4, restricted to genes with an absolute log₂ fold change of at least 0 detected in at least 10% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below 0.05 and an absolute log₂ fold change of at least 0.25 were considered differentially expressed. The design contains one sample per group, so these p-values describe variation between cells rather than between samples5. Exploration, figures and statistics were produced in scRNA-seq Studio6, which runs these tests in the browser. | 101 | 93 | 645 | 13 |
 
 ### The lab bundle (what the demos did not show)
 
-31 strings, 594 words (525 the app's own).
+31 strings, 594 words (518 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -1433,19 +1433,19 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | text | uns/scintegrate/provenance | 1 | 1 | 26 | 13 |
 | stage | badge | copied | 1 | 1 | 6 | 11 |
 | stage | text | Where the converter looked: uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance | 32 | 31 | 208 | 11 |
-| stage (svg title) | tooltip | s1 | 1 | 1 | 2 |  |
+| stage (svg title) | tooltip | s1 | 1 | 0 | 2 |  |
 | rail | label | Embedding | 1 | 0 | 9 | 12 |
 | key pane | text | Drawn grey: 16 cells the annotator did not call (EXCLUDED 10, UNRESOLVED 6). Not a cell type. | 17 | 11 | 93 | 13 |
 | stage | legend | 8 rows · 224 cells · 16 cells the annotator did not call (EXCLUDED and UNRESOLVED) are not a cell type and are left out | 23 | 17 | 119 | 12 |
-| stage | legend | a1 | 1 | 1 | 2 | 12 |
-| stage (svg title) | tooltip | s1: 27 cells | 3 | 1 | 12 |  |
+| stage | legend | a1 | 1 | 0 | 2 | 12 |
+| stage (svg title) | tooltip | s1: 27 cells | 3 | 0 | 12 |  |
 | stage (svg title) | tooltip | TypeA · a1: 23% | 3 | 1 | 15 |  |
-| stage (svg title) | tooltip | a1 | 1 | 1 | 2 |  |
-| stage | figure text | Gene021 | 1 | 1 | 7 | 10.5 |
+| stage (svg title) | tooltip | a1 | 1 | 0 | 2 |  |
+| stage | figure text | Gene021 | 1 | 0 | 7 | 10.5 |
 | stage | legend | n = 224 cells: TypeA 53 · TypeB 51 · TypeC 59 · TypeD 61 | 11 | 2 | 56 | 12 |
-| stage | text | Gene021, Gene044, Gene001, Gene045, Gene010 | 5 | 5 | 43 | 11 |
+| stage | text | Gene021, Gene044, Gene001, Gene045, Gene010 | 5 | 4 | 43 | 11 |
 | stage | text | Counts are genes at padj < 0.05 and log₂FC ≥ 0.25; select one for the list. 16 cells the annotator did not call (EXCLUDED 10, UNRESOLVED 6) are on neither side of any test. | 32 | 24 | 172 | 11 |
-| stage (svg title) | tooltip | Gene021 in TypeA: 92% of cells, mean 5.69 | 8 | 5 | 41 |  |
+| stage (svg title) | tooltip | Gene021 in TypeA: 92% of cells, mean 5.69 | 8 | 4 | 41 |  |
 | rail | button | Run | 1 | 1 | 3 | 13 |
 | rail (placeholder) | placeholder | symbol or accession… | 3 | 3 | 20 | 12 |
 | rail (title) | tooltip | Across the sample × cell type columns of the exporter’s pseudobulk table: summed raw counts | 14 | 13 | 91 | 13 |
