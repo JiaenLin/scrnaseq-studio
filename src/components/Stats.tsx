@@ -19,7 +19,8 @@ import {
 import { textW } from '../lib/labels.ts'
 import { KeyRow } from './svg-parts.tsx'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
-import { Card, Empty, Mono, Seg } from './Ui.tsx'
+import { Empty, Mono, Seg } from './Ui.tsx'
+import { InRail, Opts, RailGroup } from './Rail.tsx'
 import Figure from './Figure.tsx'
 import DEGTableBody from './DEGTable.tsx'
 
@@ -133,38 +134,31 @@ function MethodBar(p: StatsProps) {
       ? `Pseudobulk needs more than ${MIN_REPS_PB - 1} samples per group; ${tName(p)} has ${d.n0} and ${d.n1}.`
       : ''
   return (
-    <>
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2">
-          <span className="glabel">Test</span>
-          <Seg<Method>
-            value={p.method} onChange={p.onMethod}
-            disabled={k => k === 'pseudobulk' && !d.pbOK}
-            options={[
-              { k: 'wilcox', label: 'Wilcoxon · per cell' },
-              // NOT "Pseudobulk · DESeq2". The card behind this explains that the
-              // matrix is here and the model is not — but a control is read
-              // before the card it opens, and this one named a test the studio
-              // cannot fit. What pressing it does is sum counts per sample and
-              // hand you the matrix, so that is what it says.
-              { k: 'pseudobulk', label: 'Pseudobulk · export counts', title: why },
-            ]}
-          />
-        </div>
-        <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-          {p.method === 'wilcox'
-            // The correction the CUTOFF uses, not a fixed word. Both columns are
-            // always computed; naming Bonferroni while the reader cuts on FDR
-            // describes a different table from the one on screen.
-            ? `logfc.threshold ${p.gates.lfc} · min.pct ${p.gates.pct}`
-              + ` · ${p.sigBasis === 'fdr' ? 'BH' : 'Bonferroni'}`
-            : `≥ ${MIN_CELLS} cells per sample · summed raw counts · test them in DESeq2`}
-        </span>
-      </div>
-      {why && (
-        <p className="mb-3 mt-[-2px] tx-micro" style={{ color: 'var(--ink-3)' }}>{why}</p>
-      )}
-    </>
+    <RailGroup label="Test">
+      <Opts<Method>
+        value={p.method} onChange={p.onMethod}
+        disabled={k => k === 'pseudobulk' && !d.pbOK}
+        options={[
+          { k: 'wilcox', label: 'Wilcoxon · per cell' },
+          // NOT "Pseudobulk · DESeq2". The card behind this explains that the
+          // matrix is here and the model is not — but a control is read
+          // before the card it opens, and this one named a test the studio
+          // cannot fit. What pressing it does is sum counts per sample and
+          // hand you the matrix, so that is what it says.
+          { k: 'pseudobulk', label: 'Pseudobulk · export counts', title: why },
+        ]}
+      />
+      <p className="hint m-0">
+        {p.method === 'wilcox'
+          // The correction the CUTOFF uses, not a fixed word. Both columns are
+          // always computed; naming Bonferroni while the reader cuts on FDR
+          // describes a different table from the one on screen.
+          ? `logfc.threshold ${p.gates.lfc} · min.pct ${p.gates.pct}`
+            + ` · ${p.sigBasis === 'fdr' ? 'BH' : 'Bonferroni'}`
+          : `≥ ${MIN_CELLS} cells per sample · summed raw counts · test them in DESeq2`}
+      </p>
+      {why && <p className="hint m-0">{why}</p>}
+    </RailGroup>
   )
 }
 
@@ -202,31 +196,35 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
   const inert = p.sigBasis === 'padj' && p.padjMax > ceiling && p.nTested > 0
 
   return (
-    <div className="panel mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-      <label className="flex items-center gap-2 tx-small" style={{ color: 'var(--ink-2)' }}>
-        <span className="glabel">{p.sigBasis === 'fdr' ? 'FDR ≤' : 'padj ≤'}</span>
+    <RailGroup label="Cutoffs">
+      <label className="field">
+        <span className="flex items-baseline justify-between">
+          <span className="glabel">{p.sigBasis === 'fdr' ? 'FDR ≤' : 'padj ≤'}</span>
+          <span className="num tx-small" style={{ color: 'var(--ink)' }}>
+            {p.padjMax < 1e-3 ? p.padjMax.toExponential(1) : p.padjMax.toFixed(3)}
+          </span>
+        </span>
         <input
           type="range" min={0} max={10} step={0.1} value={Math.min(negLog, 10)}
           aria-label="Adjusted p-value threshold"
           onChange={e => p.onPadj(Math.pow(10, -(+e.target.value)))}
         />
-        <span className="mono w-[70px] tx-micro">
-          {p.padjMax < 1e-3 ? p.padjMax.toExponential(1) : p.padjMax.toFixed(3)}
-        </span>
       </label>
-      <label className="flex items-center gap-2 tx-small" style={{ color: 'var(--ink-2)' }}>
-        <span className="glabel">|log₂FC| ≥</span>
+      <label className="field">
+        <span className="flex items-baseline justify-between">
+          <span className="glabel">|log₂FC| ≥</span>
+          <span className="num tx-small" style={{ color: 'var(--ink)' }}>{p.lfcMin.toFixed(2)}</span>
+        </span>
         <input
           type="range" min={0} max={3} step={0.05} value={Math.min(p.lfcMin, 3)}
           aria-label="Fold change threshold"
           onChange={e => p.onLfc(+e.target.value)}
         />
-        <span className="mono w-8 tx-micro">{p.lfcMin.toFixed(2)}</span>
       </label>
       {/* Which column the cutoff is read off. Bonferroni saturates at 1/n, so
           on a modest gene list the slider above is inert over most of its
           travel; BH does not, and the table has carried the column all along. */}
-      <label className="flex items-center gap-1.5">
+      <div className="field">
         <span className="glabel">cut on</span>
         <Seg<SigBasis>
           value={p.sigBasis} onChange={p.onSigBasis}
@@ -235,9 +233,9 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
             { k: 'fdr', label: 'FDR', title: 'Benjamini–Hochberg — what the slider can actually move' },
           ]}
         />
-      </label>
+      </div>
       <button
-        className="btn btn-quiet ml-auto"
+        className="btn btn-quiet self-start"
         title="Back to the defaults for the selected test"
         onClick={() => {
           p.onPadj(0.05)
@@ -262,8 +260,7 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
         * silently starts a four-minute pass is the complaint before this one.
         */}
       {p.method === 'wilcox' && p.lfcMin < p.gates.lfc && (
-        <p className="basis-full flex flex-wrap items-center gap-2 tx-micro"
-          style={{ color: 'var(--ink-3)' }}>
+        <p className="hint m-0 flex flex-wrap items-center gap-2">
           <span>
             Genes under <b>{p.gates.lfc}</b> log₂ are in the table with their fold change
             and detection rates, and with no p — Seurat&rsquo;s{' '}
@@ -278,7 +275,7 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
       )}
 
       {inert && (
-        <p className="basis-full tx-micro" style={{ color: 'var(--warn)' }}>
+        <p className="hint m-0" style={{ color: 'var(--warn)' }}>
           Bonferroni over the {fmt(p.nTested)} genes this object measures pins every gene
           with p above{' '}
           {ceiling.toExponential(1)} to exactly 1, so no cutoff above that admits another
@@ -301,12 +298,12 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
       {p.method === 'wilcox' && (
         <div className="basis-full">
           <div className="flex flex-wrap items-center gap-2">
-            <button className="chip" aria-expanded={openGates}
+            <button className="btn btn-quiet" aria-expanded={openGates}
               onClick={() => setOpenGates(v => !v)}
               title="Seurat's own pre-test filters — a gene that fails either is never tested">
               {openGates ? '▾' : '▸'} What gets tested
             </button>
-            <span className="tx-micro"
+            <span className="hint"
               style={{ color: wide || seurat ? 'var(--ink-3)' : 'var(--warn)' }}>
               {wide
                 ? `min.pct ${p.gates.pct}, no logfc.threshold — every gene detected in`
@@ -348,7 +345,7 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
                 title="Seurat's own pre-test filters, for a table that reproduces FindMarkers row for row"
                 onClick={() => p.onGates(seurat ? DE_GATES : SEURAT_GATES)}
               >Seurat&rsquo;s defaults</button>
-              <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+              <span className="hint">
                 These decide what the test looks at, and changing one runs it again. A gene
                 under <span className="mono">logfc.threshold</span> still gets a row, with
                 its fold change and no p; one under <span className="mono">min.pct</span>
@@ -360,7 +357,7 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
           )}
         </div>
       )}
-    </div>
+    </RailGroup>
   )
 }
 
@@ -389,11 +386,10 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
     p.cs.length ? '' : 'a group to compare it with',
   ].filter(Boolean)
   if (missing.length)
-    return <div className="note mt-3.5">
-      <b>Pick {missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]}.</b>{' '}
+    return <Empty title={`Pick ${missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1]}.`}>
       The pickers are in the controls on the left. Nothing is chosen for you, because a
       contrast the studio guessed at looks exactly like one you asked for.
-    </div>
+    </Empty>
 
   if (sameOrOverlapping(p.ctrl, p.cs))
     return <Empty title="Pick two groups with no level in common">
@@ -406,10 +402,10 @@ function gate(p: StatsProps, de: DEResult | null): React.ReactNode {
   // primary buttons for one action is a choice the reader has to make and
   // shouldn't have to.
   if (!p.computed)
-    return <div className="note mt-3.5">
-      <b>Not computed yet.</b> One pass over the object, testing every gene in {tName(p)}.
-      Set the groups above, then press <b>Run</b>.
-    </div>
+    return <Empty title="Not computed yet.">
+      One pass over the object, testing every gene in {tName(p)}.
+      Set the groups on the left, then press <b>Run</b>.
+    </Empty>
 
   const d = designFor(p.src, p.tis, p.ctrl, p.cs)
 
@@ -577,27 +573,32 @@ export function Differential(p: StatsProps & {
 }) {
   const { value: de, pass, failed, retry } = useDE(p)
   const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p, de)
+  const ready = !blocked && !failed && !pass && de
   return (
-    <Card>
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div>
+      {/* The question in the rail, under the contrast it belongs to: which
+          test, and where the cutoffs sit. The answer on the stage. */}
+      <InRail>
+        <MethodBar {...p} />
+        {/* nGenes, not de.rows.length. `finish` multiplies by spec.nGenes —
+            every gene the object measures, tested or not — so the ceiling the
+            bar warns about is 1/nGenes, and reading the tested count here
+            understated it by whatever the gates removed. */}
+        {ready && <ThresholdBar {...p} nTested={p.src.genes.length} />}
+      </InRail>
+      <header className="stage-head sticky top-0 z-20" style={{ background: 'var(--surface)' }}>
         <Seg<DEView> value={p.view} onChange={p.onView} options={VIEWS} />
-        <span className="eyebrow">{contrastLabel(p)}</span>
+        <span className="stage-meta">{contrastLabel(p)}</span>
+      </header>
+      <div className="stage-body">
+        {blocked ?? (failed ? <Failed error={failed} onRetry={retry} what="This contrast" />
+          : pass ? <Progress pass={pass} title={testing(p)} /> : de && (
+            p.view === 'table' ? <DEGTable {...p} de={de} />
+              : p.view === 'volcano' ? <Volcano {...p} de={de} />
+              : p.enrichment(de.rows)
+          ))}
       </div>
-      <MethodBar {...p} />
-      {blocked ?? (failed ? <Failed error={failed} onRetry={retry} what="This contrast" />
-        : pass ? <Progress pass={pass} title={testing(p)} /> : de && (
-        <>
-          {/* nGenes, not de.rows.length. `finish` multiplies by spec.nGenes —
-              every gene the object measures, tested or not — so the ceiling the
-              bar warns about is 1/nGenes, and reading the tested count here
-              understated it by whatever the gates removed. */}
-          <ThresholdBar {...p} nTested={p.src.genes.length} />
-          {p.view === 'table' ? <DEGTable {...p} de={de} />
-            : p.view === 'volcano' ? <Volcano {...p} de={de} />
-            : p.enrichment(de.rows)}
-        </>
-      ))}
-    </Card>
+    </div>
   )
 }
 
@@ -830,7 +831,7 @@ function Volcano(p: StatsProps & { de: DEResult }) {
         <svg
           viewBox={`0 0 ${W} ${H}`} width="100%" role="img"
           aria-label={`Volcano plot for ${contrastLabel(p)}`}
-          style={{ cursor: hover ? 'pointer' : 'default' }}
+          style={{ cursor: hover ? 'pointer' : 'default', maxWidth: W * 1.25 }}
           onMouseMove={e => setHover(pick(e)?.r ?? null)}
           onMouseLeave={() => setHover(null)}
           onClick={e => {
@@ -953,7 +954,7 @@ function Volcano(p: StatsProps & { de: DEResult }) {
           reviewer looks for it. On the figure it was six lines of arithmetic
           under a plot whose dashed lines are the only thing needing a caption. */}
       <figcaption className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
-        Dashed lines are the cutoffs above.
+        Dashed lines are the cutoffs on the left.
         {untested > 0 && (
           <> {fmt(untested)} more genes are in the table with a fold change and no p —
             under the effect-size gate, so the rank sum was skipped and they have no

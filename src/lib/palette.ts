@@ -7,6 +7,23 @@
 export interface Palette { label: string; cols: string[] }
 
 export const PALETTES = {
+  /**
+   * The default. Ten colours found by search (not picked by eye) inside the
+   * lightness band that works on the light and the dark ground alike, for a
+   * scatter, where any two clusters can touch: so every pair is checked, not
+   * only neighbours. dataviz's validate_palette.js, --pairs all, on #ffffff
+   * and on #111317: every gate passes in both modes; the worst pair under
+   * simulated colour-blindness is 7.5 (deutan), 15.4 for full colour vision,
+   * and every colour is at least 3:1 on both grounds. 7.5 is inside the band
+   * that needs a second cue, which every figure gives (names on the plot, a
+   * named legend, the readout). The order is farthest-first, so the first k
+   * colours are the best-separated k. docs/DESIGN.md, "Colour in figures".
+   */
+  studio: {
+    label: 'Studio (colour-blind checked)',
+    cols: ['#2A97FF', '#C81D01', '#0170A9', '#139D84', '#D47601',
+           '#7B4FE0', '#B82189', '#B27CC1', '#1F7225', '#F64A79'],
+  },
   npg: {
     label: 'Nature (npg)',
     cols: ['#E64B35', '#4DBBD5', '#00A087', '#3C5488', '#F39B7F',

@@ -1,3 +1,4 @@
+import { RailSlot } from './lib/rail-slot.ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, ColorBy, DEView, GroupBy, Method, PlotKind, TabId } from './types.ts'
 import { parseBundle } from './lib/bundle.ts'
@@ -98,6 +99,8 @@ function CrashOnRender({ tab }: { tab: TabId }): never {
 
 /** Tabs that describe a comparison, and so cannot exist without two groups. */
 const NEEDS_CONTRAST = new Set<TabId>(['de'])
+/** Views that put controls of their own in the rail (components/Rail.tsx). */
+const OWN_RAIL = new Set<TabId>(['expr', 'de'])
 
 /** Tests that do not go through the gated Wilcoxon pass, so have nothing to run. */
 const NEEDS_RUN_HIDDEN = new Set<Method>(['pseudobulk'])
@@ -171,6 +174,18 @@ function needsOf(tab: TabId): Needs {
     case 'sets': return { ct: false, contrast: false, runs: false, library: true }
     default: return NOTHING
   }
+}
+
+/** A side pane's open state, kept across visits where the browser allows it. */
+function usePane(name: string) {
+  const key = `studio.pane.${name}`
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(key) !== 'closed' } catch { return true }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(key, open ? 'open' : 'closed') } catch { /* no storage: nothing to remember */ }
+  }, [key, open])
+  return [open, setOpen] as const
 }
 
 export default function App() {
@@ -319,7 +334,24 @@ export default function App() {
   // has not caught anything yet. Nothing else reads it; it exists to be changed.
   const [attempt, setAttempt] = useState(0)
 
-  const [palKey, setPalKey] = useState<PaletteKey>('npg')
+  // The two side panes. Open by default; closing one gives its width to the
+  // figure. Remembered in this browser, and the page works without storage.
+  const [railSlot, setRailSlot] = useState<HTMLElement | null>(null)
+  const [railOpen, setRailOpen] = usePane('rail')
+  const [inspOpen, setInspOpen] = usePane('key')
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
+      if (e.key === '[') setRailOpen(v => !v)
+      else if (e.key === ']') setInspOpen(v => !v)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [setRailOpen, setInspOpen])
+
+  const [palKey, setPalKey] = useState<PaletteKey>('studio')
   // Two-colour by default. A scale a reader can name in one clause — pale to
   // blue — is one they can read without going back to the bar for every mark,
   // and a dot plot asks them to judge dozens at a glance. mako, SCpubr's own
@@ -638,6 +670,11 @@ export default function App() {
   // The rail is there when the view has something to choose.
   const cellsRail = !blocked && tab === 'cells'
   const hasRail = cellsRail || showEmb || showLib || needs.ct || needs.contrast
+    || (!blocked && OWN_RAIL.has(tab))
+
+  // A fitted view fills the stage and has a key beside it; a document view scrolls.
+  const fitted = cellsRail
+  const hasInspector = fitted
 
   const escapeTo: TabId = tab === 'overview' ? 'cells' : 'overview'
 
@@ -648,7 +685,7 @@ export default function App() {
       : { background: 'var(--surface)', color: 'var(--ink-3)', borderColor: 'var(--line-2)' }
 
   return (
-    <>
+    <div className="app">
       <header className="shell-head">
         {/**
           * One identity line, and the two settings that apply to every figure.
@@ -663,8 +700,7 @@ export default function App() {
           <button
             // Ink ground, surface text — the pair inverts together, so the
             // mark stays legible in either theme.
-            className="grid h-[28px] w-[28px] flex-none place-items-center rounded-[--r-md] border-0 tx-micro font-semibold"
-            style={{ background: 'var(--ink)', color: 'var(--surface)' }}
+            className="appmark"
             title="Close this object and open another"
             onClick={() => setOpened(null)}
           >sc</button>
@@ -672,7 +708,7 @@ export default function App() {
             scRNA-seq Studio
           </span>
           <span aria-hidden className="flex-none" style={{ color: 'var(--line-2)' }}>/</span>
-          <span className="min-w-0 truncate tx-body font-semibold" title={src.meta.source}>
+          <span className="min-w-0 truncate tx-body font-semibold" style={{ color: 'var(--ink)' }} title={src.meta.source}>
             {src.meta.label}
           </span>
           {src.meta.isDemo && <span className="badge badge-none flex-none">demo</span>}
@@ -703,6 +739,18 @@ export default function App() {
           * the spacing — without a role="group" between the tablist and its
           * tabs, which a screen reader cannot walk through.
           */}
+        <div className="viewbar">
+        {hasRail && (
+          <button type="button" className="btn-icon" aria-pressed={railOpen}
+            aria-label="Controls" title={`${railOpen ? 'Hide' : 'Show'} the controls  [`}
+            onClick={() => setRailOpen(v => !v)}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" />
+              <path d="M6 2.5v11" stroke="currentColor" />
+              {railOpen && <rect x="2.5" y="3.5" width="3" height="9" fill="currentColor" opacity="0.35" />}
+            </svg>
+          </button>
+        )}
         <div className="viewtabs" role="tablist" aria-label="Views of this object"
           onKeyDown={e => {
             const order = TABS.map(([id]) => id).filter(id => d.multi || !NEEDS_CONTRAST.has(id))
@@ -717,7 +765,7 @@ export default function App() {
             document.getElementById(`tab-${next}`)?.focus()
           }}>
           {GROUPS.map(g => (
-            <div key={g.name || 'doc'} className="flex flex-none">
+            <div key={g.name || 'doc'} className="viewgroup">
               <span id={`tabgroup-${g.name || 'doc'}`} hidden>{g.name || 'Document'}</span>
               {g.tabs.map(([id, label]) => {
                 const off = !d.multi && NEEDS_CONTRAST.has(id)
@@ -741,6 +789,18 @@ export default function App() {
             </div>
           ))}
         </div>
+        {hasInspector && (
+          <button type="button" className="btn-icon" aria-pressed={inspOpen}
+            aria-label="Key" title={`${inspOpen ? 'Hide' : 'Show'} the key  ]`}
+            onClick={() => setInspOpen(v => !v)}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" />
+              <path d="M10 2.5v11" stroke="currentColor" />
+              {inspOpen && <rect x="10.5" y="3.5" width="3" height="9" fill="currentColor" opacity="0.35" />}
+            </svg>
+          </button>
+        )}
+        </div>
       </header>
 
       {/**
@@ -752,7 +812,7 @@ export default function App() {
         * stage. The rail never depends on data, so it never moves when data
         * arrives.
         */}
-      <div className="work" data-rail={hasRail ? undefined : 'none'}>
+      <div className="work" data-rail={!hasRail ? 'none' : railOpen ? undefined : 'closed'}>
         {hasRail && (
           <aside className="rail" aria-label="Controls for this view">
             {(needs.ct || needs.contrast) && (
@@ -821,12 +881,14 @@ export default function App() {
               <CellsControls d={d} colorBy={colorBy} split={split}
                 onColorBy={setColorBy} onSplit={setSplit} />
             )}
+            {/* The view's own controls: it writes them, Rail.tsx places them here. */}
+            <div ref={setRailSlot} className="rail-slot" />
           </aside>
         )}
 
-      <main className="stage" id={`panel-${tab}`} role="tabpanel"
+      <main className="stage" id={`panel-${tab}`} role="tabpanel" data-fit={fitted ? '' : undefined}
         aria-labelledby={`tab-${tab}`} tabIndex={-1}>
-        <div className={cellsRail ? undefined : 'column'}>
+        <div className="column">
           {/*
             One tab's work, and the only thing a bad render is allowed to take
             with it. Boundary.tsx carries the argument for why it sits HERE and
@@ -843,6 +905,7 @@ export default function App() {
             the bar above deliberately does not reset anything, so a broken view
             does not flicker back and forth while you are reaching for the tab bar.
           */}
+          <RailSlot.Provider value={railSlot}>
           <ViewBoundary
             // The inner view is part of the key, so a fault in the volcano
             // costs the volcano and not the table beside it.
@@ -869,7 +932,7 @@ export default function App() {
             ) : tab === 'cells' ? (
               <Cells src={src} types={types} emb={emb}
                 colorBy={colorBy}
-                split={split} palKey={palKey} rampKey={rampKey} />
+                split={split} palKey={palKey} rampKey={rampKey} inspector={inspOpen} />
             ) : tab === 'composition' ? (
               <Composition d={d} types={types} palKey={palKey} />
             ) : tab === 'markers' ? (
@@ -934,9 +997,10 @@ export default function App() {
                   : null} />
             )}
           </ViewBoundary>
+          </RailSlot.Provider>
         </div>
       </main>
       </div>
-    </>
+    </div>
   )
 }

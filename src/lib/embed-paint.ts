@@ -28,6 +28,18 @@ export interface EmbedPaint {
   ink: string
   surface: string
   sunk: string
+  /** Point radius in canvas pixels. Left out, the size the painter always used. */
+  radius?: number
+  /** Label size in canvas pixels (20 when left out). */
+  labelPx?: number
+  /** Clear margin inside the canvas, in canvas pixels, so no point is cut by the edge. */
+  pad?: number
+  /**
+   * Isolate: cells this keeps are drawn as usual, on top; the rest go under
+   * them in `mute`. Left out, every cell is drawn as usual.
+   */
+  keep?: (cell: number) => boolean
+  mute?: string
 }
 
 /**
@@ -72,38 +84,48 @@ export function paintEmbedding(g: CanvasRenderingContext2D, o: EmbedPaint): void
     if (!vs.length) return 0
     return vs[Math.min(vs.length - 1, Math.floor(vs.length * 0.99))] || 0
   })()
-  const r = labels ? (cond ? 1.7 : 1.9) : 1.4
+  const r = o.radius ?? (labels ? (cond ? 1.7 : 1.9) : 1.4)
+  const pad = o.pad ?? 0
+  const sx = (v: number) => pad + ((v - x0) / (x1 - x0)) * (W - 2 * pad)
+  const sy = (v: number) => pad + (1 - (v - y0) / (y1 - y0)) * (H - 2 * pad)
   // Grey for the cells the annotator did not call, when the colour is the cell
   // type; every type keeps its own palette colour, by its own index.
   const sent = colorBy === 'type' ? sentinelMask(types) : null
 
   const order = paintOrder(d, types, colorBy)
   const n = d.cells.length
-  for (let k = 0; k < n; k++) {
-    const i = order ? order[k] : k
-    const c = d.cells[i]
-    if (cond && c.cond !== cond) continue
-    g.fillStyle =
-      colorBy === 'type' ? (sent && sent[c.t] ? SENTINEL_GREY : pal(c.t, palKey))
-      : colorBy === 'cond' ? pal(d.conds.indexOf(c.cond), palKey)
-      : colorBy === 'sample' ? pal(d.samples.findIndex(s => s.id === c.s), palKey)
-      : rampColor(mitoTop > 0 ? Math.min(1, c.mito / mitoTop) : 0, rampKey)
-    g.beginPath()
-    g.arc(((xy[2 * i] - x0) / (x1 - x0)) * W,
-      (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * H, r, 0, 6.284)
-    g.fill()
+  // Isolated: one pass for the cells set aside, underneath, then the kept.
+  for (const pass of o.keep ? [0, 1] : [1]) {
+    for (let k = 0; k < n; k++) {
+      const i = order ? order[k] : k
+      const c = d.cells[i]
+      if (cond && c.cond !== cond) continue
+      if (o.keep && o.keep(i) !== (pass === 1)) continue
+      g.fillStyle = pass === 0 ? (o.mute ?? SENTINEL_GREY)
+        : colorBy === 'type' ? (sent && sent[c.t] ? SENTINEL_GREY : pal(c.t, palKey))
+        : colorBy === 'cond' ? pal(d.conds.indexOf(c.cond), palKey)
+        : colorBy === 'sample' ? pal(d.samples.findIndex(s => s.id === c.s), palKey)
+        : rampColor(mitoTop > 0 ? Math.min(1, c.mito / mitoTop) : 0, rampKey)
+      g.beginPath()
+      g.arc(sx(xy[2 * i]), sy(xy[2 * i + 1]), r, 0, 6.284)
+      g.fill()
+    }
   }
 
   if (labels) {
-    g.font = '600 20px system-ui'
-    g.lineWidth = 4
+    const px = o.labelPx ?? 20
+    g.font = `600 ${px}px system-ui`
+    // A halo a little over a quarter of the type's height, with round joins
+    // so no letter grows a spike.
+    g.lineWidth = o.labelPx ? Math.max(4, Math.round(px * 0.28)) : 4
+    g.lineJoin = 'round'
     const at = clusterCentroids(xy, d, types.length)
     // No name for a sentinel: its cells are wherever the annotator gave up, and
     // a label at their median would mark a place that is not a population.
     drawLabels(g, types.flatMap((t, ti) => (t.sentinel ? [] : [{
       name: t.name,
-      x: ((at[ti].x - x0) / (x1 - x0)) * W,
-      y: (1 - (at[ti].y - y0) / (y1 - y0)) * H,
+      x: sx(at[ti].x),
+      y: sy(at[ti].y),
     }])), { fill: o.ink, halo: o.surface })
   }
 }

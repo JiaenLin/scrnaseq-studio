@@ -12,7 +12,7 @@ import {
 import ViolinPanel from './gene/ViolinPanel.tsx'
 import DotPlot from './gene/DotPlot.tsx'
 import FeaturePlot from './gene/FeaturePlot.tsx'
-import { Card, Chips, Seg } from './Ui.tsx'
+import { Field, InRail, Opts, RailGroup, Steps, Toggle } from './Rail.tsx'
 
 export interface GeneProps {
   src: Source
@@ -158,236 +158,196 @@ export default function GeneExpression(p: GeneProps) {
   ]
 
   return (
-    <Card>
-      {/* The field sits under the heading that names it, not opposite it. Across
-          the card it was the furthest thing on the page from "Search any gene",
-          and from the chips it fills — the eye had to cross the whole card and
-          come back. */}
-      <div>
-        <div className="eyebrow">Gene expression</div>
-        <h2 className="mt-1 tx-title font-semibold">Search any gene</h2>
-        <div className="relative mt-2">
-          <input
-            className="inp mono w-full max-w-[320px]" value={q} autoComplete="off"
-            placeholder={names.other ? 'symbol or accession…' : 'one gene, or paste a list…'}
-            aria-label="Search a gene or paste a gene list"
-            onChange={e => setQ(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit() } }}
-            onPaste={e => {
-              const txt = e.clipboardData.getData('text')
-              if (SEPS.test(txt)) { e.preventDefault(); add(txt) }
-            }}
-          />
-          {hits.length > 0 && (
-            <div
-              className="menu-in absolute left-0 top-full z-40 mt-1 w-[320px] max-w-full overflow-hidden rounded-[--r-md]"
-              style={{ background: 'var(--surface)', border: '1px solid var(--line-2)',
-                       boxShadow: 'var(--shadow-menu)' }}
-            >
-              {hits.map(g => (
+    <div>
+      {/* The question on the left (which genes, which plot, how it is drawn),
+          the answer on the stage. The controls were five rows of pills between
+          the title and the figure, so the figure began below the fold. */}
+      <InRail>
+        <RailGroup label="Search any gene">
+          <div className="relative">
+            <input
+              className="inp mono w-full" value={q} autoComplete="off"
+              placeholder={names.other ? 'symbol or accession…' : 'one gene, or paste a list…'}
+              aria-label="Search a gene or paste a gene list"
+              onChange={e => setQ(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit() } }}
+              onPaste={e => {
+                const txt = e.clipboardData.getData('text')
+                if (SEPS.test(txt)) { e.preventDefault(); add(txt) }
+              }}
+            />
+            {hits.length > 0 && (
+              <div
+                className="menu-in absolute left-0 top-full z-40 mt-1 w-full overflow-hidden rounded-[--r-lg]"
+                style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-menu)' }}
+              >
+                {hits.map(g => (
+                  <button
+                    key={g} type="button"
+                    className={`mono block w-full px-2 py-1.5 text-left tx-small ${
+                      g.toLowerCase() === q.trim().toLowerCase() ? 'font-semibold' : ''}`}
+                    style={g.toLowerCase() === q.trim().toLowerCase() ? { color: 'var(--ink)' } : undefined}
+                    onClick={() => { p.onGenes(mergeGenes(p.genes, [g])); setMissing([]); setQ('') }}
+                  >
+                    {g}
+                    {/* The accession under the symbol: a symbol is not a stable
+                        identifier, and two rows can carry the same one. Skipped
+                        when the name already carries it, which is exactly the
+                        case of a symbol two rows share. */}
+                    {idOf(g) && !g.includes(idOf(g)!) && (
+                      <span className="block tx-micro font-normal"
+                        style={{ color: 'var(--ink-3)' }}>{idOf(g)}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="hint m-0">
+            One gene, or paste up to {MAX_GENES}. Case and separator do not matter.
+            {/* The naming story is a fact about THIS object, so it stays — but as
+                one clause with the detail in the tooltip, not four sentences. */}
+            {names.renamed && (
+              <span title={`Symbols come from ${names.aliasColumn ?? 'the object'} in the same file`
+                + `${names.duplicated > 0 ? `; ${names.duplicated} rows share a symbol and carry their accession` : ''}`
+                + `${names.missing > 0 ? `; ${names.missing} rows have no symbol` : ''}`}>
+                {' '}Indexed by <b>{names.idKind ?? 'accession'}s</b> — search either.
+              </span>
+            )}
+          </p>
+          <div className="flex flex-wrap items-center gap-1">
+            {p.genes.length === 0 && (
+              <span className="tx-small" style={{ color: 'var(--ink-3)' }}>No genes selected yet.</span>
+            )}
+            {p.genes.map(g => (
+              <span
+                key={g}
+                className="inline-flex h-[--h-sm] items-center rounded-[--r-md] pl-2 pr-0.5 tx-small font-medium italic"
+                style={{ background: 'var(--press)', color: 'var(--ink)' }}
+                title={idOf(g) ? `${g} — ${idOf(g)}` : g}
+              >
+                {g}
                 <button
-                  key={g} type="button"
-                  className={`mono block w-full px-[11px] py-1.5 text-left tx-small ${
-                    g.toLowerCase() === q.trim().toLowerCase() ? 'font-bold' : ''}`}
-                  style={g.toLowerCase() === q.trim().toLowerCase() ? { color: 'var(--ink)' } : undefined}
-                  onClick={() => { p.onGenes(mergeGenes(p.genes, [g])); setMissing([]); setQ('') }}
-                >
-                  {g}
-                  {/* The accession under the symbol: a symbol is not a stable
-                      identifier, and two rows can carry the same one. Skipped
-                      when the name already carries it, which is exactly the
-                      case of a symbol two rows share. */}
-                  {idOf(g) && !g.includes(idOf(g)!) && (
-                    <span className="block tx-micro font-normal"
-                      style={{ color: 'var(--ink-3)' }}>{idOf(g)}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+                  className="border-0 bg-transparent px-1.5 not-italic opacity-60 hover:opacity-100"
+                  aria-label={`Remove ${g}`}
+                  onClick={() => p.onGenes(p.genes.filter(x => x !== g))}
+                >×</button>
+              </span>
+            ))}
+            {p.genes.length > 1 && (
+              <button className="btn btn-quiet" onClick={() => { p.onGenes([]); setMissing([]) }}>Clear all</button>
+            )}
+          </div>
+          {missing.length > 0 && (
+            <p className="m-0 tx-small" style={{ color: 'var(--warn)' }}>
+              <b>Not in this object:</b> <span className="mono">{missing.join(', ')}</span> — check the
+              species and capitalisation (mouse <span className="mono">Ascl1</span> vs human{' '}
+              <span className="mono">ASCL1</span>).
+            </p>
           )}
-        </div>
-      </div>
+        </RailGroup>
 
-      <p className="mt-1.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
-        One gene, or paste up to {MAX_GENES}. Case and separator do not matter.
-        {/* The naming story is a fact about THIS object, so it stays — but as
-            one clause with the detail in the tooltip, not four sentences. */}
-        {names.renamed && (
-          <span title={`Symbols come from ${names.aliasColumn ?? 'the object'} in the same file`
-            + `${names.duplicated > 0 ? `; ${names.duplicated} rows share a symbol and carry their accession` : ''}`
-            + `${names.missing > 0 ? `; ${names.missing} rows have no symbol` : ''}`}>
-            {' '}Indexed by <b>{names.idKind ?? 'accession'}s</b> — search either.
-          </span>
-        )}
-      </p>
+        <RailGroup label="Plot">
+          <Opts<PlotKind>
+            value={p.plot} onChange={p.onPlot}
+            options={[
+              { k: 'violin', label: 'Violin panel' },
+              { k: 'dot', label: 'Dot plot' },
+              { k: 'feature', label: 'Feature plot' },
+            ]}
+          />
+        </RailGroup>
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        {p.genes.length === 0 && (
-          <span className="tx-small" style={{ color: 'var(--ink-3)' }}>No genes selected yet.</span>
-        )}
-        {p.genes.map(g => (
-          <span
-            key={g}
-            className="inline-flex items-center gap-0.5 rounded-full py-[3px] pl-2.5 pr-[5px] tx-small font-semibold italic"
-            style={{ background: 'var(--sunk)', color: 'var(--ink)', border: '1px solid var(--line-2)' }}
-            title={idOf(g) ? `${g} — ${idOf(g)}` : g}
-          >
-            {g}
-            <button
-              className="border-0 bg-transparent px-1 not-italic opacity-60 hover:opacity-100"
-              aria-label={`Remove ${g}`}
-              onClick={() => p.onGenes(p.genes.filter(x => x !== g))}
-            >×</button>
-          </span>
-        ))}
-        {p.genes.length > 1 && (
-          <button className="btn btn-quiet" onClick={() => { p.onGenes([]); setMissing([]) }}>Clear all</button>
-        )}
-      </div>
-
-      {missing.length > 0 && (
-        <p className="mt-2 tx-small" style={{ color: 'var(--warn)' }}>
-          <b>Not in this object:</b> <span className="mono">{missing.join(', ')}</span> — check the
-          species and capitalisation (mouse <span className="mono">Ascl1</span> vs human{' '}
-          <span className="mono">ASCL1</span>).
-        </p>
-      )}
-
-      <div className="mt-3.5 flex flex-wrap items-center gap-2">
-        <span className="glabel">Plot</span>
-        <Seg<PlotKind>
-          value={p.plot} onChange={p.onPlot}
-          options={[
-            { k: 'violin', label: 'Violin panel' },
-            { k: 'dot', label: 'Dot plot' },
-            { k: 'feature', label: 'Feature plot' },
-          ]}
-        />
-        <div className="gsep h-6" />
-        <span className="glabel">Group by</span>
-        <Seg<GroupBy> value={p.groupBy} onChange={p.onGroupBy} options={modes} />
-        {/* Only where it changes the answer: across cell types every type is on
-            screen, so there is nothing to pick. */}
-        {p.groupBy !== 'type' && (
-          <>
-            <div className="gsep h-6" />
-            <label className="flex items-center gap-1.5">
-              <span className="glabel">Cell type</span>
+        <RailGroup label="Group by">
+          <Opts<GroupBy> value={p.groupBy} onChange={p.onGroupBy} options={modes} />
+          {/* Only where it changes the answer: across cell types every type is on
+              screen, so there is nothing to pick. */}
+          {p.groupBy !== 'type' && (
+            <Field label="Cell type">
               <select className="sel" value={ctName} onChange={e => setCt(e.target.value)}>
                 {p.types.filter((t, i) => !t.sentinel && !p.hidden.has(i))
                   .map(t => <option key={t.key} value={t.name}>{t.name}</option>)}
               </select>
-            </label>
-          </>
-        )}
+            </Field>
+          )}
+        </RailGroup>
 
-        {p.plot === 'dot' ? (
-          <>
-            <div className="gsep h-6" />
-            <button
-              className="chip" aria-pressed={p.dotScale}
-              title="Seurat scale = TRUE — z-score each gene across identities"
-              onClick={() => p.onDotScale(!p.dotScale)}
-            >Scale each gene</button>
-            {/* The dot plot has always coloured from this ramp; the control for
-                it was only ever shown on the feature plot, so the one figure
-                most likely to go into a paper had no way to change its colours. */}
-            <div className="gsep h-6" />
-            {/* Diverging scales while the values are z-scores, sequential ones
-                while they are expression. Offering all of them in both modes
-                lets a reader put raw expression — which starts at zero and has
-                no negative side — on a scale whose whole point is the sign. */}
-            <label className="flex items-center gap-1.5">
-              <span className="glabel">Colour</span>
-              <select className="sel" value={p.dotScale ? p.rampDiv : p.rampKey}
-                onChange={e => (p.dotScale ? p.onRampDiv : p.onRamp)(e.target.value as RampKey)}>
-                {(p.dotScale ? DIVERGING : SEQUENTIAL).map(k => (
-                  <option key={k} value={k}>{RAMPS[k].label}</option>
-                ))}
-              </select>
-            </label>
-          </>
-        ) : (
-          <>
-            <div className="gsep h-6" />
-            <Chips label="Columns" value={p.cols} options={[1, 2, 3, 4]} onChange={p.onCols} />
-            {p.plot === 'feature' && (
-              <>
-                <div className="gsep h-6" />
-                <label className="flex items-center gap-1.5">
-                  <span className="glabel">Colour</span>
-                  <select className="sel" value={p.rampKey}
-                    onChange={e => p.onRamp(e.target.value as RampKey)}>
-                    {Object.entries(RAMPS).map(([k, r]) => (
-                      <option key={k} value={k}>{r.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <div className="gsep h-6" />
-                {/* The ceiling of the colour scale. One cell at ten times the
-                    next-highest value flattens every other cell onto the floor
-                    colour and the gene reads as unexpressed; SCpubr exposes the
-                    same control as max.cutoff. Values above the ceiling are
-                    drawn at the ceiling, never dropped. */}
-                <label className="flex items-center gap-1.5">
-                  <span className="glabel" title="Expression mapped to the top of the colour scale">
-                    Scale to
-                  </span>
-                  <select className="sel" value={p.clip}
-                    onChange={e => p.onClip(Number(e.target.value))}>
-                    <option value={0.9}>90th percentile</option>
-                    <option value={0.95}>95th percentile</option>
-                    <option value={0.99}>99th percentile</option>
-                    <option value={1}>the maximum</option>
-                  </select>
-                </label>
-                <button
-                  className="chip" aria-pressed={p.borders}
-                  title="A ring around each cell — clearer at print size, slower on a large object"
-                  onClick={() => p.onBorders(!p.borders)}
-                >Cell borders</button>
-              </>
-            )}
-            {p.plot === 'violin' && p.src.d.multi && p.groupBy === 'cond' && (
-              <>
-                <div className="gsep h-6" />
-                <button className="chip" aria-pressed={p.relative} onClick={() => p.onRelative(!p.relative)}>
-                  Relative to {condLabel(p.ctrl)}
-                </button>
-              </>
-            )}
-          </>
-        )}
-      </div>
+        <RailGroup label="Figure">
+          {p.plot === 'dot' ? (
+            <>
+              <Toggle on={p.dotScale} onChange={p.onDotScale}
+                title="Seurat scale = TRUE — z-score each gene across identities">Scale each gene</Toggle>
+              {/* Diverging scales while the values are z-scores, sequential ones
+                  while they are expression: raw expression starts at zero and has
+                  no negative side, so it never goes on a scale whose point is the sign. */}
+              <Field label="Colour">
+                <select className="sel" value={p.dotScale ? p.rampDiv : p.rampKey}
+                  onChange={e => (p.dotScale ? p.onRampDiv : p.onRamp)(e.target.value as RampKey)}>
+                  {(p.dotScale ? DIVERGING : SEQUENTIAL).map(k => (
+                    <option key={k} value={k}>{RAMPS[k].label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Toggle on={cluster} onChange={setCluster}
+                title="Order rows and columns by similarity, and draw the trees">Cluster rows &amp; genes</Toggle>
+              <Toggle on={flipDot} onChange={setFlipDot}
+                title="Swap the axes — genes down the side, identities along the bottom">Transpose</Toggle>
+              <p className="hint m-0">{flipDot ? 'genes down the side' : 'genes along the bottom'}</p>
+            </>
+          ) : (
+            <>
+              <Field label="Columns">
+                <Steps value={p.cols} options={[1, 2, 3, 4]} onChange={p.onCols} />
+              </Field>
+              {p.plot === 'feature' && (
+                <>
+                  <Field label="Colour">
+                    <select className="sel" value={p.rampKey}
+                      onChange={e => p.onRamp(e.target.value as RampKey)}>
+                      {Object.entries(RAMPS).map(([k, r]) => (
+                        <option key={k} value={k}>{r.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  {/* The ceiling of the colour scale. One cell at ten times the
+                      next-highest value flattens every other cell onto the floor
+                      colour; SCpubr exposes the same control as max.cutoff. Values
+                      above the ceiling are drawn at the ceiling, never dropped. */}
+                  <Field label="Scale to" title="Expression mapped to the top of the colour scale">
+                    <select className="sel" value={p.clip}
+                      onChange={e => p.onClip(Number(e.target.value))}>
+                      <option value={0.9}>90th percentile</option>
+                      <option value={0.95}>95th percentile</option>
+                      <option value={0.99}>99th percentile</option>
+                      <option value={1}>the maximum</option>
+                    </select>
+                  </Field>
+                  <Toggle on={p.borders} onChange={p.onBorders}
+                    title="A ring around each cell — clearer at print size, slower on a large object">Cell borders</Toggle>
+                </>
+              )}
+              {p.plot === 'violin' && p.src.d.multi && p.groupBy === 'cond' && (
+                <Toggle on={p.relative} onChange={p.onRelative}>Relative to {condLabel(p.ctrl)}</Toggle>
+              )}
+            </>
+          )}
+        </RailGroup>
 
-      {p.plot === 'dot' && (
-        <div className="mt-2 flex items-center gap-2">
-          <button className="chip" aria-pressed={cluster} onClick={() => setCluster(!cluster)}
-            title="Order rows and columns by similarity, and draw the trees">
-            Cluster rows &amp; genes
-          </button>
-          <button className="chip" aria-pressed={flipDot} onClick={() => setFlipDot(!flipDot)}
-            title="Swap the axes — genes down the side, identities along the bottom">
-            Transpose
-          </button>
-          <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-            {flipDot ? 'genes down the side' : 'genes along the bottom'}
-          </span>
-        </div>
-      )}
+        <CellFilter p={p} />
+      </InRail>
 
-      <CellFilter p={p} />
-
-      <p className="sub mt-2.5">{describe(p, ctName)}</p>
-
-      <div className="mt-3.5">
+      <header className="stage-head sticky top-0 z-20" style={{ background: 'var(--surface)' }}>
+        <h2 className="stage-title">Gene expression</h2>
+        <span className="stage-meta">{describe(p, ctName)}</span>
+      </header>
+      <div className="stage-body">
         {p.genes.length === 0
-          ? <div className="empty">Search for a gene above.</div>
+          ? <div className="empty">Search for a gene in the controls on the left.</div>
           : p.plot === 'dot' ? <DotPlot {...p} ids={ids} cluster={cluster} flip={flipDot} />
           : p.plot === 'feature' ? <FeaturePlot {...p} />
           : <ViolinPanel {...p} ids={ids} />}
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -420,12 +380,12 @@ function CellFilter({ p }: { p: GeneProps }) {
   }
 
   return (
-    <div className="mt-2.5">
+    <RailGroup label="Cell types in these plots">
       <div className="flex flex-wrap items-center gap-2">
-        <button className="chip" aria-expanded={open} onClick={() => setOpen(v => !v)}>
-          {open ? '▾' : '▸'} Cell types in these plots
+        <button className="btn btn-quiet" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+          {open ? '▾' : '▸'} {open ? 'Hide the list' : 'Choose'}
         </button>
-        <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
+        <span className="hint">
           {p.hidden.size === 0
             ? `all ${total}`
             : `${shown} of ${total} — hiding ${[...p.hidden].slice(0, 3)
@@ -437,31 +397,30 @@ function CellFilter({ p }: { p: GeneProps }) {
         )}
       </div>
       {open && (
-        <div className="panel mt-2">
-          <div className="grid gap-1"
-            style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))' }}>
+        <>
+          <div className="flex flex-col">
             {p.types.map((t, ti) => {
               if (t.sentinel) return null
               const on = !p.hidden.has(ti)
               return (
                 <button key={t.key} onClick={() => toggle(ti)} aria-pressed={on}
-                  className="type-toggle flex items-center gap-1.5 rounded-[--r-md] px-2 py-1 text-left"
+                  className="type-toggle flex h-[--h-sm] items-center gap-2 rounded-[--r-sm] border-0 bg-transparent px-2 text-left"
                   style={{ opacity: on ? 1 : 0.45 }}>
                   <i className="sw flex-none" style={{ background: pal(ti, p.palKey) }} />
-                  <span className="min-w-0 flex-1 truncate tx-micro">{t.name}</span>
-                  <span className="mono flex-none tx-micro" style={{ color: 'var(--ink-3)' }}>
+                  <span className="min-w-0 flex-1 truncate tx-small">{t.name}</span>
+                  <span className="num flex-none tx-small" style={{ color: 'var(--ink-2)' }}>
                     {counts[ti]?.toLocaleString() ?? 0}
                   </span>
                 </button>
               )
             })}
           </div>
-          <p className="mt-1.5 px-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+          <p className="hint m-0">
             These figures only. No statistic is recomputed and no other tab moves.
           </p>
-        </div>
+        </>
       )}
-    </div>
+    </RailGroup>
   )
 }
 

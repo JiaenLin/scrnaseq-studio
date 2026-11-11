@@ -6,37 +6,27 @@
   color-scheme: light dark;
 
   /* ---------------------------------------------------------------------
-     One vocabulary.
-
-     These four scales exist because the interface had none: fifteen font
-     sizes, ten radii, ten different top margins, every one of them typed at
-     the point of use. The figures had tokens and one rule per decision; the
-     chrome around them did not, and it showed.
-
-     The rule for adding to them is that you do not. If a value here is wrong,
-     change it here and let every use of it move together.
+     One vocabulary (docs/DESIGN.md is the reference; this is the source).
+     If a value here is wrong, change it here and every use moves together.
+     Nothing below this block types a colour, a size, a radius or a shadow.
      --------------------------------------------------------------------- */
 
-  /* Type. Five steps, from fifteen. Figure and axis type is a separate
-     system (--fig-*, .axis) and is not on this scale — a figure leaves for a
-     white page and is sized in the reader's terms, not the interface's. */
-  --t-micro: 11px;   /* eyebrow, glabel, badge, table head, legend, figcaption */
-  --t-small: 12.5px; /* .sub, .seg, .chip, .note, table body, menu items */
-  --t-body: 14px;    /* .btn, .sel, .inp, .empty, tabs — matches the body */
-  --t-title: 16px;   /* card titles, empty titles, the product name */
-  --t-stat: 22px;    /* a Stat value, and nothing else */
+  /* Type. Five steps, whole pixels. Figure type is a separate system
+     (--fig-*, .axis): a figure leaves for a white page and is sized in the
+     reader's terms, not the interface's. */
+  --t-micro: 11px;  /* badges, table heads, captions under a control */
+  --t-small: 12px;  /* labels, secondary text, tables, legends, status lines */
+  --t-body: 13px;   /* body, controls, tabs */
+  --t-title: 15px;  /* a section's title, an empty state's title */
+  --t-stat: 20px;   /* a Stat value, and nothing else */
 
-  /* Tracking, bound to size rather than hand-typed. Letters read too far
-     apart as they grow and too close as they shrink, so large text tightens
-     and uppercase micro-labels open up. */
   --tr-stat: -0.02em;
-  --tr-title: -0.015em;
-  --tr-label: 0.09em;
+  --tr-title: -0.01em;
+  --tr-label: 0;
 
-  /* Leading, inversely with size. */
   --lh-tight: 1.25;
-  --lh-body: 1.5;
-  --lh-prose: 1.7;
+  --lh-body: 1.45;
+  --lh-prose: 1.65;
 
   /* Space. A 4px base. */
   --s1: 4px;
@@ -46,98 +36,80 @@
   --s5: 24px;
   --s6: 32px;
 
-  /* Radius. A three-step nesting ladder, from ten ad-hoc values: a card holds
-     a panel holds a control, and each is rounder than the thing inside it.
-     Pills stay fully round — they are a different shape, not a bigger radius. */
-  --r-lg: 10px; /* cards, dialogs, the dropzone */
-  --r-md: 6px;  /* panels, notes, empty, menus, buttons, selects, canvases */
-  --r-sm: 4px;  /* badges, swatches, checkboxes, menu items */
+  /* Radius. Three steps: something small inside a control, a control, a
+     floating surface. Nothing on the page itself is rounded: panes and
+     sections meet at hairlines. */
+  --r-sm: 4px; /* swatches, badges, checkboxes, a segment's thumb */
+  --r-md: 6px; /* buttons, selects, inputs, wells, notes */
+  --r-lg: 8px; /* menus, popovers, dialogs, the dropzone */
 
-  /* Control height. One per size, so a button, a select, a chip and a
-     segmented control set side by side share an edge top and bottom. */
-  --h-sm: 28px; /* chips, segments, small buttons, the rail's pickers */
-  --h-md: 32px; /* buttons, selects, inputs */
+  /* Control height. One per size, so controls set side by side share an
+     edge top and bottom. */
+  --h-sm: 24px; /* in a stage head or a table's toolbar; chips, segments */
+  --h-md: 28px; /* in the rail and everywhere else */
 
-  /* The shell (docs/DESIGN.md, "Layout"). Two bars, a control rail on the
-     left, the figure in the middle, an inspector on the right. */
-  --bar-h: 48px;
-  --tabs-h: 40px;
+  /* The frame (docs/DESIGN.md, "The frame"). */
+  --bar-h: 40px;
+  --tabs-h: 36px;
   --chrome-h: calc(var(--bar-h) + var(--tabs-h));
-  --rail-w: 272px;
-  --inspector-w: 296px;
+  --rail-w: 232px;
+  --inspector-w: 240px;
+  --head-h: 40px;  /* a stage's head line */
+  --foot-h: 28px;  /* a stage's status line */
+  --measure: 1180px; /* the widest a section's content runs */
 
-  /* Motion. The built-in CSS easings are too weak to feel intentional; these are
-     the strong variants. Never ease-in on UI — it delays the exact moment the
-     user is watching. Every duration stays inside the 300ms UI budget. */
+  /* Motion. Strong ease-out curves; never ease-in on UI. Every duration is
+     inside the 300ms budget. Nothing that the keyboard triggers animates. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  /* For something already on screen moving from A to B, which wants to
-     accelerate and decelerate rather than arrive braking. */
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --d-press: 140ms;
   --d-menu: 170ms;
   --d-panel: 220ms;
 
-  /* Elevation. One value, because there is one kind of floating surface here.
-     Redefined in dark: a near-black shadow on a near-black card is nothing. */
-  --shadow-menu: 0 10px 30px rgba(15, 23, 42, 0.16);
+  /* Elevation. Two levels: flat (a hairline) and floating (this). */
+  --shadow-menu: 0 0 0 1px rgba(21, 24, 29, 0.04), 0 8px 24px rgba(21, 24, 29, 0.14);
 
-  /* Colour. Every text token is at least 4.5:1 on every surface it can sit
-     on, in both themes, measured by scripts/measure-design.mjs. --ink-3 was
-     2.3-2.6:1 here and 3.1-4.0:1 in dark, which is why the tabs, captions and
-     table heads read as disabled. */
-  --bg: #f6f7f9;
+  /* Colour. Neutral greys with a faint cool cast. --bg is the chrome (bars,
+     rail, inspector); --surface is the paper the data sits on, and is the
+     lightest plane in both themes so the eye lands on the figure.
+     Every text token is at least 4.5:1 on every ground it can sit on, and
+     --ctl (the edge of a control known only by its edge) is at least 3:1,
+     in both themes: scripts/measure-design.mjs measures both. */
+  --bg: #f5f6f7;
   --surface: #ffffff;
-  --sunk: #eef1f5;
-  --line: #dfe3ea;
-  --line-2: #c5ccd6;
-  --ink: #0f172a;
-  --ink-2: #424e60;
-  --ink-3: #5d6b7e;
-  --accent: #4f46e5;
-  --accent-soft: #eef0fe;
-  --accent-ink: #4338ca;
-  /* Text on an accent fill. White on the dark theme's light indigo was 2.9:1. */
+  --sunk: #eef0f2;
+  --line: #e2e5e9;
+  --line-2: #cfd4da;
+  --ctl: #7f8793;
+  --ink: #15181d;
+  --ink-2: #474e5a;
+  --ink-3: #626b79;
+  /* A translucent ink wash, so hover and pressed read the same on the
+     chrome and on the paper. */
+  --hover: color-mix(in srgb, var(--ink) 6%, transparent);
+  --press: color-mix(in srgb, var(--ink) 10%, transparent);
+  /* Accent means "act": the primary button, the focus ring, a link, and the
+     "from your file" badge. Selection is ink (--sel), so the chrome stays
+     the quietest thing on a page whose purpose is figures. */
+  --accent: #2857d6;
+  --accent-soft: #e9effd;
+  --accent-ink: #1f49b8;
   --text-on-accent: #ffffff;
-  /**
-   * The colour of a SELECTED thing — an active tab, a pressed chip, a chosen
-   * segment, a progress bar.
-   *
-   * Ink, not accent. --accent was doing eight jobs at once: the logo, the
-   * active tab, the active chip, the active segment, the focus ring, links,
-   * citation numbers and the progress bar. A colour used for everything marks
-   * nothing, and on a page whose whole purpose is figures the chrome should be
-   * the quietest thing on it. Accent now survives on exactly four things — the
-   * primary button, the focus ring, links, and the "from your file" badge — so
-   * indigo on this page means "press this".
-   */
   --sel: var(--ink);
-  --warn: #a14a07;
-  --warn-soft: #fff8e6;
-  --warn-line: #f3d58a;
-  --good: #047857;
-  --good-soft: #eafaf2;
-  --bad: #b91c1c;
-  /**
-   * Direction of change, as TEXT.
-   *
-   * `--bad` used to carry this as well as "something failed", so one token
-   * meant two things and the studio ended up with four reds: this one for a
-   * table cell and a saturated figure red for a volcano point, neither aware of
-   * the other. `--bad` is now failure only; direction has its own pair, and the
-   * figure's marks are UP_MARK / DOWN_MARK in lib/figure-ink.ts — deliberately
-   * a different, more saturated pair, because a printed dot and a column of
-   * numbers are read at different sizes and want different weights of colour.
-   */
-  --up: #b91c1c;
-  --down: #2563eb;
-  /** Kept: the old name for --down, still used by figure-adjacent callers. */
-  --lo: #2563eb;
+  --warn: #94480a;
+  --warn-soft: #fdf6e3;
+  --warn-line: #ecd08a;
+  --good: #0b6e4f;
+  --good-soft: #e8f6ef;
+  --bad: #b3261e;
+  /* Direction of change, as text. --bad is failure only. The figure's marks
+     are UP_MARK / DOWN_MARK in lib/figure-ink.ts. */
+  --up: #b3261e;
+  --down: #1d5fd0;
+  --lo: #1d5fd0;
 
-  /* Figure ink, separate from interface ink.
-     A figure leaves this app for a white page, and SCpubr sets axis.text and
-     axis.ticks to black for that reason: the greys the interface uses to stay
-     quiet read as faint or missing once printed. These stay legible on screen
-     in either theme and are forced to the light values on export. */
+  /* Figure ink, separate from interface ink: black on export, legible on
+     screen in either theme (forceLightFigures in lib/download.ts). */
   --fig-ink: #000000;
   --fig-line: #000000;
   --fig-grid: #dcdfe4;
@@ -145,67 +117,49 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Opaque, so a soft fill reads the same over every surface. --line was
-       --sunk's own value, so a sunk panel had no edge at all. */
-    --bg: #0b0f19;
-    --surface: #111827;
-    --sunk: #1a2333;
-    --line: #263044;
-    --line-2: #364156;
-    --ink: #e5e9f0;
-    --ink-2: #aab6c6;
-    --ink-3: #8a97ab;
-    --accent: #8b93f8;
-    --accent-soft: #1c2140;
-    --accent-ink: #a5b4fc;
-    --text-on-accent: #0b0f19;
-    --warn: #f5b83d;
-    --warn-soft: #2a2414;
-    --warn-line: #5c4a1c;
-    --good: #34d399;
-    --good-soft: #0f2a24;
-    --bad: #f87171;
-    --up: #f87171;
-    --down: #60a5fa;
-    --lo: #60a5fa;
-
-    /* Deeper and darker than a light-mode shadow, because on a dark ground a
-       shadow separates by being darker than something already dark. */
-    --shadow-menu: 0 12px 32px rgba(0, 0, 0, 0.5);
-
-    /* Legible on a dark screen. Export overrides these back to the light
-       values, because the exported plate is white whatever theme it was
-       saved from — see forceLightFigures in lib/download.ts. */
-    --fig-ink: #e6eaf2;
-    --fig-line: #c7cedb;
-    --fig-grid: #2a3040;
+    --bg: #0d0f12;
+    --surface: #111317;
+    --sunk: #1a1d23;
+    --line: #24282f;
+    --line-2: #343943;
+    --ctl: #6f7785;
+    --ink: #e7e9ec;
+    --ink-2: #b0b6c0;
+    --ink-3: #8a919d;
+    --accent: #7ea2ff;
+    --accent-soft: #17233f;
+    --accent-ink: #a3bdff;
+    --text-on-accent: #0d0f12;
+    --warn: #f0b340;
+    --warn-soft: #2a2313;
+    --warn-line: #5a481c;
+    --good: #3fcf9a;
+    --good-soft: #10281f;
+    --bad: #ff7b72;
+    --up: #ff7b72;
+    --down: #6ea8ff;
+    --lo: #6ea8ff;
+    --shadow-menu: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 32px rgba(0, 0, 0, 0.6);
+    --fig-ink: #e7e9ec;
+    --fig-line: #c4c9d1;
+    --fig-grid: #2a2e36;
   }
 
   /* Export stamps this on the root while it reads the computed colours, so a
-     figure saved from dark mode carries the ink it will be printed with rather
-     than pale text on the white plate.
-
-     It used to flip only the --fig-* family, on the reasoning that "the
-     interface is not what is being exported". That premise is false: four
-     figures paint their largest text with interface tokens — the violin's gene
-     name and cell-type bands, the enrichment term labels, the composition row
-     names, the volcano's clicked genes — so a figure saved from dark mode
-     carried #e2e8f0 text onto a white plate at about 1.16:1 contrast, which is
-     invisible. An adversarial review measured it on the built app.
-
-     So the interface ink flips too, for the duration of the read. Nothing else
-     does: backgrounds and accents are not what a figure is made of, and a
-     figure's own plate is painted white by portableSvg regardless. */
+     figure saved from dark mode carries the ink it will be printed with. The
+     interface ink flips too, because four figures paint their largest text
+     with interface tokens; backgrounds and accents are not what a figure is
+     made of, and its plate is painted white by portableSvg regardless. */
   :root[data-theme='light'] {
     --fig-ink: #000000;
     --fig-line: #000000;
     --fig-grid: #dcdfe4;
-    --ink: #0f172a;
-    --ink-2: #424e60;
-    --ink-3: #5d6b7e;
+    --ink: #15181d;
+    --ink-2: #474e5a;
+    --ink-3: #626b79;
     --surface: #ffffff;
-    --line: #dfe3ea;
-    --line-2: #c5ccd6;
+    --line: #e2e5e9;
+    --line-2: #cfd4da;
   }
 }
 
@@ -217,8 +171,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   font-size: var(--t-body);
   line-height: var(--lh-body);
 }
@@ -238,7 +193,13 @@ button {
 
 :focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 1px;
+}
+
+/* Panes scroll on their own; their bars stay out of the way until used. */
+* {
+  scrollbar-color: var(--line-2) transparent;
+  scrollbar-width: thin;
 }
 
 figure {
@@ -258,7 +219,7 @@ svg {
 @layer components {
   .wrap {
     @apply mx-auto px-5;
-    max-width: 1180px;
+    max-width: var(--measure);
   }
   .mono {
     font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
@@ -267,9 +228,7 @@ svg {
     font-variant-numeric: tabular-nums;
   }
 
-  /* The type scale as classes, so a component asks for a STEP rather than a
-     number. There were fifteen numbers; asking for one of five is the whole
-     point, and `rg "text-\[" src` should now find only figure code. */
+  /* The type scale as classes, so a component asks for a STEP, not a number. */
   .tx-micro {
     font-size: var(--t-micro);
   }
@@ -285,44 +244,43 @@ svg {
     letter-spacing: var(--tr-title);
     line-height: var(--lh-tight);
   }
-  /* An uppercase micro-label: the eyebrow's size and tracking without its
-     colour, for the places that need the shape but set their own ink. */
   .tx-label {
     font-size: var(--t-small);
     font-weight: 600;
   }
 
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    margin-bottom: var(--s4);
-    padding: var(--s4);
-  }
   /**
-   * A small uppercase label: a caption over a title, or the name of a control.
+   * A section of a view: a block between hairlines, on the paper.
    *
-   * `.eyebrow` and `.glabel` were the same eleven-pixel uppercase grey at two
-   * different weights, doing the same job in different places — a reader
-   * cannot learn a distinction that only exists as 700 versus 600. One style,
-   * two names, because the two words read differently in the markup.
+   * It was a card (a bordered, rounded, filled box on a grey page), and a
+   * view was a stack of them, so every figure sat in a box inside a box. The
+   * name stays because every view asks for it; the box is gone. The hairline
+   * runs the width of the stage and the content keeps a measure.
    */
-  /* Sentence case, as written in the source. Uppercase tracked micro-labels
-     were on every card and control and read as a second row of headings. */
+  .card {
+    border-bottom: 1px solid var(--line);
+    padding: var(--s5);
+  }
+  .card:last-child {
+    border-bottom: 0;
+  }
+  .card > * {
+    max-width: var(--measure);
+  }
+  /* Sentence case, as written in the source: a caption over a title, or the
+     name of a control. */
   .eyebrow,
   .glabel {
     color: var(--ink-3);
     font-size: var(--t-small);
     font-weight: 400;
   }
-  /* A card's title. 16 against a 14 body: the old 14.5 was half a pixel of
-     hierarchy, which is why every card read as one undifferentiated block. */
   .card-title {
     font-size: var(--t-title);
     font-weight: 600;
     letter-spacing: var(--tr-title);
     line-height: var(--lh-tight);
-    margin-top: var(--s1);
+    margin-top: 2px;
   }
   .sub {
     color: var(--ink-2);
@@ -330,6 +288,7 @@ svg {
     margin-top: var(--s1);
   }
 
+  /* An ACTION. Known by its label, so its edge is the quiet one. */
   .btn {
     border: 1px solid var(--line-2);
     background: var(--surface);
@@ -337,20 +296,18 @@ svg {
     font-size: var(--t-body);
     font-weight: 500;
     height: var(--h-md);
-    padding: 0 var(--s3);
+    padding: 0 10px;
     @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap;
     transition: transform var(--d-press) var(--ease-out),
       border-color var(--d-press) ease, background-color var(--d-press) ease;
   }
-  /* Gated: a touch device fires a sticky hover on tap, so the border would
-     stay lit on whatever was pressed last. */
+  /* Gated: a touch device fires a sticky hover on tap. */
   @media (hover: hover) and (pointer: fine) {
     .btn:hover:not(:disabled) {
-      border-color: var(--accent);
+      border-color: var(--ctl);
     }
   }
-  /* Press feedback — the interface must visibly hear the click, and it has to
-     land on press rather than release or it feels dead. */
+  /* Press feedback lands on press, not on release. */
   .btn:active:not(:disabled) {
     transform: scale(0.97);
   }
@@ -362,22 +319,19 @@ svg {
     border-color: var(--accent);
     color: var(--text-on-accent);
   }
-  /* For a button that lives in the control bar, so it matches the height of the
-     selects it sits beside rather than setting the bar's height on its own. */
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover:not(:disabled) {
+      border-color: var(--accent-ink);
+      background: var(--accent-ink);
+    }
+  }
   .btn-sm {
     font-size: var(--t-small);
     height: var(--h-sm);
-    padding: 0 var(--s3);
+    padding: 0 var(--s2);
   }
-  /**
-   * An ACTION that is not the main one on its card — Save, CSV, Reset, Clear.
-   *
-   * These were chips, which is what made a chip unreadable: the same pill was a
-   * mode toggle, a multi-select toggle and a one-shot action, so a click could
-   * change the figure, change the selection, or write a file and there was no
-   * way to tell which from looking. A chip is now a toggle and carries
-   * aria-pressed; anything that DOES something is a button and looks like one.
-   */
+  /* An action that is not the main one: Save, CSV, Reset, Clear. A chip is a
+     toggle and carries aria-pressed; anything that DOES something is a button. */
   .btn-quiet {
     color: var(--ink-2);
     font-size: var(--t-small);
@@ -388,8 +342,34 @@ svg {
     @apply border-0 bg-transparent underline underline-offset-4;
     color: var(--ink-3);
   }
+  /* A square button that is only a glyph: a pane's toggle. Always has an
+     aria-label and a title. */
+  .btn-icon {
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-md);
+    color: var(--ink-2);
+    height: var(--h-sm);
+    width: 28px;
+    @apply inline-flex flex-none items-center justify-center;
+    transition: background-color var(--d-press) ease, color var(--d-press) ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-icon:hover {
+      background: var(--hover);
+      color: var(--ink);
+    }
+  }
+  .btn-icon[aria-pressed='true'] {
+    color: var(--ink);
+  }
+  .btn-icon[aria-pressed='false'] {
+    color: var(--ink-3);
+  }
 
-  /* A TOGGLE. Always carries aria-pressed; never performs an action. */
+  /* A TOGGLE. Always carries aria-pressed; never performs an action. Pressed
+     is an ink edge, an ink label and a wash: three cues, none of them a fill
+     heavy enough to outweigh the figure it filters. */
   .chip {
     border: 1px solid var(--line-2);
     background: var(--surface);
@@ -398,7 +378,7 @@ svg {
     font-size: var(--t-small);
     font-weight: 500;
     height: var(--h-sm);
-    padding: 0 var(--s3);
+    padding: 0 10px;
     @apply inline-flex items-center whitespace-nowrap;
     transition: transform var(--d-press) var(--ease-out),
       border-color var(--d-press) ease, color var(--d-press) ease,
@@ -406,34 +386,24 @@ svg {
   }
   @media (hover: hover) and (pointer: fine) {
     .chip:hover:not(:disabled) {
-      border-color: var(--line-2);
+      border-color: var(--ctl);
       color: var(--ink);
-      background: var(--sunk);
     }
   }
   .chip:active:not(:disabled) {
     transform: scale(0.97);
   }
-  /* Selection is INK, not accent. Accent now means "press this" and nothing
-     else, so a page can be read for what is actionable at a glance. */
   .chip[aria-pressed='true'] {
-    background: var(--sel);
+    background: var(--press);
     border-color: var(--sel);
-    color: var(--surface);
+    color: var(--ink);
   }
   .chip:disabled {
     @apply cursor-not-allowed opacity-40;
   }
 
-  /* A collection the reader supplied: a NAME that opens it for editing, and an
-     x that removes it.
-
-     Not .chip. That is a toggle, it always carries aria-pressed, and it never
-     performs an action — this is two actions and no state, so borrowing the
-     class would be borrowing the contract with it. Shaped like one so it still
-     reads as a sibling of the collection chips above, and inked like a pressed
-     one because sets the reader supplied are always on: they are not
-     downloaded, they are given. */
+  /* A collection the reader supplied: a NAME that opens it for editing, and
+     an x that removes it. Two actions and no state, so not a .chip. */
   .chip-own {
     display: inline-flex;
     align-items: center;
@@ -454,9 +424,6 @@ svg {
   }
   .chip-own > .chip-own-x {
     padding: 3px var(--s3) 3px var(--s2);
-    /* Its own hit area, and a visible seam. The name and the x do different and
-       unequal things — one is reversible and one is not — so they must not read
-       as one target that happens to be wide. */
     border-left: 1px solid color-mix(in srgb, var(--surface) 28%, transparent);
     line-height: 1;
   }
@@ -469,35 +436,45 @@ svg {
     background: color-mix(in srgb, var(--surface) 28%, transparent);
   }
 
-  /* Segmented control — for a mutually exclusive, consequential choice (which
-     statistical test runs), where radio-like grouping reads better than chips. */
+  /**
+   * One of a few, mutually exclusive: a track, and a thumb on the chosen one.
+   *
+   * It was a row of bordered cells with the chosen one filled black, so three
+   * of them in a row were the heaviest marks on the screen. The thumb is the
+   * paper's colour, raised by a hairline: the choice is read from shape and
+   * weight, and the control weighs less than the figure under it.
+   */
   .seg {
-    border: 1px solid var(--line-2);
-    background: var(--surface);
+    background: var(--press);
     border-radius: var(--r-md);
+    gap: 2px;
     height: var(--h-sm);
-    @apply inline-flex overflow-hidden;
+    padding: 2px;
+    @apply inline-flex;
   }
   .seg button {
-    border-right: 1px solid var(--line-2);
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-sm);
     color: var(--ink-2);
-    border-width: 0;
     font-size: var(--t-small);
-    /* 500, like .chip: two toggle families at two weights was a distinction
-       with nothing behind it. Never switch weight on select — the glyphs
-       re-measure and the whole row shifts. */
+    /* Never switch weight on select: the glyphs re-measure and the row shifts. */
     font-weight: 500;
     height: 100%;
-    padding: 0 var(--s3);
+    padding: 0 10px;
+    @apply whitespace-nowrap;
     transition: transform var(--d-press) var(--ease-out),
       background-color var(--d-press) ease, color var(--d-press) ease;
   }
-  .seg button:last-child {
-    border-right: 0;
+  @media (hover: hover) and (pointer: fine) {
+    .seg button:hover:not(:disabled):not([aria-pressed='true']) {
+      color: var(--ink);
+    }
   }
   .seg button[aria-pressed='true'] {
-    background: var(--sel);
-    color: var(--surface);
+    background: var(--surface);
+    box-shadow: 0 0 0 1px var(--line-2), 0 1px 2px rgba(0, 0, 0, 0.08);
+    color: var(--ink);
   }
   .seg button:active:not(:disabled) {
     transform: scale(0.97);
@@ -505,15 +482,26 @@ svg {
   .seg button:disabled {
     @apply cursor-not-allowed opacity-40;
   }
+  /* In the rail a segmented control takes the rail's width and its control height. */
+  .rail .seg {
+    height: var(--h-md);
+    @apply flex w-full;
+  }
+  .rail .seg button {
+    flex: 1 1 0;
+    padding: 0 var(--s1);
+  }
 
+  /* A field: known only by its edge, so the edge is --ctl (3:1 or more), and
+     its ground is the paper even on the chrome. */
   .sel,
   .inp {
-    border: 1px solid var(--line-2);
+    border: 1px solid var(--ctl);
     background: var(--surface);
     color: var(--ink);
     border-radius: var(--r-md);
     font-size: var(--t-body);
-    padding: 5px var(--s2);
+    padding: 4px var(--s2);
     @apply outline-none;
   }
   select.sel,
@@ -528,19 +516,24 @@ svg {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'] {
+    accent-color: var(--ink);
+  }
 
-  /* One separator, one height. Callers used to override it to 20, 24 and 26px,
-     which is three heights for one hairline. */
+  /* One separator, one height. */
   .gsep {
     background: var(--line-2);
     @apply w-px flex-none self-center;
-    height: 22px;
+    height: 16px;
   }
 
   .badge {
     border-radius: var(--r-sm);
     font-size: var(--t-micro);
-    font-weight: 600;
+    font-weight: 500;
+    line-height: 16px;
     padding: 1px 6px;
     @apply inline-flex items-center gap-1 whitespace-nowrap;
   }
@@ -557,6 +550,8 @@ svg {
     color: var(--ink-3);
   }
 
+  /* Something about the data that limits what a figure can claim. Not for a
+     step the reader has not taken yet: that is an empty state. */
   .note {
     background: var(--warn-soft);
     border: 1px solid var(--warn-line);
@@ -576,47 +571,29 @@ svg {
   .note-info b {
     color: var(--ink);
   }
-  /* The advisory variant: something about the data limits what the figure can
-     claim. `.note` is already this colour, so this exists to be a NAME the
-     callers can ask for — it was being used before it was written, and that
-     block was silently rendering as whatever `.note` happened to be. */
   .note-warn {
     background: var(--warn-soft);
     border-color: var(--warn-line);
   }
 
+  /* Nothing to draw yet: words in the place the figure will take, saying
+     what to do next. No box; the stage is already the frame. */
   .empty {
-    border: 1px dashed var(--line-2);
-    background: var(--sunk);
     color: var(--ink-2);
-    border-radius: var(--r-md);
     font-size: var(--t-body);
+    margin: 0 auto;
+    max-width: 56ch;
     padding: var(--s6) var(--s5);
     @apply text-center;
   }
-  /* A panel of secondary controls inside a card. One treatment, from three:
-     the threshold strip, the cell-type pickers and the term detail each had
-     their own padding for the same job. */
+  /* A well of secondary controls inside a section. */
   .panel {
     background: var(--sunk);
     border-radius: var(--r-md);
     padding: var(--s3);
   }
-  /**
-   * One cell type, in or out of a figure.
-   *
-   * These grids were the only pressable things in the studio with no press
-   * state and no transition: the opacity flipped 1 ↔ 0.45 between frames, so a
-   * click on a 190px row read as the page redrawing rather than as the control
-   * responding. Opacity is set inline by the caller — this adds the feedback.
-   */
-  /* A save control on every panel of a small multiple.
-     Each facet needs its own — Figure exports the first <svg> inside itself, so
-     one button over the grid would always have saved the first cell type. But
-     nine of them, or a hundred and thirty-three, is a grid of buttons with
-     charts between them, so the control recedes until the panel is under the
-     pointer. Never hidden: it stays legible at rest, holds its place in the
-     layout, and comes fully forward on keyboard focus as well as on hover. */
+  /* A save control on every panel of a small multiple recedes until the
+     panel is under the pointer; never hidden, and forward on keyboard focus. */
   .facet .btn-quiet {
     opacity: 0.4;
     transition: opacity var(--d-press) ease;
@@ -643,45 +620,50 @@ svg {
     border-radius: var(--r-md);
     @apply overflow-x-auto;
   }
+  /* A table: a quiet head that stays put, hairline rows, numbers that align. */
   .t {
     font-size: var(--t-small);
     @apply w-full border-collapse;
   }
   .t th {
     color: var(--ink-2);
-    background: var(--sunk);
+    background: var(--bg);
     border-bottom: 1px solid var(--line);
     font-size: var(--t-small);
-    font-weight: 600;
-    padding: 6px var(--s2);
+    font-weight: 500;
+    height: var(--h-md);
+    padding: 0 var(--s2);
     @apply sticky top-0 whitespace-nowrap text-left;
   }
   .t td {
     border-bottom: 1px solid var(--line);
-    padding: var(--s1) var(--s2);
+    height: var(--h-md);
+    padding: 0 var(--s2);
+  }
+  .t tr:last-child td {
+    border-bottom: 0;
   }
   .t tr:hover td {
-    background: var(--sunk);
+    background: var(--hover);
   }
 
   .legend {
     color: var(--ink-2);
-    font-size: var(--t-micro);
-    @apply flex flex-wrap items-center gap-x-[14px] gap-y-1;
+    font-size: var(--t-small);
+    @apply flex flex-wrap items-center gap-x-3 gap-y-1;
   }
   .legend > span {
-    @apply inline-flex items-center gap-[5px];
+    @apply inline-flex items-center gap-1.5;
   }
   .sw {
     border-radius: 2px;
     @apply inline-block flex-none;
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
   }
 
-  /* Every figure axis in the studio is one of these three. Changing them here
-     changes all of them, which is the point: an app whose figures are styled
-     one component at a time ends up with six dialects of the same axis. */
+  /* Every figure axis is one of these three. The sizes are in the figure's
+     own units (an SVG's viewBox), not the interface's pixels. */
   .axis {
     fill: var(--fig-ink);
     font-size: 10.5px;
@@ -690,26 +672,14 @@ svg {
     stroke: var(--fig-line);
     stroke-width: 0.9;
   }
-  /* Behind the data, never competing with it. Separate from .axline because
-     the two were the same class dimmed with an opacity attribute, which meant
-     a real axis and a gridline could only ever differ by how faint they were. */
   .axgrid {
     stroke: var(--fig-grid);
     stroke-width: 0.6;
   }
 
-  /**
-   * Menus that open from a control.
-   *
-   * Anchored at the trigger rather than the centre, because a menu that grows
-   * from its own middle reads as arriving from somewhere else. Never from
-   * scale(0) — nothing appears out of nothing.
-   *
-   * A TRANSITION with @starting-style, not a keyframe. A keyframe restarts from
-   * zero every time it is applied, so a menu toggled twice in quick succession —
-   * which is exactly what the Save button gets — replayed its entrance from the
-   * beginning instead of retargeting from where it had got to.
-   */
+  /* Menus that open from a control: anchored at the trigger, never from
+     scale(0), and a transition (not a keyframe) so a quick second toggle
+     retargets instead of replaying. */
   .menu-in {
     transform-origin: top left;
     opacity: 1;
@@ -724,21 +694,14 @@ svg {
     }
   }
 
-  /* An indeterminate progress bar, for work whose remaining size is not known.
-     Respects a reduced-motion preference by holding still rather than by
-     disappearing — the bar still has to say that something is running. */
+  /* An indeterminate progress bar. Under reduced motion it holds still
+     rather than disappearing: it still has to say that something is running. */
   @keyframes slide {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(300%); }
   }
 
-  /**
-   * A determinate bar, driven by --fill (0..1).
-   *
-   * scaleX, not width. Width is a layout property: the browser re-runs layout
-   * and paint for every frame of it, on a bar that is on screen for four
-   * minutes. A transform is composited and costs nothing.
-   */
+  /* A determinate bar, driven by --fill (0..1): scaleX, not width. */
   .bar-fill {
     transform: scaleX(var(--fill, 0));
     transform-origin: left center;
@@ -748,74 +711,126 @@ svg {
   }
 
   /* ---------------------------------------------------------------------
-     The shell (docs/DESIGN.md, "Layout"). One frame for every view: a sticky
-     head (the identity bar over the view tabs); under it the control rail on
-     the left and the stage. An explorer view splits the stage into the figure
-     and an inspector on the right. Nothing in the frame is sized by its data,
-     so nothing moves when data arrives.
+     The frame (docs/DESIGN.md, "The frame"). The window is the app: two
+     bars, then panes that scroll on their own. Chrome is --bg, the stage is
+     the paper, and panes meet at hairlines. Nothing in the frame is sized by
+     data, so nothing moves when data arrives.
      --------------------------------------------------------------------- */
+  .app {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100dvh;
+    overflow: hidden;
+  }
   .shell-head {
-    background: var(--surface);
+    background: var(--bg);
     border-bottom: 1px solid var(--line);
-    @apply sticky top-0 z-30;
+    @apply relative z-30;
   }
   .appbar {
     height: var(--bar-h);
-    padding: 0 var(--s4);
-    @apply flex items-center gap-3;
+    padding: 0 var(--s3);
+    @apply flex items-center gap-2;
   }
-  .viewtabs {
+  .appmark {
+    background: var(--ink);
+    border: 0;
+    border-radius: var(--r-md);
+    color: var(--bg);
+    font-size: var(--t-micro);
+    font-weight: 600;
+    height: 24px;
+    width: 24px;
+    @apply grid flex-none place-items-center;
+  }
+  .viewbar {
     height: var(--tabs-h);
     padding: 0 var(--s2);
-    @apply flex items-stretch gap-4 overflow-x-auto;
+    @apply flex items-stretch gap-1;
+  }
+  .viewbar > .btn-icon {
+    align-self: center;
+  }
+  .viewtabs {
+    min-width: 0;
+    @apply flex flex-1 items-stretch overflow-x-auto;
+    scrollbar-width: none;
+  }
+  /* Object / Analysis / Document: a hairline between the groups. */
+  .viewgroup {
+    @apply flex flex-none items-stretch;
+  }
+  .viewgroup + .viewgroup::before {
+    align-self: center;
+    background: var(--line-2);
+    content: '';
+    height: 16px;
+    margin: 0 var(--s2);
+    width: 1px;
   }
   .viewtab {
     background: transparent;
     border: 0;
-    border-bottom: 2px solid transparent;
     color: var(--ink-2);
     font-size: var(--t-body);
     font-weight: 500;
-    padding: 2px var(--s3) 0;
-    @apply whitespace-nowrap;
-    transition: color var(--d-press) ease, border-color var(--d-press) ease;
+    padding: 0 10px;
+    @apply relative whitespace-nowrap;
+    transition: color var(--d-press) ease;
   }
   @media (hover: hover) and (pointer: fine) {
     .viewtab:hover:not(:disabled) {
       color: var(--ink);
     }
   }
+  /* The chosen view: ink, and a rule that sits on the bar's own hairline. */
   .viewtab[aria-selected='true'] {
-    border-bottom-color: var(--sel);
     color: var(--ink);
+  }
+  .viewtab[aria-selected='true']::after {
+    background: var(--sel);
+    bottom: -1px;
+    content: '';
+    height: 2px;
+    left: 10px;
+    right: 10px;
+    @apply absolute;
   }
   .viewtab:disabled {
     @apply cursor-not-allowed opacity-40;
   }
   .viewtab:focus-visible {
-    outline-offset: -2px;
+    outline-offset: -3px;
   }
 
   .work {
     display: grid;
     grid-template-columns: var(--rail-w) minmax(0, 1fr);
-    min-height: calc(100dvh - var(--chrome-h));
+    min-height: 0;
   }
-  .work[data-rail='none'] {
+  .work[data-rail='none'],
+  .work[data-rail='closed'] {
     grid-template-columns: minmax(0, 1fr);
   }
+  .work[data-rail='closed'] > .rail {
+    display: none;
+  }
   .rail {
-    align-self: start;
-    background: var(--surface);
+    background: var(--bg);
     border-right: 1px solid var(--line);
-    max-height: calc(100dvh - var(--chrome-h));
-    min-height: calc(100dvh - var(--chrome-h));
-    padding: var(--s4);
-    top: var(--chrome-h);
-    @apply sticky flex flex-col gap-5 overflow-y-auto;
+    min-height: 0;
+    padding: var(--s3);
+    @apply flex flex-col gap-5 overflow-y-auto;
   }
   .rail-group {
     @apply flex flex-col gap-2;
+  }
+  /* The view's own groups (components/Rail.tsx), spaced like the rail's. */
+  .rail-slot {
+    @apply flex flex-col gap-5;
+  }
+  .rail-slot:empty {
+    display: none;
   }
   .rail-label {
     color: var(--ink);
@@ -832,42 +847,65 @@ svg {
     max-width: none !important;
     width: 100%;
   }
-  /* A one-of-many choice in the rail: full-width rows, the chosen one inked. */
+  .rail .field {
+    @apply flex flex-col gap-1;
+  }
+  .rail .field > .glabel {
+    color: var(--ink-2);
+  }
+  .rail input[type='range'] {
+    margin: 0;
+    width: 100%;
+  }
+  .rail .inp.mono {
+    font-size: var(--t-small);
+  }
+  .rail .hint {
+    color: var(--ink-3);
+    font-size: var(--t-micro);
+    line-height: 1.4;
+  }
+  /* One of many, in the rail: full-width rows, the chosen one washed with an
+     ink edge (never colour alone). */
   .opts {
-    @apply flex flex-col gap-0.5;
+    @apply flex flex-col gap-px;
   }
   .opt {
     background: transparent;
     border: 0;
     border-radius: var(--r-md);
     color: var(--ink-2);
-    font-size: var(--t-small);
+    font-size: var(--t-body);
     font-weight: 500;
-    height: var(--h-sm);
+    height: var(--h-md);
     padding: 0 var(--s2);
     @apply flex w-full items-center justify-between text-left;
     transition: background-color var(--d-press) ease, color var(--d-press) ease;
   }
   @media (hover: hover) and (pointer: fine) {
     .opt:hover:not([aria-pressed='true']) {
-      background: var(--sunk);
+      background: var(--hover);
       color: var(--ink);
     }
   }
-  /* Chosen: a sunk fill AND an ink edge, so the state is never colour alone.
-     A full ink fill here outweighed the figure it controls. */
   .opt[aria-pressed='true'] {
-    background: var(--sunk);
+    background: var(--press);
     box-shadow: inset 2px 0 0 var(--sel);
     color: var(--ink);
   }
-  /* An on/off setting reads as a switch, not as one more choice in a list. */
+  /* An on/off setting reads as a switch, not as one more choice in a list:
+     its words start at the rail's edge with the labels around it, and the
+     switch ends at the edge of the controls. */
+  .opt.opt-toggle,
+  .opt.opt-toggle:hover,
   .opt.opt-toggle[aria-pressed='true'] {
     background: transparent;
     box-shadow: none;
+    gap: var(--s2);
+    padding: 0;
   }
   .switch {
-    background: var(--line-2);
+    background: var(--ctl);
     border-radius: 9999px;
     height: 16px;
     width: 28px;
@@ -891,40 +929,116 @@ svg {
   [aria-pressed='true'] > .switch::after {
     transform: translateX(12px);
   }
+
+  /* The stage: the paper. A document view scrolls here; a fitted view
+     (data-fit) fills it and scrolls nowhere. */
   .stage {
+    background: var(--surface);
+    min-height: 0;
     min-width: 0;
-    padding: var(--s5);
+    overflow: auto;
   }
-  /* A view that is still a document of cards keeps a reading column. */
-  .column {
-    margin: 0 auto;
-    max-width: 1180px;
+  .stage[data-fit] {
+    overflow: hidden;
+  }
+  .stage[data-fit] > .column {
+    height: 100%;
+  }
+  /* A document view with no rail is a reading column, centred. */
+  .work[data-rail='none'] .card > * {
+    margin-left: auto;
+    margin-right: auto;
   }
 
-  /* An explorer: the figure owns the stage, and its details sit beside it. */
+  /* A fitted view: head line, figure, status line; the inspector beside. */
   .explorer {
     display: grid;
-    gap: var(--s5);
     grid-template-columns: minmax(0, 1fr) var(--inspector-w);
-    @apply items-start;
+    height: 100%;
   }
-  .explorer > .card {
-    margin-bottom: 0;
+  .explorer[data-inspector='closed'] {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .inspector {
+  .pane {
+    min-height: 0;
+    min-width: 0;
+    @apply flex flex-col;
+  }
+  .stage-head {
+    border-bottom: 1px solid var(--line);
+    column-gap: var(--s3);
+    flex: none;
+    min-height: var(--head-h);
+    padding: 6px var(--s4);
+    @apply flex flex-wrap items-center;
+  }
+  .stage-title {
+    font-size: var(--t-body);
+    font-weight: 600;
+    @apply whitespace-nowrap;
+  }
+  .stage-meta {
+    color: var(--ink-2);
+    font-size: var(--t-small);
+    @apply whitespace-nowrap;
+  }
+  /* A document view's body, under its head line. */
+  .stage-body {
+    padding: var(--s4) var(--s5) var(--s5);
+  }
+  .stage-body > * {
+    max-width: var(--measure);
+  }
+  .stage-foot {
+    border-top: 1px solid var(--line);
+    color: var(--ink-2);
+    flex: none;
+    font-size: var(--t-small);
+    gap: var(--s4);
+    height: var(--foot-h);
+    padding: 0 var(--s4);
+    @apply flex items-center justify-between whitespace-nowrap;
+  }
+  /* The figure's area: equal cells divided by hairlines, one per panel. */
+  .plots {
+    background: var(--line);
+    display: grid;
+    flex: 1 1 0;
+    gap: 1px;
+    min-height: 0;
+  }
+  .plot {
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    padding: var(--s4);
-    top: calc(var(--chrome-h) + var(--s5));
-    @apply sticky flex flex-col gap-4;
+    min-height: 0;
+    min-width: 0;
+    @apply relative flex flex-col items-center justify-center overflow-hidden;
+  }
+  .plot-name {
+    flex: none;
+    font-size: var(--t-small);
+    font-weight: 600;
+    padding-left: var(--s3);
+    @apply truncate whitespace-nowrap;
+  }
+  .plot-name > .num {
+    color: var(--ink-2);
+    font-weight: 400;
+    margin-left: var(--s2);
+  }
+
+  .inspector {
+    background: var(--bg);
+    border-left: 1px solid var(--line);
+    min-height: 0;
+    padding: var(--s3);
+    @apply flex flex-col gap-3 overflow-y-auto;
   }
   .ins-section {
-    @apply flex flex-col gap-2;
+    @apply flex flex-col gap-1;
   }
   .ins-section + .ins-section {
     border-top: 1px solid var(--line);
-    padding-top: var(--s4);
+    padding-top: var(--s3);
   }
   .lg-row {
     color: var(--ink);
@@ -938,39 +1052,84 @@ svg {
   .lg-row > .num {
     color: var(--ink-2);
   }
+  /* A legend entry that can be pressed: it isolates its cells on the figure. */
+  button.lg-row {
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-sm);
+    margin: 0 calc(-1 * var(--s2));
+    padding: 0 var(--s2);
+    width: calc(100% + 2 * var(--s2));
+    @apply text-left;
+    transition: background-color var(--d-press) ease, opacity var(--d-press) ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    button.lg-row:hover {
+      background: var(--hover);
+    }
+  }
+  button.lg-row[aria-pressed='true'] {
+    background: var(--press);
+  }
+  /* In a stage head (the inspector closed): the entries run in a line. */
+  button.lg-row.lg-inline {
+    margin: 0;
+    width: auto;
+  }
+  .lg-dim {
+    opacity: 0.45;
+  }
   /* The readout under the pointer. Never in the way of the pointer itself. */
   .tip {
     background: var(--surface);
-    border: 1px solid var(--line-2);
     border-radius: var(--r-md);
     box-shadow: var(--shadow-menu);
     color: var(--ink);
     font-size: var(--t-small);
-    padding: var(--s2) var(--s3);
+    padding: 6px var(--s2);
     @apply pointer-events-none absolute z-10 whitespace-nowrap;
   }
 
-  /* Narrow: the inspector folds under the figure, then the rail over the stage. */
-  @media (max-width: 1279px) {
+  /* Narrow: the inspector goes under the figure, then the frame lets go and
+     the page is one scrolling column. */
+  @media (max-width: 1099px) {
     .explorer {
       grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(420px, 1fr) auto;
+      overflow-y: auto;
     }
     .inspector {
-      position: static;
+      border-left: 0;
+      border-top: 1px solid var(--line);
+      overflow: visible;
     }
   }
   @media (max-width: 1023px) {
+    .app {
+      display: block;
+      height: auto;
+      overflow: visible;
+    }
+    .shell-head {
+      @apply sticky top-0;
+    }
     .work {
       grid-template-columns: minmax(0, 1fr);
     }
     .rail {
       border-bottom: 1px solid var(--line);
       border-right: 0;
-      max-height: none;
-      min-height: 0;
-      position: static;
     }
-    .stage {
+    .stage,
+    .stage[data-fit] {
+      overflow: visible;
+    }
+    .explorer {
+      height: auto;
+      grid-template-rows: 70dvh auto;
+      overflow: visible;
+    }
+    .card {
       padding: var(--s4);
     }
   }
@@ -978,14 +1137,13 @@ svg {
   .prose-methods {
     font-size: var(--t-body);
     line-height: var(--lh-prose);
-    max-width: 66ch;
+    max-width: 68ch;
   }
-  /* A citation marker, not a link. It was accent, which put the app's "press
-     this" colour on eighty pieces of text nobody can press. */
+  /* A citation marker, not a link. */
   .prose-methods sup {
     color: var(--ink-3);
     font-size: var(--t-micro);
-    @apply px-[0.5px] font-bold;
+    @apply px-[0.5px] font-semibold;
   }
 }
 
@@ -1009,7 +1167,8 @@ svg {
   }
   .btn:active,
   .chip:active,
-  .seg button:active {
+  .seg button:active,
+  .type-toggle:active {
     transform: none;
   }
   .menu-in {
@@ -1052,6 +1211,9 @@ svg {
   .inp {
     border-color: var(--ink-2);
   }
+  .seg button[aria-pressed='true'] {
+    box-shadow: 0 0 0 1px var(--ink-2);
+  }
   /* The per-type toggles carry their off state as inline opacity, so it is
      raised here rather than removed — an off control still has to read as off. */
   .type-toggle[aria-pressed='false'] {
@@ -1079,6 +1241,8 @@ svg {
     --accent-soft: var(--sunk);
     --warn-soft: var(--sunk);
     --good-soft: var(--sunk);
+    --hover: var(--sunk);
+    --press: var(--line);
     --shadow-menu: 0 0 0 1px var(--ink-3);
   }
 }

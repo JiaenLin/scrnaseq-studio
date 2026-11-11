@@ -3,10 +3,10 @@ import type { CellType, ColorBy, Dataset } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { embedExtent, fmt, hasSignal } from '../lib/chart.ts'
+import { EDGE, NAME, fitPanels } from '../lib/fit-panels.ts'
 import { paintEmbedding } from '../lib/embed-paint.ts'
 import { pal, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { SENTINEL_GREY, countText, populations, sentinelCount } from '../lib/sentinels.ts'
-import { Card } from './Ui.tsx'
 
 /**
  * The explorer (docs/DESIGN.md, "Layout"): the embedding owns the stage, what
@@ -76,30 +76,32 @@ export function CellsControls({ d, colorBy, split, onColorBy, onSplit }: {
   )
 }
 
-/** The stage's size, read from the page, so the figure fills it at the embedding's own aspect. */
 // Before paint in a browser, so the first frame is already the fitted size and
 // nothing jumps; on the server (the tests' render) there is no layout to read.
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect
 
+/** The figure area's size, read from the page: width AND height. */
 function useStageBox() {
   const ref = useRef<HTMLDivElement>(null)
-  const [box, setBox] = useState({ w: 0, vh: 0 })
+  const [box, setBox] = useState({ w: 0, h: 0 })
   useBeforePaint(() => {
     const el = ref.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    const read = () => setBox({ w: Math.floor(el.clientWidth), vh: window.innerHeight })
+    const read = () => setBox(b => {
+      const w = Math.floor(el.clientWidth), h = Math.floor(el.clientHeight)
+      return b.w === w && b.h === h ? b : { w, h }
+    })
     read()
     const ro = new ResizeObserver(read)
     ro.observe(el)
-    window.addEventListener('resize', read)
-    return () => { ro.disconnect(); window.removeEventListener('resize', read) }
+    return () => ro.disconnect()
   }, [])
   return [ref, box] as const
 }
 
-const GAP = 16
+const KEY_NAME: Record<ColorBy, string> = { type: 'Cell type', cond: 'Group', sample: 'Sample', mito: '% mito' }
 
-export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey }: {
+export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey, inspector = true }: {
   src: Source
   types: CellType[]
   /** Which of the object's embeddings to draw. Chosen once, in App, for every tab. */
@@ -108,6 +110,8 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
   split: boolean
   palKey: PaletteKey
   rampKey: RampKey
+  /** The key beside the figure. Closed, the key moves into the figure's head. */
+  inspector?: boolean
   onColorBy?: (c: ColorBy) => void
   onSplit?: (v: boolean) => void
 }) {
@@ -117,22 +121,18 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
   const panels = split && d.multi ? d.conds : [null]
 
   /**
-   * Fitted, not fixed. The figure was a 700 × 500 box whatever the window, so
-   * at 1920 px the plot took a third of the screen. Now each panel takes its
-   * share of the stage, at the embedding's own aspect (equal units on both
-   * axes), and no taller than the window leaves room for. The backing store
-   * stays at twice the CSS size, as before, so the painter's point radius and
-   * label size read exactly as they did.
+   * Fitted to the stage, in both directions and for any number of panels.
+   * The backing store stays at twice the CSS size; marks and names are sized
+   * from the panel, so they read the same at 1,280 and at 2,560 px.
    */
   const [boxRef, box] = useStageBox()
   const ext = embedExtent(emb.xy)
   const aspect = (ext.y1 - ext.y0) / (ext.x1 - ext.x0) || 5 / 7
-  let pw = box.w
-    ? (box.w - GAP * (panels.length - 1)) / panels.length
-    : panels.length === 1 ? 700 : Math.max(240, 840 / panels.length)
-  let ph = pw * aspect
-  const maxH = box.vh ? Math.max(320, box.vh - 236 - (panels.length > 1 ? 28 : 0)) : 500
-  if (ph > maxH) { ph = maxH; pw = ph / aspect }
+  const fit = box.w
+    ? fitPanels(panels.length, box.w, box.h, aspect)
+    : { cols: panels.length, rows: 1, w: panels.length === 1 ? 700 : Math.max(240, 840 / panels.length), h: 0 }
+  const pw = Math.max(120, fit.w)
+  const ph = fit.h || pw * aspect
 
   // A sentinel is not a cell type, so it is not a legend entry; its cells are
   // drawn grey and said in one line under the legend instead.
@@ -152,73 +152,130 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
     return by
   }, [d.cells, types, shown])
   const uncalled = useMemo(() => sentinelCount(d.cells, types), [d.cells, types])
-  const legendName = shown === 'type' ? 'Cell type' : shown === 'cond' ? 'Group' : shown === 'sample' ? 'Sample' : '% mito'
+  const legendName = KEY_NAME[shown]
+
+  /**
+   * Isolate one entry of the key: its cells stay in colour and on top, the
+   * rest go grey underneath. Pressing the entry again, Escape, or "Show all"
+   * undoes it, and so does changing what the colours mean.
+   */
+  const [only, setOnly] = useState<string | null>(null)
+  const isolated = only !== null && legend.some(([, name]) => name === only) ? only : null
+  useEffect(() => {
+    if (isolated === null) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOnly(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isolated])
+  const keep = useMemo(() => {
+    if (isolated === null) return undefined
+    const cells = d.cells
+    return shown === 'type' ? (i: number) => types[cells[i].t]?.name === isolated
+      : shown === 'cond' ? (i: number) => cells[i].cond === isolated
+      : (i: number) => cells[i].s === isolated
+  }, [d.cells, types, shown, isolated])
+
+  const entry = (color: string, label: string, withCount: boolean) => (
+    <button key={label} type="button" aria-pressed={isolated === label}
+      className={`lg-row${withCount ? '' : ' lg-inline'}${isolated !== null && isolated !== label ? ' lg-dim' : ''}`}
+      title={isolated === label ? 'Show every cell again' : `Show only ${label}`}
+      onClick={() => setOnly(isolated === label ? null : label)}>
+      <span><i className="sw" style={{ background: color }} />{label}</span>
+      {withCount && <span className="num">{fmt(counts.get(label) ?? 0)}</span>}
+    </button>
+  )
+  const ramp = (
+    <div className="legend">
+      <span style={{ color: 'var(--ink-2)' }}>low</span>
+      <span className="inline-block h-[8px] w-[120px] rounded-[2px]" style={{ background: rampCss(rampKey) }} />
+      <span style={{ color: 'var(--ink-2)' }}>high</span>
+    </div>
+  )
+  // The axis glyph once per figure: on the bottom-left panel.
+  const axisAt = Math.min(panels.length - 1, (fit.rows - 1) * fit.cols)
+  const blanks = fit.cols * fit.rows - panels.length
 
   return (
-    <div className="explorer">
-      <Card eyebrow={`Embedding · ${emb.key} from your file`} title={`${fmt(d.nCells)} cells`}>
-        <div ref={boxRef} className="flex justify-center" style={{ gap: GAP }}>
-          {panels.map(p => (
-            <figure key={p ?? 'all'} className="min-w-0" style={{ width: pw }}>
+    <div className="explorer" data-inspector={inspector ? undefined : 'closed'}>
+      <section className="pane" aria-label="Embedding">
+        <header className="stage-head">
+          <h2 className="stage-title num">{`${fmt(d.nCells)} cells`}</h2>
+          <span className="stage-meta">{`Embedding · ${emb.key} from your file`}</span>
+          {/* Colour is never left without its key: with the inspector closed it sits here. */}
+          {!inspector && (
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-1" role="group" aria-label={legendName}>
+              <span className="stage-meta mr-1">{legendName}</span>
+              {legend.length > 0 ? legend.map(([color, label]) => entry(color, label, false)) : ramp}
+            </div>
+          )}
+        </header>
+
+        <div ref={boxRef} className="plots"
+          style={{ gridTemplateColumns: `repeat(${fit.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${fit.rows}, minmax(0, 1fr))` }}>
+          {panels.map((p, k) => (
+            <figure key={p ?? 'all'} className="plot">
+              {/* A panel's name sits on its own plot, not in the corner of the cell. */}
               {p && (
-                <div className="mb-1.5 tx-small font-semibold">
-                  {p}{' '}
-                  <span className="num font-normal" style={{ color: 'var(--ink-2)' }}>
-                    n = {fmt(d.nPerCond[p])}
-                  </span>
-                </div>
+                <figcaption className="plot-name" style={{ width: pw, height: NAME - EDGE }}>
+                  {p}<span className="num">n = {fmt(d.nPerCond[p])}</span>
+                </figcaption>
               )}
               <Scatter
                 d={d} types={types} xy={emb.xy} cond={p} colorBy={shown}
-                palKey={palKey} rampKey={rampKey} axis={emb.key} mito={mito}
-                w={pw} h={ph} labels={panels.length <= 2}
+                palKey={palKey} rampKey={rampKey} axis={k === axisAt ? emb.key : null} mito={mito}
+                w={pw} h={ph} labels={pw >= 280} keep={keep}
               />
             </figure>
           ))}
+          {Array.from({ length: blanks }, (_, k) => <div key={`blank-${k}`} className="plot" aria-hidden />)}
         </div>
-        <figcaption className="mt-3 tx-small" style={{ color: 'var(--ink-2)' }}>
-          {panels.length > 1
-            ? `One shared axis range across all ${panels.length} panels.`
-            : `Coloured by ${shown}.`}
-        </figcaption>
-      </Card>
 
-      <aside className="inspector" aria-label="What the colours mean">
-        <section className="ins-section">
-          <div className="lg-row">
-            <span className="rail-label">{legendName}</span>
-            {legend.length > 0 && <span className="tx-small" style={{ color: 'var(--ink-2)' }}>cells</span>}
-          </div>
-          {legend.length > 0 ? (
-            <div className="legend flex-col items-stretch" style={{ gap: 0 }}>
-              {legend.map(([color, label]) => (
-                <div key={label} className="lg-row">
-                  <span><i className="sw" style={{ background: color }} />{label}</span>
-                  <span className="num">{fmt(counts.get(label) ?? 0)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="legend">
-              <span style={{ color: 'var(--ink-2)' }}>low</span>
-              <span className="inline-block h-[10px] w-[140px] rounded-[--r-sm]" style={{ background: rampCss(rampKey) }} />
-              <span style={{ color: 'var(--ink-2)' }}>high</span>
-            </div>
-          )}
-        </section>
-
-        {shown === 'type' && uncalled.total > 0 && (
-          <section className="ins-section">
-            <p className="flex items-start gap-2 tx-small" style={{ color: 'var(--ink-2)' }}>
-              <i className="sw mt-[5px] flex-none" style={{ background: SENTINEL_GREY }} />
-              <span>
-                Grey: {fmt(uncalled.total)} cells the annotator did not call ({countText(uncalled)}).
-                They are drawn where they are, and are not a cell type.
+        <footer className="stage-foot">
+          <p className="m-0 truncate">
+            {panels.length > 1
+              ? `One shared axis range across all ${panels.length} panels.`
+              : `Coloured by ${shown}.`}
+          </p>
+          {isolated !== null && (
+            <span className="flex items-center gap-2">
+              <span className="num">
+                Only {isolated}: {fmt(counts.get(isolated) ?? 0)} of {fmt(d.nCells)} cells
               </span>
-            </p>
+              <button type="button" className="btn btn-quiet" style={{ height: 20 }} onClick={() => setOnly(null)}>
+                Show all
+              </button>
+            </span>
+          )}
+        </footer>
+      </section>
+
+      {inspector && (
+        <aside className="inspector" aria-label="What the colours mean">
+          <section className="ins-section">
+            <div className="lg-row">
+              <span className="rail-label">{legendName}</span>
+              {legend.length > 0 && <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>cells</span>}
+            </div>
+            {legend.length > 0 ? (
+              <div className="legend flex-col items-stretch" style={{ gap: 0, color: 'var(--ink)' }}>
+                {legend.map(([color, label]) => entry(color, label, true))}
+              </div>
+            ) : ramp}
           </section>
-        )}
-      </aside>
+
+          {shown === 'type' && uncalled.total > 0 && (
+            <section className="ins-section">
+              <p className="m-0 flex items-start gap-2 tx-small" style={{ color: 'var(--ink-2)' }}>
+                <i className="sw mt-[5px] flex-none" style={{ background: SENTINEL_GREY }} />
+                <span>
+                  Grey: {fmt(uncalled.total)} cells the annotator did not call ({countText(uncalled)}).
+                  They are drawn where they are, and are not a cell type.
+                </span>
+              </p>
+            </section>
+          )}
+        </aside>
+      )}
     </div>
   )
 }
@@ -229,8 +286,8 @@ function useNearest(d: Dataset, xy: Float32Array, cond: string | null, w: number
     let grid: Map<number, number[]> | null = null
     const S = 8
     const { x0, x1, y0, y1 } = embedExtent(xy)
-    const px = (i: number) => ((xy[2 * i] - x0) / (x1 - x0)) * w
-    const py = (i: number) => (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * h
+    const px = (i: number) => EDGE + ((xy[2 * i] - x0) / (x1 - x0)) * (w - 2 * EDGE)
+    const py = (i: number) => EDGE + (1 - (xy[2 * i + 1] - y0) / (y1 - y0)) * (h - 2 * EDGE)
     const key = (gx: number, gy: number) => gy * 100_000 + gx
     return (mx: number, my: number): number => {
       if (!grid) {
@@ -255,7 +312,7 @@ function useNearest(d: Dataset, xy: Float32Array, cond: string | null, w: number
   }, [d, xy, cond, w, h])
 }
 
-function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, axis, mito }: {
+function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, axis, mito, keep }: {
   d: Dataset
   types: CellType[]
   xy: Float32Array
@@ -266,8 +323,10 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
   w: number
   h: number
   labels: boolean
-  axis: string
+  /** The embedding's key, on the one panel that carries the axis glyph. */
+  axis: string | null
   mito: boolean
+  keep?: (cell: number) => boolean
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const [tip, setTip] = useState<{ x: number; y: number; i: number } | null>(null)
@@ -279,14 +338,25 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
     const g = cv.getContext('2d')
     if (!g) return
     const css = getComputedStyle(document.documentElement)
+    const surface = css.getPropertyValue('--surface').trim()
+    // Marks sized from the panel and from how many cells share it: the same
+    // ink density at any window size, larger points when there are few.
+    let shownCells = d.cells.length
+    if (cond) { shownCells = 0; for (const c of d.cells) if (c.cond === cond) shownCells++ }
+    const k = Math.max(0.8, Math.min(3.4, (30_000 / Math.max(1, shownCells)) ** 0.25))
+    const radius = 2 * Math.max(0.7, Math.min(3, (w / 760) * k))
     // What is drawn is in lib/embed-paint.ts, where a test can watch it.
     paintEmbedding(g, {
       d, types, xy, cond, colorBy, palKey, rampKey, labels,
       ink: css.getPropertyValue('--ink').trim(),
-      surface: css.getPropertyValue('--surface').trim(),
-      sunk: css.getPropertyValue('--sunk').trim(),
+      surface,
+      // The plot's ground is the paper it sits on, never a fill of its own.
+      sunk: surface,
+      radius, pad: 2 * EDGE,
+      labelPx: 2 * Math.max(11, Math.min(14, Math.round(w / 52))),
+      keep, mute: css.getPropertyValue('--line-2').trim(),
     })
-  }, [d, types, xy, cond, colorBy, palKey, rampKey, labels, w, h])
+  }, [d, types, xy, cond, colorBy, palKey, rampKey, labels, w, h, keep])
 
   const c = tip ? d.cells[tip.i] : null
   return (
@@ -308,15 +378,17 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
           + `${cond ? `, ${cond} only` : ''}, coloured by ${colorBy}`
           + `${labels ? `, with ${populations(types).length} cluster names` : ''}`}
         ref={ref} width={Math.round(w * 2)} height={Math.round(h * 2)}
-        style={{ width: w, height: h, borderRadius: 'var(--r-md)' }}
+        style={{ width: w, height: h }}
       />
       {/* The axes are the embedding's own two dimensions, named by its key. */}
-      <svg aria-hidden className="pointer-events-none absolute bottom-2 left-2" width="96" height="58">
-        <path d="M6 4 V52 H54" fill="none" stroke="var(--ink-2)" strokeWidth="1" />
-        <path d="M3 9 L6 4 L9 9 M49 49 L54 52 L49 55" fill="none" stroke="var(--ink-2)" strokeWidth="1" />
-        <text x="12" y="10" fontSize="10" fill="var(--ink-2)">{axis} 2</text>
-        <text x="58" y="55" fontSize="10" fill="var(--ink-2)">{axis} 1</text>
-      </svg>
+      {axis && (
+        <svg aria-hidden className="pointer-events-none absolute bottom-0 left-0" width="120" height="48">
+          <path d="M4.5 4 V43.5 H44" fill="none" stroke="var(--ink-2)" strokeWidth="1" />
+          <path d="M1.5 8 L4.5 3 L7.5 8 M40 40.5 L45 43.5 L40 46.5" fill="none" stroke="var(--ink-2)" strokeWidth="1" />
+          <text x="11" y="11" fontSize="11" fill="var(--ink-2)">{axis} 2</text>
+          <text x="50" y="47" fontSize="11" fill="var(--ink-2)">{axis} 1</text>
+        </svg>
+      )}
       {c && tip && (
         <div className="tip" role="status"
           style={{ left: tip.x + 14, top: tip.y + 14, transform: tip.x > w - 200 ? 'translateX(calc(-100% - 28px))' : undefined }}>
