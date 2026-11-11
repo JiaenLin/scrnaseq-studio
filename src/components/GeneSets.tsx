@@ -18,11 +18,13 @@ import GeneSetSources from './GeneSetSources.tsx'
 import {
   averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
 } from '../lib/score.ts'
-import { AXIS_INK, LABEL_INK } from '../lib/figure-ink.ts'
+import { AXIS_INK, PRINT_INK, PRINT_LABEL } from '../lib/figure-ink.ts'
 import { drawColorBar } from '../lib/feature-plot.ts'
 import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
-import { Card, Mono, Seg } from './Ui.tsx'
+import { Empty, Mono, Seg } from './Ui.tsx'
+import { InRail, Opts, RailGroup, Toggle } from './Rail.tsx'
+import { InHead, Section, Stage } from './Stage.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import { useJob } from '../lib/compute.ts'
 import Progress, { Failed } from './Progress.tsx'
@@ -36,11 +38,18 @@ import Progress, { Failed } from './Progress.tsx'
  */
 const STARTING = { phase: '', done: 0, total: 0, startedAt: 0 }
 
+export type SetsView = 'one' | 'many'
+
 export default function GeneSets({
   src, types, emb, palKey, rampKey, rampDiv, onPickGene, onCorrelate,
   lib, species, sources, onSources, customSets, onCustomSets,
-  detected, scoreRan, onScoreRan,
+  detected, scoreRan, onScoreRan, view, onView, many,
 }: {
+  /** One set on the embedding, or several sets side by side. */
+  view: SetsView
+  onView: (v: SetsView) => void
+  /** The several-sets view, which is given the switch to put in its head line. */
+  many: (switcher: React.ReactNode) => React.ReactNode
   src: Source
   types: CellType[]
   /** Which of the object's embeddings to draw the score on. */
@@ -310,259 +319,252 @@ export default function GeneSets({
       : []),
   ]
 
+  const sourcesEl = (
+    <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
+      customSets={customSets} onCustomSets={onCustomSets}
+      background={GENES} detected={detected} />
+  )
+  const switcher = (
+    <Seg<SetsView> value={view} onChange={onView}
+      options={[{ k: 'one', label: 'One set' }, { k: 'many', label: 'Several sets' }]} />
+  )
+  // The library and the switch are this view's; the several-sets stage is its own.
+  if (view === 'many') return <>{sourcesEl}{many(switcher)}</>
+
+  const result = armed && used.length > 0 && !waiting && !failed
+
   return (
     <>
-      <Card
-        eyebrow="Gene sets" title="Module score, per cell"
-        sub={<>Seurat&rsquo;s <Mono>AddModuleScore</Mono>: the set&rsquo;s mean, minus a control
-          set matched on expression level.</>}
-      >
-        <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources}
-          customSets={customSets} onCustomSets={onCustomSets}
-          background={GENES} detected={detected} />
-
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            className="inp w-[380px]" value={find}
-            placeholder={lib.loading ? 'loading MSigDB…'
-              : `search ${allSets.length.toLocaleString()} sets — cell cycle, notch…`}
-            aria-label="Search gene sets"
-            disabled={lib.loading}
-            role="combobox" aria-expanded={hits.length > 0} aria-controls="geneset-hits"
-            aria-activedescendant={hits[cursor] ? `gs-${hits[cursor].id}` : undefined}
-            autoComplete="off"
-            onKeyDown={onSearchKey}
-            onChange={e => setFind(e.target.value)}
-          />
-        </div>
-
-        {/* The matches, as a list rather than a dropdown: at 20 454 sets the
-            names are what the reader is choosing between, and a <select> shows
-            one at a time. Capped at forty — narrowing the search is the way to
-            find something, not scrolling. */}
-        {!lib.loading && (
-          <div ref={listRef} id="geneset-hits" role="listbox" aria-label="Matching gene sets"
-            className="panel mt-2 max-h-[210px] overflow-y-auto">
-            {hits.length === 0 ? (
-              <p className="tx-small" style={{ color: 'var(--ink-3)' }}>
-                Nothing matches “{find}”.
-              </p>
-            ) : hits.map((h, i) => (
-              <button
-                key={h.id} id={`gs-${h.id}`} role="option" data-at={i === cursor ? 1 : 0}
-                className="type-toggle flex w-full items-baseline gap-2 rounded-[--r-md] px-2 py-1 text-left"
-                aria-selected={h.id === chosen?.id}
-                tabIndex={-1}
-                style={{
-                  background: h.id === chosen?.id ? 'var(--surface)' : 'transparent',
-                  // The arrow cursor is drawn separately from the selection: one
-                  // is where you are looking, the other is what you chose.
-                  outline: i === cursor ? '2px solid var(--accent)' : 'none',
-                  outlineOffset: -2,
-                }}
-                onClick={() => { setSetId(h.id); setCursor(i) }}
-              >
-                <span className="glabel flex-none" style={{ width: 92 }}>{h.source}</span>
-                <span className="min-w-0 flex-1 truncate tx-small"
-                  style={{ fontWeight: h.id === chosen?.id ? 600 : 400 }}>{h.name}</span>
-                <span className="mono flex-none tx-micro" style={{ color: 'var(--ink-3)' }}>
-                  {h.n}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
-          {`${used.length} of ${requested.length} genes found in this object`}
-          {missing.length > 0 && (
-            <> · <span style={{ color: 'var(--warn)' }}>not measured:{' '}
-              <span className="mono">{missing.slice(0, 8).join(', ')}
-                {missing.length > 8 ? ` +${missing.length - 8}` : ''}</span></span></>
-          )}
-          {' '}· {SCORE_DEFAULTS.ctrl} control genes per set gene, drawn from{' '}
-          {SCORE_DEFAULTS.nbin} expression bins
-        </p>
-
-        {failed ? (
-          <Failed error={failed} onRetry={retry} what="The module score" />
-        ) : waiting ? (
-          <Progress pass={pass ?? STARTING} title={`Scoring ${name} across every cell`} />
-        ) : used.length === 0 ? (
-          <div className="empty mt-4">
-            {!chosen
-              ? 'Pick a set above to score it. Your own sets appear here too — add them with '
-                + '"Add your own…".'
-              : 'None of these genes are measured in this object, so there is nothing to score.'}
-          </div>
-        ) : !armed ? (
-          /* Chosen, not yet asked for. Browsing a list of 13 604 names is not
-             consent to spend a pass per name, so the reader says when. */
-          <div className="empty mt-4">
-            <div className="card-title mb-1" style={{ color: 'var(--ink)', marginTop: 0 }}>
-              {name}
-            </div>
-            {used.length} gene{used.length === 1 ? '' : 's'} measured here, scored against{' '}
-            {SCORE_DEFAULTS.ctrl} controls each — one pass over every cell.
-            <div className="mt-3.5">
-              <button className="btn btn-primary" onClick={() => onScoreRan(key)}>
-                Score this set
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="mt-4 flex flex-wrap items-start gap-5">
-              <figure>
-                <figcaption className="mb-1.5 tx-small font-semibold" style={{ color: 'var(--ink)' }}>
-                  {name} on the embedding
-                </figcaption>
-                <Figure name={`module_score_${slug(name)}`}>
-                  <ScoreMap d={d} types={types} xy={emb.xy} scores={scoreOf} rampKey={rampKey} />
-                </Figure>
-              </figure>
-
-              <div className="min-w-[260px] flex-1">
-                <div className="eyebrow mb-2">Score by identity</div>
-                <div className="scrollx" style={{ maxHeight: 330 }}>
-                  <table className="t">
-                    <thead><tr><th>Identity</th><th>Cells</th><th>Median</th><th>Mean</th></tr></thead>
-                    <tbody>
-                      {ids.map((id, k) => {
-                        const s = stats[k]
-                        return (
-                          <tr key={id.full}>
-                            <td>
-                              <i className="sw mr-1.5" style={{ background: id.color }} />
-                              {id.full}
-                            </td>
-                            <td className="num" style={{ color: 'var(--ink-2)' }}>{s.n}</td>
-                            <td className="num font-semibold"
-                              style={{ color: s.med > 0 ? 'var(--up)' : 'var(--down)' }}>
-                              {s.med >= 0 ? '+' : ''}{s.med.toFixed(2)}
-                            </td>
-                            <td className="num" style={{ color: 'var(--ink-2)' }}>
-                              {s.mean >= 0 ? '+' : ''}{s.mean.toFixed(2)}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-2.5 flex items-center justify-end">
-                  <CsvButton onClick={() => downloadCsv(
-                    `module_score_${slug(name)}`,
-                    ['identity', 'cells', 'median', 'mean', 'q1', 'q3'],
-                    ids.map((id, k) => {
-                      const st = stats[k]
-                      return [id.full, st.n, st.med.toFixed(4), st.mean.toFixed(4),
-                        st.q1.toFixed(4), st.q3.toFixed(4)]
-                    }))} />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <div className="eyebrow mb-2">Genes in this set</div>
-              <div className="flex flex-wrap gap-1.5">
-                {used.map(g => (
-                  <button key={g} className="chip italic"
-                    title={`Open ${g} in Gene expression`}
-                    onClick={() => onPickGene(g)}>{g}</button>
-                ))}
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <p className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-                  Click a gene to see whether it carries the score on its own.
-                </p>
-                <button className="btn btn-sm" onClick={() => onCorrelate(used)}
-                  title="Find the genes that move with this signature, and against it">
-                  Correlate with this set →
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <span className="glabel">Group by</span>
-              <Seg<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
-            </div>
-            <Figure name={`module_score_by_identity_${slug(name)}`} className="mt-1">
-              <ScoreViolins scores={scoreOf} ids={ids} perId={perId} groupBy={groupBy} />
-            </Figure>
-            <p className="sub mt-2.5">
-              Zero is the reference: no higher than genes of comparable abundance.
-            </p>
-
-          </>
-        )}
-      </Card>
-
-      {/*
-        Its own card, not a strip under the violins.
-
-        The score is one number per cell; this is what it was made of, and it
-        answers a different question — a set can reach a high score because two
-        of its fifty genes are large or because fifty genes moved together, and
-        only the per-gene view separates those. A different question deserves its
-        own heading, its own grouping and its own export, rather than inheriting
-        the violin's and reading as a footnote to it.
-      */}
-      {armed && used.length > 0 && !waiting && (
-        <Card
-          eyebrow="Gene sets · per gene"
-          title="Every gene of the set, across identities"
-          sub={heatScale
-            ? "Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is."
-            : 'Mean expression as the object holds it, on one scale for every gene — so a row says how abundant that gene is.'}
-        >
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button className="chip" aria-pressed={heat} onClick={() => setHeat(!heat)}>
-              {heat ? 'Hide the heatmap' : 'Show the genes'}
-            </button>
+      {result && (
+        <InRail>
+          <RailGroup label="Score per cell">
+            <Opts<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
+          </RailGroup>
+          <RailGroup label="Genes of the set">
+            <Toggle on={heat} onChange={setHeat}>Show the genes</Toggle>
             {heat && (
               <>
-                <div className="gsep" />
                 {/* Its OWN grouping. It used to follow the violins', so asking
                     for the per-gene view across groups meant changing the figure
                     above it too. */}
-                <span className="glabel">Group by</span>
-                <Seg<GroupBy> value={heatBy} onChange={setHeatBy} options={modes} />
-                <div className="gsep" />
-                <button className="chip" aria-pressed={heatCluster}
-                  onClick={() => setHeatCluster(!heatCluster)}
-                  title="Order rows and columns by similarity, and draw the trees">
-                  Cluster
+                <Opts<GroupBy> value={heatBy} onChange={setHeatBy} options={modes} />
+                <Toggle on={heatCluster} onChange={setHeatCluster}
+                  title="Order rows and columns by similarity, and draw the trees">Cluster</Toggle>
+                <Toggle on={heatScale} onChange={setHeatScale}
+                  title="z-score each gene across the identities shown — pheatmap scale = row">
+                  Scale each gene</Toggle>
+                <Toggle on={heatFlip} onChange={setHeatFlip}
+                  title="Swap the axes — identities down the side, genes along the bottom">
+                  Transpose</Toggle>
+                <ColumnFilter types={types} conds={d.conds} groupBy={heatBy}
+                  hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
+                  palKey={palKey} label="Columns in this heatmap" />
+              </>
+            )}
+          </RailGroup>
+        </InRail>
+      )}
+      <Stage fit head={<>
+        {switcher}
+        <span className="stage-title">Module score, per cell</span>
+        <span className="stage-meta">Seurat&rsquo;s <Mono>AddModuleScore</Mono>: the set&rsquo;s
+          mean, minus a control set matched on expression level.</span>
+      </>}>
+        <div className="split split-list">
+          {/* The sets, as a list that is always there rather than a dropdown:
+              at 20 454 sets the names are what the reader is choosing between,
+              and a <select> shows one at a time. Capped at forty — narrowing
+              the search is the way to find something, not scrolling. */}
+          <div className="tpane">
+            <div className="tpane-tools">
+              <input
+                className="inp w-full" value={find}
+                placeholder={lib.loading ? 'loading MSigDB…'
+                  : `search ${allSets.length.toLocaleString()} sets — cell cycle, notch…`}
+                aria-label="Search gene sets"
+                disabled={lib.loading}
+                role="combobox" aria-expanded={hits.length > 0} aria-controls="geneset-hits"
+                aria-activedescendant={hits[cursor] ? `gs-${hits[cursor].id}` : undefined}
+                autoComplete="off"
+                onKeyDown={onSearchKey}
+                onChange={e => setFind(e.target.value)}
+              />
+            </div>
+            <div ref={listRef} id="geneset-hits" role="listbox" aria-label="Matching gene sets"
+              className="tpane-body">
+              {lib.loading ? null : hits.length === 0 ? (
+                <p className="tx-small p-3" style={{ color: 'var(--ink-3)' }}>
+                  Nothing matches “{find}”.
+                </p>
+              ) : hits.map((h, i) => (
+                <button
+                  key={h.id} id={`gs-${h.id}`} role="option" data-at={i === cursor ? 1 : 0}
+                  className="set-row" title={h.name}
+                  aria-selected={h.id === chosen?.id}
+                  tabIndex={-1}
+                  // The arrow cursor is drawn separately from the selection: one
+                  // is where you are looking, the other is what you chose.
+                  onClick={() => { setSetId(h.id); setCursor(i) }}
+                >
+                  <span className="min-w-0 flex-1 truncate">{h.name}</span>
+                  <span className="set-src">{h.source}</span>
+                  <span className="num set-n">{h.n}</span>
                 </button>
-                <div className="gsep" />
-                <button className="chip" aria-pressed={heatScale}
-                  onClick={() => setHeatScale(!heatScale)}
-                  title="z-score each gene across the identities shown — pheatmap scale = row"
-                >Scale each gene</button>
-                <button className="chip" aria-pressed={heatFlip}
-                  onClick={() => setHeatFlip(!heatFlip)}
-                  title="Swap the axes — identities down the side, genes along the bottom"
-                >Transpose</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="read" tabIndex={0} role="region" aria-label="The set's score">
+            {sourcesEl}
+            {failed ? (
+              <Failed error={failed} onRetry={retry} what="The module score" />
+            ) : waiting ? (
+              <Progress pass={pass ?? STARTING} title={`Scoring ${name} across every cell`} />
+            ) : used.length === 0 ? (
+              !chosen ? (
+                <Empty title="Pick a set in the list to score it.">
+                  Your own sets appear there too — add them with &ldquo;Paste or upload&rdquo;
+                  in the controls on the left.
+                </Empty>
+              ) : (
+                <div className="empty">
+                  None of these genes are measured in this object, so there is nothing to score.
+                </div>
+              )
+            ) : !armed ? (
+              /* Chosen, not yet asked for. Browsing a list of 13 604 names is not
+                 consent to spend a pass per name, so the reader says when. */
+              <div className="empty">
+                <div className="card-title mb-1" style={{ color: 'var(--ink)', marginTop: 0 }}>
+                  {name}
+                </div>
+                {used.length} gene{used.length === 1 ? '' : 's'} measured here, scored against{' '}
+                {SCORE_DEFAULTS.ctrl} controls each — one pass over every cell.
+                <div className="mt-3.5">
+                  <button className="btn btn-primary" onClick={() => onScoreRan(key)}>
+                    Score this set
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="sect-pair">
+                  <Section title={`${name} on the embedding`}>
+                    <Figure name={`module_score_${slug(name)}`}>
+                      <ScoreMap d={d} types={types} xy={emb.xy} scores={scoreOf} rampKey={rampKey} />
+                    </Figure>
+                  </Section>
+
+                  <Section title="Score by identity">
+                    <div className="scrollx" style={{ maxHeight: 420 }}>
+                      <table className="t">
+                        <thead><tr><th>Identity</th><th>Cells</th><th>Median</th><th>Mean</th></tr></thead>
+                        <tbody>
+                          {ids.map((id, k) => {
+                            const s = stats[k]
+                            return (
+                              <tr key={id.full}>
+                                <td className="whitespace-nowrap">
+                                  <i className="sw mr-1.5" style={{ background: id.color }} />
+                                  {id.full}
+                                </td>
+                                <td className="num" style={{ color: 'var(--ink-2)' }}>{s.n}</td>
+                                <td className="num font-semibold"
+                                  style={{ color: s.med > 0 ? 'var(--up)' : 'var(--down)' }}>
+                                  {s.med >= 0 ? '+' : ''}{s.med.toFixed(2)}
+                                </td>
+                                <td className="num" style={{ color: 'var(--ink-2)' }}>
+                                  {s.mean >= 0 ? '+' : ''}{s.mean.toFixed(2)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <InHead>
+                      <CsvButton onClick={() => downloadCsv(
+                        `module_score_${slug(name)}`,
+                        ['identity', 'cells', 'median', 'mean', 'q1', 'q3'],
+                        ids.map((id, k) => {
+                          const st = stats[k]
+                          return [id.full, st.n, st.med.toFixed(4), st.mean.toFixed(4),
+                            st.q1.toFixed(4), st.q3.toFixed(4)]
+                        }))} />
+                    </InHead>
+                  </Section>
+                </div>
+
+                <Section title="Genes in this set"
+                  meta={`${used.length} of ${requested.length} genes found in this object`}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {used.map(g => (
+                      <button key={g} className="chip italic"
+                        title={`Open ${g} in Gene expression`}
+                        onClick={() => onPickGene(g)}>{g}</button>
+                    ))}
+                  </div>
+                  <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
+                    Click a gene to see whether it carries the score on its own.
+                    {' '}{SCORE_DEFAULTS.ctrl} control genes per set gene, drawn from{' '}
+                    {SCORE_DEFAULTS.nbin} expression bins.
+                    {missing.length > 0 && (
+                      <> Not measured:{' '}
+                        <span className="mono">{missing.slice(0, 8).join(', ')}
+                          {missing.length > 8 ? ` +${missing.length - 8}` : ''}</span>.</>
+                    )}
+                  </p>
+                  <InHead>
+                    <button className="btn btn-quiet" onClick={() => onCorrelate(used)}
+                      title="Find the genes that move with this signature, and against it">
+                      Correlate with this set →
+                    </button>
+                  </InHead>
+                </Section>
+
+                <Section title="Score per cell"
+                  meta={modes.find(m => m.k === groupBy)?.label}>
+                  <Figure name={`module_score_by_identity_${slug(name)}`}>
+                    <ScoreViolins scores={scoreOf} ids={ids} perId={perId} groupBy={groupBy} />
+                  </Figure>
+                  <p className="sub mt-2.5">
+                    Zero is the reference: no higher than genes of comparable abundance.
+                  </p>
+                </Section>
+
+                {/*
+                  Its own section, not a strip under the violins.
+
+                  The score is one number per cell; this is what it was made of, and it
+                  answers a different question — a set can reach a high score because two
+                  of its fifty genes are large or because fifty genes moved together, and
+                  only the per-gene view separates those. A different question deserves its
+                  own heading, its own grouping and its own export, rather than inheriting
+                  the violin's and reading as a footnote to it.
+                */}
+                {heat && (
+                  <Section title="Every gene of the set, across identities"
+                    meta={modes.find(m => m.k === heatBy)?.label}>
+                    <p className="sub mb-2 mt-0">
+                      {heatScale
+                        ? "Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is."
+                        : 'Mean expression as the object holds it, on one scale for every gene — so a row says how abundant that gene is.'}
+                    </p>
+                    <Figure name={`set_genes_${slug(name)}`}>
+                      <SetHeatmap
+                        src={src} genes={used} d={d} types={types} groupBy={heatBy} palKey={palKey}
+                        keepT={heatKeepT} keepC={heatKeepC}
+                        rampDiv={rampDiv} rampSeq={rampKey} scale={heatScale} flip={heatFlip}
+                        cluster={heatCluster}
+                      />
+                    </Figure>
+                  </Section>
+                )}
               </>
             )}
           </div>
-          {heat && (
-            <>
-              <ColumnFilter types={types} conds={d.conds} groupBy={heatBy}
-                hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
-                palKey={palKey} label="Columns in this heatmap" />
-              <Figure name={`set_genes_${slug(name)}`} className="mt-1">
-                <SetHeatmap
-                  src={src} genes={used} d={d} types={types} groupBy={heatBy} palKey={palKey}
-                  keepT={heatKeepT} keepC={heatKeepC}
-                  rampDiv={rampDiv} rampSeq={rampKey} scale={heatScale} flip={heatFlip}
-                  cluster={heatCluster}
-                />
-              </Figure>
-            </>
-          )}
-        </Card>
-      )}
+        </div>
+      </Stage>
     </>
   )
 }
@@ -614,7 +616,7 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
       name: t.name,
       x: ((at[ti].x - x0) / (x1 - x0)) * cv.width,
       y: (1 - (at[ti].y - y0) / (y1 - y0)) * plotH,
-    }])), { fill: LABEL_INK, halo: 'rgba(255,255,255,.9)' })
+    }])), { fill: PRINT_LABEL, halo: 'rgba(255,255,255,.9)' })
 
     // The scale, on the figure. It was an HTML strip beside the canvas, so an
     // exported score map had colours and no way to read them — and this one is
@@ -625,7 +627,7 @@ function ScoreMap({ d, types, xy, scores, rampKey }: {
     drawColorBar(g, {
       x: (cv.width - barW) / 2, y: cv.height - BAR_U * unit + 16 * unit,
       w: barW, h: 9 * unit,
-      ramp: rampKey, lo, hi, ink: AXIS_INK,
+      ramp: rampKey, lo, hi, ink: PRINT_INK,
       label: 'Module score', unit,
     })
   }, [d, types, xy, scores, rampKey])

@@ -23,7 +23,8 @@ import { downloadCsv, slug } from '../lib/download.ts'
 import { MARK_EDGE } from '../lib/figure-ink.ts'
 import { ColorBar } from './svg-parts.tsx'
 import { rampColor, type RampKey } from '../lib/palette.ts'
-import { Card, Chips, Empty, Seg } from './Ui.tsx'
+import { Empty } from './Ui.tsx'
+import { InRail, Opts, RailGroup, Steps } from './Rail.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 
 type Direction = 'both' | 'up' | 'down'
@@ -202,81 +203,90 @@ export default function Enrichment({
   const dirLabel = dir === 'up' ? `higher in ${condLabel(cs)}` : dir === 'down' ? `higher in ${condLabel(ctrl)}` : 'changed in either direction'
 
   return (
-    <Card
-      eyebrow="Over-representation"
-      // "N enriched sets" counted every set with an overlap, significant or
-      // not — on a demo that was 272 sets of which none cleared correction. The
-      // headline is the number that survived; the number tested is the sentence
-      // below it, where it belongs.
-      title={`${nSig.toLocaleString()} enriched set${nSig === 1 ? '' : 's'}`}
-      sub={index
-        ? `Hypergeometric on ${query.length} genes ${dirLabel}, against an annotated `
-          + `background of ${index.N.toLocaleString()} of the ${background.length.toLocaleString()} `
-          + `this object measures. ${results.length.toLocaleString()} sets overlapped the list; `
-          + `${nSig.toLocaleString()} reach padj < 0.05 after BH across all of them.`
-        : 'Loading the gene sets…'}
-    >
+    <>
+      {/* The headline is the number that survived; the number tested is the
+          sentence below it, where it belongs. "N enriched sets" used to count
+          every set with an overlap, significant or not — on a demo that was
+          272 sets of which none cleared correction. */}
+      <h2 className="tx-title">{`${nSig.toLocaleString()} enriched set${nSig === 1 ? '' : 's'}`}</h2>
+      <p className="sub mb-3" style={{ maxWidth: '88ch' }}>
+        {index
+          ? `Hypergeometric on ${query.length} genes ${dirLabel}, against an annotated `
+            + `background of ${index.N.toLocaleString()} of the ${background.length.toLocaleString()} `
+            + `this object measures. ${results.length.toLocaleString()} sets overlapped the list; `
+            + `${nSig.toLocaleString()} reach padj < 0.05 after BH across all of them.`
+          : 'Loading the gene sets…'}
+      </p>
+
+      <InRail>
+        <RailGroup label="Enrichment">
+          <div className="field">
+            <span className="glabel">Direction</span>
+            <Opts<Direction>
+              value={dir} onChange={setDir}
+              options={[
+                { k: 'both', label: 'Both' },
+                { k: 'up', label: `Up in ${condLabel(cs)}` },
+                { k: 'down', label: `Up in ${condLabel(ctrl)}` },
+              ]}
+            />
+          </div>
+          {/* User-selectable term count — the bulk studio shipped a hardcoded 15. */}
+          <div className="field">
+            <span className="glabel">Show</span>
+            <Steps value={top} options={[10, 15, 20, 30]} onChange={setTop} />
+          </div>
+          <label className="field">
+            <span className="glabel">Bar shows</span>
+            <select className="sel" value={metric} aria-label="What the bar length shows"
+              onChange={e => setMetric(e.target.value as BarMetric)}>
+              <option value="ratio">gene ratio</option>
+              <option value="count">overlap count</option>
+              <option value="fold">fold enrichment</option>
+            </select>
+          </label>
+          <label className="field">
+            <span className="glabel">Rank by</span>
+            <select className="sel" value={rankBy} aria-label="Rank terms by"
+              onChange={e => setRankBy(e.target.value as 'padj' | 'count')}>
+              <option value="padj">adjusted p</option>
+              <option value="count">overlap size</option>
+            </select>
+          </label>
+          <div className="field">
+            <span className="glabel">Set size</span>
+            <span className="flex items-center gap-1.5">
+              <input className="inp min-w-0 flex-1" type="number" min={1} value={minSize}
+                aria-label="Minimum set size"
+                onChange={e => setMinSize(Math.max(1, +e.target.value || 1))} />
+              <span style={{ color: 'var(--ink-3)' }}>&ndash;</span>
+              <input className="inp min-w-0 flex-1" type="number" min={1} value={maxSize}
+                aria-label="Maximum set size"
+                onChange={e => setMaxSize(Math.max(1, +e.target.value || 1))} />
+            </span>
+            <span className="hint num"
+              title="Sets whose overlap with this object's measured genes falls in the window">
+              {inRange.n.toLocaleString()} of {inRange.of.toLocaleString()} sets
+            </span>
+          </div>
+        </RailGroup>
+      </InRail>
+      {/* After this view's own options: the rail's groups are placed in the
+          order they are written, and the library is chosen less often. */}
       <GeneSetSources lib={lib} species={species} sources={sources} onSources={onSources} customSets={customSets} onCustomSets={onCustomSets}
         index={index} background={background} detected={detected} />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="glabel">Direction</span>
-        <Seg<Direction>
-          value={dir} onChange={setDir}
-          options={[
-            { k: 'both', label: 'Both' },
-            { k: 'up', label: `Up in ${condLabel(cs)}` },
-            { k: 'down', label: `Up in ${condLabel(ctrl)}` },
-          ]}
-        />
-        <div className="gsep h-6" />
-        {/* User-selectable term count — the bulk studio shipped a hardcoded 15. */}
-        <Chips label="Show" value={top} options={[10, 15, 20, 30]} onChange={setTop} />
-        <div className="gsep h-6" />
-        <label className="flex items-center gap-1.5">
-          <span className="glabel">Bar shows</span>
-          <select className="sel" value={metric} aria-label="What the bar length shows"
-            onChange={e => setMetric(e.target.value as BarMetric)}>
-            <option value="ratio">gene ratio</option>
-            <option value="count">overlap count</option>
-            <option value="fold">fold enrichment</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-1.5">
-          <span className="glabel">Rank by</span>
-          <select className="sel" value={rankBy} aria-label="Rank terms by"
-            onChange={e => setRankBy(e.target.value as 'padj' | 'count')}>
-            <option value="padj">adjusted p</option>
-            <option value="count">overlap size</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-1.5">
-          <span className="glabel">Set size</span>
-          <input className="inp w-16" type="number" min={1} value={minSize}
-            aria-label="Minimum set size"
-            onChange={e => setMinSize(Math.max(1, +e.target.value || 1))} />
-          <span style={{ color: 'var(--ink-3)' }}>&ndash;</span>
-          <input className="inp w-20" type="number" min={1} value={maxSize}
-            aria-label="Maximum set size"
-            onChange={e => setMaxSize(Math.max(1, +e.target.value || 1))} />
-          <span className="tx-micro tabular-nums" style={{ color: 'var(--ink-3)' }}
-            title="Sets whose overlap with this object's measured genes falls in the window">
-            {inRange.n.toLocaleString()} of {inRange.of.toLocaleString()} sets
-          </span>
-        </label>
-      </div>
 
       {shown.length === 0 ? (
         <div className="mt-4">
           <Empty title="No set is enriched in this list">
             {query.length === 0
-              ? `No gene passes padj < ${threshold.padj} and |log₂FC| ≥ ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs above, or press Reset to return to the default for this test.`
+              ? `No gene passes padj < ${threshold.padj} and |log₂FC| ≥ ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs on the left, or press Reset to return to the default for this test.`
               : inRange.of === 0
-                ? 'No collection is loaded, so there was nothing to test against. Switch one on under Gene set collections above.'
+                ? 'No collection is loaded, so there was nothing to test against. Switch one on under Collections on the left.'
                 : inRange.n === 0
                   ? `${query.length} genes, but none of the ${inRange.of.toLocaleString()} sets `
                     + `fall between ${minSize} and ${maxSize} genes — so nothing was tested. `
-                    + 'Widen the set size window above.'
+                    + 'Widen the set size window on the left.'
                   : nInBg === 0
                     ? `None of the ${query.length} genes in this list is in any of the `
                       + `${inRange.n.toLocaleString()} sets tested, so there is nothing to be `
@@ -293,7 +303,7 @@ export default function Enrichment({
               separate row behind it put the PNG button on top of the CSV one and
               silently swallowed the click. */}
           <Figure
-            name={`enrichment_${label}`} className="mt-4"
+            name={`enrichment_${label}`}
             right={<CsvButton onClick={saveCsv} />}
           >
             <Bars results={shown} onPick={setTermId} selected={termId}
@@ -343,7 +353,7 @@ export default function Enrichment({
           )}
         </>
       )}
-    </Card>
+    </>
   )
 }
 
@@ -561,7 +571,8 @@ function Bars({ results, onPick, selected, metric, nQuery, rampKey }: {
 
   return (
     <div className="mt-4 overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 640 }} role="img"
+      <svg viewBox={`0 0 ${W} ${H}`} role="img"
+        style={{ width: `min(100%, ${W}px)`, minWidth: 640, height: 'auto' }}
         aria-label="Enriched gene sets">
         {ticks.map(t => (
           <g key={t}>

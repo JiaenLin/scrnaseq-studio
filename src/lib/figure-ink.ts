@@ -7,12 +7,23 @@
 //
 // In a .ts file rather than beside the components that use them, because a
 // module that exports both components and constants breaks fast refresh.
+//
+// The ink of an SVG figure is a custom property (--fig-*, src/index.css), not a
+// literal: on the dark theme's ground a literal black axis is invisible, and
+// the page had one. On screen the property follows the theme; on export the
+// root is stamped light while the colours are read (download.ts), so a saved
+// figure carries exactly the black and greys named here, whatever theme it was
+// saved from. A canvas cannot read a property and is saved as it was painted,
+// so a canvas that is exported paints with the PRINT_ literals.
 
 /** Axis lines, ticks, tick labels, mark outlines. */
-export const AXIS_INK = '#000000'
+export const AXIS_INK = 'var(--fig-ink)'
+
+/** The same ink as a literal, for a canvas that is saved as painted. */
+export const PRINT_INK = '#000000'
 
 /** The grid behind the data. Present, and never competing with it. */
-export const GRID_INK = '#DCDFE4'
+export const GRID_INK = 'var(--fig-grid)'
 
 /**
  * The outline every data mark carries.
@@ -67,10 +78,10 @@ export const NULL_MARK = '#9AA3AF'
  * AXIS_INK: pure black against a translucent category fill reads as a hole
  * punched through it, where this near-black slate sits on the fill.
  */
-export const SUMMARY_INK = '#1F2430'
+export const SUMMARY_INK = 'var(--fig-summary)'
 
 /** The plate. Every figure leaves on white, whatever theme it was saved from. */
-export const PLATE = '#FFFFFF'
+export const PLATE = 'var(--fig-plate)'
 
 /**
  * Cells present but not part of this panel, and the empty end of a bar.
@@ -82,7 +93,10 @@ export const PLATE = '#FFFFFF'
 export const GHOST_INK = '#E2E5EA'
 
 /** A row label on a figure — darker than interface ink, lighter than the axis. */
-export const LABEL_INK = '#334155'
+export const LABEL_INK = 'var(--fig-label)'
+
+/** The same, as a literal, for a canvas that is saved as painted. */
+export const PRINT_LABEL = '#334155'
 
 /**
  * Figure type sizes.

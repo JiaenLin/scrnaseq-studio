@@ -4,8 +4,10 @@ import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
 import { embedExtent, fmt, hasSignal } from '../lib/chart.ts'
 import { EDGE, NAME, fitPanels } from '../lib/fit-panels.ts'
+import Figure from './Figure.tsx'
+import { ActionSlot } from '../lib/action-slot.ts'
 import { paintEmbedding } from '../lib/embed-paint.ts'
-import { pal, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
+import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { SENTINEL_GREY, countText, populations, sentinelCount } from '../lib/sentinels.ts'
 
 /**
@@ -202,19 +204,96 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
       <span style={{ color: 'var(--ink-2)' }}>high</span>
     </div>
   )
+  /**
+   * The figure as a file: every panel with its name and n, and the key beside
+   * them, on white in print ink, whatever theme it is saved from. Painted
+   * again at the size the dpi asks for (the same painter as the screen), so a
+   * saved figure is the figure and not an enlarged screenshot.
+   */
+  const KEY_W = 196
+  const cellW = pw + 2 * EDGE, cellH = ph + NAME + EDGE
+  const extent = { w: fit.cols * cellW + KEY_W, h: Math.max(fit.rows * cellH, 2 * EDGE + 20 + legend.length * 18) }
+  const redraw = (out: HTMLCanvasElement, W: number) => {
+    const g = out.getContext('2d')
+    if (!g) return
+    const s = W / extent.w
+    const INK = '#000000', INK2 = '#474e5a'
+    g.fillStyle = '#ffffff'
+    g.fillRect(0, 0, out.width, out.height)
+    g.textBaseline = 'alphabetic'
+    panels.forEach((p, k) => {
+      const x = ((k % fit.cols) * cellW + EDGE) * s, y = (Math.floor(k / fit.cols) * cellH + NAME) * s
+      const cv = document.createElement('canvas')
+      cv.width = Math.round(pw * s); cv.height = Math.round(ph * s)
+      const pg = cv.getContext('2d')
+      if (!pg) return
+      paintEmbedding(pg, {
+        d, types, xy: emb.xy, cond: p, colorBy: shown, palKey, rampKey, labels: pw >= 280,
+        ink: '#15181d', surface: '#ffffff', sunk: '#ffffff',
+        radius: s * markRadius(d, p, pw), pad: s * EDGE, labelPx: s * labelSize(pw),
+        keep, mute: '#cfd4da',
+      })
+      g.drawImage(cv, x, y)
+      if (p) {
+        g.font = `600 ${12 * s}px system-ui, sans-serif`
+        g.fillStyle = INK
+        g.fillText(p, x + EDGE * s, y - 6 * s)
+        const used = g.measureText(p).width
+        g.font = `400 ${12 * s}px system-ui, sans-serif`
+        g.fillStyle = INK2
+        g.fillText(`n = ${fmt(d.nPerCond[p])}`, x + EDGE * s + used + 8 * s, y - 6 * s)
+      }
+    })
+    // The key: what the colours mean, with n, as on the screen.
+    const kx = (fit.cols * cellW + EDGE) * s
+    let ky = (EDGE + 12) * s
+    g.font = `600 ${12 * s}px system-ui, sans-serif`
+    g.fillStyle = INK
+    g.fillText(legendName, kx, ky)
+    ky += 20 * s
+    if (legend.length) {
+      for (const [color, label] of legend) {
+        g.fillStyle = color
+        g.fillRect(kx, ky - 8 * s, 8 * s, 8 * s)
+        g.font = `400 ${11 * s}px system-ui, sans-serif`
+        g.fillStyle = INK
+        g.textAlign = 'left'
+        g.fillText(label, kx + 14 * s, ky)
+        g.fillStyle = INK2
+        g.textAlign = 'right'
+        g.fillText(fmt(counts.get(label) ?? 0), kx + (KEY_W - 2 * EDGE) * s, ky)
+        g.textAlign = 'left'
+        ky += 18 * s
+      }
+    } else {
+      const bw = 120 * s
+      for (let i = 0; i < bw; i++) { g.fillStyle = rampColor(i / bw, rampKey); g.fillRect(kx + i, ky - 8 * s, 1.5, 8 * s) }
+      g.font = `400 ${11 * s}px system-ui, sans-serif`
+      g.fillStyle = INK2
+      g.fillText('low', kx, ky + 14 * s)
+      g.textAlign = 'right'
+      g.fillText('high', kx + bw, ky + 14 * s)
+      g.textAlign = 'left'
+    }
+  }
+  // The head line owns the actions on the figure (Save), at its right end.
+  const [actions, setActions] = useState<HTMLElement | null>(null)
+
   // The axis glyph once per figure: on the bottom-left panel.
   const axisAt = Math.min(panels.length - 1, (fit.rows - 1) * fit.cols)
   const blanks = fit.cols * fit.rows - panels.length
 
   return (
+    <ActionSlot.Provider value={actions}>
     <div className="explorer" data-inspector={inspector ? undefined : 'closed'}>
       <section className="pane" aria-label="Embedding">
         <header className="stage-head">
           <h2 className="stage-title num">{`${fmt(d.nCells)} cells`}</h2>
           <span className="stage-meta">{`Embedding · ${emb.key} from your file`}</span>
+          <div ref={setActions} className="stage-actions" />
           {/* Colour is never left without its key: with the inspector closed it sits here. */}
           {!inspector && (
-            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-1" role="group" aria-label={legendName}
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-1" role="group" aria-label={legendName}
               onKeyDown={alongKey}>
               <span className="stage-meta mr-1">{legendName}</span>
               {legend.length > 0 ? legend.map(([color, label]) => entry(color, label, false)) : ramp}
@@ -222,7 +301,9 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
           )}
         </header>
 
-        <div ref={boxRef} className="plots"
+        <Figure name={`cells_${emb.key}_by_${shown}${panels.length > 1 ? '_split' : ''}`}
+          className="contents" redraw={redraw} extent={extent}>
+        <div ref={boxRef} className="plots" data-panels={panels.length > 1 ? 'many' : undefined}
           style={{ gridTemplateColumns: `repeat(${fit.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${fit.rows}, minmax(0, 1fr))` }}>
           {panels.map((p, k) => (
             <figure key={p ?? 'all'} className="plot">
@@ -241,6 +322,7 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
           ))}
           {Array.from({ length: blanks }, (_, k) => <div key={`blank-${k}`} className="plot" aria-hidden />)}
         </div>
+        </Figure>
 
         <footer className="stage-foot">
           <p className="m-0 truncate">
@@ -289,6 +371,7 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
         </aside>
       )}
     </div>
+    </ActionSlot.Provider>
   )
 }
 
@@ -324,6 +407,18 @@ function useNearest(d: Dataset, xy: Float32Array, cond: string | null, w: number
   }, [d, xy, cond, w, h])
 }
 
+/**
+ * A mark's radius in CSS pixels, from the panel and from how many cells share
+ * it: the same ink density at any window size, larger points when there are few.
+ */
+function markRadius(d: Dataset, cond: string | null, w: number): number {
+  let shownCells = d.cells.length
+  if (cond) { shownCells = 0; for (const c of d.cells) if (c.cond === cond) shownCells++ }
+  const k = Math.max(0.8, Math.min(3.4, (30_000 / Math.max(1, shownCells)) ** 0.25))
+  return Math.max(0.7, Math.min(3, (w / 760) * k))
+}
+const labelSize = (w: number) => Math.max(11, Math.min(14, Math.round(w / 52)))
+
 function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, axis, mito, keep }: {
   d: Dataset
   types: CellType[]
@@ -351,12 +446,7 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
     if (!g) return
     const css = getComputedStyle(document.documentElement)
     const surface = css.getPropertyValue('--surface').trim()
-    // Marks sized from the panel and from how many cells share it: the same
-    // ink density at any window size, larger points when there are few.
-    let shownCells = d.cells.length
-    if (cond) { shownCells = 0; for (const c of d.cells) if (c.cond === cond) shownCells++ }
-    const k = Math.max(0.8, Math.min(3.4, (30_000 / Math.max(1, shownCells)) ** 0.25))
-    const radius = 2 * Math.max(0.7, Math.min(3, (w / 760) * k))
+    const radius = 2 * markRadius(d, cond, w)
     // What is drawn is in lib/embed-paint.ts, where a test can watch it.
     paintEmbedding(g, {
       d, types, xy, cond, colorBy, palKey, rampKey, labels,
@@ -365,7 +455,7 @@ function Scatter({ d, types, xy, cond, colorBy, palKey, rampKey, w, h, labels, a
       // The plot's ground is the paper it sits on, never a fill of its own.
       sunk: surface,
       radius, pad: 2 * EDGE,
-      labelPx: 2 * Math.max(11, Math.min(14, Math.round(w / 52))),
+      labelPx: 2 * labelSize(w),
       keep, mute: css.getPropertyValue('--line-2').trim(),
     })
   }, [d, types, xy, cond, colorBy, palKey, rampKey, labels, w, h, keep])

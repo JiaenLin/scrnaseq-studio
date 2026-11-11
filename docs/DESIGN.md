@@ -7,11 +7,10 @@ page without guessing. `src/index.css` is the source of every value named here.
 **The rule over all of it:** the design changes how things look and where they sit, never what the data says. Every
 number is shown as recorded, every label keeps its words, and the Run card infers nothing.
 
-**Status (W037, designer run 1).** Built to this page: the frame, the tokens, the default palette, Cells, Gene
-expression, Differential expression, and the rail controls of Composition and Markers. Still in the old shape inside
-the new frame (flat sections, their controls in rows above the figure): Co-expression, Gene sets, Enrichment's own
-controls, the bodies of Markers and Composition, Overview, Methods, the landing page. "What is left" at the end lists
-them in order.
+**Status (W037, designer run 2).** Built to this page: the frame, the tokens, the default palette, Cells (with
+Save), Gene expression's rail, Differential expression (the table to the bottom edge, the volcano fitted with an
+inspector, Enrichment's controls in the rail), Co-expression, Gene sets (one set and several), and the rail
+controls of Composition and Markers. "What is left" at the end lists the rest in order.
 
 ## Direction: the instrument
 
@@ -24,7 +23,8 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
    wider. A figure is fitted to the stage in both directions, so nothing is below the fold that could be on screen.
 3. **One place per job, the same on every view.** The question on the left (the rail: what to compute, what to
    draw, how). The answer in the middle (the stage). The key on the right (the inspector: what the marks mean, n,
-   what is selected). A control is never above a figure.
+   what is selected). A control is never above a figure. The actions on a figure or a table (Save, CSV) are at
+   the right end of the head line over it, on every view.
 4. **Ink selects, blue acts.** A chosen thing is ink (an edge, a wash, a thumb). The one accent means "this does
    something" (the primary button, a link, the focus ring) and appears nowhere else.
 5. **Nothing decorative, nothing that moves by itself.** No gradients, shadows on the page, icons for their own
@@ -74,8 +74,10 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
 **Explorer** (Cells; to build the same way: the feature plot, the gene-set score map, the co-expression map).
 - Rail: what colours the cells (`.opt` rows), panels (a switch), then view-specific choices.
 - Stage: head line = the count at 600 (`34,367 cells`) and what is drawn (`Embedding · X_umap from your file`);
-  `.plots` = equal cells divided by hairlines, one per panel, the canvas centred in its cell with its name directly
-  above it (`name  n = …`); status line = the caption on the left, the isolated entry and `Show all` on the right.
+  `.plots` = equal cells divided by hairlines, one per panel. Several panels: each block (its name `name  n = …`,
+  then its plot) hangs from the top of its cell, centred across, so the names run on one line under the head
+  line and the slack is under the plots; one panel has no name and is centred both ways. Status line = the
+  caption on the left, the isolated entry and `Show all` on the right. Save at the head line's right end.
 - Fit: `fitPanels(n, W, H, aspect)` (`lib/fit-panels.ts`) tries every column count and takes the one that draws
   each panel largest at the embedding's own aspect (equal units on both axes); fewer rows win unless another
   layout is more than 15% larger, because compared panels are read side by side. Measured
@@ -86,19 +88,38 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
   `low ▬ high`. Notes about the data (the uncalled cells) are a section under the key.
 - The pointer readout (`.tip`) follows the pointer and gives the record's own values.
 
-**Table-led analysis** (Differential expression; to build the same way: Markers, Co-expression, Gene sets,
-Enrichment).
+**Table-led analysis** (Differential expression, Co-expression; to build the same way: Markers).
 - Rail: the question, top to bottom in the order it is asked. DE: Contrast, Test (`.opt` rows, with the test's
   settings as a hint line), Cutoffs (a label and its value on one line, the slider under it at full width; `cut on`
-  as a segmented control; Reset; the limits of a cutoff said in a hint under it; `What gets tested`).
-- Stage: head line = the view switch (a segmented control: Table / Volcano / Enrichment) and the contrast's name.
-  Body = the title (the count: `12 differentially expressed genes`), one sentence, then the table to the bottom
-  edge, or the figure. A table's toolbar (filter field on the left, `Significant only`, the row count, CSV on the
-  right) is one 24 px row directly over it.
+  as a segmented control; Reset; the limits of a cutoff said in a hint under it; `What gets tested`), then the
+  view's own (Labels for the volcano; Enrichment's options, then the library). Co-expression: Seed, Correlate
+  over, Rank by, Scope, Ranked genes. A setting of a chosen option is a field under it (`Pools`, `never
+  spanning`), not a second list of rows.
+- Stage: `<Stage>` (`components/Stage.tsx`). Head line = the view switch if there is one, what is drawn (a title
+  at 600, a meta), and at the right end the actions (`.stage-actions`). With `fit` the stage does not scroll
+  (`.fill`): the table runs to the bottom edge with its head sticky, or the figure is fitted.
+  - DE table: `.lead` (the count as the title, one sentence), `.ttools` (one 24 px row: filter, `Significant
+    only`, the row count), `.tpane-body.edge` (the rows, edge to edge, first and last cells on the head line's
+    16 px), then the status line (what was cut, how to open a gene).
+  - Volcano: `.explorer.in-fill` = the figure in a `.fitbox` (fitted both ways from container units, at most
+    1.25 times its own size), a status line (the caption), and an inspector: Gene (the row of the point under
+    the pointer, else of the gene clicked last), Key (the three classes with n), Named on the figure (each
+    clicked gene; pressing one removes its name).
+  - Co-expression: `.split` = a reading column (`.read`: the sentence, both ends on one axis at the figure's own
+    size, the note on what a ranking cannot claim) and the two tables as panes (`.tpane`: a name with its count,
+    rows to the bottom edge).
+  - Enrichment is a document: the count as the title, the sentence, the bars at their own size.
 - A first step that has not been taken is an empty state (`.empty`: the instruction as a title, one sentence of
   why), never a warning note. `.note` is only for something about the data that limits a claim.
-- Next (not built): the table fills the stage to its bottom edge with its head sticky under the head line, rows
-  28 px; the volcano is a fitted view with an inspector (the hovered or pinned gene's row, the legend, Labels).
+
+**List-led** (Gene sets: something is chosen from many, then drawn).
+- Rail: the library (species), Collections (one field that names what is on and how many, a list behind it with
+  every collection and its size; never sixteen chips), Your sets, then the options of what is drawn (Score per
+  cell, Genes of the set).
+- Stage: head line = the switch (One set / Several sets), the title, one sentence. Body `.split.split-list` = the
+  list on the left as a pane (search field, then `.set-row` rows to the bottom edge: name, source, size; chosen =
+  wash and an ink edge; several = a check box per row) and the result on the right as a document of sections
+  (`<Section>`: a title, a meta, its own actions at the right end, a hairline above).
 
 **Composition** (a chart that is read row by row).
 - Rail: `Bars show`, `One row per`, `Limit to`. Stage: a section per figure. Next: bars at a fixed row height
@@ -174,9 +195,21 @@ floating surface). Nothing on the page itself is rounded.
 - **Field** (`.inp`, `.sel`): paper ground, `--ctl` edge, 28 px; focus = accent edge and a 3 px `--accent-soft` ring.
 - **Switch** (`.switch`): 28 × 16; off track `--ctl`, on track ink.
 - **Badge** (`.badge-file`, `-here`, `-none`): provenance, 11 px. **Note** (`.note`): a limit on a claim.
+- **Hint** (`.hint`, in the rail): what a control does or cannot do, in `--ink-3` at 11 px; its one consequence
+  in 600 (`--ink-2`). A hint is never coloured: a caution about a cutoff is a note, not an alarm, and an orange
+  paragraph was the loudest thing on the screen. `--warn` is for a state that stops the reader.
+- **Status line** (`.rail-status`): the state of what the rail has set up, as words with a 6 px dot (grey, green
+  when ready, `--warn` with warn text when it stops the reader). Not drawn when it would only repeat the control
+  under it. It replaced a coloured pill.
+- **Stage, Section, InHead** (`components/Stage.tsx`). `<Stage head fit>` is a view's head line and body;
+  `<Section title meta>` is a block of a document with its own head line; both own an action slot at the right
+  end, and `<InHead>` (which `Figure` uses for Save) puts an action there: a portal like `<InRail>`, in place on
+  the server and where no head line is above.
+- **Icon** (`.ico`, `DownIcon`): a drawn 12 px glyph in the label's ink. Never a character from a symbol font:
+  U+2B73 came from whatever fallback the machine had and read as three bars.
 - **Empty** (`.empty`): words where the figure will be; no box.
 - **Table** (`.t`): 12 px; head on `--bg`, 500, sticky; rows 28 px, hairlines, hover wash; numbers right-aligned
-  and tabular; gene symbols mono.
+  and tabular; gene symbols mono. No frame and no radius around it (`.scrollx` is only its scroll).
 - **Key** (`.lg-row`): keep the markup `<span><i class="sw" style="background:…"></i>name</span>`; the sentinel
   tests read legends by it.
 - **Readout** (`.tip`): floats 14 px from the pointer, flips near the right edge, never takes the pointer.
@@ -211,8 +244,16 @@ floating surface). Nothing on the page itself is rounded.
 - **A figure's type does not grow with the window.** An SVG figure is drawn at its own size and at most 1.25 times
   it (the volcano does this); wider than that, the space goes to more panels or stays empty.
 - **Legend.** Always names what is plotted and gives n. Text wears ink, never the series colour.
-- **Save.** One Save per figure, in the figure's head. (Not built for Cells; the per-panel Save buttons of the
-  small multiples stay until each view is rebuilt.)
+- **Figure ink.** An SVG figure's ink is `--fig-ink`, `--fig-line`, `--fig-grid`, `--fig-plate`, `--fig-summary`
+  and `--fig-label` (`lib/figure-ink.ts` names them): light on the dark ground, black and the print greys on the
+  light one, and stamped to the light values while a figure is exported, so a saved figure is the same file from
+  either theme. They were literals (`#000000`), so every SVG axis was invisible on the dark theme. A canvas that
+  is saved as painted keeps the `PRINT_` literals until it is repainted on export.
+- **Save.** One Save per figure, at the right end of the head line over it: the stage's head when the figure is
+  the stage, a section's head in a document. Cells saves the whole figure (every panel with its name and n, and
+  the key with n) repainted on white at 300 or 600 dpi. With no head line above (a view not rebuilt yet) the
+  Save is a row over the figure. The per-panel Save buttons of the small multiples stay until those views are
+  rebuilt.
 
 ## States (every panel has all five)
 
@@ -259,6 +300,15 @@ movement stops and colour changes stay.
 - *A dark-only palette variant.* One set that passes on both grounds keeps a colour's meaning across themes and
   exports; revisit only if a set with a larger margin on dark is wanted.
 - *Motion on pane toggles and tab changes.* Used hundreds of times a day; the figure re-fits at once.
+- *Split panels centred in their cells.* Each name floated mid-stage over a band of empty paper; a title is
+  looked for at the top.
+- *A coloured paragraph in the rail, and a pill for the test's status.* A note is not an alarm, and the pill
+  repeated the selected row under it.
+- *A Save that floats over each figure.* It sat somewhere else on every view; the head line's right end is one
+  place.
+- *Collections as sixteen chips over the result.* Chosen rarely; one field and a list.
+- *A set picker as a dropdown.* The names are what is chosen between; the list stays on the stage.
+- *Literal black as figure ink.* Right on paper, invisible on the dark ground.
 
 ## What is left, in order
 

@@ -14,7 +14,7 @@ import { namesText, sentinelCount } from '../lib/sentinels.ts'
 import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Legend } from './Ui.tsx'
 import { InRail, RailGroup } from './Rail.tsx'
-import Figure, { CsvButton } from './Figure.tsx'
+import Figure, { CsvButton, DownIcon } from './Figure.tsx'
 
 /**
  * How many rows are drawn at once.
@@ -346,7 +346,7 @@ export default function Composition({ d, types, palKey }: {
               onClick={() => svgSheetToFile(
                 [...(sheet.current?.querySelectorAll('svg') ?? [])] as SVGSVGElement[],
                 'proportion_by_group', 3)}
-            >⭳ Save all panels</button>
+            ><DownIcon />Save all panels</button>
             <CsvButton
               onClick={() => downloadCsv(
                 'composition_type_by_group_per_sample',

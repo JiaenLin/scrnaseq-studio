@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { canvasToPng, scaleForDpi, slug, svgToFile, svgToPng } from '../lib/download.ts'
 import Popover from './Popover.tsx'
+import { InHead } from './Stage.tsx'
 
 /**
  * A figure, with the exports a manuscript actually asks for.
@@ -17,7 +18,7 @@ import Popover from './Popover.tsx'
  * so by not offering vector rather than by handing over an SVG with a bitmap
  * inside it.
  */
-export default function Figure({ name, children, className, right, redraw }: {
+export default function Figure({ name, children, className, right, redraw, extent }: {
   name: string
   children: ReactNode
   className?: string
@@ -32,6 +33,11 @@ export default function Figure({ name, children, className, right, redraw }: {
    * scaled-up copy of a small one.
    */
   redraw?: (cv: HTMLCanvasElement, w: number, h: number) => void
+  /**
+   * The whole figure's size in CSS pixels, when it is more than its first
+   * canvas: several panels, their names and a key, composed by `redraw`.
+   */
+  extent?: { w: number; h: number }
 }) {
   const box = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -60,11 +66,11 @@ export default function Figure({ name, children, className, right, redraw }: {
       if (!redraw) return canvasToPng(cv, slug(name))
       // The on-screen canvas is already drawn at 2x its CSS box, so the dpi is
       // measured against the size the reader sees, not the backing store.
-      const shown = cv.clientWidth || cv.width / 2
+      const shown = extent?.w ?? (cv.clientWidth || cv.width / 2)
       const s = scaleForDpi(shown, kind)
       const out = document.createElement('canvas')
       out.width = Math.round(shown * s)
-      out.height = Math.round((cv.clientHeight || cv.height / 2) * s)
+      out.height = Math.round((extent?.h ?? (cv.clientHeight || cv.height / 2)) * s)
       redraw(out, out.width, out.height)
       canvasToPng(out, `${slug(name)}_${kind}dpi`)
     } finally {
@@ -81,7 +87,10 @@ export default function Figure({ name, children, className, right, redraw }: {
     // they guessed five different numbers (pt-5, pt-6, pt-7, mt-1, mt-6). A row
     // takes its own space, so nobody has to compensate for it.
     <div ref={box} className={className}>
-      <div className="mb-1.5 flex items-center justify-end gap-1.5">
+      {/* Under a head line the controls sit at its right end (Stage.tsx); with
+          no head above, in a row over the figure, where they always were. */}
+      <InHead>
+      <div className="fig-actions">
         {right}
         <div className="relative">
           <button
@@ -93,9 +102,9 @@ export default function Figure({ name, children, className, right, redraw }: {
             disabled={busy}
             // A fixed width, so the label swapping to "…" while the PNG renders
             // does not shrink the trigger out from under the cursor.
-            style={{ minWidth: 74, textAlign: 'center' }}
+            style={{ minWidth: 64, textAlign: 'center' }}
             onClick={() => setOpen(v => !v)}
-          >{busy ? '…' : '⭳ Save'}</button>
+          >{busy ? '…' : <><DownIcon />Save</>}</button>
           <Popover open={open} anchor={trigger} align="right" role="menu"
             label={`Download ${name}`} width={212} onClose={() => setOpen(false)}>
             <div className="p-1.5 text-left">
@@ -111,6 +120,7 @@ export default function Figure({ name, children, className, right, redraw }: {
           </Popover>
         </div>
       </div>
+      </InHead>
       {children}
     </div>
   )
@@ -127,6 +137,20 @@ function MenuItem({ onClick, title, note }: { onClick: () => void; title: string
 }
 
 /** A download button for a table, kept visually identical to the figure one. */
-export function CsvButton({ onClick, label = '⭳ CSV' }: { onClick: () => void; label?: string }) {
-  return <button className="btn btn-quiet" onClick={onClick}>{label}</button>
+export function CsvButton({ onClick, label = 'CSV' }: { onClick: () => void; label?: string }) {
+  return <button className="btn btn-quiet" onClick={onClick}><DownIcon />{label}</button>
+}
+
+/**
+ * "This leaves as a file": an arrow into a tray, drawn, in the label's ink.
+ * It was the character U+2B73, which the system face does not carry, so it
+ * came from whatever fallback font the machine had and read as three bars.
+ */
+export function DownIcon() {
+  return (
+    <svg className="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden
+      stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 1.5v6.5M3.25 5.5 6 8.25 8.75 5.5M2 10.5h8" />
+    </svg>
+  )
 }

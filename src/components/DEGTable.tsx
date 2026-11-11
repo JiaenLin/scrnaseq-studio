@@ -6,6 +6,7 @@ import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt } from '../lib/chart.ts'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { CsvButton } from './Figure.tsx'
+import { InHead } from './Stage.tsx'
 
 type SortKey = 'gene' | 'mean' | 'pct1' | 'pct2' | 'lfc' | 'combined' | 'p' | 'padj' | 'fdr' | 'nlp'
 
@@ -169,9 +170,11 @@ export default function DEGTable({
 
   return (
     <>
-      <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+      {/* One 24 px row directly over the table: find, narrow, how many. The
+          CSV is an action on the table, so it is at the head line's right end. */}
+      <div className="ttools">
         <input
-          className="inp w-56" placeholder="Filter genes…" value={q} aria-label="Filter genes"
+          className="inp inp-sm w-56" placeholder="Filter genes…" value={q} aria-label="Filter genes"
           onChange={e => setQ(e.target.value)}
         />
         {/* A chip like every other boolean in the studio. This was the app's
@@ -181,13 +184,14 @@ export default function DEGTable({
           title={`padj < ${padjMax}, |log₂FC| ≥ ${lfcMin}`}>
           Significant only
         </button>
-        <span className="tx-small" style={{ color: 'var(--ink-3)' }}>
+        <span className="num tx-small" style={{ color: 'var(--ink-2)' }}>
           {view.length.toLocaleString()} gene{view.length === 1 ? '' : 's'}
         </span>
-        <div className="ml-auto"><CsvButton onClick={save} /></div>
+        <InHead><CsvButton onClick={save} /></InHead>
       </div>
 
-      <div className="scrollx mt-3" style={{ maxHeight: 520 }}>
+      {/* To the stage's bottom edge, the head sticky: the rows are the answer. */}
+      <div className="tpane-body edge">
         <table className="t">
           <thead>
             <tr>
@@ -231,7 +235,6 @@ export default function DEGTable({
             ))}
           </tbody>
         </table>
-      </div>
 
       {/* The underflow and Combined arguments are in Methods, under "How to
           read these numbers". They were 106 words under a table the reader had
@@ -239,7 +242,7 @@ export default function DEGTable({
           itself does not show: that a row is clickable, and that the CSV is
           not truncated. */}
       {view.length > limit && (
-        <div className="mt-2.5 flex items-center gap-2.5">
+        <div className="tmore">
           <button className="btn btn-quiet" onClick={() => setLimit(l => l + PAGE)}>
             Show {Math.min(PAGE, view.length - limit).toLocaleString()} more
           </button>
@@ -248,30 +251,8 @@ export default function DEGTable({
           </button>
         </div>
       )}
-
-      <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
-        {view.length > limit
-          && <>Showing {fmt(limit)} of {fmt(view.length)}; the CSV has every row. </>}
-        Click a row to open that gene, a header to sort.
-      </p>
-
-      {/**
-        * How many genes were TESTED, which is not how many were measured.
-        *
-        * The table pages honestly — "Show all" is right there and the CSV is
-        * never truncated — and it still is not the full transcriptome, because
-        * the test never saw most of it. `deWilcox` applies Seurat's own two
-        * gates before the rank sum: a gene detected in under 10 % of both sides
-        * (`min.pct`), or moving less than 0.25 log₂ (`logfc.threshold`), is
-        * dropped without being tested. Those are speed pre-filters rather than
-        * claims, and they are the reason a reader who scrolls to the end of the
-        * table finds four thousand rows where their object has twenty thousand
-        * genes.
-        *
-        * It was written down in Methods and nowhere near the table it explains.
-        */}
       {wilcox && nGenes > nRan && (
-        <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        <p className="tnote">
           <b>{fmt(nRan)} of {fmt(nGenes)} genes were tested.</b> Seurat's own gates run
           before the rank sum. A gene detected in under 10% of the cells on both sides
           (<span className="mono">min.pct</span>) is dropped: with almost no cells
@@ -291,6 +272,15 @@ export default function DEGTable({
           )}
         </p>
       )}
+      </div>
+
+      <footer className="stage-foot">
+        <span className="truncate">
+          {view.length > limit
+            && <>Showing {fmt(limit)} of {fmt(view.length)}; the CSV has every row. </>}
+          Click a row to open that gene, a header to sort.
+        </span>
+      </footer>
     </>
   )
 }

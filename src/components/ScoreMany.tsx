@@ -12,7 +12,9 @@ import {
 } from '../lib/score.ts'
 import { downloadCsv } from '../lib/download.ts'
 import { useJob } from '../lib/compute.ts'
-import { Card, Seg } from './Ui.tsx'
+import { Empty } from './Ui.tsx'
+import { InRail, Opts, RailGroup, Toggle } from './Rail.tsx'
+import { InHead, Stage } from './Stage.tsx'
 import ColumnFilter from './ColumnFilter.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
 import Progress, { Failed } from './Progress.tsx'
@@ -46,8 +48,10 @@ const MAX_SETS = 30
  * baseline. scripts/test-sets.mjs holds the two paths to bit-for-bit equality.
  */
 export default function ScoreMany({
-  src, types, palKey, rampDiv, lib, ran, onRan,
+  src, types, palKey, rampDiv, lib, ran, onRan, switcher,
 }: {
+  /** The One set / Several sets switch, for this stage's head line. */
+  switcher?: React.ReactNode
   src: Source
   types: CellType[]
   palKey: PaletteKey
@@ -197,120 +201,132 @@ export default function ScoreMany({
       : []),
   ]
 
+  const drawn = !failed && chosen.length >= 2 && armed && !waiting && !!grid
   return (
-    <Card
-      eyebrow="Gene sets · several at once"
-      title="Which signature does each population express?"
-      sub={<>One <b>AddModuleScore</b> per set, computed in a single pass over the matrix.
-        Every set keeps its own control genes, so the numbers are the ones scoring them
-        one at a time would give.</>}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          className="inp w-[380px]" value={find}
-          placeholder={lib.loading ? 'loading…' : `search ${allSets.length.toLocaleString()} sets to add…`}
-          aria-label="Search sets to score together"
-          disabled={lib.loading}
-          onChange={e => setFind(e.target.value)}
-        />
-        {/* The case this exists for: a collection somebody pasted, scored whole. */}
-        {lib.collections.filter(c => c.sets.length <= MAX_SETS).map(c => (
-          <button key={c.source} className="btn btn-sm"
-            onClick={() => setPicked(c.sets.slice(0, MAX_SETS).map(s => s.id))}
-            title={`Score every set in ${c.source}`}>
-            All {c.sets.length} in {c.source}
-          </button>
-        ))}
-        {picked.length > 0 && (
-          <button className="btn btn-quiet" onClick={() => setPicked([])}>Clear</button>
-        )}
-      </div>
-
-      {!lib.loading && (
-        <div className="panel mt-2 max-h-[170px] overflow-y-auto" role="listbox"
-          aria-label="Sets to score together">
-          {hits.map(h => (
-            <button key={h.id} role="option" aria-selected={picked.includes(h.id)}
-              className="type-toggle flex w-full items-baseline gap-2 rounded-[--r-md] px-2 py-1 text-left"
-              style={{ background: picked.includes(h.id) ? 'var(--surface)' : 'transparent' }}
-              onClick={() => toggle(h.id)}>
-              <span className="glabel flex-none" style={{ width: 92 }}>{h.source}</span>
-              <span className="min-w-0 flex-1 truncate tx-small"
-                style={{ fontWeight: picked.includes(h.id) ? 600 : 400 }}>{h.name}</span>
-              <span className="mono flex-none tx-micro" style={{ color: 'var(--ink-3)' }}>{h.n}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
-        {picked.length} chosen{picked.length >= MAX_SETS && ` — ${MAX_SETS} is the most`}
-        {picked.length > chosen.length
-          && `, ${picked.length - chosen.length} of them measure no gene in this object`}
-      </p>
-
-      {failed ? (
-        <Failed error={failed} onRetry={retry} what="The module scores" />
-      ) : chosen.length < 2 ? (
-        <div className="empty mt-4">
-          Choose at least two sets. One at a time is the card above, which also draws it on
-          the embedding.
-        </div>
-      ) : !armed ? (
-        <div className="empty mt-4">
-          <div className="card-title mb-1" style={{ color: 'var(--ink)', marginTop: 0 }}>
-            {chosen.length} signatures
-          </div>
-          One pass over every cell, whatever the number of sets.
-          <div className="mt-3.5">
-            <button className="btn btn-primary" onClick={() => onRan(key)}>Score them</button>
-          </div>
-        </div>
-      ) : waiting ? (
-        <Progress pass={pass ?? STARTING} title={`Scoring ${chosen.length} signatures`} />
-      ) : grid ? (
-        <>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="glabel">Group by</span>
-            <Seg<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
-            <div className="gsep h-6" />
-            <button className="chip" aria-pressed={scale} onClick={() => setScale(!scale)}
+    <>
+      {drawn && (
+        <InRail>
+          <RailGroup label="Figure">
+            <Opts<GroupBy> value={groupBy} onChange={setGroupBy} options={modes} />
+            <Toggle on={scale} onChange={setScale}
               title="z-score each signature across the columns shown, so a small signature and a large one can be compared">
               Scale each signature
-            </button>
-          </div>
-          <ColumnFilter types={types} conds={d.conds} groupBy={groupBy}
-            hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
-            palKey={palKey} label="Columns in this figure" />
-          <Figure name="module_scores" className="mt-1">
-            {/* The reader's DIVERGING scale, never their sequential one: a
-                module score is signed and its zero means something, so a scale
-                whose neutral sits anywhere else misreports which way a
-                population went. Which diverging scale is still theirs to pick —
-                this was pinned to blue-white-red, which is the right default
-                and was the only option. */}
-            <ScoreGrid rows={chosen.map(c => c.name)} cols={cols} mean={grid} scale={scale}
-              ramp={rampDiv} />
-          </Figure>
-          <div className="mt-2 flex items-center justify-end">
-            <CsvButton onClick={() => downloadCsv(
-              scale ? 'module_scores_scaled' : 'module_scores',
-              ['set', ...cols.map(c => c.full)],
-              chosen.map((c, s) => [c.name,
-                ...cols.map((_c, k) => grid[s * cols.length + k].toFixed(4))]))} />
-          </div>
-          <p className="sub mt-2">
-            {scale
-              ? <>Colour is <b>z-scored along each signature</b> — where that signature is
-                  highest, not how large it is.</>
-              : <>Colour is the mean score of that signature in that population. Zero is the
-                  reference: no higher than genes of comparable abundance.</>}
-          </p>
-        </>
-      ) : (
-        <div className="empty mt-4">Nothing to show yet.</div>
+            </Toggle>
+            <ColumnFilter types={types} conds={d.conds} groupBy={groupBy}
+              hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
+              palKey={palKey} label="Columns in this figure" />
+          </RailGroup>
+        </InRail>
       )}
-    </Card>
+      <Stage fit head={<>
+        {switcher}
+        <span className="stage-title">Which signature does each population express?</span>
+        <span className="stage-meta num">
+          {picked.length} chosen{picked.length >= MAX_SETS && ` — ${MAX_SETS} is the most`}
+          {picked.length > chosen.length
+            && `, ${picked.length - chosen.length} of them measure no gene in this object`}
+        </span>
+      </>}>
+        <div className="split split-list">
+          <div className="tpane">
+            <div className="tpane-tools">
+              <input
+                className="inp min-w-0 flex-1" value={find}
+                placeholder={lib.loading ? 'loading…' : `search ${allSets.length.toLocaleString()} sets to add…`}
+                aria-label="Search sets to score together"
+                disabled={lib.loading}
+                onChange={e => setFind(e.target.value)}
+              />
+              {/* The case this exists for: a collection somebody pasted, scored whole. */}
+              {lib.collections.filter(c => c.sets.length <= MAX_SETS).map(c => (
+                <button key={c.source} className="btn btn-quiet"
+                  onClick={() => setPicked(c.sets.slice(0, MAX_SETS).map(s => s.id))}
+                  title={`Score every set in ${c.source}`}>
+                  All {c.sets.length} in {c.source}
+                </button>
+              ))}
+              {picked.length > 0 && (
+                <button className="btn btn-quiet" onClick={() => setPicked([])}>Clear</button>
+              )}
+            </div>
+            <div className="tpane-body" role="listbox" aria-multiselectable
+              aria-label="Sets to score together">
+              {!lib.loading && hits.map(h => {
+                const on = picked.includes(h.id)
+                return (
+                  <button key={h.id} role="option" aria-selected={on} className="set-row"
+                    title={h.name} onClick={() => toggle(h.id)}>
+                    <span aria-hidden className="set-check">{on ? '✓' : ''}</span>
+                    <span className="min-w-0 flex-1 truncate">{h.name}</span>
+                    <span className="set-src">{h.source}</span>
+                    <span className="num set-n">{h.n}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="read" tabIndex={0} role="region" aria-label="The signatures' scores">
+            {failed ? (
+              <Failed error={failed} onRetry={retry} what="The module scores" />
+            ) : chosen.length < 2 ? (
+              <Empty title="Choose at least two sets in the list.">
+                One <b>AddModuleScore</b> per set, computed in a single pass over the matrix.
+                Every set keeps its own control genes, so the numbers are the ones scoring them
+                one at a time would give. One at a time is One set, which also draws it on
+                the embedding.
+              </Empty>
+            ) : !armed ? (
+              <div className="empty">
+                <div className="card-title mb-1" style={{ color: 'var(--ink)', marginTop: 0 }}>
+                  {chosen.length} signatures
+                </div>
+                One pass over every cell, whatever the number of sets.
+                <div className="mt-3.5">
+                  <button className="btn btn-primary" onClick={() => onRan(key)}>Score them</button>
+                </div>
+              </div>
+            ) : waiting ? (
+              <Progress pass={pass ?? STARTING} title={`Scoring ${chosen.length} signatures`} />
+            ) : grid ? (
+              <>
+                <p className="sub m-0">
+                  One <b>AddModuleScore</b> per set, computed in a single pass over the matrix.
+                  Every set keeps its own control genes, so the numbers are the ones scoring
+                  them one at a time would give.
+                </p>
+                <Figure name="module_scores" className="mt-1">
+                  {/* The reader's DIVERGING scale, never their sequential one: a
+                      module score is signed and its zero means something, so a scale
+                      whose neutral sits anywhere else misreports which way a
+                      population went. Which diverging scale is still theirs to pick —
+                      this was pinned to blue-white-red, which is the right default
+                      and was the only option. */}
+                  <ScoreGrid rows={chosen.map(c => c.name)} cols={cols} mean={grid} scale={scale}
+                    ramp={rampDiv} />
+                </Figure>
+                <InHead>
+                  <CsvButton onClick={() => downloadCsv(
+                    scale ? 'module_scores_scaled' : 'module_scores',
+                    ['set', ...cols.map(c => c.full)],
+                    chosen.map((c, s) => [c.name,
+                      ...cols.map((_c, k) => grid[s * cols.length + k].toFixed(4))]))} />
+                </InHead>
+                <p className="sub mt-2">
+                  {scale
+                    ? <>Colour is <b>z-scored along each signature</b> — where that signature is
+                        highest, not how large it is.</>
+                    : <>Colour is the mean score of that signature in that population. Zero is the
+                        reference: no higher than genes of comparable abundance.</>}
+                </p>
+              </>
+            ) : (
+              <div className="empty">Nothing to show yet.</div>
+            )}
+          </div>
+        </div>
+      </Stage>
+    </>
   )
 }
 

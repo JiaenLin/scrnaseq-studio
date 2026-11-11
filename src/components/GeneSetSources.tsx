@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { InRail, RailGroup } from './Rail.tsx'
+import Popover from './Popover.tsx'
 import type { LibraryState, SetIndex } from '../lib/genesets.ts'
 import { collectionToText, type Collection } from '../lib/msigdb.ts'
 import SetEditor from './SetEditor.tsx'
@@ -129,113 +131,70 @@ export default function GeneSetSources({
   /** Sets the reader brought. Always on — they are not downloaded, they are given. */
   const mine = customSets.reduce((a, c) => a + c.sets.length, 0)
 
+  const trigger = useRef<HTMLButtonElement>(null)
+  const [open, setOpen] = useState(false)
+
   return (
-    <div className="panel mb-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="glabel">Collections</span>
-        {avail.map(s => (
-          <button
-            key={s.source} className="chip" aria-pressed={sources.includes(s.source)}
-            // Says no rather than doing nothing. A chip that silently ignores
-            // the click is indistinguishable from one that is broken, which is
-            // how the guard above was reported.
-            disabled={lastStanding(s.source)}
-            title={lastStanding(s.source)
-              ? 'The only collection left — turn another on, or add your own, before turning this off'
-              : `${s.nSets.toLocaleString()} sets · ${(s.bytes / 1e6).toFixed(2)} MB`
-              + (s.projected ? ' · human sets mapped through orthologs, not a mouse annotation' : '')
-              + (s.derived ? ` · assembled from ${s.derived.join(', ')}` : '')
-              + (sources.includes(s.source) ? '' : ' — not downloaded yet')}
-            onClick={() => toggle(s.source)}
-          >
-            {s.source}
-            <span className="ml-1.5 opacity-60">{s.nSets.toLocaleString()}</span>
-          </button>
-        ))}
-
-      </div>
-
-      {/*
-        The reader's own sets, on a row of their own.
-
-        They used to sit at the end of the MSigDB row, and so did the button
-        that makes them — which put an ACTION at the end of a wrap-flow of
-        FILTERS. With fourteen collections that button lands wherever the row
-        happens to break, three lines down, indistinguishable from a fifteenth
-        database nobody has heard of. Reported as "buried in the MSigDB
-        collections", which is exactly what it was.
-
-        A labelled row instead, shown whether or not anything is in it, so the
-        one thing a lab with its own signatures needs is visible before they go
-        looking for it rather than after.
-      */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 border-t pt-2.5"
-        style={{ borderColor: 'var(--line)' }}>
-        <span className="glabel">Your sets</span>
-
-        {/* A button, not a file picker.
-            "Add a GMT…" asked the reader to go and produce a file in a format
-            they do not work in — nobody keeps their signatures as
-            tab-separated triples, they keep them as the dict they built the
-            analysis with. The editor takes that dict, and reading a file is
-            still offered inside it. */}
-        <button className="btn btn-sm" onClick={() => { setEdit({ of: null }) }}>
-          + Paste or upload
+    <>
+    <InRail>
+      {/* One control for which collections are on. They were sixteen chips in
+          a well over the result; chosen rarely, so they are one field in the
+          rail and a list behind it that names every collection with its size. */}
+      <RailGroup label="Collections">
+        <button ref={trigger} className="sel w-full text-left" aria-haspopup="listbox"
+          aria-expanded={open}
+          title={chosen.map(c => c.source).join(', ') || 'No collection selected.'}
+          onClick={() => setOpen(v => !v)}>
+          <span className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate">
+              {chosen.map(c => c.source).join(', ') || 'none'}
+            </span>
+            <span className="num flex-none" style={{ color: 'var(--ink-3)' }}>
+              {chosen.length}/{avail.length}
+            </span>
+          </span>
         </button>
-
-        {customSets.map(c => (
-          // Two targets, because they are two different acts. Clicking the name
-          // used to REMOVE the collection — a destructive action on the whole
-          // chip, one stray click from losing a paste with no way back, and no
-          // way at all to change a set once added. The name opens it for
-          // editing now; the × is its own button and says so.
-          <span key={c.source} className="chip-own">
-            <button
-              className="chip-own-name"
-              title={`${c.sets.length.toLocaleString()} of your sets — click to edit them`}
-              onClick={() => setEdit({ of: c })}
-            >
-              {c.source}
-              <span className="ml-1.5 opacity-70">{c.sets.length.toLocaleString()}</span>
-            </button>
-            <button
-              className="chip-own-x" aria-label={`Remove ${c.source}`}
-              title={`Remove ${c.source}`}
-              onClick={() => onCustomSets(customSets.filter(x => x.source !== c.source))}
-            >×</button>
-          </span>
-        ))}
-
-        {!customSets.length && (
-          <span className="tx-micro" style={{ color: 'var(--ink-3)' }}>
-            Paste a Python dict, a GMT, or one <span className="mono">Name: a, b, c</span> per
-            line. They are tested and corrected exactly as MSigDB&rsquo;s are.
-          </span>
-        )}
-      </div>
-
-      <SetEditor
-        open={edit !== null} background={background}
-        initial={edit?.of
-          ? { name: edit.of.source, text: collectionToText(edit.of) }
-          : null}
-        onClose={() => setEdit(null)}
-        onAdd={c => {
-          setGmtError(null)
-          // Same name replaces rather than duplicates, so editing a set and
-          // adding it again does not leave the old version enabled beside it.
-          // Renaming while editing therefore ADDS: the old name is still a
-          // collection somebody chose, and silently dropping it because a field
-          // changed would be the destructive click this control just lost.
-          onCustomSets([...customSets.filter(x => x.source !== c.source), c])
-        }}
-      />
-
-      {gmtError && (
-        <p className="note note-warn mt-2 tx-small">{gmtError}</p>
-      )}
-
-      <p className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        <Popover open={open} anchor={trigger} role="listbox" label="Collections"
+          width={272} onClose={() => setOpen(false)}>
+          <div className="p-1.5">
+            {avail.map(s => {
+              const on = sources.includes(s.source)
+              return (
+                <button
+                  key={s.source} role="option" aria-selected={on}
+                  className="flex w-full items-center gap-2 rounded-[--r-md] px-2 py-1.5 text-left tx-small hover:bg-[var(--sunk)]"
+                  // Says no rather than doing nothing. A row that silently
+                  // ignores the click is indistinguishable from one that is
+                  // broken, which is how the guard above was reported.
+                  disabled={lastStanding(s.source)}
+                  style={{ opacity: lastStanding(s.source) ? 0.5 : 1 }}
+                  title={lastStanding(s.source)
+                    ? 'The only collection left — turn another on, or add your own, before turning this off'
+                    : `${s.nSets.toLocaleString()} sets · ${(s.bytes / 1e6).toFixed(2)} MB`
+                    + (s.projected ? ' · human sets mapped through orthologs, not a mouse annotation' : '')
+                    + (s.derived ? ` · assembled from ${s.derived.join(', ')}` : '')
+                    + (on ? '' : ' — not downloaded yet')}
+                  onClick={() => toggle(s.source)}
+                >
+                  <span
+                    aria-hidden
+                    className="grid h-[14px] w-[14px] flex-none place-items-center rounded-[--r-sm] tx-micro"
+                    style={{
+                      background: on ? 'var(--sel)' : 'transparent',
+                      color: 'var(--surface)',
+                      border: `1.5px solid ${on ? 'var(--sel)' : 'var(--ctl)'}`,
+                    }}
+                  >{on ? '✓' : ''}</span>
+                  <span className="min-w-0 flex-1 truncate">{s.source}</span>
+                  <span className="num flex-none" style={{ color: 'var(--ink-3)' }}>
+                    {s.nSets.toLocaleString()}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </Popover>
+      <p className="hint m-0">
         {lib.error
           ? <span style={{ color: 'var(--warn)' }}>Could not load the gene sets — {lib.error}</span>
           : lib.loading
@@ -264,7 +223,7 @@ export default function GeneSetSources({
       </p>
 
       {covered !== null && (
-        <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        <p className="hint m-0">
           These collections annotate {(covered * 100).toFixed(0)}% of the genes this object
           measures. That fraction is the annotated background, and turning more collections on
           raises it.
@@ -288,7 +247,7 @@ export default function GeneSetSources({
         // would be a warning about a thing that is not happening.
         const overlapping = s.derived!.filter(name => sources.includes(name))
         return (
-          <p key={s.source} className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+          <p key={s.source} className="hint m-0">
             <b>{s.source}</b> is a metabolic library assembled from{' '}
             {s.derived!.join(', ')} — {s.nSets.toLocaleString()} sets under their own ids, so
             they are tested whatever else is enabled.
@@ -307,20 +266,82 @@ export default function GeneSetSources({
       })}
 
       {chosen.some(s => s.projected) && (
-        <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)' }}>
+        <p className="hint m-0">
           {chosen.filter(s => s.projected).map(s => s.source).join(', ')} is human sets mapped
           through orthologs, not a {lib.manifest?.species[species]?.label.toLowerCase() ?? species}{' '}
           annotation — MSigDB publishes no native one. Read it as a weaker claim than the rest.
         </p>
       )}
 
+      </RailGroup>
+
+      {/* The reader's own sets, in a group of their own: the one thing a lab
+          with its own signatures needs is visible before they go looking. */}
+      <RailGroup label="Your sets">
+        <button className="btn w-full" onClick={() => { setEdit({ of: null }) }}>
+          + Paste or upload
+        </button>
+
+        {customSets.map(c => (
+          // Two targets, because they are two different acts. Clicking the name
+          // used to REMOVE the collection — a destructive action on the whole
+          // chip, one stray click from losing a paste with no way back, and no
+          // way at all to change a set once added. The name opens it for
+          // editing now; the × is its own button and says so.
+          <span key={c.source} className="chip-own">
+            <button
+              className="chip-own-name"
+              title={`${c.sets.length.toLocaleString()} of your sets — click to edit them`}
+              onClick={() => setEdit({ of: c })}
+            >
+              {c.source}
+              <span className="ml-1.5 opacity-70">{c.sets.length.toLocaleString()}</span>
+            </button>
+            <button
+              className="chip-own-x" aria-label={`Remove ${c.source}`}
+              title={`Remove ${c.source}`}
+              onClick={() => onCustomSets(customSets.filter(x => x.source !== c.source))}
+            >×</button>
+          </span>
+        ))}
+
+        {!customSets.length && (
+          <span className="hint">
+            Paste a Python dict, a GMT, or one <span className="mono">Name: a, b, c</span> per
+            line. They are tested and corrected exactly as MSigDB&rsquo;s are.
+          </span>
+        )}
+      </RailGroup>
+    </InRail>
+
+      <SetEditor
+        open={edit !== null} background={background}
+        initial={edit?.of
+          ? { name: edit.of.source, text: collectionToText(edit.of) }
+          : null}
+        onClose={() => setEdit(null)}
+        onAdd={c => {
+          setGmtError(null)
+          // Same name replaces rather than duplicates, so editing a set and
+          // adding it again does not leave the old version enabled beside it.
+          // Renaming while editing therefore ADDS: the old name is still a
+          // collection somebody chose, and silently dropping it because a field
+          // changed would be the destructive click this control just lost.
+          onCustomSets([...customSets.filter(x => x.source !== c.source), c])
+        }}
+      />
+
+      {/* What limits every result under it stays on the stage, as a note. */}
+      {gmtError && (
+        <p className="note note-warn mb-3">{gmtError}</p>
+      )}
       {wrongSpecies && detected && (
-        <p className="mt-1.5 tx-micro" style={{ color: 'var(--warn)' }}>
+        <p className="note note-warn mb-3">
           <b>These sets are for {lib.manifest?.species[species]?.label ?? species}, and this
           object looks like {detected.species}</b> — {detected.why}. Matching ignores case, so
           results will still appear; they will be answering a question about a different species.
         </p>
       )}
-    </div>
+    </>
   )
 }

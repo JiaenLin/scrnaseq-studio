@@ -113,6 +113,9 @@
   --fig-ink: #000000;
   --fig-line: #000000;
   --fig-grid: #dcdfe4;
+  --fig-plate: #ffffff;
+  --fig-summary: #1f2430;
+  --fig-label: #334155;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -143,6 +146,9 @@
     --fig-ink: #e7e9ec;
     --fig-line: #c4c9d1;
     --fig-grid: #2a2e36;
+    --fig-plate: #111317;
+    --fig-summary: #e7e9ec;
+    --fig-label: #b0b6c0;
   }
 
   /* Export stamps this on the root while it reads the computed colours, so a
@@ -154,6 +160,9 @@
     --fig-ink: #000000;
     --fig-line: #000000;
     --fig-grid: #dcdfe4;
+    --fig-plate: #ffffff;
+    --fig-summary: #1f2430;
+    --fig-label: #334155;
     --ink: #15181d;
     --ink-2: #474e5a;
     --ink-3: #626b79;
@@ -344,6 +353,11 @@ svg {
   }
   /* A square button that is only a glyph: a pane's toggle. Always has an
      aria-label and a title. */
+  /* A drawn glyph in front of a label. */
+  .ico {
+    vertical-align: -1.5px;
+    @apply inline-block flex-none;
+  }
   .btn-icon {
     background: transparent;
     border: 0;
@@ -615,9 +629,10 @@ svg {
     transform: scale(0.97);
   }
 
+  /* A table's own scroll. No frame: the head band and the row hairlines are
+     the table, and a box around them is one more box. */
   .scrollx {
-    border: 1px solid var(--line);
-    border-radius: var(--r-md);
+    border-bottom: 1px solid var(--line);
     @apply overflow-x-auto;
   }
   /* A table: a quiet head that stays put, hairline rows, numbers that align. */
@@ -864,6 +879,35 @@ svg {
   .rail .inp.mono {
     font-size: var(--t-small);
   }
+  .rail .hint b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  /* The state of what the rail has set up, in words, with a dot. Colour only
+     for a state that stops the reader, and never alone. */
+  .rail-status {
+    color: var(--ink-2);
+    font-size: var(--t-small);
+    gap: 6px;
+    margin: 0;
+    @apply flex items-center;
+  }
+  .rail-status > i {
+    background: var(--ink-3);
+    border-radius: 9999px;
+    height: 6px;
+    width: 6px;
+    @apply flex-none;
+  }
+  .rail-status[data-state='ok'] > i {
+    background: var(--good);
+  }
+  .rail-status[data-state='bad'] {
+    color: var(--warn);
+  }
+  .rail-status[data-state='bad'] > i {
+    background: var(--warn);
+  }
   .rail .hint {
     color: var(--ink-3);
     font-size: var(--t-micro);
@@ -996,6 +1040,225 @@ svg {
   .stage-body > * {
     max-width: var(--measure);
   }
+  /* The actions on what a head line names (Save, CSV), at its right end:
+     one place on every view (components/Stage.tsx). */
+  .stage-actions {
+    margin-left: auto;
+    @apply flex flex-none items-center gap-1.5;
+  }
+  .stage-actions:empty {
+    display: none;
+  }
+  /* A figure's own actions. With no head line above they are a row over the
+     figure; under one they are in its slot. */
+  .fig-actions {
+    @apply mb-1.5 flex items-center justify-end gap-1.5;
+  }
+  .stage-actions > .fig-actions {
+    margin: 0;
+  }
+  /* A view that fills the stage: its panes scroll, the stage does not. */
+  .stage:has(> .column > .fill) {
+    overflow: hidden;
+  }
+  .stage:has(> .column > .fill) > .column {
+    height: 100%;
+  }
+  .fill {
+    height: 100%;
+    min-height: 0;
+    @apply flex flex-col;
+  }
+  /* Table-led: a reading column (the sentence, the figure, its note) and the
+     tables beside it, which run to the stage's bottom edge. */
+  .split {
+    display: grid;
+    flex: 1 1 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-columns: minmax(232px, 340px);
+    grid-auto-flow: column;
+    min-height: 0;
+  }
+  .read {
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--s4) var(--s5) var(--s5);
+  }
+  .read:focus-visible {
+    outline-offset: -2px;
+  }
+  /* A table that is a pane: its name, then rows to the bottom edge. */
+  .tpane {
+    border-left: 1px solid var(--line);
+    min-height: 0;
+    min-width: 0;
+    @apply flex flex-col;
+  }
+  .tpane-name {
+    flex: none;
+    font-size: var(--t-small);
+    font-weight: 600;
+    padding: var(--s2) var(--s2) 6px;
+    @apply truncate whitespace-nowrap;
+  }
+  .tpane-name > .num {
+    color: var(--ink-2);
+    font-weight: 400;
+    margin-left: var(--s1);
+  }
+  .tpane-body {
+    border-top: 1px solid var(--line);
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+  }
+  /* List-led: the things to choose from on the left, to the bottom edge;
+     what was chosen, drawn, on the right. */
+  .split-list {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(264px, 340px) minmax(0, 1fr);
+  }
+  .split-list > .tpane {
+    border-left: 0;
+    border-right: 1px solid var(--line);
+  }
+  .tpane-tools {
+    flex: none;
+    gap: var(--s2);
+    padding: var(--s2);
+    @apply flex flex-wrap items-center;
+  }
+  /* One row of a list that is chosen from. */
+  .set-row {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    font-size: var(--t-small);
+    gap: var(--s2);
+    height: var(--h-md);
+    padding: 0 var(--s2);
+    @apply flex w-full items-center text-left;
+    transition: background-color var(--d-press) ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .set-row:hover {
+      background: var(--hover);
+    }
+  }
+  .set-row[aria-selected='true'] {
+    background: var(--press);
+    box-shadow: inset 2px 0 0 var(--sel);
+  }
+  .set-row[data-at='1'] {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .set-src {
+    color: var(--ink-3);
+    font-size: var(--t-micro);
+    @apply flex-none;
+  }
+  .set-n {
+    color: var(--ink-2);
+    min-width: 28px;
+    @apply flex-none text-right;
+  }
+  .set-check {
+    border: 1.5px solid var(--ctl);
+    border-radius: var(--r-sm);
+    color: var(--surface);
+    font-size: var(--t-micro);
+    height: 14px;
+    width: 14px;
+    @apply grid flex-none place-items-center;
+  }
+  [aria-selected='true'] > .set-check {
+    background: var(--sel);
+    border-color: var(--sel);
+  }
+  /* Two sections side by side: a figure and the table that reads it out. */
+  .sect-pair {
+    column-gap: var(--s5);
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(260px, 1fr);
+  }
+  .sect-pair > .sect {
+    border-top: 0;
+    padding-top: 0;
+  }
+  /* What a table-led stage says before its table: the count, one sentence. */
+  .lead {
+    flex: none;
+    padding: var(--s3) var(--s4) var(--s2);
+  }
+  /* A table's toolbar: one 24 px row directly over it. */
+  .ttools {
+    flex: none;
+    gap: var(--s2);
+    padding: 0 var(--s4) var(--s2);
+    @apply flex flex-wrap items-center;
+  }
+  .inp.inp-sm {
+    font-size: var(--t-small);
+    height: var(--h-sm);
+  }
+  /* A table that runs edge to edge: its first and last cells keep the head
+     line's side padding, so the text aligns with what is above it. */
+  .tpane-body.edge .t th:first-child,
+  .tpane-body.edge .t td:first-child {
+    padding-left: var(--s4);
+  }
+  .tpane-body.edge .t th:last-child,
+  .tpane-body.edge .t td:last-child {
+    padding-right: var(--s4);
+  }
+  .tpane-body.edge .t tr:last-child td {
+    border-bottom: 1px solid var(--line);
+  }
+  .tmore {
+    gap: var(--s2);
+    padding: var(--s2) var(--s4);
+    @apply flex items-center;
+  }
+  .tnote {
+    color: var(--ink-3);
+    font-size: var(--t-micro);
+    line-height: 1.5;
+    max-width: 96ch;
+    padding: var(--s2) var(--s4) var(--s4);
+  }
+  /* A fitted figure inside a stage that has its own head line. */
+  .explorer.in-fill {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+  /* The box a figure is fitted to: the figure sizes itself from the box's
+     width and height (container units), top and centre. */
+  .fitbox {
+    container-type: size;
+    flex: 1 1 0;
+    min-height: 0;
+    padding: var(--s3) var(--s4) 0;
+    @apply grid place-items-start justify-center;
+  }
+  /* A section of a document view: a hairline, a head line that owns its
+     actions, the content. */
+  .sect {
+    border-top: 1px solid var(--line);
+    padding: var(--s3) 0 var(--s5);
+  }
+  .sect:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+  .sect-head {
+    column-gap: var(--s3);
+    min-height: var(--h-md);
+    margin-bottom: var(--s2);
+    @apply flex flex-wrap items-center;
+  }
   .stage-foot {
     border-top: 1px solid var(--line);
     color: var(--ink-2);
@@ -1019,6 +1282,14 @@ svg {
     min-height: 0;
     min-width: 0;
     @apply relative flex flex-col items-center justify-center overflow-hidden;
+  }
+  /* Several panels: each block (its name, then its plot) hangs from the top of
+     its cell, so the names run on one line under the head line, where a
+     panel's title is looked for, and the slack is under the plots. One panel
+     has no name and stays centred. */
+  .plots[data-panels='many'] > .plot {
+    justify-content: flex-start;
+    padding-top: var(--s2);
   }
   .plot-name {
     flex: none;
@@ -1138,6 +1409,35 @@ svg {
     }
     .card {
       padding: var(--s4);
+    }
+    .stage:has(> .column > .fill) {
+      overflow: visible;
+    }
+    .fill,
+    .stage:has(> .column > .fill) > .column {
+      height: auto;
+    }
+    .split {
+      display: block;
+    }
+    .split-list > .tpane-body,
+    .split-list > .tpane > .tpane-body {
+      max-height: 40dvh;
+      overflow: auto;
+    }
+    .sect-pair {
+      display: block;
+    }
+    .fitbox {
+      container-type: inline-size;
+    }
+    .read,
+    .tpane-body {
+      overflow: visible;
+    }
+    .tpane {
+      border-left: 0;
+      border-top: 1px solid var(--line);
     }
   }
 

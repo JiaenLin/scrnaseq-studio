@@ -23,7 +23,7 @@ import Markers from './components/Markers.tsx'
 import { Differential, type StatsProps } from './components/Stats.tsx'
 import Enrichment from './components/Enrichment.tsx'
 import GeneExpression from './components/GeneExpression.tsx'
-import GeneSets from './components/GeneSets.tsx'
+import GeneSets, { type SetsView } from './components/GeneSets.tsx'
 import ScoreMany from './components/ScoreMany.tsx'
 import Coexpression from './components/Coexpression.tsx'
 import Methods from './components/Methods.tsx'
@@ -100,7 +100,7 @@ function CrashOnRender({ tab }: { tab: TabId }): never {
 /** Tabs that describe a comparison, and so cannot exist without two groups. */
 const NEEDS_CONTRAST = new Set<TabId>(['de'])
 /** Views that put controls of their own in the rail (components/Rail.tsx). */
-const OWN_RAIL = new Set<TabId>(['expr', 'de', 'composition', 'markers'])
+const OWN_RAIL = new Set<TabId>(['expr', 'de', 'composition', 'markers', 'coexpr', 'sets'])
 
 /** Tests that do not go through the gated Wilcoxon pass, so have nothing to run. */
 const NEEDS_RUN_HIDDEN = new Set<Method>(['pseudobulk'])
@@ -337,6 +337,7 @@ export default function App() {
   // The two side panes. Open by default; closing one gives its width to the
   // figure. Remembered in this browser, and the page works without storage.
   const [railSlot, setRailSlot] = useState<HTMLElement | null>(null)
+  const [setsView, setSetsView] = useState<SetsView>('one')
   const [railOpen, setRailOpen] = usePane('rail')
   const [inspOpen, setInspOpen] = usePane('key')
   useEffect(() => {
@@ -678,12 +679,6 @@ export default function App() {
 
   const escapeTo: TabId = tab === 'overview' ? 'cells' : 'overview'
 
-  const chipStyle = chip.cls === 'ok'
-    ? { background: 'var(--good-soft)', color: 'var(--good)', borderColor: 'color-mix(in srgb, var(--good) 25%, transparent)' }
-    : chip.cls === 'bad'
-      ? { background: 'var(--warn-soft)', color: 'var(--warn)', borderColor: 'var(--warn-line)' }
-      : { background: 'var(--surface)', color: 'var(--ink-3)', borderColor: 'var(--line-2)' }
-
   return (
     <div className="app">
       <header className="shell-head">
@@ -839,15 +834,15 @@ export default function App() {
                     )}
                   </>
                 )}
-              {needs.contrast && (
-                <span
-                  className="self-start inline-flex items-center gap-[7px] whitespace-nowrap rounded-full px-[11px] py-1 tx-micro font-semibold"
-                  style={{ ...chipStyle, borderWidth: 1, borderStyle: 'solid' }}
-                  title={chip.title}
-                >
-                  <i className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
-                  {chip.text}
-                </span>
+              {/* The contrast's status, as a line of words with a dot. It was
+                  a coloured pill, and for the per-cell test it only repeated
+                  the Test list's own selection directly under it, so there it
+                  is not drawn: it speaks when it adds something (how many
+                  samples clear the floor, an overlap). */}
+              {needs.contrast && !(chip.cls === 'ok' && method === 'wilcox') && (
+                <p className="rail-status" data-state={chip.cls} title={chip.title}>
+                  <i aria-hidden />{chip.text}
+                </p>
               )}
               </div>
             )}
@@ -977,18 +972,20 @@ export default function App() {
                 seed={coexprSeed} onSeed={setCoexprSeed}
                 ran={coexprRan} onRan={setCoexprRan} />
             ) : tab === 'sets' ? (
-              <>
               <GeneSets src={src} types={types} emb={emb} palKey={palKey} rampKey={rampKey}
                 rampDiv={rampDiv}
                 onPickGene={pickGene}
                 onCorrelate={genes => { setCoexprSeed(genes); setCoexprRan(null); setTab('coexpr') }}
                 lib={lib} species={species ?? 'human'} sources={chosenSrcs} onSources={setSrcs}
-                    customSets={customSets} onCustomSets={setCustomSets}
+                customSets={customSets} onCustomSets={setCustomSets}
                 detected={detected}
-                scoreRan={scoreRan} onScoreRan={setScoreRan} />
-              <ScoreMany src={src} types={types} palKey={palKey} rampDiv={rampDiv}
-                lib={lib} ran={manyRan} onRan={setManyRan} />
-              </>
+                scoreRan={scoreRan} onScoreRan={setScoreRan}
+                // Which of the two stages is on screen, like DE's view switch.
+                view={setsView} onView={setSetsView}
+                many={switcher => (
+                  <ScoreMany src={src} types={types} palKey={palKey} rampDiv={rampDiv}
+                    lib={lib} ran={manyRan} onRan={setManyRan} switcher={switcher} />
+                )} />
             ) : (
               <Methods src={src} types={types} tis={tis} ctrl={ctrl} cs={cs} method={method}
                 padjMax={padjMax} lfcMin={lfcMin} gates={gates}

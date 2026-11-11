@@ -21,7 +21,8 @@ import { KeyRow } from './svg-parts.tsx'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
 import { Empty, Mono, Seg } from './Ui.tsx'
 import { InRail, Opts, RailGroup } from './Rail.tsx'
-import Figure from './Figure.tsx'
+import { Stage } from './Stage.tsx'
+import Figure, { DownIcon } from './Figure.tsx'
 import DEGTableBody from './DEGTable.tsx'
 
 export interface StatsProps {
@@ -275,11 +276,12 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
       )}
 
       {inert && (
-        <p className="hint m-0" style={{ color: 'var(--warn)' }}>
+        // A note about the cutoff, not an alarm: hint ink, the consequence in 600.
+        <p className="hint m-0">
           Bonferroni over the {fmt(p.nTested)} genes this object measures pins every gene
           with p above{' '}
           {ceiling.toExponential(1)} to exactly 1, so no cutoff above that admits another
-          row — moving the slider here cannot change the count. Cut on <b>FDR</b> for a
+          row — <b>moving the slider here cannot change the count.</b> Cut on <b>FDR</b> for a
           threshold that does something, or read the −log₁₀ padj column, which still
           separates them.
         </p>
@@ -304,7 +306,7 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
               {openGates ? '▾' : '▸'} What gets tested
             </button>
             <span className="hint"
-              style={{ color: wide || seurat ? 'var(--ink-3)' : 'var(--warn)' }}>
+              style={{ color: wide || seurat ? 'var(--ink-3)' : 'var(--ink-2)' }}>
               {wide
                 ? `min.pct ${p.gates.pct}, no logfc.threshold — every gene detected in`
                   + ' a tenth of either side is tested, so the slider above filters answers'
@@ -533,7 +535,7 @@ function PseudobulkPanel(p: StatsProps) {
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2.5">
         <button className="btn btn-primary" disabled={!cols.length} onClick={save}>
-          ⭳ Pseudobulk counts ({cols.length} columns)
+          <DownIcon />Pseudobulk counts ({cols.length} columns)
         </button>
         <button className="btn" onClick={() => p.onMethod('wilcox')}>Back to Wilcoxon</button>
         <span className="tx-small" style={{ color: 'var(--ink-3)' }}>
@@ -574,8 +576,11 @@ export function Differential(p: StatsProps & {
   const { value: de, pass, failed, retry } = useDE(p)
   const blocked = p.method === 'pseudobulk' ? <PseudobulkPanel {...p} /> : gate(p, de)
   const ready = !blocked && !failed && !pass && de
+  // The table and the volcano fill the stage (a table to the bottom edge, a
+  // figure fitted both ways); everything else is a document that scrolls.
+  const fit = !!ready && p.view !== 'enrich'
   return (
-    <div>
+    <>
       {/* The question in the rail, under the contrast it belongs to: which
           test, and where the cutoffs sit. The answer on the stage. */}
       <InRail>
@@ -586,19 +591,18 @@ export function Differential(p: StatsProps & {
             understated it by whatever the gates removed. */}
         {ready && <ThresholdBar {...p} nTested={p.src.genes.length} />}
       </InRail>
-      <header className="stage-head sticky top-0 z-20" style={{ background: 'var(--surface)' }}>
+      <Stage fit={fit} head={<>
         <Seg<DEView> value={p.view} onChange={p.onView} options={VIEWS} />
         <span className="stage-meta">{contrastLabel(p)}</span>
-      </header>
-      <div className="stage-body">
+      </>}>
         {blocked ?? (failed ? <Failed error={failed} onRetry={retry} what="This contrast" />
           : pass ? <Progress pass={pass} title={testing(p)} /> : de && (
             p.view === 'table' ? <DEGTable {...p} de={de} />
               : p.view === 'volcano' ? <Volcano {...p} de={de} />
               : p.enrichment(de.rows)
           ))}
-      </div>
-    </div>
+      </Stage>
+    </>
   )
 }
 
@@ -611,6 +615,7 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
 
   return (
     <>
+      <div className="lead">
       <h2 className="tx-title">{up + dn} differentially expressed genes</h2>
       <p className="sub">
         {up} higher and {dn} lower in <b>{condLabel(p.cs)}</b>, at{' '}
@@ -621,6 +626,7 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
             DESeq2. The sentence claimed it anyway. */}
         <>Wilcoxon over {fmt(n0)} and {fmt(n1)} cells.</>
       </p>
+      </div>
 
       <DEGTableBody
         rows={rows} wilcox={wil} nGenes={p.src.genes.length} sigBasis={p.sigBasis}
@@ -800,38 +806,36 @@ function Volcano(p: StatsProps & { de: DEResult }) {
     return null
   }
 
+  // What the inspector reads out: the point under the pointer, else the gene
+  // clicked last, so a pinned gene's numbers stay while the pointer is away.
+  const lastPinned = pinned.length ? rows.find(r => r.gene === pinned[pinned.length - 1]) ?? null : null
+  const read = hover ?? lastPinned
+
   return (
     <>
-      <div className="mb-2 flex flex-wrap items-center gap-2.5">
-        <span className="badge" style={{ background: 'color-mix(in srgb, var(--up) 14%, transparent)', color: 'var(--up)' }}>
-          ▲ {up} up in {condLabel(p.cs)}
-        </span>
-        <span className="badge" style={{ background: 'color-mix(in srgb, var(--down) 14%, transparent)', color: 'var(--down)' }}>
-          ▼ {dn} up in {condLabel(p.ctrl)}
-        </span>
-        <span className="ml-auto flex items-center gap-1.5">
+      <InRail>
+        <RailGroup label="Labels">
+          <Seg<string> value={String(nLabels)} onChange={v => setNLabels(Number(v))}
+            options={[{ k: '0', label: 'none' }, { k: '12', label: '12' }, { k: '25', label: '25' }]} />
           {pinned.length > 0 && (
-            <>
-              <button className="btn btn-quiet" onClick={() => setPinned([])}>
-                Clear {pinned.length} clicked
-              </button>
-              <div className="gsep" />
-            </>
-          )}
-          <span className="glabel">Labels</span>
-          {[0, 12, 25].map(n => (
-            <button key={n} className="chip" aria-pressed={nLabels === n} onClick={() => setNLabels(n)}>
-              {n === 0 ? 'none' : n}
+            <button className="btn btn-quiet self-start" onClick={() => setPinned([])}>
+              Clear {pinned.length} clicked
             </button>
-          ))}
-        </span>
-      </div>
-
-      <Figure name={`volcano_${contrastLabel(p)}`} className="mt-6">
+          )}
+        </RailGroup>
+      </InRail>
+      <div className="explorer in-fill">
+      <div className="pane">
+      {/* Fitted to the stage in both directions, and at most 1.25 times its
+          own size, so its type does not grow with the window. */}
+      <Figure name={`volcano_${contrastLabel(p)}`} className="fitbox">
         <svg
-          viewBox={`0 0 ${W} ${H}`} width="100%" role="img"
+          viewBox={`0 0 ${W} ${H}`} role="img"
           aria-label={`Volcano plot for ${contrastLabel(p)}`}
-          style={{ cursor: hover ? 'pointer' : 'default', maxWidth: W * 1.25 }}
+          style={{
+            cursor: hover ? 'pointer' : 'default', aspectRatio: `${W} / ${H}`, height: 'auto',
+            width: `min(100cqw, ${(W / H).toFixed(4)} * 100cqh, ${W * 1.25}px)`,
+          }}
           onMouseMove={e => setHover(pick(e)?.r ?? null)}
           onMouseLeave={() => setHover(null)}
           onClick={e => {
@@ -873,7 +877,8 @@ function Volcano(p: StatsProps & { de: DEResult }) {
               genes the figure is about. The edge is for the marks a reader is
               meant to pick out one by one. */}
           {pts.map(q => (
-            <circle key={q.r.gene} cx={+q.x.toFixed(1)} cy={+q.y.toFixed(1)}
+            <circle key={q.r.gene} data-gene={q.sig ? q.r.gene : undefined}
+              cx={+q.x.toFixed(1)} cy={+q.y.toFixed(1)}
               r={hover?.gene === q.r.gene ? 6 : q.sig ? 4 : 2.6}
               fill={q.sig ? (q.r.lfc > 0 ? UP_MARK : DOWN_MARK) : NULL_MARK}
               stroke={q.sig ? MARK_EDGE : 'none'} strokeWidth={q.sig ? 0.6 : 0}
@@ -935,32 +940,72 @@ function Volcano(p: StatsProps & { de: DEResult }) {
         </svg>
       </Figure>
 
-      {/* Only the readout stays out here: it changes as the pointer moves and
-          has no meaning in a saved file. The three colours are in the figure. */}
-      <div className="legend mt-2">
-        <span style={{ color: 'var(--ink-3)' }}>
-          {/* The same two columns the table shows, written the same way — a point
-              near the top of this axis has an adjusted p the double cannot hold,
-              and `padj.toExponential(1)` printed the floor as though it were the
-              reading. */}
-          {hover
-            ? `${hover.gene} · log₂FC ${hover.lfc.toFixed(2)}`
-              + ` · −log₁₀ padj ${nlpTxt(hover.nlp)} · padj ${pTxt(hover.padj)}`
-            : '· hover a point to read it, click to keep its name on the figure'}
-        </span>
-      </div>
-
       {/* The underflow argument that used to sit here is in Methods, where a
           reviewer looks for it. On the figure it was six lines of arithmetic
           under a plot whose dashed lines are the only thing needing a caption. */}
-      <figcaption className="mt-2 tx-micro" style={{ color: 'var(--ink-3)' }}>
-        Dashed lines are the cutoffs on the left.
-        {untested > 0 && (
-          <> {fmt(untested)} more genes are in the table with a fold change and no p —
-            under the effect-size gate, so the rank sum was skipped and they have no
-            height to be drawn at.</>
+      <footer className="stage-foot">
+        <span className="truncate">
+          Dashed lines are the cutoffs on the left.
+          {untested > 0 && (
+            <> {fmt(untested)} more genes are in the table with a fold change and no p —
+              under the effect-size gate, so the rank sum was skipped and they have no
+              height to be drawn at.</>
+          )}
+        </span>
+      </footer>
+      </div>
+
+      {/* The key and the readout, beside the figure. The readout changes as
+          the pointer moves and has no meaning in a saved file; the three
+          colours are in the figure too, for the export. */}
+      <aside className="inspector" aria-label="Key">
+        <div className="ins-section" style={{ minHeight: 124 }}>
+          <div className="rail-label">Gene</div>
+          {read ? (
+            <>
+              {/* The same two columns the table shows, written the same way — a
+                  point near the top of this axis has an adjusted p the double
+                  cannot hold, and `padj.toExponential(1)` printed the floor as
+                  though it were the reading. */}
+              <div className="lg-row"><span className="mono font-semibold italic">{read.gene}</span></div>
+              <div className="lg-row"><span>log₂FC</span>
+                <span className="num">{read.lfc.toFixed(2)}</span></div>
+              <div className="lg-row"><span>−log₁₀ padj</span>
+                <span className="num">{nlpTxt(read.nlp)}</span></div>
+              <div className="lg-row"><span>padj</span>
+                <span className="num">{pTxt(read.padj)}</span></div>
+            </>
+          ) : (
+            <p className="hint m-0">Hover a point to read it, click to keep its name on the figure.</p>
+          )}
+        </div>
+        <div className="ins-section">
+          <div className="rail-label">Key</div>
+          <div className="lg-row"><span><i className="sw" style={{ background: UP_MARK }} />up in {condLabel(p.cs)}</span>
+            <span className="num">{up}</span></div>
+          <div className="lg-row"><span><i className="sw" style={{ background: DOWN_MARK }} />up in {condLabel(p.ctrl)}</span>
+            <span className="num">{dn}</span></div>
+          <div className="lg-row"><span><i className="sw" style={{ background: NULL_MARK }} />not significant</span>
+            <span className="num">{fmt(pts.length - up - dn)}</span></div>
+          <p className="hint m-0">larger = past both cutoffs</p>
+        </div>
+        {pinned.length > 0 && (
+          <div className="ins-section">
+            <div className="rail-label">Named on the figure</div>
+            {pinned.map(g => {
+              const r = rows.find(x => x.gene === g)
+              return (
+                <button key={g} type="button" className="lg-row" title={`Remove ${g}'s name from the figure`}
+                  onClick={() => setPinned(prev => prev.filter(x => x !== g))}>
+                  <span className="mono italic">{g}</span>
+                  <span className="num">{r ? (r.lfc > 0 ? '+' : '') + r.lfc.toFixed(2) : ''}</span>
+                </button>
+              )
+            })}
+          </div>
         )}
-      </figcaption>
+      </aside>
+      </div>
     </>
   )
 }
