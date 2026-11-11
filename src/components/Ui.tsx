@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { ActionSlot } from '../lib/action-slot.ts'
 
 /**
  * One card, one header shape: eyebrow, title, optional controls on the right.
@@ -15,7 +16,13 @@ export function Card({ eyebrow, title, sub, right, children }: {
   children?: ReactNode
 }) {
   const head = eyebrow || title || sub
-  return (
+  // The actions on what the card holds (Save, CSV) sit at the right end of
+  // its head line, like a stage's (Stage.tsx). The slot is on the page only:
+  // on the server an action renders where it is written, and the markup the
+  // tests split on (`<section class="card">`) is as it was.
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  const client = typeof document !== 'undefined'
+  const body = (
     <section className="card">
       {head && (
         <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -24,12 +31,18 @@ export function Card({ eyebrow, title, sub, right, children }: {
             {title && <h2 className="card-title">{title}</h2>}
             {sub && <p className="sub">{sub}</p>}
           </div>
-          {right && <div className="flex flex-wrap items-center gap-1.5">{right}</div>}
+          {(right || client) && (
+            <div className="card-actions">
+              {right}
+              {client && <div ref={setSlot} className="stage-actions" />}
+            </div>
+          )}
         </div>
       )}
       {children}
     </section>
   )
+  return head && client ? <ActionSlot.Provider value={slot}>{body}</ActionSlot.Provider> : body
 }
 
 export function Stat({ value, label }: { value: string | number; label: string }) {

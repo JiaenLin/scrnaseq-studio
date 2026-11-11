@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scRNA-seq Studio: before W037 and now</title>
+<!--
+  Every screen of the studio before W037 (commit 099a085) and now, at 1,440 px, in both themes.
+  Full-colour captures of the studio's own synthetic demos and the committed synthetic
+  testdata/lab/family-2x2.zip only; never a cohort's object. Open this file from a checkout:
+  the images are beside it (gallery/before, after). Made by scripts/shot-design.mjs.
+-->
+<style>
+  :root {
+    --bg: #f5f6f7; --surface: #ffffff; --line: #e2e5e9; --line-2: #cfd4da;
+    --ink: #15181d; --ink-2: #474e5a; --ink-3: #626b79; --press: rgba(21, 24, 29, 0.1);
+    --accent: #2857d6;
+  }
+  :root[data-theme='dark'] {
+    --bg: #0d0f12; --surface: #111317; --line: #24282f; --line-2: #343943;
+    --ink: #e7e9ec; --ink-2: #b0b6c0; --ink-3: #8a919d; --press: rgba(231, 233, 236, 0.1);
+    --accent: #7ea2ff;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 56px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  header {
+    position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px;
+    height: 40px; padding: 0 16px; background: var(--bg); border-bottom: 1px solid var(--line);
+  }
+  header b { font-weight: 600; }
+  header span { color: var(--ink-2); font-size: 12px; }
+  .seg { margin-left: auto; display: inline-flex; gap: 2px; height: 24px; padding: 2px; background: var(--press); border-radius: 6px; }
+  .seg button {
+    border: 0; border-radius: 4px; padding: 0 10px; background: transparent; color: var(--ink-2);
+    font: 500 12px system-ui, sans-serif; cursor: pointer;
+  }
+  .seg button[aria-pressed='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line-2); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .work { display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; }
+  nav {
+    position: sticky; top: 40px; max-height: calc(100dvh - 40px); overflow-y: auto;
+    padding: 12px; border-right: 1px solid var(--line);
+  }
+  nav div { margin: 12px 0 4px; color: var(--ink); font-size: 12px; font-weight: 600; }
+  nav div:first-child { margin-top: 0; }
+  nav a {
+    display: flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px;
+    color: var(--ink-2); font-weight: 500; text-decoration: none;
+  }
+  nav a:hover { background: var(--press); color: var(--ink); }
+  main { background: var(--surface); min-height: calc(100dvh - 40px); }
+  section { padding: 16px 24px 24px; border-bottom: 1px solid var(--line); }
+  h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+  section > p { margin: 2px 0 12px; max-width: 96ch; color: var(--ink-2); font-size: 12px; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  figure { margin: 0; }
+  figcaption { margin-bottom: 4px; color: var(--ink-3); font-size: 11px; }
+  figure a { display: block; border: 1px solid var(--line); }
+  img { display: block; width: 100%; height: auto; }
+  .none {
+    display: grid; place-items: center; min-height: 160px; border: 1px solid var(--line);
+    color: var(--ink-3); font-size: 12px;
+  }
+  @media (max-width: 1023px) { .work, .pair { grid-template-columns: minmax(0, 1fr); } nav { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+<header>
+  <b>scRNA-seq Studio</b>
+  <span>every screen before W037 and now · 1,440 px · synthetic data only</span>
+  <div class="seg" role="group" aria-label="Theme of the screenshots">
+    <button type="button" data-theme-pick="light" aria-pressed="true">Light</button>
+    <button type="button" data-theme-pick="dark" aria-pressed="false">Dark</button>
+  </div>
+</header>
+<div class="work">
+  <nav aria-label="Screens"></nav>
+  <main></main>
+</div>
+<script>
+  // [group, file name before, file name now, title, what changed]. A null name: the screen did not exist.
+  const SCREENS = [
+    ['Frame', 'landing', 'landing', 'Landing page', 'One centred column: the drop target, the input format as a table, the demos as rows between hairlines.'],
+    ['Frame', 'overview', 'overview', 'Overview', 'A reading column of hairline sections; the counts are a hairline grid, the tables have no frame.'],
+    ['Frame', 'methods', 'methods', 'Methods', 'The contrast in the rail; the prose at 68 characters.'],
+    ['Frame', 'menu-order', 'menu-order', 'Group order menu', 'In the identity bar, with the object it reorders.'],
+    ['Frame', 'menu-style', 'menu-style', 'Figure style menu', 'The palette that passes on both grounds is the default.'],
+    ['Frame', 'menu-celltype', 'menu-celltype', 'Cell type picker', 'The contrast is picked in the rail.'],
+    ['Cells', 'cells-viewport', 'cells-viewport', 'Cells, two panels', 'Fitted to the stage in both directions; each panel hangs from the top of its cell with its name and n; the key with n beside it; Save in the head line.'],
+    ['Cells', 'cells-single', 'cells-single', 'Cells, one panel', 'The plot owns the stage; names sized from the panel and haloed in the ground colour.'],
+    ['Cells', null, 'cells-isolate', 'Cells, one key entry isolated', 'A key entry is a button: its cells stay in colour, the rest go grey; the status line says how many.'],
+    ['Cells', null, 'tc-cells-split', 'Cells, four panels', 'Any number of panels on a best-fit grid.'],
+    ['Cells', 'wt-cells', 'wt-cells', 'One condition', 'The views that need a contrast are disabled, with the reason in their title.'],
+    ['Cells', 'lab-cells', 'lab-cells', 'A bundle from the Lab', 'The same frame for an opened object.'],
+    ['Cells', 'lab-overview', 'lab-overview', 'The Run card', 'Every field as recorded; nothing inferred.'],
+    ['Analysis', 'composition', 'composition', 'Composition', 'Choices in the rail; bars at a fixed row height and the figure at its own size; one Save for the sheet.'],
+    ['Analysis', 'markers', 'markers', 'Markers', 'The count in the rail; CSV and Save at the head line; clusters as blocks between hairlines.'],
+    ['Analysis', 'de', 'de', 'Differential expression, the first step', 'An empty state that says what to pick and where, not a warning.'],
+    ['Analysis', 'de-table', 'de-table', 'Differential expression, the table', 'Contrast, test and cutoffs in the rail; the table to the bottom edge with a sticky head; cautions are notes, not alarms.'],
+    ['Analysis', 'de-volcano', 'de-volcano', 'Differential expression, the volcano', 'Fitted to the stage; the gene under the pointer, the key with n and the named genes in an inspector.'],
+    ['Analysis', null, 'de-volcano-pin', 'The volcano, a gene named', 'A click keeps a name on the figure and its row in the inspector.'],
+    ['Analysis', 'de-enrich', 'de-enrich', 'Enrichment', 'Its options and the library in the rail; the bars at their own size.'],
+    ['Analysis', 'expr-violin', 'expr-violin', 'Gene expression, violins', 'Search and options in the rail; the y axis says what it measures; one Save for the sheet.'],
+    ['Analysis', 'expr-dot', 'expr-dot', 'Gene expression, dot plot', 'The same rail; Save at the head line.'],
+    ['Analysis', 'expr-feature', 'expr-feature', 'Gene expression, feature plots', 'Panels fitted to the stage, so the names on them can be read.'],
+    ['Analysis', 'sets', 'sets', 'Gene sets, choosing', 'The library as one field; the sets as a list that runs to the bottom edge.'],
+    ['Analysis', 'sets-result', 'sets-result', 'Gene sets, one set scored', 'The list stays; the result is sections with their own head lines.'],
+    ['Analysis', null, 'sets-many', 'Gene sets, several at once', 'The same stage with a switch, not a second card under the first.'],
+    ['Analysis', 'coexpr', 'coexpr', 'Co-expression, the first step', 'Five rows of controls became five groups in the rail.'],
+    ['Analysis', 'coexpr-result', 'coexpr-result', 'Co-expression, a result', 'The sentence and both ends on one axis on the left; the two rankings as tables to the bottom edge.'],
+    ['States', 'state-error', 'state-error', 'A view that could not be drawn', 'The boundary takes the view, never the app, and says what still stands.'],
+  ]
+  const nav = document.querySelector('nav'), main = document.querySelector('main')
+  const src = (dir, name, theme) => `${dir}/${name}-1440-${theme}.png`
+  const el = (tag, props = {}, ...kids) => {
+    const e = Object.assign(document.createElement(tag), props)
+    e.append(...kids)
+    return e
+  }
+  const shot = (dir, name, label) => {
+    const fig = el('figure', {}, el('figcaption', { textContent: label }))
+    if (!name) { fig.append(el('div', { className: 'none', textContent: 'This screen did not exist.' })); return fig }
+    const img = el('img', { loading: 'lazy', alt: `${label}: ${name}` })
+    img.dataset.dir = dir; img.dataset.name = name
+    const a = el('a', { target: '_blank', rel: 'noreferrer' }, img)
+    fig.append(a)
+    return fig
+  }
+  let group = ''
+  for (const [g, before, now, title, what] of SCREENS) {
+    if (g !== group) { nav.append(el('div', { textContent: g })); group = g }
+    const id = `s-${now}`
+    nav.append(el('a', { href: `#${id}`, textContent: title }))
+    main.append(el('section', { id },
+      el('h2', { textContent: title }), el('p', { textContent: what }),
+      el('div', { className: 'pair' }, shot('gallery/before', before, 'Before W037'), shot('after', now, 'Now'))))
+  }
+  const paint = theme => {
+    document.documentElement.dataset.theme = theme
+    for (const b of document.querySelectorAll('[data-theme-pick]')) b.setAttribute('aria-pressed', String(b.dataset.themePick === theme))
+    for (const img of document.querySelectorAll('img')) {
+      img.src = src(img.dataset.dir, img.dataset.name, theme)
+      img.parentElement.href = img.src
+    }
+  }
+  for (const b of document.querySelectorAll('[data-theme-pick]')) b.addEventListener('click', () => paint(b.dataset.themePick))
+  paint(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+</script>
+</body>
+</html>

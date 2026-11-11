@@ -1,9 +1,9 @@
 // Expression on the embedding, one panel per gene and optionally per group.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { drawFeature, panelHeight } from '../../lib/feature-plot.ts'
 import { clusterCentroids, embedExtent, maxOf, nonZeroPercentile } from '../../lib/chart.ts'
-import { GHOST_INK, PLATE } from '../../lib/figure-ink.ts'
+import { GHOST_INK, PRINT_PLATE } from '../../lib/figure-ink.ts'
 import Figure from '../Figure.tsx'
 import { geneIndex } from '../../lib/genes.ts'
 import { rampCss } from '../../lib/palette.ts'
@@ -11,6 +11,22 @@ import type { Cell } from '../../types.ts'
 import type { GeneProps } from '../GeneExpression.tsx'
 
 /* ---------------- Seurat feature plot ---------------- */
+
+/** An element's width, measured before paint and kept current. */
+function useWidth() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(0)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const set = () => setW(el.clientWidth)
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return [ref, w] as const
+}
 
 export default function FeaturePlot(p: GeneProps) {
   const split = p.groupBy !== 'type' && p.src.d.multi
@@ -20,15 +36,26 @@ export default function FeaturePlot(p: GeneProps) {
   // gave 38 px panels on the atlas — every group present and none of them
   // legible. Past four, each panel takes a readable width and the row scrolls,
   // which is the only honest way to show twenty maps of the same embedding.
+  // Fitted to the stage: a panel takes the width its column has, up to the
+  // drawing's own size (640), so the names on it are read at 1,280 and are not
+  // enlarged at 2,560. The width is measured before paint; until it is known
+  // the old fixed budget stands in, on the server too.
+  const [fitRef, fitW] = useWidth()
+  const OWN = 640
   const size = split
-    ? (panels.length <= 4 ? Math.max(180, 760 / panels.length) : 230)
-    : Math.min(320, Math.max(170, 700 / cols))
+    ? (panels.length <= 4
+      ? (fitW ? Math.min(OWN, Math.max(180, Math.floor((fitW - 8 * (panels.length - 1)) / panels.length)))
+        : Math.max(180, 760 / panels.length))
+      : 230)
+    : fitW ? Math.min(OWN, Math.max(170, Math.floor((fitW - 18 * (cols - 1)) / cols)))
+      : Math.min(320, Math.max(170, 700 / cols))
   const scrolls = split && panels.length > 4
   const anyHidden = p.hidden.size > 0
 
   return (
     <>
-      <div className="grid gap-[18px]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      <div ref={fitRef} className="grid gap-[18px]"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, ${split ? '1fr' : `${size}px`}))` }}>
         {p.genes.map(g => (
           <FeatureRow key={g} p={p} gene={g} panels={panels} size={size} scrolls={scrolls} />
         ))}
@@ -156,7 +183,7 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
       borders: p.borders,
       silhouette: true,
       background: getComputedStyle(document.documentElement)
-        .getPropertyValue('--surface').trim() || PLATE,
+        .getPropertyValue('--surface').trim() || PRINT_PLATE,
       title: gene,
       subtitle: cond,
     }
@@ -188,12 +215,12 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
 
   return (
     <Figure
-      name={name}
+      name={name} compact
       redraw={(out, w, h) => {
         const ctx = out.getContext('2d')
         // A figure going into a manuscript is printed on white, whatever theme
         // it was exported from, and the cluster labels have to be legible on it.
-        if (ctx) drawFeature(ctx, w, h, { ...spec, background: PLATE }, false)
+        if (ctx) drawFeature(ctx, w, h, { ...spec, background: PRINT_PLATE }, false)
       }}
     >
       <canvas
@@ -201,7 +228,7 @@ function FeatureCanvas({ p, vals, top, cond, size, name, gene, onDrawn }: {
         aria-label={`${gene} expression on the embedding`
           + `${cond ? `, ${cond} only` : ''}`}
         ref={ref} width={Math.round(size * 2)} height={panelHeight(Math.round(size * 2))}
-        style={{ width: '100%', maxWidth: Math.round(size), height: 'auto', borderRadius: 'var(--r-md)' }}
+        style={{ width: '100%', maxWidth: Math.round(size), height: 'auto' }}
       />
     </Figure>
   )

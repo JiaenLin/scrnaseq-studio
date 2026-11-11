@@ -8,9 +8,11 @@ page without guessing. `src/index.css` is the source of every value named here.
 number is shown as recorded, every label keeps its words, and the Run card infers nothing.
 
 **Status (W037, designer run 2).** Built to this page: the frame, the tokens, the default palette, Cells (with
-Save), Gene expression's rail, Differential expression (the table to the bottom edge, the volcano fitted with an
-inspector, Enrichment's controls in the rail), Co-expression, Gene sets (one set and several), and the rail
-controls of Composition and Markers. "What is left" at the end lists the rest in order.
+Save), Differential expression (the table to the bottom edge, the volcano fitted with an inspector, Enrichment's
+controls in the rail), Co-expression, Gene sets (one set and several), Gene expression (every control in the rail,
+one Save, feature panels fitted, the violin's y axis titled), Composition and Markers (figures at their own
+size, actions in the head line), Overview's counts and tables, the landing page's rows. "What is left" at the
+end lists the rest in order. `docs/design/gallery.html` shows every screen before W037 and now.
 
 ## Direction: the instrument
 
@@ -65,7 +67,10 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
 - **Inspector** (`aside.inspector`, 240 px, fitted views). Sections divided by hairlines. Closed, the key moves
   into the stage's head line: colour is never left without its key.
 - **Widths.** 1,100 px and up: three panes. 1,024 to 1,099: the inspector goes under the figure. Below 1,024 the
-  frame lets go: one scrolling column (rail, stage, inspector), the head sticky.
+  frame lets go: one scrolling column (rail, stage, inspector), the head sticky. A filled view (`.fill`) lets go
+  with it: its panes become blocks, in reading order (the list, then the result; the figure, its caption, then
+  the key), and a list keeps 40% of the window's height. Looked at 900 px and at 2,560 px (a sentence keeps
+  its measure; a fitted figure stops at 1.25 times its own size and the rest stays paper).
 - **Nothing moves when data arrives.** Every pane's size comes from tokens and the window, never from data. A
   fitted figure is measured before paint, so its first frame is its final size.
 
@@ -122,16 +127,26 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
   (`<Section>`: a title, a meta, its own actions at the right end, a hairline above).
 
 **Composition** (a chart that is read row by row).
-- Rail: `Bars show`, `One row per`, `Limit to`. Stage: a section per figure. Next: bars at a fixed row height
-  (24 px, 4 px apart) and the figure at its own width so its type does not grow with the window; the key in an
-  inspector with n per entry; the per-type panels as a second section.
+- Rail: `Bars show`, `One row per`, `Limit to`. Stage: a section per figure, each with its actions at the right
+  end of its head line. The bars are drawn at their own size (rows at a fixed height, type that does not grow
+  with the window); the per-type panels are a grid of panels at their own width, saved as one sheet from the
+  head line (`Save all panels`), and one panel saves from a glyph in its own corner that is drawn only while
+  the pointer or the keyboard is on that panel (`Figure compact`). Next: the key in an inspector with n per entry.
+
+**Small multiples** (the violins, the feature plots, the per-type panels). One Save for the sheet at the head
+line; a panel's own Save in its corner on hover or focus; panels at their own size and at most 1.25 times it
+(violins), or fitted to the column up to the drawing's own 640 px (feature plots, whose names are drawn in the
+canvas and must be large enough to read). A y axis says what it measures and in what: the violin's reads
+`Expression · <the object's own record of its scale>`, or `Expression ÷ mean of <control>` when relative.
 
 **Prose** (Overview, Methods). No controls of their own: a reading column. Sections are hairline blocks; a
 section's eyebrow, title and one-line sub sit over its content. Methods prose runs at 68 characters. Stats are a
-hairline grid, not boxes. Provenance and the Run card are tables with a fixed first column.
+hairline grid (`.stats`: a rule above and below, hairlines between), not boxes. Provenance and the Run card are
+tables with a fixed first column and no frame.
 
 **Landing.** One centred column (560 px): what the studio is in one sentence, the drop target (the only dashed
-edge in the app, because it is the only thing you drop onto), the input format as a table, the demos as rows.
+edge in the app, because it is the only thing you drop onto), the input format as a table, the demos as rows
+between hairlines (`.demo-row`). No wells.
 
 ## Tokens
 
@@ -312,18 +327,22 @@ movement stops and colour changes stay.
 
 ## What is left, in order
 
-1. Co-expression and Gene sets: controls into the rail (`Opts` for the four-way choices, `Field` and `Steps` for
-   the rest), the result as a table-led stage; their maps as explorers.
-2. Enrichment: its collections and options into the rail under Cutoffs; the bar chart at its own size.
-3. DE: the table to the stage's bottom edge; the volcano fitted with an inspector; its Labels control into the rail.
-4. Markers and Composition bodies: figures at their own size, the key in an inspector, one Save per figure.
-5. Gene expression: `Show cells` into the rail's Figure group; the feature plot as an explorer; the violin's y
-   axis titled with its quantity and unit.
-6. Overview, Methods, the landing page: the prose layout above; stats as a hairline grid.
-7. Save for the Cells figure; states audited view by view; the before-and-after gallery.
+1. The key in an inspector for Composition, Markers and the Gene sets score map (they keep a legend under the
+   figure); the feature plot and the score map as explorers (isolate, the pointer readout).
+2. Canvas figures repainted in print ink on export from the dark theme (the feature plot does; the Gene sets
+   score map is saved as painted, so its ink stays the `PRINT_` literals on screen in both themes).
+3. Enrichment's term detail and the Coherence block as flat sections (they are still wells); Methods and the
+   Overview's remaining sections read through once more at 1,280 and 1,920.
+4. States seen on a large object: the row cut of the DE table and the label drop of a 300,000-cell embedding
+   are designed and written, but the synthetic demos are too small to show them.
+5. The rail on a 900 px window when Differential expression shows every note at once: it scrolls. A shorter
+   wording of the notes is a wording change and is the PI's.
 
 **Do not get wrong:** `Card` must keep rendering `<section class="card">` (two tests split the page on it); a
-view's controls go through `<InRail>`, never by lifting its state into App; the key's swatch markup stays; a new
+view's controls go through `<InRail>`, never by lifting its state into App; an action on a figure goes through
+`<InHead>` (or `Figure`, which uses it), never positioned by hand; a figure that is one panel of several is
+`Figure compact`, or every panel's Save lands in the head line; an SVG takes its ink from `lib/figure-ink.ts`
+(custom properties), a canvas that is saved as painted takes the `PRINT_` literals; the key's swatch markup stays; a new
 palette adds one check to the suite by itself (the suite loops over `PALETTES`); never quantise the screenshots (a
 256-colour PNG moved one swatch to two different colours in run A's record).
 
@@ -332,8 +351,13 @@ palette adds one check to the suite by itself (the suite loops over `PALETTES`);
 - `CHROME=<chrome> node scripts/shot-design.mjs <url> docs/design/after` captures every screen at 1,280, 1,440 and
   1,920 px in both themes (synthetic objects only), growing the window to take a whole document view.
 - `CHROME=<chrome> AXE=<axe.min.js> node scripts/measure-design.mjs <url>` prints the contrast of every text token
-  on every ground, the edges, axe-core's WCAG 2 AA result on Cells and Overview, the tab order, and the scatter's
-  interaction time (production build, compared only with a run taken at the same time).
+  on every ground, the edges, axe-core's WCAG 2 AA result on Cells, Overview, Differential expression, Gene sets
+  and Co-expression, the tab order of each of those views as it opens, and the scatter's interaction time
+  (production build, compared only with a run taken at the same time).
+- `scripts/shot-design.mjs` takes a fifth argument, a list of screen names, and then walks only the blocks that
+  hold them. `docs/design/gallery.html` reads `docs/design/gallery/before` (the studio at `099a085`, 1,440 px,
+  full colour) and `docs/design/after`.
+- `node scripts/test-fit-panels.mjs` (in `npm test`) pins how panels share the stage.
 - Panel sizes in a 900 px tall window (canvas, CSS px; `Replicated cohort`, measured on the page):
 
   | window | one panel | two panels | two panels, both panes closed |

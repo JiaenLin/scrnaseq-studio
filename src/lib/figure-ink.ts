@@ -83,6 +83,9 @@ export const SUMMARY_INK = 'var(--fig-summary)'
 /** The plate. Every figure leaves on white, whatever theme it was saved from. */
 export const PLATE = 'var(--fig-plate)'
 
+/** The plate as a literal, for a canvas repainted for export. */
+export const PRINT_PLATE = '#FFFFFF'
+
 /**
  * Cells present but not part of this panel, and the empty end of a bar.
  *

@@ -118,7 +118,7 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
         {/* One quiet notice, one link. This used to be a filled button competing
             with "Open a bundle" for the same visual weight, which left the page
             with two primary actions and no answer to which one you wanted. */}
-        <div className="mt-4 rounded-[--r-md] px-4 py-3" style={{ background: 'var(--sunk)' }}>
+        <div className="mt-5 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
           <div className="tx-small font-semibold">Don&rsquo;t have a bundle yet?</div>
           <p className="mt-1 tx-small" style={{ color: 'var(--ink-2)' }}>
             A bundle is made once from your <code className="mono">.h5ad</code> or{' '}
@@ -165,12 +165,12 @@ export default function Landing({ onDemo, onFile, error, busy, note }: {
         </div>
 
         <div className="mt-7"><SectionTitle>Try a demo</SectionTitle></div>
-        <div className="mt-2 grid gap-1.5">
+        {/* Rows between hairlines, like every other list that is chosen from. */}
+        <div className="demo-rows mt-2">
           {DEMOS.map(([key, tag, title, desc]) => (
             <button
               key={key} disabled={busy}
-              className="flex items-center gap-2.5 rounded-[--r-md] px-3 py-2.5 text-left"
-              style={{ border: '1px solid var(--line)', background: 'var(--surface)' }}
+              className="demo-row"
               onClick={() => onDemo(key)}
             >
               {/* Fixed column: the tags are different widths, so without it the

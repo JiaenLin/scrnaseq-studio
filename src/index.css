@@ -606,16 +606,6 @@ svg {
     border-radius: var(--r-md);
     padding: var(--s3);
   }
-  /* A save control on every panel of a small multiple recedes until the
-     panel is under the pointer; never hidden, and forward on keyboard focus. */
-  .facet .btn-quiet {
-    opacity: 0.4;
-    transition: opacity var(--d-press) ease;
-  }
-  .facet:hover .btn-quiet,
-  .facet:focus-within .btn-quiet {
-    opacity: 1;
-  }
   .type-toggle {
     transition: opacity var(--d-press) ease, background-color var(--d-press) ease,
       transform var(--d-press) var(--ease-out);
@@ -1057,6 +1047,75 @@ svg {
   .stage-actions > .fig-actions {
     margin: 0;
   }
+  /* One cluster's markers: a block between hairlines, never a well. */
+  .mk-item {
+    border-top: 1px solid var(--line);
+    padding: var(--s2) 0 var(--s3);
+  }
+  /* The object's counts: a hairline grid, not boxes. */
+  .stats {
+    background: var(--line);
+    border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    gap: 1px;
+    @apply grid overflow-hidden;
+  }
+  /* The demos on the landing page: rows between hairlines. */
+  .demo-rows {
+    border-top: 1px solid var(--line);
+  }
+  .demo-row {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    gap: 10px;
+    min-height: 36px;
+    padding: var(--s1) var(--s2);
+    @apply flex w-full items-center text-left;
+    transition: background-color var(--d-press) ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .demo-row:hover:not(:disabled) {
+      background: var(--hover);
+    }
+  }
+  .demo-row:disabled {
+    @apply cursor-wait opacity-60;
+  }
+  .card-actions {
+    @apply flex flex-wrap items-center gap-1.5;
+  }
+  /* One panel of a small multiple: its Save is a glyph in its own corner,
+     drawn while the pointer or the keyboard is on the panel. */
+  .fig-compact {
+    @apply relative;
+  }
+  .fig-corner {
+    right: 0;
+    top: 0;
+    @apply absolute z-10;
+  }
+  .fig-corner-btn {
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    height: 20px;
+    opacity: 0;
+    width: 20px;
+    transition: opacity var(--d-press) ease;
+  }
+  .fig-corner-btn > .ico {
+    margin: 0;
+  }
+  .fig-compact:hover .fig-corner-btn,
+  .fig-corner-btn:focus-visible,
+  .fig-corner-btn[aria-expanded='true'] {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .fig-corner-btn {
+      opacity: 1;
+    }
+  }
   /* A view that fills the stage: its panes scroll, the stage does not. */
   .stage:has(> .column > .fill) {
     overflow: hidden;
@@ -1086,6 +1145,10 @@ svg {
   }
   .read:focus-visible {
     outline-offset: -2px;
+  }
+  /* A sentence keeps a measure however wide the stage is. */
+  .read > .sub {
+    max-width: 96ch;
   }
   /* A table that is a pane: its name, then rows to the bottom edge. */
   .tpane {
@@ -1150,7 +1213,9 @@ svg {
     background: var(--press);
     box-shadow: inset 2px 0 0 var(--sel);
   }
-  .set-row[data-at='1'] {
+  /* The arrow keys' cursor, while the search field has the keyboard: where
+     you are looking, drawn apart from what you chose. */
+  .tpane:focus-within .set-row[data-at='1'] {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
   }
@@ -1181,7 +1246,7 @@ svg {
   .sect-pair {
     column-gap: var(--s5);
     display: grid;
-    grid-template-columns: minmax(0, auto) minmax(260px, 1fr);
+    grid-template-columns: minmax(0, auto) minmax(260px, 560px);
   }
   .sect-pair > .sect {
     border-top: 0;
@@ -1410,34 +1475,53 @@ svg {
     .card {
       padding: var(--s4);
     }
+    /* A filled view lets go with the frame: its panes stop being flex items
+       of a fixed height (a flex item with no basis in a column of no height
+       has no height at all) and stack as blocks, the page scrolling. */
     .stage:has(> .column > .fill) {
       overflow: visible;
     }
-    .fill,
     .stage:has(> .column > .fill) > .column {
       height: auto;
     }
-    .split {
+    .fill,
+    .split,
+    .tpane {
       display: block;
-    }
-    .split-list > .tpane-body,
-    .split-list > .tpane > .tpane-body {
-      max-height: 40dvh;
-      overflow: auto;
-    }
-    .sect-pair {
-      display: block;
-    }
-    .fitbox {
-      container-type: inline-size;
+      height: auto;
     }
     .read,
     .tpane-body {
       overflow: visible;
     }
+    .split-list > .tpane > .tpane-body {
+      max-height: 40dvh;
+      overflow: auto;
+    }
     .tpane {
       border-left: 0;
+      border-right: 0;
       border-top: 1px solid var(--line);
+    }
+    .split-list > .tpane {
+      border-bottom: 1px solid var(--line);
+      border-top: 0;
+    }
+    .sect-pair {
+      display: block;
+    }
+    .explorer.in-fill {
+      grid-template-rows: auto auto;
+    }
+    .fitbox {
+      container-type: inline-size;
+      flex: none;
+      padding-bottom: var(--s3);
+    }
+    .stage-foot {
+      height: auto;
+      min-height: var(--foot-h);
+      white-space: normal;
     }
   }
 
@@ -1526,7 +1610,7 @@ svg {
   .type-toggle[aria-pressed='false'] {
     opacity: 0.75 !important;
   }
-  .facet .btn-quiet {
+  .fig-corner-btn {
     opacity: 1;
   }
   :focus-visible {

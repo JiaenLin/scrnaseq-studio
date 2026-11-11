@@ -6,7 +6,7 @@
 // you wanted. The seams were already drawn in that file as comment banners;
 // this is those banners made real.
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { Identity } from '../../types.ts'
 import { density, maxOf, maxOfAll, quantiles } from '../../lib/chart.ts'
 import { axisTicks, wrapAll } from '../../lib/labels.ts'
@@ -15,7 +15,11 @@ import {
 } from '../../lib/figure-ink.ts'
 import { inConds } from '../../lib/stats.ts'
 import { mix } from '../../lib/palette.ts'
-import Figure from '../Figure.tsx'
+import Figure, { DownIcon } from '../Figure.tsx'
+import { InRail, RailGroup, Toggle } from '../Rail.tsx'
+import { InHead } from '../Stage.tsx'
+import { svgSheetToFile } from '../../lib/download.ts'
+import { condLabel } from '../../lib/stats.ts'
 import type { GeneProps } from '../GeneExpression.tsx'
 
 /* ---------------- violin panel ---------------- */
@@ -33,15 +37,31 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
    * 0 for large objects.
    */
   const [points, setPoints] = useState(false)
+  /** The grid, so the head line's Save can find every panel's SVG. */
+  const sheet = useRef<HTMLDivElement>(null)
   return (
     <>
-      <div className="mb-2 flex items-center gap-2">
-        <button className="chip" aria-pressed={points} onClick={() => setPoints(!points)}
-          title="Draw the cells themselves over each violin, sampled">
-          Show cells
-        </button>
-      </div>
-      <div className="grid gap-3.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      <InRail>
+        <RailGroup label="Violins">
+          <Toggle on={points} onChange={setPoints}
+            title="Draw the cells themselves over each violin, sampled">
+            Show cells
+          </Toggle>
+        </RailGroup>
+      </InRail>
+      {/* One Save for the figure, at the head line's right end: every panel
+          on one sheet. A single panel saves from its own corner. */}
+      <InHead>
+        <button className="btn btn-quiet" title="Every panel, tiled into one SVG"
+          onClick={() => svgSheetToFile(
+            [...(sheet.current?.querySelectorAll('svg[role="img"]') ?? [])] as SVGSVGElement[],
+            'violins', cols)}
+        ><DownIcon />Save all panels</button>
+      </InHead>
+      <div ref={sheet} className="grid gap-3.5"
+        // Panels at their own size and at most 1.25 times it: the type does
+        // not grow with the window.
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, ${(p.cols <= 2 ? 620 : 400) * 1.25}px))` }}>
         {p.genes.map(g => <Facet key={g} {...p} gene={g} cols={cols} points={points} />)}
       </div>
       <div className="legend mt-3">
@@ -125,6 +145,11 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
   // unmounts the tab, so the extent is taken by loop. See maxOf in chart.ts.
   const hi = maxOfAll(scaled) * 1.06 || 1
   const lo = 0
+  const recorded = p.src.meta.expression
+  const yTitle = base !== 1
+    ? `Expression ÷ mean of ${condLabel(p.ctrl)}`
+    : recorded ? `Expression · ${recorded}` : 'Expression · as the object holds it'
+
   const Y = (v: number) => PT + PLOT * (1 - (v - lo) / (hi - lo))
 
   // Last group against first, in the object's own order — which for a time
@@ -138,8 +163,12 @@ function Facet(p: GeneProps & { ids: Identity[]; gene: string; points?: boolean 
   const maxPct = maxOf(pcts)
 
   return (
-    <Figure name={`${p.gene}_violin`}>
+    <Figure name={`${p.gene}_violin`} compact>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${p.gene} expression`}>
+        {/* What the axis measures, and in what: the object's own record of its
+            scale, never a guess; relative to the control's mean when asked. */}
+        <text className="axis" transform={`rotate(-90 8 ${PT + PLOT / 2})`} x={8} y={PT + PLOT / 2}
+          textAnchor="middle" style={{ fontSize: 9.5 }}>{yTitle}</text>
         <text x={PL} y={11} style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)', fontStyle: 'italic' }}>
           {p.gene}
         </text>

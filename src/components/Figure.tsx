@@ -18,7 +18,7 @@ import { InHead } from './Stage.tsx'
  * so by not offering vector rather than by handing over an SVG with a bitmap
  * inside it.
  */
-export default function Figure({ name, children, className, right, redraw, extent }: {
+export default function Figure({ name, children, className, right, redraw, extent, compact }: {
   name: string
   children: ReactNode
   className?: string
@@ -38,6 +38,13 @@ export default function Figure({ name, children, className, right, redraw, exten
    * canvas: several panels, their names and a key, composed by `redraw`.
    */
   extent?: { w: number; h: number }
+  /**
+   * One panel of a small multiple. Its Save is a glyph in the panel's own
+   * corner that is drawn only while the pointer or the keyboard is on that
+   * panel (always on a touch screen), so nine panels do not put nine buttons
+   * on the stage; the whole sheet is saved from the head line.
+   */
+  compact?: boolean
 }) {
   const box = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -80,31 +87,23 @@ export default function Figure({ name, children, className, right, redraw, exten
 
   const vector = !!svgIn()
 
-  return (
-    // A header row, not an overlay. The controls used to be positioned
-    // `absolute right-0 top-0` over the figure, which meant every caller had to
-    // guess how much top padding would keep the Save button off the plot — and
-    // they guessed five different numbers (pt-5, pt-6, pt-7, mt-1, mt-6). A row
-    // takes its own space, so nobody has to compensate for it.
-    <div ref={box} className={className}>
-      {/* Under a head line the controls sit at its right end (Stage.tsx); with
-          no head above, in a row over the figure, where they always were. */}
-      <InHead>
-      <div className="fig-actions">
+  const actions = (
+      <div className={compact ? 'fig-corner' : 'fig-actions'}>
         {right}
         <div className="relative">
           <button
             ref={trigger}
-            className="btn btn-quiet"
+            className={compact ? 'btn-icon fig-corner-btn' : 'btn btn-quiet'}
+            aria-label={compact ? `Save ${name}` : undefined}
             aria-haspopup="menu"
             aria-expanded={open}
             title={`Download ${name}`}
             disabled={busy}
             // A fixed width, so the label swapping to "…" while the PNG renders
             // does not shrink the trigger out from under the cursor.
-            style={{ minWidth: 64, textAlign: 'center' }}
+            style={compact ? undefined : { minWidth: 64, textAlign: 'center' }}
             onClick={() => setOpen(v => !v)}
-          >{busy ? '…' : <><DownIcon />Save</>}</button>
+          >{busy ? '…' : compact ? <DownIcon /> : <><DownIcon />Save</>}</button>
           <Popover open={open} anchor={trigger} align="right" role="menu"
             label={`Download ${name}`} width={212} onClose={() => setOpen(false)}>
             <div className="p-1.5 text-left">
@@ -120,7 +119,19 @@ export default function Figure({ name, children, className, right, redraw, exten
           </Popover>
         </div>
       </div>
-      </InHead>
+  )
+
+  return (
+    // A header row, not an overlay. The controls used to be positioned
+    // `absolute right-0 top-0` over the figure, which meant every caller had to
+    // guess how much top padding would keep the Save button off the plot — and
+    // they guessed five different numbers (pt-5, pt-6, pt-7, mt-1, mt-6). A row
+    // takes its own space, so nobody has to compensate for it.
+    <div ref={box} className={compact ? `${className ?? ''} fig-compact` : className}>
+      {/* Under a head line the controls sit at its right end (Stage.tsx); with
+          no head above, in a row over the figure, where they always were. A
+          panel of a small multiple keeps its own, in its corner. */}
+      {compact ? actions : <InHead>{actions}</InHead>}
       {children}
     </div>
   )

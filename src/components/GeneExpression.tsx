@@ -13,6 +13,7 @@ import ViolinPanel from './gene/ViolinPanel.tsx'
 import DotPlot from './gene/DotPlot.tsx'
 import FeaturePlot from './gene/FeaturePlot.tsx'
 import { Field, InRail, Opts, RailGroup, Steps, Toggle } from './Rail.tsx'
+import { Stage } from './Stage.tsx'
 
 export interface GeneProps {
   src: Source
@@ -336,17 +337,16 @@ export default function GeneExpression(p: GeneProps) {
         <CellFilter p={p} />
       </InRail>
 
-      <header className="stage-head sticky top-0 z-20" style={{ background: 'var(--surface)' }}>
+      <Stage head={<>
         <h2 className="stage-title">Gene expression</h2>
         <span className="stage-meta">{describe(p, ctName)}</span>
-      </header>
-      <div className="stage-body">
+      </>}>
         {p.genes.length === 0
           ? <div className="empty">Search for a gene in the controls on the left.</div>
           : p.plot === 'dot' ? <DotPlot {...p} ids={ids} cluster={cluster} flip={flipDot} />
           : p.plot === 'feature' ? <FeaturePlot {...p} />
           : <ViolinPanel {...p} ids={ids} />}
-      </div>
+      </Stage>
     </div>
   )
 }

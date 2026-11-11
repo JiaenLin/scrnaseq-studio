@@ -183,6 +183,16 @@ for (const T of THEMES) for (const W of WIDTHS) {
   }
   if (want('methods')) { await tab('Methods'); await shot('methods') }
 
+  // A view that fails to draw: the boundary takes the view, never the app.
+  // (`?crash=<tab>` is the app's own switch for showing this state.)
+  if (want('state-error')) {
+    await page.goto(`${url}${url.includes('?') ? '&' : '?'}crash=coexpr`, { waitUntil: 'networkidle' })
+    await page.getByText('Replicated cohort', { exact: true }).click()
+    await page.waitForSelector('[role="tablist"]', { timeout: 60_000 })
+    await settle(800)
+    await tab('Co-expression'); await shot('state-error', false)
+  }
+
   if (want('wt-cells')) {
     await open('Wild type only')
     await tab('Cells'); await shot('wt-cells')

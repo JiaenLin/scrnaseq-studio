@@ -15,6 +15,7 @@ import { MIN_CELLS_GROUP } from '../lib/stats.ts'
 import { Card, Legend } from './Ui.tsx'
 import { InRail, RailGroup } from './Rail.tsx'
 import Figure, { CsvButton, DownIcon } from './Figure.tsx'
+import { InHead } from './Stage.tsx'
 
 /**
  * How many rows are drawn at once.
@@ -251,7 +252,7 @@ export default function Composition({ d, types, palKey }: {
           )}
         </RailGroup>
         </InRail>
-        <div className="mt-2 flex justify-end"><CsvButton onClick={saveCsv} /></div>
+        <InHead><CsvButton onClick={saveCsv} /></InHead>
 
         {/* Pooling is drawn, not refused. The figure the reader asked for is
             the figure they get; what pooling costs is said in one line above it
@@ -309,7 +310,7 @@ export default function Composition({ d, types, palKey }: {
                 </>}
               </div>
             )}
-            <Figure name={name} className="mt-4">
+            <Figure name={name}>
               <StackedRows
                 rows={drawn} table={table} partNames={partNames} palKey={palKey}
                 hasGroup={!!outer && only < 0}
@@ -336,7 +337,7 @@ export default function Composition({ d, types, palKey }: {
             ? 'Its own y axis per panel. Dots are animals — overlap means the difference is not evidence.'
             : 'Its own y axis per panel. One sample per group, so there is no spread to show.'}
         >
-          <div className="mt-3.5 flex justify-end gap-2">
+          <InHead>
             {/* One file for the whole small multiple. Each panel can still be
                 saved on its own; nine clicks and nine files to reassemble is
                 not what somebody putting a figure together wants. */}
@@ -355,11 +356,13 @@ export default function Composition({ d, types, palKey }: {
                   [t.name, s.id, s.cond, d.prop[si][ti].toFixed(6)]))),
               )}
             />
-          </div>
+          </InHead>
           <div
             ref={sheet}
-            className="mt-3 grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(178px, 1fr))' }}
+            className="grid gap-3"
+            // Panels at their own size (210 wide), never stretched: their type
+            // does not grow with the window, and a last short row keeps the grid.
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(178px, 236px))' }}
           >
             {types.map((t, ti) => (t.sentinel ? null
               : <TypeFacet key={t.key} d={d} t={t} ti={ti} palKey={palKey} />))}
@@ -429,7 +432,9 @@ function StackedRows({ rows, table, partNames, palKey, hasGroup, label }: {
   const X = (p: number) => PL + (W - PL - PR) * p
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={label}>
+    // At its own size: rows at a fixed height, type that does not grow with the window.
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}
+      style={{ width: `min(100%, ${W}px)`, height: 'auto' }}>
       <defs>
         {rows.map((_r, si) => (
           <clipPath key={si} id={`cRow${si}`}>
@@ -574,7 +579,7 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
   const Y = (v: number) => PT + PLOT * (1 - v / maxV)
 
   return (
-    <Figure name={`proportion_${t.name}`} className="facet">
+    <Figure name={`proportion_${t.name}`} className="facet" compact>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${t.name} proportion by group`}>
         <text className="axis" x={4} y={11}
           style={{ fontSize: 11, fontWeight: 600, fill: 'var(--ink)' }}>

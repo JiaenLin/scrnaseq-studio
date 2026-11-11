@@ -274,7 +274,7 @@ export default function Markers({
             </div>
           </div>
         )}
-        <Figure name="cluster_markers" className="mt-4">
+        <Figure name="cluster_markers">
           <div className="overflow-x-auto">
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
               style={{ minWidth: W }} role="img"
@@ -357,10 +357,9 @@ export default function Markers({
               lines and still ran off the edge), and a number a reader has to
               scroll sideways to finish reading is not a number that has been
               shown to them. */}
-          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
+          <div className="grid gap-x-6" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))' }}>
             {chosen.map(ti => { const t = types[ti]; return (
-              <div key={t.key} className="rounded-[--r-md] px-3 py-2.5"
-                style={{ background: 'var(--sunk)' }}>
+              <div key={t.key} className="mk-item">
                 <div className="flex items-center gap-1.5">
                   <i className="sw" style={{ background: pal(ti, palKey) }} />
                   <input

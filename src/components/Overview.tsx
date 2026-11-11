@@ -89,9 +89,9 @@ export default function Overview({ src, types, palKey, roles, onRoles }: {
     <>
       <Card eyebrow="Dataset" title="What is in this object">
         <div
-          className="mt-3 grid gap-px overflow-hidden rounded-[--r-md]"
-          style={{ background: 'var(--line)', border: '1px solid var(--line)',
-                   gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))' }}
+          // A hairline grid, not a box: a rule above and below, hairlines between.
+          className="stats mt-3"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))' }}
         >
           <Stat value={fmt(d.nCells)} label="cells" />
           <Stat value={fmt(src.genes.length)} label="genes" />

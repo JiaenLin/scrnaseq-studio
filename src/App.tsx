@@ -839,7 +839,10 @@ export default function App() {
                   the Test list's own selection directly under it, so there it
                   is not drawn: it speaks when it adds something (how many
                   samples clear the floor, an overlap). */}
-              {needs.contrast && !(chip.cls === 'ok' && method === 'wilcox') && (
+              {needs.contrast && !(chip.cls === 'ok' && method === 'wilcox')
+                // Nothing is claimed about groups that are not picked yet: the
+                // stage says what to pick.
+                && (!d.multi || (ctrl.length > 0 && cs.length > 0)) && (
                 <p className="rail-status" data-state={chip.cls} title={chip.title}>
                   <i aria-hidden />{chip.text}
                 </p>

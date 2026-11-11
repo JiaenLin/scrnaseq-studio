@@ -111,7 +111,7 @@ for (const T of ['light', 'dark']) {
 
   if (WHAT.has('axe')) {
     await page.addScriptTag({ content: fs.readFileSync(process.env.AXE, 'utf8') })
-    for (const tab of ['Cells', 'Overview']) {
+    for (const tab of ['Cells', 'Overview', 'Differential expression', 'Gene sets', 'Co-expression']) {
       await page.getByRole('tab', { name: tab, exact: true }).click(); await page.waitForTimeout(600)
       const r = await page.evaluate(async () => {
         const res = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] } })
@@ -125,25 +125,32 @@ for (const T of ['light', 'dark']) {
   }
 
   if (WHAT.has('tabs') && T === 'light') {
-    await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0) })
-    await page.mouse.click(2, 2)
-    const seen = []
-    for (let i = 0; i < 45; i++) {
-      await page.keyboard.press('Tab')
-      const d = await page.evaluate(() => {
-        const e = document.activeElement
-        if (!e || e === document.body) return null
-        const cs = getComputedStyle(e)
-        const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || cs.boxShadow !== 'none'
-        const name = (e.getAttribute('aria-label') || e.textContent || e.getAttribute('title') || '').trim().replace(/\s+/g, ' ').slice(0, 34)
-        const where = e.closest('header') ? 'header' : e.closest('aside') ? 'aside' : e.closest('main') ? 'main' : 'other'
-        return `${where}:${e.tagName.toLowerCase()}${e.getAttribute('role') ? `[${e.getAttribute('role')}]` : ''} "${name}"${ring ? '' : ' (NO VISIBLE FOCUS)'}`
-      })
-      if (!d || seen.includes(d)) break
-      seen.push(d)
+    // The tab order of each view as it opens (nothing chosen yet): where the
+    // keyboard goes, in order, and whether each stop shows its focus.
+    for (const view of ['Cells', 'Differential expression', 'Gene sets', 'Co-expression']) {
+      await page.getByRole('tab', { name: view, exact: true }).click(); await page.waitForTimeout(700)
+      await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0) })
+      await page.mouse.click(2, 2)
+      const seen = []
+      for (let i = 0; i < 60; i++) {
+        await page.keyboard.press('Tab')
+        const d = await page.evaluate(() => {
+          const e = document.activeElement
+          if (!e || e === document.body) return null
+          const cs = getComputedStyle(e)
+          const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || cs.boxShadow !== 'none'
+          const name = (e.getAttribute('aria-label') || e.textContent || e.getAttribute('title') || '').trim().replace(/\s+/g, ' ').slice(0, 34)
+          const where = e.closest('header.shell-head') ? 'header' : e.closest('aside.rail') ? 'rail' : e.closest('aside') ? 'key' : e.closest('main') ? 'main' : 'other'
+          return `${where}:${e.tagName.toLowerCase()}${e.getAttribute('role') ? `[${e.getAttribute('role')}]` : ''} "${name}"${ring ? '' : ' (NO VISIBLE FOCUS)'}`
+        })
+        if (!d || seen.includes(d)) break
+        seen.push(d)
+      }
+      const by = w => seen.filter(x => x.startsWith(w + ':')).length
+      console.log(`\nTAB ORDER light, ${view} (${seen.length} stops: header ${by('header')}, rail ${by('rail')}, main ${by('main')}, key ${by('key')}; no visible focus ${seen.filter(x => x.includes('NO VISIBLE')).length}):`)
+      seen.forEach((x, i) => console.log(`  ${String(i + 1).padStart(2)} ${x}`))
     }
-    console.log(`\nTAB ORDER light, Cells (${seen.length} stops):`)
-    seen.forEach((s, i) => console.log(`  ${String(i + 1).padStart(2)} ${s}`))
+    await page.getByRole('tab', { name: 'Cells', exact: true }).click(); await page.waitForTimeout(400)
   }
 
   if (WHAT.has('speed') && T === 'light') {
