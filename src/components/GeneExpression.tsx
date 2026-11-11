@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { COLUMN_NOUN } from '../lib/columns.ts'
 import type { CellType, GroupBy, PlotKind } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
@@ -292,7 +293,7 @@ export default function GeneExpression(p: GeneProps) {
               <Toggle on={cluster} onChange={setCluster}
                 title="Order rows and columns by similarity, and draw the trees">Cluster rows &amp; genes</Toggle>
               <Toggle on={flipDot} onChange={setFlipDot}
-                title="Swap the axes: genes down the side, cell types along the bottom">Transpose</Toggle>
+                title={`Swap the axes: genes down the side, ${COLUMN_NOUN[p.groupBy].many} along the bottom`}>Transpose</Toggle>
               <p className="hint m-0">{flipDot ? 'genes down the side' : 'genes along the bottom'}</p>
             </>
           ) : (

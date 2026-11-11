@@ -195,19 +195,22 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
   /**
    * Where Bonferroni stops being able to tell rows apart.
    *
-   * padj is min(1, p x nTested), so every gene with p above 1/nTested is
-   * pinned to exactly 1 and no cutoff above that admits a single extra row.
-   * The slider still moves; the answer cannot. Saying so is the difference
-   * between a control that looks broken and one whose limit is stated.
+   * padj is min(1, p x nTested) (`finish` in lib/stats.ts), so every gene with
+   * p above 1/nTested is exactly 1; and `isSig` is a strict "<", so no cutoff
+   * the slider reaches (its top is 1) admits such a gene. Below that p the
+   * cutoff does move the count: this said "the slider cannot change the
+   * count", which the lab fixture disproves (0 rows at 0.05, 2 at 1). The
+   * sentence shown is the part that holds at every cutoff, so it is shown
+   * whenever the cutoff is read off Bonferroni.
    */
   const ceiling = p.nTested > 0 ? 1 / p.nTested : 0
-  const inert = p.sigBasis === 'padj' && p.padjMax > ceiling && p.nTested > 0
+  const pinned = p.sigBasis === 'padj' && p.nTested > 0
 
   return (
     <RailGroup label="Cutoffs">
       <label className="field">
         <span className="flex items-baseline justify-between">
-          <span className="glabel">{p.sigBasis === 'fdr' ? 'FDR ≤' : 'padj ≤'}</span>
+          <span className="glabel">{p.sigBasis === 'fdr' ? 'FDR <' : 'padj <'}</span>
           <span className="num tx-small" style={{ color: 'var(--ink)' }}>
             {p.padjMax < 1e-3 ? p.padjMax.toExponential(1) : p.padjMax.toFixed(3)}
           </span>
@@ -237,8 +240,8 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
         <Seg<SigBasis>
           value={p.sigBasis} onChange={p.onSigBasis}
           options={[
-            { k: 'padj', label: 'Bonferroni', title: 'padj: severe, pinned to 1 for every gene with p above 1/n' },
-            { k: 'fdr', label: 'FDR', title: 'Benjamini–Hochberg: the cutoff the slider can move' },
+            { k: 'padj', label: 'Bonferroni', title: `padj: p × the ${fmt(p.nTested)} genes this object measures, capped at 1` },
+            { k: 'fdr', label: 'FDR', title: `Benjamini–Hochberg, with the same ${fmt(p.nTested)} genes as its m` },
           ]}
         />
       </div>
@@ -281,11 +284,11 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
         </p>
       )}
 
-      {inert && (
+      {pinned && (
         // A note about the cutoff, not an alarm: hint ink, the consequence in 600.
         <p className="hint m-0">
-          Bonferroni pins every gene with p above {ceiling.toExponential(1)} to 1, so{' '}
-          <b>the slider cannot change the count.</b> Cut on <b>FDR</b> instead.
+          padj is p × the {fmt(p.nTested)} genes this object measures: p above{' '}
+          {ceiling.toExponential(1)} gives 1, <b>which no cutoff admits.</b> Cut on <b>FDR</b> instead.
         </p>
       )}
 
@@ -353,6 +356,10 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
                 Changing one reruns the test. A gene under{' '}
                 <span className="mono">logfc.threshold</span> keeps its row with no p; one under{' '}
                 <span className="mono">min.pct</span> gets none.
+              </span>
+              <span className="hint">
+                Neither changes the correction: Bonferroni multiplies by every gene the object
+                measures, and that is BH&rsquo;s <i>m</i> as well.
               </span>
             </div>
           )}

@@ -1006,7 +1006,7 @@ export default function App() {
                 )} />
             ) : (
               <Methods src={src} types={types} tis={tis} ctrl={ctrl} cs={cs} method={method}
-                padjMax={padjMax} lfcMin={lfcMin} gates={gates}
+                padjMax={padjMax} lfcMin={lfcMin} gates={gates} sigBasis={sigBasis}
                 lib={species && lib.manifest?.species[species]
                   ? { release: lib.manifest.species[species].release,
                     taxon: lib.manifest.species[species].taxon }

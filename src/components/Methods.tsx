@@ -1,7 +1,7 @@
 import type { CellType, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
-  condLabel, designFor, MIN_CELLS, type Gates } from '../lib/stats.ts'
+  condLabel, designFor, MIN_CELLS, type Gates, type SigBasis } from '../lib/stats.ts'
 import { carriedRecords, runView } from '../lib/run.ts'
 import { countText, sentinelCount } from '../lib/sentinels.ts'
 import { Card, Mono } from './Ui.tsx'
@@ -50,7 +50,7 @@ const refFor = (text: string, table: [RegExp, RefKey][]): RefKey | null =>
   table.find(([re]) => re.test(text))?.[1] ?? null
 
 export default function Methods({
-  src, types, tis, ctrl, cs, method, padjMax, lfcMin, gates, lib,
+  src, types, tis, ctrl, cs, method, padjMax, lfcMin, gates, sigBasis = 'padj', lib,
 }: {
   src: Source
   types: CellType[]
@@ -68,6 +68,8 @@ export default function Methods({
    * defaults would be describing an analysis nobody performed.
    */
   gates: Gates
+  /** Which correction the cutoff is read off, so the sentence names the one in force. */
+  sigBasis?: SigBasis
   /**
    * Which MSigDB is loaded, so the prose names the release rather than a
    * version somebody typed into it once. Null before it arrives.
@@ -165,7 +167,11 @@ export default function Methods({
     <>Differential expression between {condLabel(cs)} and {condLabel(ctrl)} within {ct} was tested with a Wilcoxon
     rank-sum test across cells{cite('seurat')}, restricted to genes with an absolute log₂ fold
     change of at least {gates.lfc} detected in at least {(gates.pct * 100).toFixed(0)}% of cells in
-    either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an
+    either group, with p-values {sigBasis === 'fdr'
+      ? <>adjusted by the Benjamini–Hochberg procedure, with <i>m</i> the {src.genes.length.toLocaleString()} genes
+        the object measures</>
+      : <>Bonferroni-adjusted for the {src.genes.length.toLocaleString()} genes the object measures, tested or
+        not</>}. Genes with an
     adjusted p below {padjMax} and an absolute log₂ fold change of at least {lfcMin} were considered
     differentially expressed.{' '}
     {oneEach
@@ -237,8 +243,9 @@ export default function Methods({
             <p className="mb-0 mt-3">
               <b>Markers rank; they do not test.</b> Each cell type is compared against
               every other cell with the same Wilcoxon that Seurat&rsquo;s{' '}
-              <Mono>FindAllMarkers</Mono> runs. But the cell types were defined using the
-              expression these p-values then score, so they are not evidence the cell types exist.
+              <Mono>FindAllMarkers</Mono> runs. But cell types that began as clusters were defined
+              using the expression these p-values then score, so the p-values are not evidence
+              the clusters exist.
               The effect size and the detection rates are the honest columns.
             </p>
             <p className="mb-0 mt-3">

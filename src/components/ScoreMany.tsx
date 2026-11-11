@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import type { CellType, GroupBy } from '../types.ts'
 import type { Source } from '../lib/source.ts'
-import { scoreColumns, zByRow, type Column } from '../lib/columns.ts'
+import { COLUMN_NOUN, scoreColumns, zByRow, type Column } from '../lib/columns.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
 import { onGround, AXIS_INK, FIG_TYPE } from '../lib/figure-ink.ts'
 import { nNote } from '../lib/figure-foot.ts'
@@ -221,7 +221,7 @@ export default function ScoreMany({
       )}
       <Stage fit head={<>
         {switcher}
-        <span className="stage-title">Which gene set does each cell type express?</span>
+        <span className="stage-title">{`Which gene set does ${COLUMN_NOUN[groupBy].each} express?`}</span>
         <span className="stage-meta num">
           {picked.length} chosen{picked.length >= MAX_SETS && `, ${MAX_SETS} is the most`}
           {picked.length > chosen.length
@@ -301,7 +301,7 @@ export default function ScoreMany({
                       this was pinned to blue-white-red, which is the right default
                       and was the only option. */}
                   <ScoreGrid rows={chosen.map(c => c.name)} cols={cols} mean={grid} scale={scale}
-                    ramp={rampDiv} />
+                    ramp={rampDiv} what={COLUMN_NOUN[groupBy].many} />
                 </Figure>
                 <InHead>
                   <CsvButton onClick={() => downloadCsv(
@@ -314,7 +314,7 @@ export default function ScoreMany({
                   {scale
                     ? <>Colour is <b>z-scored along each set</b>: where that set is highest, not how
                         large it is.</>
-                    : <>Colour is the mean score of that set in that cell type. Zero is the
+                    : <>Colour is the mean score of that set in {COLUMN_NOUN[groupBy].that}. Zero is the
                         reference: no higher than genes of comparable abundance.</>}
                 </p>
               </>
@@ -329,12 +329,14 @@ export default function ScoreMany({
 }
 
 /** Signatures down the side, populations along the bottom. */
-function ScoreGrid({ rows, cols, mean, scale, ramp }: {
+function ScoreGrid({ rows, cols, mean, scale, ramp, what }: {
   rows: string[]
   cols: Column[]
   mean: Float64Array
   scale: boolean
   ramp: RampKey
+  /** What the columns are in the mode shown: cell types, groups, or both. */
+  what: string
 }) {
   const cw = 34, rh = 18, PT = 12, PR = 20, BAR_H = 58
   const PL = Math.max(90, widestW(rows, 10.5, false) + 14)
@@ -355,7 +357,7 @@ function ScoreGrid({ rows, cols, mean, scale, ramp }: {
     <div className="mt-2 overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ maxWidth: '100%' }}
         data-foot={JSON.stringify({ notes: [nNote(cols.map(c => ({ label: c.label, n: c.cells.length })))] })}
-        role="img" aria-label={`Mean module score: ${rows.length} gene sets across ${cols.length} cell types`}>
+        role="img" aria-label={`Mean module score: ${rows.length} gene sets across ${cols.length} ${what}`}>
         {rows.map((r, si) => cols.map((col, k) => (
           <rect key={`${si}-${k}`} x={PL + k * cw} y={PT + si * rh} width={cw} height={rh}
             className="gfill" style={onGround(rampColor((mean[si * cols.length + k] - lo) / (hi - lo), ramp), rampColor((mean[si * cols.length + k] - lo) / (hi - lo), ramp, 'dark'))}>

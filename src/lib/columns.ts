@@ -18,6 +18,19 @@
 // pair can express — `src.group(ti, cond)` has no "all types" to pass.
 
 import type { Cell, CellType, Dataset, GroupBy } from '../types.ts'
+
+/**
+ * What one column of a figure holds in each mode, in the reader's words.
+ *
+ * A sentence over a figure that can be drawn across cell types, across groups
+ * or across both names the thing its columns are in the mode shown. "Cell type"
+ * over columns that are groups is a false label, not a shorter one.
+ */
+export const COLUMN_NOUN: Record<GroupBy, { each: string; that: string; many: string; head: string }> = {
+  type: { each: 'each cell type', that: 'that cell type', many: 'cell types', head: 'Cell type' },
+  cond: { each: 'each group', that: 'that group', many: 'groups', head: 'Group' },
+  both: { each: 'each cell type in each group', that: 'that cell type and group', many: 'cell type × group columns', head: 'Cell type × group' },
+}
 import { pal, type PaletteKey } from './palette.ts'
 
 export interface Column {

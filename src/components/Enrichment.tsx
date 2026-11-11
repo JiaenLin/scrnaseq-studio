@@ -214,7 +214,7 @@ export default function Enrichment({
           ? `Hypergeometric on ${query.length} genes ${dirLabel}, against an annotated `
             + `background of ${index.N.toLocaleString()} of the ${background.length.toLocaleString()} `
             + `genes measured. ${results.length.toLocaleString()} sets overlap the list; `
-            + `${nSig.toLocaleString()} reach padj < 0.05 (BH).`
+            + `${nSig.toLocaleString()} reach padj < 0.05 after BH across them all.`
           : 'Loading the gene sets…'}
       </p>
 

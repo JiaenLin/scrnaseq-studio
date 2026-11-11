@@ -83,7 +83,7 @@ export const RETIRED = [
   { re: /\bexport(s|ed|ing)?\b/i, use: 'save', why: 'the same act as Save', but: /exported from|exporter(&rsquo;|’|')?s?|export_h5ad|export_seurat|export_\*|before export|Export a bundle/i },
   { re: /\bconditions?\b/i, use: 'group', why: 'the experimental factor is a group everywhere a reader chooses one', but: /--condition|single condition/i },
   { re: /\banimals?\b/i, use: 'sample', why: 'a demo is mice, a cohort may be organoids or patients: the object calls it a sample' },
-  { re: /\bclusters?\b/i, use: 'cell type', why: 'the annotation a view splits by is a cell type; "cluster" stays for ordering a heat map and for the bundle\'s own field', but: /does not cluster|^Cluster$|Cluster (rows|columns|sets|genes)|--cluster|cluster\.u16|cluster\/sample arrays|sample × cluster|clusters or samples|refers to a cluster|has no clusters|cluster names/i },
+  { re: /\bclusters?\b/i, use: 'cell type', why: 'the annotation a view splits by is a cell type; "cluster" stays for ordering a heat map and for the bundle\'s own field', but: /does not cluster|^Cluster$|Cluster (rows|columns|sets|genes)|--cluster|cluster\.u16|cluster\/sample arrays|sample × cluster|clusters or samples|refers to a cluster|has no clusters|cluster names|began as clusters|the clusters exist/i },
   { re: /\bpopulations?\b/i, use: 'cell type', why: 'a second word for a cell type', but: /populations are the object|4 populations|9 populations|every population, proportion|each population against/i },
   { re: /\bsignatures?\b/i, use: 'gene set', why: 'a set of genes is a gene set whether pasted or from MSigDB' },
   { re: /\bidentit(y|ies)\b/i, use: 'cell type or group', why: "Seurat's word, not the reader's" },

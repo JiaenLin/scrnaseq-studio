@@ -41,6 +41,17 @@ type SeedKind = 'gene' | 'set'
 /** Which axis the correlation is taken over. */
 type Over = 'cell' | 'pool' | 'group' | 'bulk'
 
+/**
+ * From how many observations "almost any r clears a threshold" is true.
+ *
+ * At n observations an |r| of about 1.96 / sqrt(n) reaches p < 0.05 (the
+ * normal approximation, for Pearson and for Spearman alike): 0.20 at 100,
+ * 0.06 at 1,000, 0.01 at 34,000. At the 18 columns of "cell type × group" it
+ * is 0.47, and the sentence was shown there too. Under 100 the note gives the
+ * reason that holds at any n: the observations are not independent.
+ */
+const MANY_OBS = 100
+
 const OVER_LABEL: Record<Over, string> = {
   cell: 'Per cell',
   pool: 'Metacells',
@@ -564,13 +575,22 @@ export default function Coexpression(p: CoexprProps) {
               </p>
               <CorrBars up={table.up} down={table.down} how={corrName} seed={label} n={`${fmt(nObs)} ${unit}`} />
               <p className="mt-4 tx-micro" style={{ color: 'var(--ink-3)', maxWidth: '68ch' }}>
-                <b>No p-value.</b> With {fmt(nObs)} observations almost any r clears a threshold, and
-                cells from one sample are not independent.
-                {mode === 'cell' && ' Per cell, two sparse genes also agree wherever both are absent.'}
-                {mode === 'group' && ' Columns are means of log-normalized values, not summed counts;'
-                  + ' one of fewer than ten cells is dropped.'}
-                {mode === 'pool' && ` Metacells are pooled on ${emb.key}, a 2-D projection, at least ten cells each.`}
+                <b>No p-value.</b>{' '}
+                {nObs >= MANY_OBS
+                  ? <>With {fmt(nObs)} observations almost any r clears a threshold, and cells from
+                    one sample are not independent.</>
+                  : <>One would count the {fmt(nObs)} observations as independent, and cells from one
+                    sample are not.</>}
+                {' '}Rank by r, and read the detection rate beside it.
               </p>
+              {mode !== 'bulk' && (
+                <p className="mt-1 tx-micro" style={{ color: 'var(--ink-3)', maxWidth: '68ch' }}>
+                  {mode === 'cell' && 'Per cell, two sparse genes also agree wherever both are absent.'}
+                  {mode === 'group' && 'Columns are means of log-normalized values, not summed counts;'
+                    + ' one of fewer than ten cells is dropped.'}
+                  {mode === 'pool' && `Metacells are pooled on ${emb.key}, a 2-D projection, at least ten cells each.`}
+                </p>
+              )}
             </div>
             <Side title="Moves with the seed" rows={table.up} dir="up" onPick={p.onPickGene} />
             <Side title="Moves against it" rows={table.down} dir="down" onPick={p.onPickGene} />

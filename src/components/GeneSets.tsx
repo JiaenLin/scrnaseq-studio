@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { COLUMN_NOUN } from '../lib/columns.ts'
 import type { CellType, Dataset, GroupBy } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
@@ -357,7 +358,7 @@ export default function GeneSets({
                   title="z-score each gene across the columns shown (pheatmap scale = row)">
                   Scale each gene</Toggle>
                 <Toggle on={heatFlip} onChange={setHeatFlip}
-                  title="Swap the axes: cell types down the side, genes along the bottom">
+                  title={`Swap the axes: ${COLUMN_NOUN[heatBy].many} down the side, genes along the bottom`}>
                   Transpose</Toggle>
                 <ColumnFilter types={types} conds={d.conds} groupBy={heatBy}
                   hideT={hideT} hideC={hideC} onHideT={setHideT} onHideC={setHideC}
