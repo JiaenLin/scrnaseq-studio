@@ -56,7 +56,8 @@ export const excepted = s => EXCEPTIONS.some(e => e.re.test(s))
  */
 export function refine(inv) {
   const names = new Set()
-  for (const s of inv.strings) if (['tick', 'table cell', 'key entry'].includes(s.kind) && !/\s/.test(s.text) && /[A-Za-z]/.test(s.text)) names.add(s.text)
+  // A one-word text on a figure is a gene or a group on an axis far more often than a word of the app's.
+  for (const s of inv.strings) if (['tick', 'table cell', 'key entry', 'figure text'].includes(s.kind) && !/\s/.test(s.text) && /[A-Za-z]/.test(s.text)) names.add(s.text)
   for (const s of inv.strings) s.own = Math.min(s.own, words(shapeOf(s.text, names).replace(/‹name›|#/g, ' ')))
   return inv
 }

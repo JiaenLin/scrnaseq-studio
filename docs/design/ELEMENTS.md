@@ -5,6 +5,81 @@ padding (top right bottom left), radius, type size and weight, and edge widths, 
 style of every visible instance in every state walked. The designer's reading of these numbers, and what run 5
 made one, is the first section; the tables under it are counted.
 
+## The designer's reading (run 5)
+
+Read from the tables below, which are counted. A container (a rail group, a card, a menu, an empty state, a section)
+is as tall as its content, so its many heights are not a difference; its padding, radius and edge are one box each
+(card 24 all round; menu radius 6 with a 1 px edge; empty state 32 by 24). The controls:
+
+**Made one in run 5** (each was the same element measuring differently with no reason):
+
+| element | before | now | where it was |
+|---|---|---|---|
+| quiet button | 24 px everywhere, 19.4 px for Reset under the cutoffs (it shrank in a column short of room) | 24 px, never shrinks (`.btn-sm`, `.btn-quiet`: `flex-shrink: 0`) | Differential expression, the rail |
+| a sortable table's head cell | 28.5 px (the sort button's 28 plus the hairline) beside 28 px heads that do not sort | 28 px (`.th-sort` is 27 px plus the hairline) | the DE table against Gene sets, Co-expression, Overview |
+| a picker's option | 29.4 px (12 px type with 6 px padding) beside 28 px rows in every other list | 28 px (`min-h-7`, 4 px padding; a long name still wraps) | Differential expression and Co-expression pickers |
+| the Save menu's entries | "SVG — vector", "PNG — 300 dpi" (a dash, which in this app means "no value") | "SVG, vector", "PNG, 300 dpi" | every Save menu |
+| a Save's tooltip and its menu's name | "Download <figure>" on a button that says Save | "Save <figure>" | every figure |
+| the key's last row | Cells' key ended in a grey swatch and a paragraph | a row like the others: swatch, "Not called", its count; the annotator's labels in a hint line under it | Cells, the key pane and the saved file |
+| a figure's note | Enrichment's note under its scale took the interface's tertiary ink | figure ink (`AXIS_INK`), like every other text in a figure | Enrichment, on screen and in the file |
+
+**Different, with a reason** (left as measured):
+
+- **button, two boxes:** 28 px with 13 px type in the rail and in a body; 24 px with 12 px type in a head line and a
+  toolbar. One height per row is the rule; the type follows the height.
+- **input, 13 px and 12 px at 28 px:** the 12 px ones are the mono face (gene symbols), which is set one size down
+  so its x-height matches the 13 px interface face. The 24 px one sits in a table's toolbar.
+- **segment, two boxes:** a segment is its control's height less 4 (24 in a 28 px control, 20 in a 24 px one);
+  numbers take 4 px side padding and equal widths, words take 10.
+- **option row, padded and not:** a switch row has no side padding so its words are flush with the labels above it
+  (docs/DESIGN.md, Components); a chosen option is washed, a switch row is not (the switch is its state).
+- **key row, two boxes:** an entry that isolates its cells is a button with a 4 px radius; the key's head line and
+  the "Not called" row are not buttons.
+- **menu item, two boxes:** a Save entry has two lines (format, what it is for); a picker's option has one.
+- **quiet button with 6 px padding:** the two arrow buttons of Group order hold one glyph each.
+- **swatch, 8 px and 15 px:** the 15 px ones are the palette previews in Figure style, a picture of a scale, not a key.
+- **stage head, 40 px and one of 61 px:** with the key pane closed Cells moves its nine entries into the head line,
+  which then takes a second line at 1,440 px. Designed in run 3; the plot gives up 21 px.
+- **table row, one of 35.8 px:** Overview's "Cells not called" row wraps to two lines in the lab bundle.
+- **note, two heights:** one and two lines of text.
+
+**States.** Every control has a hover (the 6% ink wash, or ink text on a head cell), a 2 px accent focus ring, and a
+disabled state in secondary ink; selected is ink (an edge, a wash or a thumb), never the accent. Measured in the
+"States" and "Selected and disabled" tables. Not measured: pressed (`scale(0.97)`, 80 ms), which the walk cannot hold.
+
+## Every kind and its boxes, now
+
+| kind | boxes | instances | the boxes (height · padding · radius · type · edge), most used first |
+|---|---:|---:|---|
+| rail group | 35 | 526 | `111.4 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×89 (Differential expression, Gene expression, Gene sets, Cells; e.g. "Plot Violin panel Dot pl")<br>`53.4 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×68 (Cells, Differential expression, Gene expression, Gene sets, +1; e.g. "Panels Split by group")<br>`49.4 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×43 (Differential expression, Gene expression; e.g. "Cell types shown ▸ Choos")<br>`74.8 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×31 (Markers, Differential expression, Gene expression, Co-expression; e.g. "Markers Top genes 3 5 8 ")<br>`180.2 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×29 (Gene expression; e.g. "Search any gene One gene")<br>`132.2 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×28 (Composition, Co-expression; e.g. "Composition Bars show Ce")<br>`108.6 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×26 (Differential expression, Gene sets; e.g. "Your sets + Paste or upl")<br>`200.5 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×23 (Gene sets; e.g. "Collections Hallmark, KE")<br>… and 27 more |
+| card | 19 | 51 | `932.5 · 24 24 24 24 · r0 · 13/400 · edge 0 0 0 0` ×9 (Markers; e.g. "Markers · one vs rest · ")<br>`429.9 · 24 24 24 24 · r0 · 13/400 · edge 0 0 1 0` ×5 (Composition; e.g. "Composition Cell type pr")<br>`719.1 · 24 24 24 24 · r0 · 13/400 · edge 0 0 0 0` ×5 (Composition; e.g. "Per cell type Proportion")<br>`222.5 · 24 24 24 24 · r0 · 13/400 · edge 0 0 1 0` ×4 (Overview; e.g. "Object What is in this o")<br>`356.9 · 24 24 24 24 · r0 · 13/400 · edge 0 0 0 0` ×4 (Overview; e.g. "Quality control Three co")<br>`401.5 · 24 24 24 24 · r0 · 13/400 · edge 0 0 1 0` ×3 (Overview; e.g. "Provenance Where every n")<br>`116.5 · 24 24 24 24 · r0 · 13/400 · edge 0 0 1 0` ×3 (Overview; e.g. "Run The run that produce")<br>`144 · 24 24 24 24 · r0 · 13/400 · edge 0 0 1 0` ×3 (Overview; e.g. "From the conversion What")<br>… and 11 more |
+| menu | 8 | 30 | `211.2 · 0 0 0 0 · r6 · 13/400 · edge 1 1 1 1` ×15 (Composition, Markers, Differential expression, Gene expression, +2; e.g. "SVG, vector editable, no")<br>`165.8 · 0 0 0 0 · r6 · 13/400 · edge 1 1 1 1` ×7 (Cells, Gene expression, Gene sets; e.g. "PNG, 300 dpi the usual j")<br>`70 · 0 0 0 0 · r6 · 13/400 · edge 1 1 1 1` ×3 (Differential expression, Co-expression; e.g. "Quiescent Reactivated")<br>`181.8 · 0 0 0 0 · r6 · 13/400 · edge 1 1 1 1` ×1 (Cells; e.g. "Groups File order Quiesc")<br>`305.4 · 0 0 0 0 · r6 · 13/400 · edge 1 1 1 1` ×1 (Cells; e.g. "Cell types Studio (colou")<br>`266 · 0 0 0 0 · r6 · 13/400 · edge 1 1 1 1` ×1 (Differential expression; e.g. "qNSC aNSC TAP Neuroblast")<br>`484.3 · 0 0 0 0 · r6 · 13/400 · edge 1 1 1 1` ×1 (Gene sets; e.g. "✓ Hallmark 50 Metabolic ")<br>`264.3 · 0 0 0 0 · r6 · 13/400 · edge 1 1 1 1` ×1 (Co-expression; e.g. "qNSC aNSC TAP Neuroblast") |
+| empty state | 5 | 36 | `105.6 · 32 24 32 24 · r0 · 13/400 · edge 0 0 0 0` ×24 (Differential expression, Co-expression; e.g. "Choose a cell type, a co")<br>`124.4 · 32 24 32 24 · r0 · 13/400 · edge 0 0 0 0` ×7 (Gene sets; e.g. "Choose a set in the list")<br>`82.8 · 32 24 32 24 · r0 · 13/400 · edge 0 0 0 0` ×3 (Gene expression; e.g. "Search a gene on the lef")<br>`147.6 · 32 24 32 24 · r0 · 13/400 · edge 0 0 0 0` ×1 (Differential expression; e.g. "This object carries no r")<br>`231.2 · 32 24 32 24 · r0 · 13/400 · edge 0 0 0 0` ×1 (A view that failed to draw; e.g. "The Co-expression view c") |
+| table head cell | 4 | 102 | `28 · 0 8 0 8 · r0 · 12/500 · edge 0 0 1 0` ×72 (Differential expression, Gene sets, Co-expression; e.g. "Gene")<br>`28 · 0 0 0 0 · r0 · 12/500 · edge 0 0 1 0` ×24 (Differential expression; e.g. "pct.1")<br>`28 · 0 0 0 16 · r0 · 12/500 · edge 0 0 1 0` ×3 (Differential expression; e.g. "Gene")<br>`28 · 0 16 0 8 · r0 · 12/500 · edge 0 0 1 0` ×3 (Differential expression; e.g. "Direction") |
+| swatch | 3 | 425 | `8 · 0 0 0 0 · r2 · 12/400 · edge 0 0 0 0` ×315 (Cells, Composition, Differential expression, Gene sets)<br>`8 · 0 0 0 0 · r2 · 13/400 · edge 0 0 0 0` ×100 (Cells, Markers, Gene sets)<br>`15 · 0 0 0 0 · r2 · 13/400 · edge 0 0 0 0` ×10 (Cells) |
+| menu item | 3 | 99 | `45.3 · 6 10 6 10 · r6 · 13/400 · edge 0 0 0 0` ×59 (Cells, Composition, Markers, Differential expression, +3; e.g. "PNG, 300 dpi the usual j")<br>`28 · 4 8 4 8 · r6 · 12/400 · edge 0 0 0 0` ×24 (Differential expression, Co-expression; e.g. "qNSC")<br>`29.4 · 6 8 6 8 · r6 · 12/400 · edge 0 0 0 0` ×16 (Gene sets; e.g. "✓ Hallmark 50") |
+| input | 3 | 185 | `28 · 0 8 0 8 · r6 · 13/400 · edge 1 1 1 1` ×118 (Markers, Differential expression, Gene sets)<br>`28 · 0 8 0 8 · r6 · 12/400 · edge 1 1 1 1` ×64 (Differential expression, Gene expression, Co-expression)<br>`24 · 0 8 0 8 · r6 · 12/400 · edge 1 1 1 1` ×3 (Differential expression) |
+| note | 2 | 5 | `35.4 · 8 12 8 12 · r6 · 12/400 · edge 1 1 1 1` ×4 (Overview; e.g. "Wilcoxon runs here; pseu")<br>`52.8 · 8 12 8 12 · r6 · 12/400 · edge 1 1 1 1` ×1 (Landing; e.g. "That file did not open. ") |
+| button | 2 | 322 | `24 · 0 8 0 8 · r6 · 12/500 · edge 1 1 1 1` ×294 (Overview, Cells, Composition, Markers, +6; e.g. "Group order")<br>`28 · 0 10 0 10 · r6 · 13/500 · edge 1 1 1 1` ×28 (Differential expression, Gene sets, Co-expression, A view that failed to draw; e.g. "+ Paste or upload") |
+| table row | 2 | 509 | `28 · 0 0 0 0 · r0 · 12/400 · edge 0 0 0 0` ×508 (Overview, Differential expression, Gene sets, Co-expression; e.g. "Normalization from your ")<br>`35.8 · 0 0 0 0 · r0 · 12/400 · edge 0 0 0 0` ×1 (Overview; e.g. "Cells not called from yo") |
+| quiet button | 2 | 292 | `24 · 0 8 0 8 · r6 · 12/500 · edge 1 1 1 1` ×288 (Cells, Composition, Markers, Differential expression, +3; e.g. "Save")<br>`24 · 0 6 0 6 · r6 · 12/500 · edge 1 1 1 1` ×4 (Cells; e.g. "↑") |
+| option row | 2 | 600 | `28 · 0 8 0 8 · r6 · 13/500 · edge 0 0 0 0` ×501 (Cells, Differential expression, Gene expression, Gene sets, +1; e.g. "Cell type")<br>`28 · 0 0 0 0 · r6 · 13/500 · edge 0 0 0 0` ×99 (Cells, Differential expression, Gene expression, Gene sets; e.g. "Split by group") |
+| key row | 2 | 177 | `24 · 0 8 0 8 · r4 · 12/400 · edge 0 0 0 0` ×136 (Cells, Differential expression; e.g. "qNSC 6,065")<br>`24 · 0 0 0 0 · r0 · 12/400 · edge 0 0 0 0` ×41 (Cells, Differential expression; e.g. "Cell type cells") |
+| stage head | 2 | 123 | `40 · 6 16 6 16 · r0 · 13/400 · edge 0 0 1 0` ×122 (Cells, Differential expression, Gene expression, Gene sets, +1; e.g. "34,367 cells Embedding ·")<br>`61 · 6 16 6 16 · r0 · 13/400 · edge 0 0 1 0` ×1 (Cells; e.g. "34,367 cells Embedding ·") |
+| segment | 2 | 590 | `24 · 0 4 0 4 · r4 · 12/500 · edge 0 0 0 0` ×490 (Markers, Differential expression, Gene expression, Co-expression; e.g. "3")<br>`20 · 0 10 0 10 · r4 · 12/500 · edge 0 0 0 0` ×100 (Differential expression, Gene sets; e.g. "Table") |
+| segmented control | 2 | 207 | `28 · 2 2 2 2 · r6 · 13/400 · edge 0 0 0 0` ×166 (Markers, Differential expression, Gene expression, Co-expression; e.g. "3 5 8 12")<br>`24 · 2 2 2 2 · r6 · 13/400 · edge 0 0 0 0` ×41 (Differential expression, Gene sets; e.g. "Table Volcano Enrichment") |
+| primary button | 1 | 5 | `28 · 0 10 0 10 · r6 · 13/500 · edge 1 1 1 1` ×5 (Landing, Differential expression, A view that failed to draw; e.g. "Open a bundle") |
+| badge | 1 | 202 | `18 · 1 6 1 6 · r4 · 11/500 · edge 0 0 0 0` ×202 (Landing, Overview, Cells, Composition, +7; e.g. "required") |
+| tab | 1 | 1,359 | `36 · 0 10 0 10 · r0 · 13/500 · edge 0 0 0 0` ×1359 (Overview, Cells, Composition, Markers, +6; e.g. "Overview") |
+| icon button | 1 | 170 | `24 · 0 0 0 0 · r6 · 13/400 · edge 0 0 0 0` ×170 (Cells, Composition, Markers, Differential expression, +5) |
+| switch | 1 | 99 | `16 · 0 0 0 0 · r9999 · 13/500 · edge 0 0 0 0` ×99 (Cells, Differential expression, Gene expression, Gene sets) |
+| status line | 1 | 26 | `28 · 0 16 0 16 · r0 · 12/400 · edge 1 0 0 0` ×26 (Cells, Differential expression; e.g. "One shared axis range ac") |
+| rail label | 1 | 587 | `17.4 · 0 0 0 0 · r0 · 12/600 · edge 0 0 0 0` ×587 (Cells, Composition, Markers, Differential expression, +4; e.g. "Colour by") |
+| picker | 1 | 252 | `28 · 0 8 0 8 · r6 · 13/400 · edge 1 1 1 1` ×252 (Cells, Composition, Differential expression, Gene expression, +4; e.g. "Studio (colour-blind che") |
+| readout | 1 | 1 | `85.6 · 6 8 6 8 · r6 · 12/400 · edge 0 0 0 0` ×1 (Cells; e.g. "Neuroblast Group Quiesce") |
+| chip | 1 | 109 | `24 · 0 10 0 10 · r9999 · 12/500 · edge 1 1 1 1` ×109 (Markers, Differential expression, Gene sets; e.g. "5") |
+| section head | 1 | 37 | `28 · 0 0 0 0 · r0 · 13/400 · edge 0 0 0 0` ×37 (Gene sets; e.g. "Adipogenesis on the embe") |
+
 ## Every kind and its boxes, before run 5
 
 | kind | boxes | instances | the boxes (height · padding · radius · type · edge), most used first |

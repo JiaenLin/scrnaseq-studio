@@ -23,17 +23,17 @@ states of a large object (a table cut at N rows), a collection opened from a fol
 
 ## Totals
 
-| | before run 5 |  |
+| | before run 5 | now |
 |---|---:|---:|
-| states walked | 153 |  |
-| text elements met on the walk | 27,226 |  |
-| distinct strings | 1,319 |  |
-| … the app's own | 1,112 |  |
-| … data (cells, ticks, key entries, values) | 207 |  |
-| words in the app's distinct strings | 7,971 |  |
-| … the app's own words in them | 7,163 |  |
-| controls measured | 7,124 |  |
-| files saved and read | 22 |  |
+| states walked | 153 | 153 |
+| text elements met on the walk | 27,226 | 27,230 |
+| distinct strings | 1,213 | 1,213 |
+| … the app's own | 963 | 963 |
+| … data (cells, ticks, key entries, values) | 250 | 250 |
+| words in the app's distinct strings | 7,333 | 6,725 |
+| … the app's own words in them | 6,120 | 5,612 |
+| controls measured | 7,124 | 7,126 |
+| files saved and read | 22 | 22 |
 
 ## Words on one screen at rest
 
@@ -41,21 +41,21 @@ The app's own words in view in a 1,440 by 900 window, the view as it opens or af
 
 | view | kind | budget | before | now | data words now |
 |---|---|---:|---:|---:|---:|
-| Landing | table | 220 | 190 |  | 6 |
-| Overview | table | 220 | 205 |  | 8 |
-| Cells | figure | 160 | 57 |  | 22 |
-| Composition | figure | 160 | 140 |  | 105 |
-| Markers | figure | 160 | 154 |  | 60 |
-| Differential expression | table | 220 | 312 |  | 240 |
-| Differential expression / Volcano | figure | 160 | 186 |  | 48 |
-| Differential expression / Enrichment | table | 220 | 245 |  | 54 |
-| Gene expression / Violin panel | figure | 160 | 162 |  | 17 |
-| Gene expression / Dot plot | figure | 160 | 178 |  | 29 |
-| Gene expression / Feature plot | figure | 160 | 99 |  | 9 |
-| Gene sets | table | 220 | 232 |  | 146 |
-| Gene sets / Several sets | table | 220 | 230 |  | 124 |
-| Co-expression | table | 220 | 308 |  | 141 |
-| Methods | document | 520 | 434 |  | 47 |
+| Landing | table | 220 | 171 | 170 | 24 |
+| Overview | table | 220 | 113 | 108 | 100 |
+| Cells | figure | 160 | 50 | 50 | 29 |
+| Composition | figure | 160 | 94 | 96 | 133 |
+| Markers | figure | 160 | 135 | 139 | 79 |
+| Differential expression | table | 220 | 156 | 117 | 389 |
+| Differential expression / Volcano | figure | 160 | 168 | 139 | 60 |
+| Differential expression / Enrichment | table | 220 | 150 | 114 | 105 |
+| Gene expression / Violin panel | figure | 160 | 120 | 119 | 58 |
+| Gene expression / Dot plot | figure | 160 | 147 | 127 | 56 |
+| Gene expression / Feature plot | figure | 160 | 95 | 93 | 13 |
+| Gene sets | table | 220 | 213 | 197 | 164 |
+| Gene sets / Several sets | table | 220 | 213 | 189 | 136 |
+| Co-expression | table | 220 | 291 | 219 | 147 |
+| Methods | document | 520 | 411 | 415 | 67 |
 
 ## By kind of text
 
@@ -63,32 +63,32 @@ The app's own words per string. "Over" is the number of distinct strings over th
 
 | kind | budget | strings before | longest before | over before | strings now | longest now | over now |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| accessible name | 8 | 110 | 13 | 4 |  |  |  |
-| badge | 2 | 4 | 1 | 0 |  |  |  |
-| button | 3 | 69 | 6 | 5 |  |  |  |
-| chip | 3 | 5 | 4 | 3 |  |  |  |
-| empty state | 24 | 10 | 55 | 8 |  |  |  |
-| error | 30 | 3 | 53 | 1 |  |  |  |
-| figure legend | 45 | 17 | 4 | 0 |  |  |  |
-| figure text | 8 | 155 | 14 | 4 |  |  |  |
-| help | 20 | 38 | 48 | 5 |  |  |  |
-| label | 3 | 47 | 14 | 5 |  |  |  |
-| legend | 24 | 21 | 54 | 1 |  |  |  |
-| menu item | 4 | 23 | 3 | 0 |  |  |  |
-| menu item note | 5 | 3 | 5 | 0 |  |  |  |
-| menu note | 20 | 2 | 15 | 0 |  |  |  |
-| methods | 160 | 28 | 284 | 2 |  |  |  |
-| note | 30 | 3 | 31 | 1 |  |  |  |
-| option | 3 | 26 | 3 | 0 |  |  |  |
-| picker | 4 | 19 | 5 | 1 |  |  |  |
-| placeholder | 6 | 7 | 6 | 0 |  |  |  |
-| segment | 3 | 14 | 3 | 0 |  |  |  |
-| status | 14 | 25 | 15 | 1 |  |  |  |
-| tab | 2 | 9 | 2 | 0 |  |  |  |
-| table header | 3 | 11 | 2 | 0 |  |  |  |
-| text | 40 | 125 | 103 | 3 |  |  |  |
-| title | 8 | 30 | 10 | 1 |  |  |  |
-| tooltip | 16 | 308 | 34 | 9 |  |  |  |
+| accessible name | 8 | 109 | 13 | 4 | 109 | 13 | 3 |
+| badge | 3 | 7 | 2 | 0 | 7 | 2 | 0 |
+| button | 3 | 58 | 5 | 2 | 60 | 3 | 0 |
+| chip | 3 | 5 | 4 | 3 | 4 | 2 | 0 |
+| empty state | 24 | 10 | 50 | 5 | 10 | 29 | 0 |
+| error | 30 | 3 | 52 | 0 | 3 | 47 | 0 |
+| figure legend | 45 | 5 | 4 | 0 | 5 | 4 | 0 |
+| figure text | 8 | 56 | 11 | 1 | 56 | 7 | 0 |
+| help | 20 | 40 | 46 | 3 | 40 | 19 | 0 |
+| label | 3 | 45 | 5 | 3 | 45 | 3 | 0 |
+| legend | 24 | 21 | 51 | 1 | 21 | 17 | 0 |
+| menu item | 4 | 26 | 3 | 0 | 26 | 3 | 0 |
+| menu item note | 5 | 6 | 6 | 1 | 6 | 5 | 0 |
+| menu note | 20 | 2 | 15 | 0 | 2 | 15 | 0 |
+| methods | 200 | 28 | 274 | 1 | 28 | 179 | 0 |
+| note | 30 | 3 | 29 | 0 | 3 | 24 | 0 |
+| option | 3 | 26 | 3 | 0 | 26 | 3 | 0 |
+| picker | 5 | 18 | 5 | 0 | 18 | 5 | 0 |
+| placeholder | 6 | 7 | 5 | 0 | 7 | 5 | 0 |
+| segment | 3 | 14 | 3 | 0 | 14 | 3 | 0 |
+| status | 14 | 25 | 14 | 0 | 25 | 14 | 0 |
+| tab | 2 | 9 | 2 | 0 | 9 | 2 | 0 |
+| table header | 3 | 11 | 2 | 0 | 10 | 2 | 0 |
+| text | 40 | 108 | 94 | 1 | 107 | 31 | 0 |
+| title | 8 | 30 | 8 | 0 | 30 | 8 | 0 |
+| tooltip | 16 | 291 | 33 | 7 | 292 | 15 | 0 |
 
 ## The longest ten strings outside Methods
 
@@ -96,112 +96,364 @@ The app's own words per string. "Over" is the number of distinct strings over th
 
 | words (own) | kind | where | text |
 |---:|---|---|---|
-| 107 (103) | text | Co-expression | No p-value, deliberately. With 258 observations a correlation of almost any size clears any threshold, and cells from one animal are not independent draws — the same reason the studio separates Wilcoxon from pseudobulk. Rank by r, and read the detection rate beside it. Metacells are pooled on the X_umap embedding, which is a 2-D projection — neighbours there are close to, but not the same as, neighbours in expression … |
-| 61 (56) | text | Lab bundle: Overview | not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns |
-| 55 (55) | empty state | Gene sets / Several sets, before a score | Choose at least two sets in the list. One AddModuleScore per set, computed in a single pass over the matrix. Every set keeps its own control genes, so the numbers are the ones scoring them one at a time would give. One at a time is One set, which also draws it on the embedding. |
-| 58 (54) | legend | Differential expression / a contrast chosen | 70 of 72 genes were tested. Seurat's own gates run before the rank sum. A gene detected in under 10% of the cells on both sides (min.pct) is dropped: with almost no cells expressing it on either side there is nothing to compare. The effect-size gate (logfc.threshold) is at 0, so every gene that cleared min.pct was tested. |
-| 55 (53) | error | A view that failed to draw | The Co-expression view could not be drawn Nothing else moved. Adult SVZ neural stem cell reactivation — quiescent vs reactivated, 8 animals is still open, and a pass still running is still running. Deliberate fault in the Co-expression view (?crash=coexpr is in the URL). Nothing is actually wrong with this object. Try again Go to Overview |
-| 53 (48) | help | Differential expression / a contrast chosen | Bonferroni over the 72 genes this object measures pins every gene with p above 1.4e-2 to exactly 1, so no cutoff above that admits another row — moving the slider here cannot change the count. Cut on FDR for a threshold that does something, or read the −log₁₀ padj column, which still separates them. |
-| 46 (46) | empty state | Co-expression / A gene set | Paste a signature in the controls on the left, or send one over from Gene sets. Pearson r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. |
-| 42 (42) | empty state | Differential expression / before a run | Pick a cell type, a control group and a group to compare it with. The pickers are in the controls on the left. Nothing is chosen for you, because a contrast the studio guessed at looks exactly like one you asked for. |
-| 42 (42) | empty state | Co-expression / before a run | Search a gene in the controls on the left to correlate against. Pearson r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. |
-| 42 (42) | empty state | Co-expression / Spearman | Search a gene in the controls on the left to correlate against. Spearman r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. |
+| 107 (94) | text | Co-expression | No p-value, deliberately. With 258 observations a correlation of almost any size clears any threshold, and cells from one animal are not independent draws — the same reason the studio separates Wilcoxon from pseudobulk. Rank by r, and read the detection rate beside it. Metacells are pooled on the X_umap embedding, which is a 2-D projection — neighbours there are close to, but not the same as, neighbours in expression … |
+| 55 (52) | error | A view that failed to draw | The Co-expression view could not be drawn Nothing else moved. Adult SVZ neural stem cell reactivation — quiescent vs reactivated, 8 animals is still open, and a pass still running is still running. Deliberate fault in the Co-expression view (?crash=coexpr is in the URL). Nothing is actually wrong with this object. Try again Go to Overview |
+| 58 (51) | legend | Differential expression / a contrast chosen | 70 of 72 genes were tested. Seurat's own gates run before the rank sum. A gene detected in under 10% of the cells on both sides (min.pct) is dropped: with almost no cells expressing it on either side there is nothing to compare. The effect-size gate (logfc.threshold) is at 0, so every gene that cleared min.pct was tested. |
+| 55 (50) | empty state | Gene sets / Several sets, before a score | Choose at least two sets in the list. One AddModuleScore per set, computed in a single pass over the matrix. Every set keeps its own control genes, so the numbers are the ones scoring them one at a time would give. One at a time is One set, which also draws it on the embedding. |
+| 53 (46) | help | Differential expression / a contrast chosen | Bonferroni over the 72 genes this object measures pins every gene with p above 1.4e-2 to exactly 1, so no cutoff above that admits another row — moving the slider here cannot change the count. Cut on FDR for a threshold that does something, or read the −log₁₀ padj column, which still separates them. |
+| 46 (44) | empty state | Co-expression / A gene set | Paste a signature in the controls on the left, or send one over from Gene sets. Pearson r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. |
+| 42 (40) | empty state | Co-expression / before a run | Search a gene in the controls on the left to correlate against. Pearson r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. |
+| 42 (40) | empty state | Co-expression / Spearman | Search a gene in the controls on the left to correlate against. Spearman r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. |
+| 42 (37) | empty state | Differential expression / before a run | Pick a cell type, a control group and a group to compare it with. The pickers are in the controls on the left. Nothing is chosen for you, because a contrast the studio guessed at looks exactly like one you asked for. |
+| 45 (37) | text | Differential expression / Enrichment / Dot plot | Colour is z-scored per gene — where a gene is highest, not how much of it. Across these 9 rows the mean runs 0.01 to 1.77; the colours fill the scale whatever that range is, so read them as an order and not as a size. |
+
+**Now**
+
+| words (own) | kind | where | text |
+|---:|---|---|---|
+| 50 (47) | error | A view that failed to draw | The Co-expression view could not be drawn Adult SVZ neural stem cell reactivation: quiescent vs reactivated, 8 samples is still open, and a running pass keeps running. Deliberate fault in the Co-expression view (?crash=coexpr is in the URL). Nothing is actually wrong with this object. Try again Go to Overview |
+| 32 (31) | text | Lab bundle: Overview | Where the converter looked: uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance |
+| 36 (30) | text | Co-expression | 71 genes ranked by Pearson r over 258 metacells in every cell type, averaged from 34,329 cells, none spanning two cell types or two samples. 38 cells in groups too small to pool are left out. |
+| 31 (29) | empty state | Gene sets / Several sets, before a score | Choose at least two sets in the list. One AddModuleScore per set, each with its own control genes: the numbers are the ones scoring them one at a time would give. |
+| 28 (27) | empty state | Co-expression / A gene set | Paste genes on the left, or send a set from Gene sets. Pearson r against every gene the object measures, ranked by r. No p-value: Methods says why. |
+| 30 (26) | empty state | Differential expression / before a run | Choose a cell type, a control group and a group to compare. On the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for. |
+| 32 (26) | text | Co-expression | No p-value. With 258 observations almost any r clears a threshold, and cells from one sample are not independent. Metacells are pooled on X_umap, a 2-D projection, at least ten cells each. |
+| 35 (25) | text | Gene sets / a set chosen | Select a gene to see whether it carries the score on its own. 100 control genes per set gene, drawn from 24 expression bins. Not measured: Abca1, Abcb8, Acaa2, Acadl, Acadm, Acads, Acly, Aco2 +191. |
+| 26 (25) | text | Lab bundle: Overview | 1 record from the object's uns, as the lab's converter carried it. Each field is shown under its own name, as recorded; nothing here is inferred. |
+| 28 (24) | note | Overview | Wilcoxon runs here; pseudobulk counts can be saved. With 4 samples a group, the counts summed per sample can be saved for DESeq2, which is not run here. |
+
+## Over a budget on purpose
+
+- `^The .* view could not be drawn`: the walk reads the error boundary as one block: a title (7 words), one sentence, the object's own name, the technical message for a bug report, and two buttons; each is within its budget in the source.
+- `^Find markers for `: the count on the button is what the reader acts on (how many tests will run), and a data-level check reads it there (scripts/test-sentinels.mjs).
 
 ## Retired terms, as drawn
 
 | retired | use | why | strings before | strings now |
 |---|---|---|---:|---:|
-| `\bdownload(s\|ed\|ing)?\b` | save | one verb for a file leaving the app: the button says Save | 35 |  |
-| `\bexport(s\|ing)?\b(?! counts)` | save | the same act as Save | 4 |  |
-| `\bconditions?\b` | group | the experimental factor is a group everywhere a reader chooses one | 7 |  |
-| `\banimals?\b` | sample | a demo is mice, a cohort may be organoids or patients: the object calls it a sample | 13 |  |
-| `\bclusters?\b(?! (rows\|columns\|the))` | cell type | the annotation a view splits by is a cell type; clustering is the order of a heat map | 12 |  |
-| `\bpopulations?\b` | cell type | a second word for a cell type | 8 |  |
-| `\bsignatures?\b` | gene set | a set of genes is a gene set whether pasted or from MSigDB | 14 |  |
-| `\bidentit(y\|ies)\b` | cell type or group | Seurat's word, not the reader's | 11 |  |
-| `\bsentinels?\b` | cells not called | the code word for a label that is not a cell type | 1 |  |
-| `\buncalled\b` | not called | one phrase for a cell the annotator gave no cell type | 0 |  |
-| `\bthe studio\b` | this app (or no subject) | the app does not name itself in its own sentences | 6 |  |
-| `\bpadj\b` | adj. p | a column name from DESeq2's output, not a word; the table header says adj. p | 9 |  |
-| `\bcontrols on the left\b` | on the left | the rail is where controls are; said once, shortly | 8 |  |
-| `\bclick\b` | select | a control is reached by keyboard too | 6 |  |
-| `\bhover\b` | point at | as above | 1 |  |
-| `\bnormali[sz]ation\b\|\bnormali[sz]e[sd]?\b` | one spelling: normalize | the field spells it with a z (log-normalized) | 1 |  |
-| ` — ` | a colon, a comma or a full stop | a dash joins two sentences that each need writing; in a figure legend it is also read as a minus | 177 |  |
+| `\bdownload(s\|ed\|ing)?\b` | save | one verb for a file leaving the app: the button says Save | 35 | 0 |
+| `\bexport(s\|ed\|ing)?\b` | save | the same act as Save | 3 | 0 |
+| `\bconditions?\b` | group | the experimental factor is a group everywhere a reader chooses one | 6 | 0 |
+| `\banimals?\b` | sample | a demo is mice, a cohort may be organoids or patients: the object calls it a sample | 13 | 0 |
+| `\bclusters?\b` | cell type | the annotation a view splits by is a cell type; "cluster" stays for ordering a heat map and for the bundle's own field | 11 | 0 |
+| `\bpopulations?\b` | cell type | a second word for a cell type | 8 | 0 |
+| `\bsignatures?\b` | gene set | a set of genes is a gene set whether pasted or from MSigDB | 14 | 0 |
+| `\bidentit(y\|ies)\b` | cell type or group | Seurat's word, not the reader's | 11 | 0 |
+| `\bsentinels?\b` | cells not called | the code word for a label that is not a cell type | 0 | 0 |
+| `\buncalled\b` | not called | one phrase for a cell the annotator gave no cell type | 0 | 0 |
+| `\bpick(s\|ed\|ers?)?\b` | choose | one verb for taking one of a list | 6 | 0 |
+| `\bdatasets?\b` | object | what is open is an object; the file it came in is a bundle | 1 | 0 |
+| `\bthe studio\b` | this app (or no subject) | the app does not name itself in its own sentences | 4 | 0 |
+| `\badj\. p\b\|\bp adjusted\b\|\bp_adj\b` | padj (the column and its cutoff) or "adjusted p" (a sentence, an axis) | the column is padj in the table and the CSV; a third spelling is a third thing to learn | 2 | 0 |
+| `\bcontrols on the left\b` | on the left | the rail is where controls are; said once, shortly | 8 | 0 |
+| `\bclick\b` | select | a control is reached by keyboard too | 6 | 0 |
+| `\bhover\b` | point at | as above | 1 | 0 |
+| `\bnormali[sz]ation\b\|\bnormali[sz]e[sd]?\b` | one spelling: normalize | the field spells it with a z (log-normalized) | 1 | 0 |
+| ` — ` | a colon, a comma or a full stop | a dash joins two sentences that each need writing; in a figure legend it is also read as a minus | 163 | 0 |
 
-## The deck (before run 5)
+## Every string changed in run 5
+
+222 strings in the source (`node scripts/copy-changes.mjs`, which pairs the source at the base with the source now): 198 reworded, 14 cut whole, 10 new (what a view or a saved file did not say). Their words: 4,281 before, 3,393 after.
+As written in the source (a `#` is a slot the data fills). Words / characters.
+
+| file | before | w / c | after | w / c | why |
+|---|---|---:|---|---:|---|
+| App.tsx | This object has one condition, so there is no contrast to run | 12 / 61 | This object has one group, so there is no contrast to run | 12 / 57 | retired: group |
+| App.tsx | Rank-sum across cells, as in Seurat FindMarkers — no replicates required | 10 / 72 | Rank-sum across cells, as in Seurat FindMarkers: no replicates required | 10 / 71 | retired: a colon, a comma or a full stop |
+| App.tsx | Pseudobulk needs more than 3 samples per group — this has # and # | 11 / 65 | Pseudobulk needs more than 3 samples per group: this has # and # | 11 / 64 | retired: a colon, a comma or a full stop |
+| App.tsx | Could not read that gene — # | 5 / 28 | Could not read that gene: # | 5 / 27 | retired: a colon, a comma or a full stop |
+| App.tsx | This object has one condition, so there is nothing to contrast | 11 / 62 | This object has one group, so there is nothing to contrast | 11 / 58 | retired: group |
+| App.tsx | This object has one condition, so there is nothing to contrast | 11 / 62 | This object has one group, so there is nothing to contrast | 11 / 58 | retired: group |
+| App.tsx | Nothing else moved. # is still open, and a pass still running is still running. | 14 / 79 | # is still open, and a running pass keeps running. | 9 / 50 | shorter |
+| App.tsx | One condition, so there is nothing to contrast | 8 / 46 | One group, so there is nothing to contrast | 8 / 42 | retired: group |
+| Cells.tsx | Grey: # cells the annotator did not call (#). They are drawn where they are, and are not a cell type. | 19 / 101 | Drawn grey: # cells the annotator did not call (#). Not a cell type. | 12 / 68 | shorter |
+| Coexpression.tsx | paste a signature — up to 500 genes | 7 / 35 | *(cut)* | 0 / 0 | retired: gene set; a colon, a comma or a full stop. over the placeholder budget |
+| Coexpression.tsx | paste a signature — up to 500 genes | 7 / 35 | Neighbouring cells averaged into equal-sized pools: the default | 8 / 63 | retired: gene set; a colon, a comma or a full stop |
+| Coexpression.tsx | Neighbouring cells averaged into equal-sized pools — the default, because it is what makes r mean what it looks like it means | 21 / 125 | One column per cell type × level, averaged from the cells: works on any object | 14 / 78 | retired: a colon, a comma or a full stop. over the tooltip budget |
+| Coexpression.tsx | One column per populated cell type × level, averaged from the cells — needs no counts table, so it works on any object | 21 / 118 | One column per cell type × sample: the closest this gets to replicates | 12 / 70 | retired: a colon, a comma or a full stop. over the tooltip budget |
+| Coexpression.tsx | Across the sample × cell type columns of the exporter’s pseudobulk table — summed RAW counts, which Cell type × group is not | 20 / 124 | Across the sample × cell type columns of the exporter’s pseudobulk table: summed raw counts | 14 / 91 | retired: a colon, a comma or a full stop. over the tooltip budget |
+| Coexpression.tsx | This object carries no pseudobulk table: either it was exported without raw counts, or it is a collection too large to hold one. Cell type × group answers the same question from the cells themselves | 34 / 198 | This object has no pseudobulk table. Cell type × group answers the same question from the cells | 16 / 95 | retired: save. over the tooltip budget |
+| Coexpression.tsx | A metacell may not span these — hdWGCNA's group.by | 8 / 50 | A metacell may not span these: hdWGCNA's group.by | 8 / 49 | retired: a colon, a comma or a full stop |
+| Coexpression.tsx | One column per cell type × sample — more columns, and the closest this gets to replicates | 15 / 89 | Cutting the columns by sample gives more. | 7 / 41 | retired: a colon, a comma or a full stop |
+| Coexpression.tsx | Linear co-variation — what WGCNA and hdWGCNA use | 7 / 48 | Linear co-variation, as WGCNA and hdWGCNA use | 7 / 45 | retired: a colon, a comma or a full stop |
+| Coexpression.tsx | Not offered per cell: most values are exactly zero, so the ranks are one huge tie block and r would describe the dropout pattern | 24 / 128 | Not offered per cell: most values are zero, so the ranks are one tie block | 15 / 74 | over the tooltip budget |
+| Coexpression.tsx | Pearson on the ranks — monotone rather than linear, so one extreme pool cannot carry the correlation on its own | 19 / 111 | Pearson on the ranks: monotone, so one extreme pool cannot carry the correlation | 13 / 80 | retired: a colon, a comma or a full stop. over the tooltip budget |
+| Coexpression.tsx | Seurat's min.pct — a gene detected in fewer cells is not ranked | 11 / 63 | Seurat's min.pct: a gene detected in fewer cells is not ranked | 11 / 62 | retired: a colon, a comma or a full stop |
+| Coexpression.tsx | Genes that move with a gene, or with a signature | 10 / 48 | Genes that move with a gene, or with a gene set | 11 / 47 | retired: gene set |
+| Coexpression.tsx | # r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. | 29 / 150 | # r against every gene the object measures, ranked by r. No p-value: Methods says why. | 15 / 86 | retired: a colon, a comma or a full stop. over the empty state budget |
+| Coexpression.tsx | Paste a signature in the controls on the left, or send one over from Gene sets. | 16 / 79 | Paste genes on the left, or send a set from Gene sets. | 12 / 54 | retired: gene set; on the left. over the empty state title budget |
+| Coexpression.tsx | Search a gene in the controls on the left to correlate against. | 12 / 63 | Search a gene on the left to correlate against. | 9 / 47 | retired: on the left |
+| Coexpression.tsx | Paste a signature in the controls on the left, or send one over from Gene sets. | 16 / 79 | Paste genes on the left, or send a set from Gene sets. | 12 / 54 | retired: gene set; on the left. over the empty state title budget |
+| Coexpression.tsx | This scope leaves # # — too few to correlate over. A correlation over two points is +1 or −1 whatever the data says. Widening the scope, or correlating over metacells, also works. Cutting the columns by sample instead would give more of them. | 41 / 242 | This scope leaves # #: too few to correlate over. Widen the scope, or correlate over metacells. Cutting the columns by sample gives more. | 22 / 137 | retired: a colon, a comma or a full stop. over the empty state budget |
+| Coexpression.tsx | Cutting the columns by sample instead would give more of them. | 11 / 62 | No p-value. With # observations almost any r clears a threshold, and cells from one sample are not independent. Columns are means of log-normalized values, not summed counts; one of fewer than ten cells is dropped. | 35 / 214 | shorter |
+| Coexpression.tsx | None of these genes vary over this scope, so there is no signature to correlate with. | 16 / 85 | None of these genes vary over this scope, so there is no set to correlate with. | 16 / 79 | retired: gene set |
+| Coexpression.tsx | in # — one pass over every gene in the object. | 9 / 46 | in # : one pass over every gene in the object. | 9 / 46 | retired: a colon, a comma or a full stop |
+| Coexpression.tsx | # genes ranked by # r over # # in # , averaged from # cells , none spanning two #. # cells sat in a group too small to build a metacell from and are not in the correlation. | 30 / 172 | # genes ranked by # r over # # in # , averaged from # cells , none spanning two #. # cells in groups too small to pool are left out. | 22 / 132 | over the legend budget |
+| Coexpression.tsx | No p-value, deliberately. With # observations a correlation of almost any size clears any threshold, and cells from one animal are not independent draws — the same reason the studio separates Wilcoxon from pseudobulk. Rank by r, and read the detection rate beside it. These columns average values that are already log-normalised, which is a mean of logs — not the log of a mean that summing raw counts would give. It answers the same question as the exporter's pseudobulk table and is not the same quantity, which is why the two are separate modes. A column built from fewer than ten cells is dropped rather than drawn. | 105 / 619 | Columns are means of log-normalized values, not summed counts; one of fewer than ten cells is dropped. | 17 / 102 | retired: sample; this app (or no subject); one spelling: normalize; a colon, a comma or a full stop. over the text budget |
+| Coexpression.tsx | Per cell, two sparsely detected genes also agree wherever they are both absent; metacells are the answer to that. | 19 / 113 | Per cell, two sparse genes also agree wherever both are absent. | 11 / 63 | shorter |
+| Coexpression.tsx | These columns average values that are already log-normalised, which is a mean of logs — not the log of a mean that summing raw counts would give. It answers the same question as the exporter's pseudobulk table and is not the same quantity, which is why the two are separate modes. A column built from fewer than ten cells is dropped rather than drawn. | 63 / 351 | Metacells are pooled on #, a 2-D projection, at least ten cells each. | 12 / 69 | retired: one spelling: normalize; a colon, a comma or a full stop. over the text budget |
+| Coexpression.tsx | Metacells are pooled on the # embedding, which is a 2-D projection — neighbours there are close to, but not the same as, neighbours in expression space. hdWGCNA builds its metacells the same way but in a reduced space with many more components, which a bundle does not carry; the constraint on the left is its group.by, and a metacell holds at least ten cells. | 63 / 360 | *(cut)* | 0 / 0 | retired: a colon, a comma or a full stop. over the text budget |
+| Coexpression.tsx | Each member is standardised and turned the same way round before they are combined, so members that move in opposite directions add to the signature rather than cancelling in its mean. The combined score is the weighted mean of the members’ own correlations. This set does not move as one programme — read the combined score as a summary of its dominant arm. | 62 / 358 | Members are standardized and signed before they are combined, so opposite members add, not cancel. The score is the weighted mean of the members’ correlations. This set does not move as one programme: read the score as its dominant arm. | 40 / 236 | retired: gene set; a colon, a comma or a full stop. over the text budget |
+| Composition.tsx | Cells pooled across samples. All # rows merge , so the spread between animals is not visible here. up to # animals | 19 / 114 | Cells pooled across samples. All # rows merge , so the spread between samples is not visible here. up to # samples | 19 / 114 | retired: sample |
+| Composition.tsx | Every row falls in a single #, so each bar is one solid block. Pick a different field for the bars. | 20 / 99 | Every row falls in a single #, so each bar is one solid block. Choose a different field for the bars. | 20 / 101 | retired: choose |
+| Composition.tsx | # of # combinations hold cells — the rest were never collected. | 9 / 63 | # of # combinations hold cells : the rest were never collected. | 9 / 63 | retired: a colon, a comma or a full stop |
+| Composition.tsx | · # cells the annotator did not call (#) are not a cell type and are left out | 15 / 77 | are not a cell type and are left out | 9 / 36 | shorter |
+| Composition.tsx | Its own y axis per panel. Dots are animals — overlap means the difference is not evidence. | 16 / 90 | Its own y axis per panel. Dots are samples: overlap means the difference is not evidence. | 16 / 89 | retired: sample; a colon, a comma or a full stop |
+| Composition.tsx | # — # cells | 1 / 11 | #: # cells | 1 / 10 | retired: a colon, a comma or a full stop |
+| Composition.tsx | # — #% (# cells) | 1 / 16 | #: #% (# cells) | 1 / 15 | retired: a colon, a comma or a full stop |
+| Composition.tsx | *(new)* | 0 / 0 | Bar: the group’s one sample. n is samples per group. Each panel has its own y axis. | 17 / 83 | new: something a view or a saved file did not say |
+| Composition.tsx | *(new)* | 0 / 0 | Bar: mean of the samples (rings); line: their range. n: samples. | 11 / 64 | new: something a view or a saved file did not say |
+| Composition.tsx | *(new)* | 0 / 0 | Bar: the group’s one sample. n: samples. | 7 / 40 | new: something a view or a saved file did not say |
+| DEGTable.tsx | Not tested — under the effect-size gate below. | 7 / 46 | Not tested: under the effect-size gate below. | 7 / 45 | retired: a colon, a comma or a full stop |
+| DEGTable.tsx | Results. Arrow keys move through the rows, Enter opens the gene. | 11 / 64 | Results. Arrow keys move, Enter opens the gene. | 8 / 47 | over the accessible name budget |
+| DEGTable.tsx | # of # genes were tested. Seurat's own gates run before the rank sum. A gene detected in under 10% of the cells on both sides (min.pct) is dropped: with almost no cells expressing it on either side there is nothing to compare. A gene changing by less than the effect-size gate (logfc.threshold) is kept but not tested — the # rows showing “—” are those. Their fold change and detection rates are real and were computed either way; only the rank sum, which is the slow half, was skipped. Lower the gate under What gets tested to give them p-values too. | 97 / 551 | # of # genes were tested. Under 10% detected on both sides (min.pct): dropped. The # rows showing “—” are under logfc.threshold: kept, not tested. Lower it under What gets tested. | 27 / 179 | retired: a colon, a comma or a full stop. over the note budget |
+| DEGTable.tsx | Click a row, or press Enter on it, to open that gene; a header sorts. Showing # of #; the CSV has every row. | 22 / 108 | Select a row to open its gene. # of # shown; the CSV has all. | 13 / 61 | retired: select. over the status budget |
+| Enrichment.tsx | Hypergeometric on # genes #, against an annotated background of # of the # this object measures. # sets overlapped the list; # reach padj < 0.05 after BH across all of them. | 26 / 173 | padj | 1 / 4 | over the legend budget |
+| Enrichment.tsx | No gene passes padj < # and \|log₂FC\| ≥ #, so there is nothing to test. Loosen the cutoffs on the left, or press Reset to return to the default for this test. | 29 / 157 | No gene passes padj < # and \|log₂FC\| ≥ #, so there is nothing to test. Loosen the cutoffs on the left, or press Reset. | 21 / 118 | over the empty state budget |
+| Enrichment.tsx | None of the # genes in this list is in any of the # sets tested, so there is nothing to be enriched. On a small collection of your own that usually means the species or the capitalisation differs from this object — the set editor lists which genes it could not find. | 50 / 266 | None of the # genes is in any of the # sets tested. With your own sets, check species and capitalization in the set editor. | 23 / 123 | retired: a colon, a comma or a full stop. over the empty state budget |
+| Enrichment.tsx | fold = (k/n) ÷ (K/N) · click a bar for its member genes · the CSV has every set | 15 / 79 | fold = (k/n) ÷ (K/N) · select a bar for its member genes · the CSV has every set | 15 / 80 | retired: select |
+| Enrichment.tsx | p adjusted | 2 / 10 | #: # of this list in a set of #, #× enrichment, adjusted p <1e-308 (−log₁₀ #) | 12 / 77 | retired: padj (the column and its cutoff) or "adjusted p" (a sentence, an axis) |
+| Enrichment.tsx | gene ratio — genes of this list that are in the set | 11 / 51 | gene ratio (list genes in the set) | 7 / 34 | retired: a colon, a comma or a full stop |
+| Enrichment.tsx | # — # of this list in a set of #, #× enrichment, adjusted p <1e-308 (−log₁₀ #) | 12 / 78 | *(cut)* | 0 / 0 | retired: a colon, a comma or a full stop |
+| Enrichment.tsx | every term drawn is past 0.05 — the scale starts at # | 10 / 53 | all terms past 0.05: scale starts at # | 7 / 38 | retired: a colon, a comma or a full stop. over the figure text budget |
+| Enrichment.tsx | *(new)* | 0 / 0 | Hypergeometric on # genes #, against an annotated background of # of the # genes measured. # sets overlap the list; # reach padj < 0.05 (BH). | 20 / 141 | new: something a view or a saved file did not say |
+| Figure.tsx | SVG — vector | 2 / 12 | *(cut)* | 0 / 0 | retired: a colon, a comma or a full stop |
+| Figure.tsx | PNG — 300 dpi | 3 / 13 | *(cut)* | 0 / 0 | retired: a colon, a comma or a full stop |
+| Figure.tsx | PNG — 600 dpi | 3 / 13 | *(cut)* | 0 / 0 | retired: a colon, a comma or a full stop |
+| GeneExpression.tsx | One gene, or paste up to #. Case and separator do not matter. Indexed by #s — search either. | 17 / 92 | One gene, or paste up to #. Case and separator do not matter. Indexed by #s : search either. | 17 / 92 | retired: a colon, a comma or a full stop |
+| GeneExpression.tsx | Not in this object: # — check the species and capitalisation (mouse Ascl1 vs human ASCL1). | 14 / 90 | Not in this object: #. Check the species and capitalisation (mouse Ascl1 vs human ASCL1). | 14 / 89 | retired: a colon, a comma or a full stop |
+| GeneExpression.tsx | Seurat scale = TRUE — z-score each gene across identities | 8 / 57 | Seurat scale = TRUE: z-score each gene across the columns | 9 / 57 | retired: cell type or group; a colon, a comma or a full stop |
+| GeneExpression.tsx | Swap the axes — genes down the side, identities along the bottom | 11 / 64 | Swap the axes: genes down the side, cell types along the bottom | 12 / 63 | retired: cell type or group; a colon, a comma or a full stop |
+| GeneExpression.tsx | A ring around each cell — clearer at print size, slower on a large object | 14 / 73 | A ring around each cell: clearer in print, slower on a large object | 13 / 67 | retired: a colon, a comma or a full stop |
+| GeneExpression.tsx | Search for a gene in the controls on the left. | 10 / 46 | Search a gene on the left. | 6 / 26 | retired: on the left |
+| GeneExpression.tsx | Cell types in these plots | 5 / 25 | Cell types shown | 3 / 16 | over the label budget |
+| GeneSetSources.tsx | The only collection left — turn another on, or add your own, before turning this off | 15 / 84 | The only collection left: turn another on, or add your own, before turning this off | 15 / 83 | retired: a colon, a comma or a full stop |
+| GeneSetSources.tsx | The only collection left — turn another on, or add your own, before turning this off | 15 / 84 | The only collection left: turn another on, or add your own, before turning this off | 15 / 83 | retired: a colon, a comma or a full stop |
+| GeneSetSources.tsx | Could not load the gene sets — # | 6 / 32 | Could not load the gene sets: # | 6 / 31 | retired: a colon, a comma or a full stop |
+| GeneSetSources.tsx | Your own sets only — # set s in # collection s. No MSigDB collection is on, so nothing else is tested or corrected across. | 22 / 122 | Your own sets only: # set s in # collection s. No MSigDB collection is on. | 14 / 74 | retired: a colon, a comma or a full stop. over the help budget |
+| GeneSetSources.tsx | MSigDB # · # sets, of which # contain a gene this contrast tested. Those are the ones tested, and the ones corrected across. | 20 / 124 | MSigDB # · # sets, of which # contain a gene this contrast tested: the ones tested and corrected across. | 16 / 104 | shorter |
+| GeneSetSources.tsx | These collections annotate #% of the genes this object measures. That fraction is the annotated background, and turning more collections on raises it. | 22 / 150 | These collections annotate #% of the genes this object measures. That fraction is the annotated background. | 15 / 107 | over the help budget |
+| GeneSetSources.tsx | # is a metabolic library assembled from # — # sets under their own ids, so they are tested whatever else is enabled. # is on as well, so a term in both is tested twice and corrected across twice. Switch it off to test metabolism alone. | 42 / 235 | # is assembled from #: # sets under their own ids. # is on too: a term in both is tested twice. | 18 / 95 | retired: a colon, a comma or a full stop. over the help budget |
+| GeneSetSources.tsx | # is human sets mapped through orthologs, not a # annotation — MSigDB publishes no native one. Read it as a weaker claim than the rest. | 23 / 135 | # is human sets mapped through orthologs, not a # annotation. Read it as a weaker claim. | 15 / 88 | retired: a colon, a comma or a full stop. over the help budget |
+| GeneSetSources.tsx | Paste a Python dict, a GMT, or one Name: a, b, c per line. They are tested and corrected exactly as MSigDB’s are. | 23 / 113 | Paste a Python dict, a GMT, or one Name: a, b, c per line. They are tested as MSigDB’s are. | 20 / 91 | over the help budget |
+| GeneSetSources.tsx | These sets are for #, and this object looks like # — #. Matching ignores case, so results will still appear; they will be answering a question about a different species. | 27 / 169 | These sets are for #, and this object looks like # (#). Matching ignores case, so results will still appear; they will be answering a question about a different species. | 27 / 169 | retired: a colon, a comma or a full stop |
+| GeneSets.tsx | Genes of the set | 4 / 16 | Select a gene to see whether it carries the score on its own. # control genes per set gene, drawn from # expression bins. Not measured: # +#. | 24 / 141 | over the label budget |
+| GeneSets.tsx | z-score each gene across the identities shown — pheatmap scale = row | 10 / 68 | z-score each gene across the columns shown (pheatmap scale = row) | 10 / 65 | retired: cell type or group; a colon, a comma or a full stop |
+| GeneSets.tsx | Swap the axes — identities down the side, genes along the bottom | 11 / 64 | Swap the axes: cell types down the side, genes along the bottom | 12 / 63 | retired: cell type or group; a colon, a comma or a full stop |
+| GeneSets.tsx | Columns in this heatmap | 4 / 23 | *(cut)* | 0 / 0 | over the label budget |
+| GeneSets.tsx | search # sets — cell cycle, notch… | 5 / 34 | search # sets: cell cycle, notch… | 5 / 33 | retired: a colon, a comma or a full stop |
+| GeneSets.tsx | search # sets — cell cycle, notch… | 5 / 34 | search # sets: cell cycle, notch… | 5 / 33 | retired: a colon, a comma or a full stop |
+| GeneSets.tsx | Your own sets appear there too — add them with “Paste or upload” in the controls on the left. | 18 / 93 | Your own sets appear there too: add them with “Paste or upload” on the left. | 15 / 76 | retired: on the left; a colon, a comma or a full stop |
+| GeneSets.tsx | Pick a set in the list to score it. | 9 / 35 | Choose a set in the list to score it. | 9 / 37 | retired: choose |
+| GeneSets.tsx | # genes measured here, scored against # controls each — one pass over every cell. | 12 / 81 | # genes measured here, scored against # controls each: one pass over every cell. | 12 / 80 | retired: a colon, a comma or a full stop |
+| GeneSets.tsx | Score by identity | 3 / 17 | Score by cell type or group | 6 / 27 | retired: cell type or group |
+| GeneSets.tsx | Identity | 1 / 8 | Cells of | 2 / 8 | retired: cell type or group |
+| GeneSets.tsx | Click a gene to see whether it carries the score on its own. # control genes per set gene, drawn from # expression bins. Not measured: # +#. | 24 / 140 | Expression of # set genes across # cell types | 7 / 45 | retired: select |
+| GeneSets.tsx | Correlate with this set → | 4 / 25 | Correlate this set | 3 / 18 | over the button budget |
+| GeneSets.tsx | Find the genes that move with this signature, and against it | 11 / 60 | Find the genes that move with this set, and against it | 11 / 54 | retired: gene set |
+| GeneSets.tsx | Every gene of the set, across identities | 7 / 40 | Every gene of the set, across cell types | 8 / 40 | retired: cell type or group |
+| GeneSets.tsx | Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is. | 20 / 101 | Z-scored down each gene's own row, so a row says where that gene is highest, not how abundant it is. | 20 / 100 | retired: a colon, a comma or a full stop |
+| GeneSets.tsx | Mean expression as the object holds it, on one scale for every gene — so a row says how abundant that gene is. | 22 / 110 | Mean expression as the object holds it, on one scale for every gene, so a row says how abundant that gene is. | 22 / 109 | retired: a colon, a comma or a full stop |
+| GeneSets.tsx | Every column is switched off — turn one back on above. | 10 / 54 | Every column is switched off: turn one back on, on the left. | 12 / 60 | retired: a colon, a comma or a full stop |
+| GeneSets.tsx | Expression of # set genes across # populations | 6 / 46 | *(cut)* | 0 / 0 | retired: cell type |
+| GeneSets.tsx | # in # — z # · # cells | 3 / 22 | # in #: z # · # cells | 3 / 21 | retired: a colon, a comma or a full stop |
+| GeneSets.tsx | Module score by identity | 4 / 24 | Module score by cell type or group | 7 / 34 | retired: cell type or group |
+| GroupOrder.tsx | Every figure that splits by group follows this. No statistic is recomputed — Control and Compare are chosen by name and do not move. | 23 / 132 | Every figure that splits by group follows this. No statistic is recomputed: Control and Compare are chosen by name. | 19 / 115 | retired: a colon, a comma or a full stop |
+| Landing.tsx | Two conditions, four animals each | 5 / 33 | Two groups, four samples each | 5 / 29 | retired: group; sample |
+| Landing.tsx | No contrast — markers and gene search | 6 / 37 | a categorical cell annotation: every view is per cell type | 10 / 58 | retired: a colon, a comma or a full stop |
+| Landing.tsx | a categorical cell annotation — every view is per cell type | 10 / 59 | log-normalized, not scaled: z-scores are refused | 6 / 48 | retired: a colon, a comma or a full stop |
+| Landing.tsx | log-normalized, not scaled — z-scores are refused | 6 / 49 | which donor or run: without it, no spread between samples | 10 / 57 | retired: a colon, a comma or a full stop |
+| Landing.tsx | which animal or run — without it, no composition spread | 9 / 55 | the experimental factor: without it, no comparisons | 7 / 51 | retired: sample; a colon, a comma or a full stop |
+| Landing.tsx | the experimental group — without it, no comparisons | 7 / 51 | Markers, differential expression, enrichment and module scores on a processed object, in your browser. | 14 / 102 | retired: a colon, a comma or a full stop |
+| Landing.tsx | integer, pre-normalization — without them, no pseudobulk | 6 / 56 | It does not cluster, integrate or normalize. Nothing is uploaded. | 10 / 65 | retired: a colon, a comma or a full stop |
+| Landing.tsx | Markers, differential expression, enrichment and module scores — on a processed object, in your browser. | 14 / 104 | or drop it here: a .zip or .scstudio from scRNA-seq Lab | 11 / 55 | retired: a colon, a comma or a full stop |
+| Landing.tsx | It does not cluster, integrate or normalise. Nothing is uploaded. | 10 / 65 | *(cut)* | 0 / 0 | retired: one spelling: normalize |
+| Landing.tsx | or drop it here — a .zip or .scstudio from scRNA-seq Lab | 11 / 56 | A .zip or .scstudio from scRNA-seq Lab, not the .h5ad or .rds itself. Size is not a limit. | 18 / 90 | retired: a colon, a comma or a full stop |
+| Landing.tsx | A bundle is made once from your .h5ad or .rds — convert it in scRNA-seq Lab → | 15 / 77 | A bundle is made once from your .h5ad or .rds: convert it in scRNA-seq Lab → | 15 / 76 | retired: a colon, a comma or a full stop |
+| Landing.tsx | or convert offline with a script | 6 / 32 | convert offline | 2 / 15 | over the button budget |
+| Landing.tsx | A .zip or .scstudio from scRNA-seq Lab — not the .h5ad or .rds itself. Size is not a limit. | 18 / 91 | *(cut)* | 0 / 0 | retired: a colon, a comma or a full stop |
+| Landing.tsx | # Scanpy / AnnData curl -O #/export_h5ad.py # Seurat — needs no Seurat installed curl -O #/export_seurat.R | 13 / 106 | # Scanpy / AnnData curl -O #/export_h5ad.py # Seurat: needs no Seurat installed curl -O #/export_seurat.R | 13 / 105 | retired: a colon, a comma or a full stop |
+| Markers.tsx | One Wilcoxon per cluster, against every other cell | 8 / 50 | One Wilcoxon per cell type, against every other cell | 9 / 52 | retired: cell type |
+| Markers.tsx | This object has no clusters to compare. | 7 / 39 | This object has no cell types to compare. | 8 / 41 | shorter |
+| Markers.tsx | Mean expression × fraction detected. Rename a cluster to rename it everywhere. | 11 / 78 | Mean expression × fraction detected. Rename a cell type to rename it everywhere. | 12 / 80 | retired: cell type |
+| Markers.tsx | Top per cluster | 3 / 15 | *(cut)* | 0 / 0 | retired: cell type |
+| Markers.tsx | Reading # genes from the file — the dots arrive when it finishes. | 11 / 65 | Reading # genes from the file: the dots arrive when it finishes. | 11 / 64 | retired: a colon, a comma or a full stop |
+| Markers.tsx | # in # — #% of cells, mean # | 4 / 28 | # in #: #% of cells, mean # | 4 / 27 | retired: a colon, a comma or a full stop |
+| Markers.tsx | Avg. Exp. · depth of cluster colour | 6 / 35 | Mean expression · depth of the cell type's colour | 8 / 49 | retired: cell type |
+| Markers.tsx | a heavier ring marks one of that cluster’s own top genes | 11 / 56 | a heavier ring marks one of that cell type’s own top genes | 12 / 58 | retired: cell type |
+| Markers.tsx | Per cluster | 2 / 11 | Per cell type | 3 / 13 | retired: cell type |
+| Markers.tsx | Counts are genes at padj < # and log₂FC ≥ #; click one for the list. | 12 / 68 | Counts are genes at padj < # and log₂FC ≥ #; select one for the list. | 12 / 69 | retired: select |
+| Markers.tsx | *(new)* | 0 / 0 | Rename cell type # | 3 / 18 | new: something a view or a saved file did not say |
+| Methods.tsx | This object was processed elsewhere and read from a bundle exported from #. Expression values are #; nothing in this app imputes, denoises or rescales them. The # populations are the object’s own labels , and the file records no clustering method for them. Cells are drawn on the embeddings the object carries — # — computed before export and never recomputed here. This text reads nothing between the counts and those labels: the object carries the run’s own records — # — which Overview shows as recorded, and how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not read out of it here, and are not guessed at. The populations are reported as #. A further # cells carry the annotator’s labels for cells it did not call (#); they are not a cell type, so they are left out of every population, proportion and test below, and kept on the embedding. | 156 / 938 | This object was processed elsewhere and read from a bundle exported from #. Expression values are #; nothing in this app imputes, denoises or rescales them. The # cell types are the object’s own labels , and the file records no clustering method for them. Cells are drawn on the embeddings the object carries (#), computed before export and never recomputed here. This text reads nothing between the counts and those labels: the object carries the run’s own records (#), which Overview shows as recorded, and how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not read out of it here, and are not guessed at. The cell types are reported as #. A further # cells carry the annotator’s labels for cells it did not call (#); they are not a cell type, so they are left out of every cell type’s count, every proportion and every test below, and kept on the embedding. | 162 / 953 | retired: cell type; a colon, a comma or a full stop |
+| Methods.tsx | No between-group differential expression was performed, as the object contains a single condition. Cluster identities were supported by one-vs-rest Wilcoxon rank-sum tests#, reported as a ranking of marker genes rather than as hypothesis tests., each population against every other cell with a cell type | 44 / 303 | No between-group differential expression was performed, as the object contains a single group. Cell types were supported by one-vs-rest Wilcoxon rank-sum tests#, reported as a ranking of marker genes rather than as hypothesis tests., each cell type against every other cell with a cell type | 45 / 290 | retired: cell type; cell type or group |
+| Methods.tsx | Differential expression between # and # within # was tested with a Wilcoxon rank-sum test across cells#, restricted to genes with an absolute log₂ fold change of at least # detected in at least #% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below # and an absolute log₂ fold change of at least # were considered differentially expressed. Because cells from the same animal are not independent observations, these p-values describe variation between cells rather than between animals#. | 83 / 557 | Differential expression between # and # within # was tested with a Wilcoxon rank-sum test across cells#, restricted to genes with an absolute log₂ fold change of at least # detected in at least #% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below # and an absolute log₂ fold change of at least # were considered differentially expressed. Because cells from the same sample are not independent observations, these p-values describe variation between cells rather than between samples#. | 83 / 557 | retired: sample |
+| Methods.tsx | Pseudobulk profiles were prepared for # against # within ##: raw counts were summed across all cells of a given animal, animals contributing fewer than # cells of that type were excluded, and the summed counts of the resulting # # and # # profiles were exported for DESeq2#. No test was run here, so no gene is reported as differentially expressed; the model, its reference level and its multiple-testing adjustment are chosen where the counts are tested. | 70 / 455 | Pseudobulk profiles were prepared for # against # within ##: raw counts were summed across all cells of a given sample, samples contributing fewer than # cells of that type were excluded, and the summed counts of the resulting # # and # # profiles were saved for DESeq2#. No test was run here, so no gene is reported as differentially expressed; the model, its reference level and its multiple-testing adjustment are chosen where the counts are tested. | 70 / 452 | retired: save; sample |
+| Methods.tsx | Significance is read as −log₁₀ padj. A per-cell test over tens of thousands of genes reaches p-values below the smallest double, so p and p adjusted print as < 10⁻³⁰⁸ once they underflow — a bound, not a reading. −log₁₀ padj is formed in log space, does not underflow, and still separates rows that share that bound. The volcano’s y axis is this column. Combined is −log₁₀(padj) × log₂FC, a signed ranking metric. | 70 / 413 | Significance is read as −log₁₀ padj. A per-cell test over tens of thousands of genes reaches p-values below the smallest double, so p and padj print as < 10⁻³⁰⁸ once they underflow: a bound, not a reading. −log₁₀ padj is formed in log space, does not underflow, and still separates rows that share that bound. The volcano’s y axis is this column. Combined is −log₁₀(padj) × log₂FC, a signed ranking metric. | 69 / 406 | retired: padj (the column and its cutoff) or "adjusted p" (a sentence, an axis); a colon, a comma or a full stop |
+| Methods.tsx | Cluster markers rank; they do not test. Each cluster is compared against every other cell with the same Wilcoxon that Seurat’s FindAllMarkers runs — but the clusters were defined using the expression these p-values then score, so they are not evidence the clusters exist. The effect size and the detection rates are the honest columns. | 54 / 335 | Markers rank; they do not test. Each cell type is compared against every other cell with the same Wilcoxon that Seurat’s FindAllMarkers runs. But the cell types were defined using the expression these p-values then score, so they are not evidence the cell types exist. The effect size and the detection rates are the honest columns. | 56 / 332 | retired: cell type; a colon, a comma or a full stop |
+| Methods.tsx | Composition is never pooled across samples. Cells from one animal are not independent observations, so a bar merging several animals is refused rather than drawn. Each cell type gets its own y axis; a shared one flattens every population except the largest. | 42 / 257 | Composition is never pooled across samples. Cells from one sample are not independent observations, so a bar merging several samples is refused rather than drawn. Each cell type gets its own y axis; a shared one flattens every cell type except the largest. | 43 / 256 | retired: sample; cell type |
+| Methods.tsx | Scaling a dot plot changes its claim. Seurat’s scale = TRUE z-scores each gene down its own column, so colour shows where a gene is highest, not how abundant it is — a gene expressed evenly everywhere comes out uniformly pale. Turn scaling off to compare absolute levels. | 46 / 271 | Scaling a dot plot changes its claim. Seurat’s scale = TRUE z-scores each gene down its own column, so colour shows where a gene is highest, not how abundant it is: a gene expressed evenly everywhere comes out uniformly pale. Turn scaling off to compare absolute levels. | 46 / 270 | retired: a colon, a comma or a full stop |
+| Methods.tsx | Enrichment tests against the genes this object measured, never the whole genome: testing against genes the assay could not detect inflates every result. The background is narrowed once more, to the measured genes that are in at least one set — the annotated background — because a gene no set contains could never have been drawn into one. A module score subtracts a control set matched on expression level, which is what makes zero meaningful. | 73 / 444 | Enrichment tests against the genes this object measured, never the whole genome: testing against genes the assay could not detect inflates every result. The background is narrowed once more, to the measured genes that are in at least one set (the annotated background), because a gene no set contains could never have been drawn into one. A module score subtracts a control set matched on expression level, which is what makes zero meaningful. | 73 / 443 | retired: a colon, a comma or a full stop |
+| Methods.tsx | The gene sets are MSigDB # . Native, not projected: MSigDB curates a separate mouse database, and mapping the human sets across orthologs instead would give different membership for every set — over the fifty hallmark sets the two agree on a mean Jaccard of 0.57 and not one is identical. Only the collections switched on are tested, and the correction is applied across those. , the collections native to # | 66 / 407 | The gene sets are MSigDB # . Native, not projected: MSigDB curates a separate mouse database, and mapping the human sets across orthologs instead would give different membership for every set: over the fifty hallmark sets the two agree on a mean Jaccard of 0.57 and not one is identical. Only the collections switched on are tested, and the correction is applied across those. , the collections native to # | 66 / 406 | retired: a colon, a comma or a full stop |
+| Methods.tsx | Co-expression r is Pearson by default, and carries no p-value on purpose. Pearson is what WGCNA and hdWGCNA use, and it is what the card computes unless Spearman is chosen — which is the same correlation over the RANKS, so one extreme metacell cannot carry an r on its own and a saturating relationship still reads as one. Spearman is offered only where the observations are pooled: on the per-cell axis most values are exactly zero, so the ranks are one enormous tie block and the correlation would be describing the dropout pattern. Which of the two produced a given table is named above it and in its CSV heading. Correlation is taken across observations, and with tens of thousands of cells almost any r clears any threshold — while cells from one animal are not independent draws, the same reason this studio separates the per-cell test from pseudobulk. So the table ranks by r and shows the detection rate beside it. Two further cautions are built into the defaults rather than left to the reader: a gene detected in under 10% of the cells in scope is not ranked at all, because on a matrix this sparse two rarely-detected genes agree wherever they are both absent; and cells are pooled into near-equal metacells before correlating, which is what makes r mean what it appears to mean. The pooling follows hdWGCNA: no metacell spans two cell types or two samples, so a pool cannot be two populations that happen to sit near each other, and none is built from fewer than ten cells. Pooling is on the embedding — a 2-D projection, where hdWGCNA uses a reduced space with many more components — and that approximation is stated on the card. | 287 / 1642 | Co-expression r is Pearson by default, and carries no p-value on purpose. Pearson is what WGCNA and hdWGCNA use. Spearman is the same correlation over the ranks, so one extreme metacell cannot carry an r; it is offered only where observations are pooled, because per cell most values are zero and the ranks are one tie block. Which of the two produced a table is named above it and in its CSV heading. With tens of thousands of cells almost any r clears any threshold, and cells from one sample are not independent draws, so the table ranks by r and shows the detection rate beside it. A gene detected in under 10% of the cells in scope is not ranked, because two rarely detected genes agree wherever both are absent. Cells are pooled into near-equal metacells before correlating, following hdWGCNA: no metacell spans two cell types or two samples, and none is built from fewer than ten cells. Pooling is on the embedding, a 2-D projection, where hdWGCNA uses a reduced space with many more components. | 177 / 1002 | retired: sample; cell type; a colon, a comma or a full stop. over the methods budget |
+| Methods.tsx | A signature is signed before it is combined. Seeding a correlation with the mean of a set’s members cancels: a pathway holds members that move in opposite directions, and the mean is dominated by whichever are most abundant. So the set is first correlated with itself, each member is standardised and given the sign of the leading eigenvector of that matrix — WGCNA’s module eigengene — and the members are combined only then. Because each member is standardised, the correlation against that composite is the weighted mean of the members’ own independent correlations, so one pass reports what testing every member separately would have said. How much of the set runs one way is reported with the result, since a combined score over a set that is really two programmes is a number to read with care. | 135 / 800 | A gene set is signed before it is combined. Seeding a correlation with the mean of a set’s members cancels: a pathway holds members that move in opposite directions, and the mean is dominated by whichever are most abundant. So the set is first correlated with itself, each member is standardised and given the sign of the leading eigenvector of that matrix (WGCNA’s module eigengene), and the members are combined only then. Because each member is standardised, the correlation against that composite is the weighted mean of the members’ own independent correlations, so one pass reports what testing every member separately would have said. How much of the set runs one way is reported with the result, since a combined score over a set that is really two programmes is a number to read with care. | 136 / 798 | retired: gene set; a colon, a comma or a full stop |
+| Overview.tsx | matrix indexed by #s; symbols shown, taken from # in the same file — nothing is looked up# | 16 / 90 | matrix indexed by #s; symbols shown, taken from # in the same file; nothing is looked up# | 16 / 89 | retired: a colon, a comma or a full stop |
+| Overview.tsx | present — pseudobulk columns are in the bundle | 7 / 46 | present: pseudobulk columns are in the bundle | 7 / 45 | retired: a colon, a comma or a full stop |
+| Overview.tsx | Wilcoxon runs here; pseudobulk counts can be exported. Wilcoxon across cells by default; with # samples a group, the counts summed per animal can be exported for DESeq2, which is not run here. | 32 / 192 | Wilcoxon runs here; pseudobulk counts can be saved. With # samples a group, the counts summed per sample can be saved for DESeq2, which is not run here. | 27 / 152 | retired: save; sample. over the note budget |
+| Overview.tsx | # sample per group, so Wilcoxon is the only test — the normal case in single-cell. Its p-values describe variation between cells, not between animals. | 23 / 150 | # sample per group, so Wilcoxon is the only test, the normal case in single-cell. Its p-values describe variation between cells, not between samples. | 23 / 149 | retired: sample; a colon, a comma or a full stop |
+| Overview.tsx | One condition, so there is no comparison to run. Markers and gene search work normally. | 15 / 87 | One group, so there is no comparison to run. Markers and gene search work normally. | 15 / 83 | retired: group |
+| Overview.tsx | What counts as a cell type, and as a group | 10 / 42 | The cell type and group columns | 6 / 31 | over the title budget |
+| Overview.tsx | Every column you ticked in the lab travels in the bundle, so these can be re-pointed here without converting the file again. | 22 / 124 | Every column you ticked in the lab is in the bundle, so these can be re-pointed without converting again. | 19 / 105 | over the help budget |
+| Overview.tsx | # — # levels | 1 / 12 | #: # levels | 1 / 11 | retired: a colon, a comma or a full stop |
+| Overview.tsx | Changing either clears the contrast, the group order and any renaming — those name cell types and groups that the other column may not have. # other columns are not offered as a group: a group has to be the same for every cell of a sample, or the pseudobulk design would count one animal on both sides of its own comparison. | 60 / 324 | Changing either clears the contrast, the group order and any renaming. # other columns are not offered as a group: a group must be the same for every cell of a sample. | 31 / 167 | retired: sample; a colon, a comma or a full stop. over the text budget |
+| Overview.tsx | *(new)* | 0 / 0 | Cells not called | 3 / 16 | new: something a view or a saved file did not say |
+| RunCard.tsx | This bundle carries no run section, so it cannot say which run produced the object. The lab’s converter writes one from what an .h5ad’s uns records; a bundle written before it did, by an exporter that does not, or from an .rds has none. | 44 / 236 | This bundle carries no run section, so it cannot say which run produced the object. The lab’s converter writes one from an .h5ad’s uns; an older bundle, another exporter’s, or one from an .rds has none. | 36 / 202 | over the text budget |
+| ScoreMany.tsx | Scale each signature | 3 / 20 | Scale each set | 3 / 14 | retired: gene set |
+| ScoreMany.tsx | z-score each signature across the columns shown, so a small signature and a large one can be compared | 18 / 101 | z-score each set across the columns shown, so a small set and a large one compare | 16 / 81 | retired: gene set. over the tooltip budget |
+| ScoreMany.tsx | Columns in this figure | 4 / 22 | *(cut)* | 0 / 0 | over the label budget |
+| ScoreMany.tsx | Which signature does each population express? | 6 / 45 | Which gene set does each cell type express? | 8 / 43 | retired: cell type; gene set |
+| ScoreMany.tsx | — # is the most | 3 / 15 | Colour is the mean score of that set in that cell type. Zero is the reference: no higher than genes of comparable abundance. | 23 / 124 | shorter |
+| ScoreMany.tsx | The signatures' scores | 3 / 22 | The gene sets' scores | 4 / 21 | retired: gene set |
+| ScoreMany.tsx | One AddModuleScore per set, computed in a single pass over the matrix. Every set keeps its own control genes, so the numbers are the ones scoring them one at a time would give. One at a time is One set, which also draws it on the embedding. | 47 / 240 | One AddModuleScore per set, each with its own control genes: the numbers are the ones scoring them one at a time would give. | 23 / 124 | over the empty state budget |
+| ScoreMany.tsx | # signatures | 1 / 12 | # gene sets | 2 / 11 | retired: gene set |
+| ScoreMany.tsx | One AddModuleScore per set, computed in a single pass over the matrix. Every set keeps its own control genes, so the numbers are the ones scoring them one at a time would give. | 33 / 176 | One AddModuleScore per set, each with its own control genes: the numbers are the ones scoring them one at a time would give. | 23 / 124 | over the legend budget |
+| ScoreMany.tsx | Colour is z-scored along each signature — where that signature is highest, not how large it is. | 16 / 95 | Colour is z-scored along each set: where that set is highest, not how large it is. | 16 / 82 | retired: gene set; a colon, a comma or a full stop |
+| ScoreMany.tsx | Colour is the mean score of that signature in that population. Zero is the reference: no higher than genes of comparable abundance. | 22 / 131 | *(cut)* | 0 / 0 | retired: cell type; gene set |
+| ScoreMany.tsx | Mean module score of # signatures across # populations | 7 / 54 | Mean module score: # gene sets across # cell types | 8 / 50 | retired: cell type; gene set |
+| ScoreMany.tsx | # in # — z # · # cells | 3 / 22 | # in #: z # · # cells | 3 / 21 | retired: a colon, a comma or a full stop |
+| ScoreMany.tsx | z-score, along each signature | 4 / 29 | z-score, along each set | 4 / 23 | retired: gene set |
+| ScoreMany.tsx | z-score, along each signature | 4 / 29 | z-score, along each set | 4 / 23 | retired: gene set |
+| SetEditor.tsx | Gene sets · your own | 4 / 20 | Your gene sets | 3 / 14 | shorter |
+| SetEditor.tsx | or read a file… # | 4 / 17 | Read a file… # | 3 / 14 | over the button budget |
+| SetEditor.tsx | pathway_genes = { "TCA cycle": ["Cs", "Aco2", "Idh2", "Mdh2"], "Glycolysis": ["Hk1", "Gpi1", "Aldoa", "Pkm"], } | 12 / 111 | pathway_genes = { "TCA cycle": ["Cs", "Aco2", "Idh2"], } | 6 / 56 | over the placeholder budget |
+| SetEditor.tsx | none of them — check the species and capitalisation | 8 / 51 | none of them: check the species and capitalization | 8 / 50 | retired: a colon, a comma or a full stop |
+| SetEditor.tsx | Not in this object | 4 / 18 | Not in object | 3 / 13 | over the table header budget |
+| Stats.tsx | Pseudobulk exports one cell type at a time — the counts are summed per cluster and sample in the bundle, so pooling clusters would mean adding those columns together rather than choosing between them. | 33 / 200 | Pseudobulk counts are summed per cell type and sample in the bundle, so they are saved one cell type at a time. | 22 / 111 | retired: save; cell type; a colon, a comma or a full stop |
+| Stats.tsx | Pseudobulk · export counts | 3 / 26 | Pseudobulk · save counts | 3 / 24 | retired: save |
+| Stats.tsx | padj — severe, and pinned to 1 for every gene with p above 1/n | 13 / 62 | padj: severe, pinned to 1 for every gene with p above 1/n | 12 / 57 | retired: a colon, a comma or a full stop |
+| Stats.tsx | Benjamini–Hochberg — what the slider can actually move | 7 / 54 | Benjamini–Hochberg: the cutoff the slider can move | 7 / 50 | retired: a colon, a comma or a full stop |
+| Stats.tsx | Genes under # log₂ are in the table with their fold change and detection rates, and with no p — Seurat’s logfc.threshold skips the rank sum for them, so this cutoff lists them but cannot call them significant. | 36 / 209 | Genes under # log₂ are listed with no p: logfc.threshold skips their test, so this cutoff cannot call them significant. | 19 / 119 | retired: a colon, a comma or a full stop. over the help budget |
+| Stats.tsx | Bonferroni over the # genes this object measures pins every gene with p above # to exactly 1, so no cutoff above that admits another row — moving the slider here cannot change the count. Cut on FDR for a threshold that does something, or read the −log₁₀ padj column, which still separates them. | 51 / 294 | Bonferroni pins every gene with p above # to 1, so the slider cannot change the count. Cut on FDR instead. | 20 / 106 | retired: a colon, a comma or a full stop. over the help budget |
+| Stats.tsx | Seurat's own pre-test filters — a gene that fails either is never tested | 12 / 72 | Seurat's own pre-test filters: a gene that fails either is never tested | 12 / 71 | retired: a colon, a comma or a full stop |
+| Stats.tsx | min.pct #, no logfc.threshold — every gene detected in a tenth of either side is tested, so the slider above filters answers | 20 / 124 | min.pct #, no logfc.threshold: every gene detected in a tenth of either side is tested | 14 / 86 | retired: a colon, a comma or a full stop |
+| Stats.tsx | min.pct #, logfc.threshold # — changing these re-runs the test | 7 / 62 | min.pct #, logfc.threshold #; changing these re-runs the test | 7 / 61 | retired: a colon, a comma or a full stop |
+| Stats.tsx | Minimum absolute log2 fold change to test a gene | 9 / 48 | Minimum absolute log2 fold change tested | 6 / 40 | over the accessible name budget |
+| Stats.tsx | These decide what the test looks at, and changing one runs it again. A gene under logfc.threshold still gets a row, with its fold change and no p; one under min.pct gets none, because there is nothing to compare. Neither changes the correction: Bonferroni multiplies by every gene the object measures, and that is BH’s m as well. | 58 / 329 | Changing one reruns the test. A gene under logfc.threshold keeps its row with no p; one under min.pct gets none. | 20 / 112 | over the help budget |
+| Stats.tsx | a group to compare it with | 6 / 26 | a group to compare | 4 / 18 | shorter |
+| Stats.tsx | The pickers are in the controls on the left. Nothing is chosen for you, because a contrast the studio guessed at looks exactly like one you asked for. | 28 / 150 | On the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for. | 18 / 96 | retired: choose; this app (or no subject); on the left. over the empty state budget |
+| Stats.tsx | Pick two groups with no level in common | 8 / 39 | Choose two groups with no level in common | 8 / 41 | retired: choose |
+| Stats.tsx | # cells in #, # in #. A rank-sum test needs at least # per group — Seurat’s min.cells.group. | 13 / 92 | # cells in #, # in #. A rank-sum test needs at least # per group: Seurat’s min.cells.group. | 13 / 91 | retired: a colon, a comma or a full stop |
+| Stats.tsx | The matrix is here; the model is not. Counts are summed per sample within # — the whole of the pseudobulk step. DESeq2 itself is not in the browser, so take these to DESeqDataSetFromMatrix. | 32 / 189 | The matrix is here; the model is not. Counts are summed per sample within #. DESeq2 is not in the browser: take these to DESeqDataSetFromMatrix. | 24 / 144 | retired: a colon, a comma or a full stop. over the note budget |
+| Stats.tsx | — fewer than # per group, so a between-animal test is not defensible here either | 13 / 80 | : fewer than # per group, so a between-sample test is not defensible here either | 13 / 80 | retired: sample |
+| Stats.tsx | Dashed lines are the cutoffs on the left. # more genes are in the table with a fold change and no p — under the effect-size gate, so the rank sum was skipped and they have no height to be drawn at. | 40 / 197 | Dashed lines are the cutoffs. # genes with no p are in the table only. | 14 / 70 | retired: a colon, a comma or a full stop. over the status budget |
+| Stats.tsx | Hover a point to read it, click to keep its name on the figure. | 14 / 63 | Point at a gene to read it; select it to keep its name on the figure. | 16 / 69 | retired: select; point at |
+| Stats.tsx | Named on the figure | 4 / 19 | Named on figure | 3 / 15 | over the label budget |
+| Stats.tsx | *(new)* | 0 / 0 | Wilcoxon rank-sum test across cells. | 5 / 36 | new: something a view or a saved file did not say |
+| Stats.tsx | *(new)* | 0 / 0 | Dashed lines: # < # and \|log₂FC\| ≥ #. Larger points are past both. | 9 / 66 | new: something a view or a saved file did not say |
+| ViewMenu.tsx | Clusters | 1 / 8 | Cell types | 2 / 10 | retired: cell type |
+| ViewMenu.tsx | Any quantity that starts at zero — feature plots, the dot plot’s size, enrichment significance. | 14 / 95 | From zero: feature plots, dot size, enrichment. | 7 / 47 | retired: a colon, a comma or a full stop |
+| ViewMenu.tsx | z-scores and module scores — the dot plot, both gene-set heatmaps. | 10 / 66 | Signed: z-scores, module scores. | 4 / 32 | retired: a colon, a comma or a full stop |
+| ViewMenu.tsx | *(new)* | 0 / 0 | Cell type palette | 3 / 17 | new: something a view or a saved file did not say |
+| gene/DotPlot.tsx | Dot plot of # — # | 3 / 17 | Dot plot of #, # | 3 / 16 | retired: a colon, a comma or a full stop |
+| gene/DotPlot.tsx | # in # — #% of cells, mean # | 4 / 28 | # in #: #% of cells, mean # | 4 / 27 | retired: a colon, a comma or a full stop |
+| gene/DotPlot.tsx | Colour is z-scored per gene — where a gene is highest, not how much of it. Across these # rows the mean runs # to #; the colours fill the scale whatever that range is, so read them as an order and not as a size. | 42 / 211 | Colour is z-scored per gene: where it is highest, not how much. Here the mean runs # to #: read the colours as an order. | 23 / 120 | retired: a colon, a comma or a full stop. over the legend budget |
+| gene/DotPlot.tsx | *(new)* | 0 / 0 | Dot size: fraction of cells detecting the gene. Colour: mean expression#. | 11 / 73 | new: something a view or a saved file did not say |
+| gene/FeaturePlot.tsx | # hidden cells and other groups — kept as the outline | 9 / 53 | # hidden cells and other groups , kept as the outline | 9 / 53 | retired: a colon, a comma or a full stop |
+| gene/ViolinPanel.tsx | Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean, which is what the dot plot colours.# Bar under the axis: fraction of cells detecting the gene. | 29 / 184 | Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean.# Bar under the axis: fraction of cells detecting the gene. | 22 / 148 | over the legend budget |
+| gene/ViolinPanel.tsx | barely detected here — max #% | 4 / 29 | barely detected here: max #% | 4 / 28 | retired: a colon, a comma or a full stop |
+| lib/bundle.ts | the summed raw counts are not offered: the pseudobulk column header# ## can# be read as more than one sample × cluster pair this object declares, so which sample's counts # is not in the file, and choosing would put one sample's counts under another's name | 43 / 256 | the summed raw counts are not offered: the pseudobulk column header# ## can# be read as more than one sample × cluster pair this object declares, so which sample's counts # is not in the file | 33 / 191 | over the text budget |
+| lib/bundle.ts | the bundle has no # — was it made by tools/export_*? | 9 / 52 | the bundle has no #: was it made by tools/export_*? | 9 / 51 | retired: a colon, a comma or a full stop |
+| lib/bundle.ts | this file is not a zip — open a bundle made by tools/export_h5ad.py or tools/export_seurat.R, not the .h5ad or .rds itself | 20 / 122 | this file is not a zip: open a bundle made by tools/export_h5ad.py or tools/export_seurat.R, not the .h5ad or .rds itself | 20 / 121 | retired: a colon, a comma or a full stop |
+| lib/chunked.ts | this matrix is too large to chunk into one entry — split it further | 13 / 67 | this matrix is too large to chunk into one entry: split it further | 13 / 66 | retired: a colon, a comma or a full stop |
+| lib/chunked.ts | chunk # is # bytes but the index says # — this bundle is truncated | 11 / 66 | chunk # is # bytes but the index says #: this bundle is truncated | 11 / 65 | retired: a colon, a comma or a full stop |
+| lib/chunked.ts | chunk # holds # bytes, expected # for its # values — this bundle is damaged | 11 / 75 | chunk # holds # bytes, expected # for its # values: this bundle is damaged | 11 / 74 | retired: a colon, a comma or a full stop |
+| lib/collection-source.ts | the part # is not where the collection index says — this file is damaged | 13 / 72 | the part # is not where the collection index says: this file is damaged | 13 / 71 | retired: a colon, a comma or a full stop |
+| lib/collection-source.ts | part # has no # — rebuild this collection in the lab | 9 / 52 | part # has no #: rebuild this collection in the lab | 9 / 51 | retired: a colon, a comma or a full stop |
+| lib/collection-source.ts | part # has a different gene list from the first part — these bundles are not pieces of one object and cannot be opened together | 23 / 127 | part # has a different gene list from the first part: these bundles are not pieces of one object and cannot be opened together | 23 / 126 | retired: a colon, a comma or a full stop |
+| lib/collection-source.ts | part # stores its expression chunks compressed, so single genes cannot be read out of it — rebuild this collection in the lab | 21 / 125 | part # stores its expression chunks compressed, so single genes cannot be read out of it: rebuild this collection in the lab | 21 / 124 | retired: a colon, a comma or a full stop |
+| lib/collection-source.ts | part # does not say how many genes are in a chunk — rebuild this collection in the lab | 17 / 86 | part # does not say how many genes are in a chunk: rebuild this collection in the lab | 17 / 85 | retired: a colon, a comma or a full stop |
+| lib/collection-source.ts | the summed raw counts across this object come to # sample × cluster columns over # genes, too large to hold in the browser — the pseudobulk export is not offered, and the Wilcoxon test is unaffected | 33 / 198 | the summed raw counts across this object come to # sample × cluster columns over # genes, too large to hold in the browser: the pseudobulk counts are not offered, and the Wilcoxon test is unaffected | 33 / 198 | retired: save; a colon, a comma or a full stop |
+| lib/collection.ts | this collection is damaged — a part is not where its index says | 12 / 63 | this collection is damaged: a part is not where its index says | 12 / 62 | retired: a colon, a comma or a full stop |
+| lib/demo.ts | Adult SVZ neural stem cell reactivation — quiescent vs reactivated, 8 animals | 11 / 77 | Adult SVZ neural stem cell reactivation: quiescent vs reactivated, 8 samples | 11 / 76 | retired: sample; a colon, a comma or a full stop |
+| lib/demo.ts | SVZ reactivation time course after AraC ablation — 0, 6, 24 and 72 hours | 13 / 72 | SVZ reactivation time course after AraC ablation: 0, 6, 24 and 72 hours | 13 / 71 | retired: a colon, a comma or a full stop |
+| lib/demo.ts | Adult SVZ wild-type reference — single animal, no comparison | 8 / 60 | Adult SVZ wild-type reference: one sample, no comparison | 8 / 56 | retired: sample; a colon, a comma or a full stop |
+| lib/msigdb.ts | nothing to read — paste your gene sets first | 8 / 44 | nothing to read: paste your gene sets first | 8 / 43 | retired: a colon, a comma or a full stop |
+| lib/species.ts | no accessions and no casing to read — assuming human | 9 / 52 | no accessions and no casing to read: assuming human | 9 / 51 | retired: a colon, a comma or a full stop |
+| lib/zipdir.ts | this part is not a zip — the collection is damaged | 10 / 50 | this part is not a zip: the collection is damaged | 10 / 49 | retired: a colon, a comma or a full stop |
+| main.tsx | Reload the studio | 3 / 17 | *(cut)* | 0 / 0 | retired: this app (or no subject) |
+
+## The deck, now
 
 Each of the app's strings once, under the view where the walk first met it. "own" is the app's own words.
 
 ### Landing
 
-39 strings, 217 words (210 the app's own).
+39 strings, 215 words (183 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
 | page | text | sc | 1 | 1 | 2 | 12 |
-| page | title | scRNA-seq Studio | 2 | 2 | 16 | 15 |
-| page | text | Markers, differential expression, enrichment and module scores — on a processed object, in your browser. | 14 | 14 | 104 | 13 |
-| page | text | It does not cluster, integrate or normalise. Nothing is uploaded. | 10 | 9 | 65 | 12 |
-| page | button | Open a bundle | 3 | 3 | 13 | 13 |
-| page | text | or drop it here — a .zip or .scstudio from scRNA-seq Lab | 11 | 11 | 56 | 12 |
-| page | text | Don’t have a bundle yet? | 5 | 5 | 24 | 12 |
-| page | text | A bundle is made once from your .h5ad or .rds — convert it in scRNA-seq Lab → | 15 | 16 | 77 | 12 |
-| page | button | or convert offline with a script | 6 | 6 **over** | 32 | 11 |
+| page | title | scRNA-seq Studio | 2 | 1 | 16 | 15 |
+| page | text | Markers, differential expression, enrichment and module scores on a processed object, in your browser. | 14 | 12 | 102 | 13 |
+| page | text | It does not cluster, integrate or normalize. Nothing is uploaded. | 10 | 9 | 65 | 12 |
+| page | button | Open a bundle | 3 | 2 | 13 | 13 |
+| page | text | or drop it here: a .zip or .scstudio from scRNA-seq Lab | 11 | 7 | 55 | 12 |
+| page | text | Don’t have a bundle yet? | 5 | 4 | 24 | 12 |
+| page | text | A bundle is made once from your .h5ad or .rds: convert it in scRNA-seq Lab → | 15 | 14 | 76 | 12 |
+| page | button | convert offline | 2 | 2 | 15 | 11 |
 | page | title | Input format | 2 | 2 | 12 | 12 |
-| page | text | A .zip or .scstudio from scRNA-seq Lab — not the .h5ad or .rds itself. Size is not a limit. | 18 | 17 | 91 | 12 |
-| page | text | Clusters | 1 | 1 | 8 | 12 |
+| page | text | A .zip or .scstudio from scRNA-seq Lab, not the .h5ad or .rds itself. Size is not a limit. | 18 | 12 | 90 | 12 |
+| page | text | Cell type | 2 | 2 | 9 | 12 |
 | page | badge | required | 1 | 1 | 8 | 11 |
-| page | text | a categorical cell annotation — every view is per cell type | 10 | 10 | 59 | 11 |
-| page | text | Embedding | 1 | 1 | 9 | 12 |
+| page | text | a categorical cell annotation: every view is per cell type | 10 | 9 | 58 | 11 |
+| page | text | Embedding | 1 | 0 | 9 | 12 |
 | page | text | UMAP or t-SNE, two dimensions | 5 | 5 | 29 | 11 |
-| page | text | Expression | 1 | 1 | 10 | 12 |
-| page | text | log-normalized, not scaled — z-scores are refused | 6 | 5 | 49 | 11 |
-| page | text | Sample | 1 | 1 | 6 | 12 |
+| page | text | Expression | 1 | 0 | 10 | 12 |
+| page | text | log-normalized, not scaled: z-scores are refused | 6 | 5 | 48 | 11 |
+| page | text | Sample | 1 | 0 | 6 | 12 |
 | page | badge | optional | 1 | 1 | 8 | 11 |
-| page | text | which animal or run — without it, no composition spread | 9 | 9 | 55 | 11 |
-| page | text | Condition | 1 | 1 | 9 | 12 |
-| page | text | the experimental group — without it, no comparisons | 7 | 7 | 51 | 11 |
+| page | text | which donor or run: without it, no spread between samples | 10 | 10 | 57 | 11 |
+| page | text | Group | 1 | 0 | 5 | 12 |
+| page | text | the experimental factor: without it, no comparisons | 7 | 7 | 51 | 11 |
 | page | text | Raw counts | 2 | 2 | 10 | 12 |
-| page | text | integer, pre-normalization — without them, no pseudobulk | 6 | 6 | 56 | 11 |
+| page | text | integer, before normalization: without them, no pseudobulk | 7 | 7 | 58 | 11 |
 | page | text | meta.json · genes.txt · expr.indptr/indices/data · cluster.u16 · sample.u16 · embed.f32 · qc.f32 · pseudobulk.tsv | 8 | 8 | 113 | 11 |
 | page | text | Field-by-field in tools/BUNDLE.md. | 3 | 3 | 34 | 11 |
-| page | title | Try a demo | 3 | 3 | 10 | 12 |
-| page | button | 4 v 4 | 3 | 1 | 5 | 11 |
-| page | button | Replicated cohort | 2 | 2 | 17 | 12 |
-| page | button | Two conditions, four animals each | 5 | 5 **over** | 33 | 11 |
-| page | button | time course | 2 | 2 | 11 | 11 |
-| page | button | Time course | 2 | 2 | 11 | 12 |
-| page | button | 0–72 h, one sample per point | 6 | 4 **over** | 28 | 11 |
-| page | button | single | 1 | 1 | 6 | 11 |
-| page | button | Wild type only | 3 | 3 | 14 | 12 |
-| page | button | No contrast — markers and gene search | 6 | 6 **over** | 37 | 11 |
+| page | title | Try a demo | 3 | 2 | 10 | 12 |
+| page | badge | 4 v 4 | 3 | 1 | 5 | 11 |
+| page | menu item | Replicated cohort | 2 | 2 | 17 | 12 |
+| page | menu item note | Two groups, four samples each | 5 | 5 | 29 | 11 |
+| page | badge | time course | 2 | 2 | 11 | 11 |
+| page | menu item | Time course | 2 | 2 | 11 | 12 |
+| page | menu item note | 0–72 h, one sample per point | 6 | 4 | 28 | 11 |
+| page | badge | single | 1 | 1 | 6 | 11 |
+| page | menu item | Wild type only | 3 | 3 | 14 | 12 |
+| page | menu item note | No contrast: markers, gene search | 5 | 5 | 33 | 11 |
 | page | text | Generated in the browser, and labelled as demos throughout. | 9 | 9 | 59 | 11 |
-| page | error | That file did not open. this file is not a zip — open a bundle made by tools/export_h5ad.py or tools/export_seurat.R, not the .h5ad or .rds itself | 25 | 24 | 146 | 12 |
+| page | error | That file did not open. this file is not a zip: open a bundle made by tools/export_h5ad.py or tools/export_seurat.R, not the .h5ad or .rds itself | 25 | 21 | 145 | 12 |
 
 ### The frame (bar and tabs)
 
-31 strings, 146 words (140 the app's own).
+31 strings, 146 words (125 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
 | bar (title) | tooltip | Close this object and open another | 6 | 6 | 34 | 11 |
 | bar | button | sc | 1 | 1 | 2 | 11 |
-| bar | text | scRNA-seq Studio | 2 | 2 | 16 | 12 |
-| bar (title) | tooltip | SVZ_NSC_reactivation_harmony_leiden.h5ad · 1.4 GB · AnnData 0.10.8 — a built-in demo object, not a file you opened | 14 | 12 | 114 | 13 |
-| bar | text | Adult SVZ neural stem cell reactivation — quiescent vs reactivated, 8 animals | 11 | 10 | 77 | 13 |
+| bar | text | scRNA-seq Studio | 2 | 1 | 16 | 12 |
+| bar (title) | tooltip | SVZ_NSC_reactivation_harmony_leiden.h5ad · 1.4 GB · AnnData 0.10.8: a built-in demo object, not a file you opened | 14 | 10 | 113 | 13 |
+| bar | text | Adult SVZ neural stem cell reactivation: quiescent vs reactivated, 8 samples | 11 | 10 | 76 | 13 |
 | bar | badge | demo | 1 | 1 | 4 | 11 |
 | bar (title) | tooltip | The order groups are drawn in, in every figure | 9 | 9 | 46 | 12 |
-| bar | button | Group order | 2 | 2 | 11 | 12 |
-| bar (title) | tooltip | Palette and expression scale, for every figure | 7 | 7 | 46 | 12 |
+| bar | button | Group order | 2 | 1 | 11 | 12 |
+| bar (title) | tooltip | Palette and expression scale, for every figure | 7 | 5 | 46 | 12 |
 | bar | button | Figure style | 2 | 2 | 12 | 12 |
 | tabs (aria-label) | accessible name | Views of this object | 4 | 4 | 20 | 13 |
 | tabs | tab | Overview | 1 | 1 | 8 | 13 |
 | tabs | tab | Cells | 1 | 1 | 5 | 13 |
 | tabs | tab | Composition | 1 | 1 | 11 | 13 |
 | tabs | tab | Markers | 1 | 1 | 7 | 13 |
-| tabs | tab | Differential expression | 2 | 2 | 23 | 13 |
-| tabs | tab | Gene expression | 2 | 2 | 15 | 13 |
+| tabs | tab | Differential expression | 2 | 1 | 23 | 13 |
+| tabs | tab | Gene expression | 2 | 1 | 15 | 13 |
 | tabs | tab | Gene sets | 2 | 2 | 9 | 13 |
 | tabs | tab | Co-expression | 1 | 1 | 13 | 13 |
 | tabs | tab | Methods | 1 | 1 | 7 | 13 |
@@ -209,23 +461,23 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | tabs (aria-label) | accessible name | Controls | 1 | 1 | 8 | 13 |
 | tabs (title) | tooltip | Hide the key ] | 3 | 3 | 14 | 13 |
 | tabs (aria-label) | accessible name | Key | 1 | 1 | 3 | 13 |
-| bar (title) | tooltip | SVZ_WT_reference.h5ad · 0.4 GB · AnnData 0.10.8 — a built-in demo object, not a file you opened | 14 | 12 | 95 | 13 |
-| bar | text | Adult SVZ wild-type reference — single animal, no comparison | 8 | 8 | 60 | 13 |
-| tabs (title) | tooltip | This object has one condition, so there is nothing to contrast | 11 | 11 | 62 | 13 |
-| bar (title) | tooltip | SVZ_timecourse_4tp.h5ad · 0.8 GB · AnnData 0.10.8 — a built-in demo object, not a file you opened | 14 | 13 | 97 | 13 |
-| bar | text | SVZ reactivation time course after AraC ablation — 0, 6, 24 and 72 hours | 13 | 9 | 72 | 13 |
-| bar (title) | tooltip | family-2x2.h5ad (AnnData, converted in scRNA-seq Lab) | 6 | 9 | 53 | 13 |
+| bar (title) | tooltip | SVZ_WT_reference.h5ad · 0.4 GB · AnnData 0.10.8: a built-in demo object, not a file you opened | 14 | 10 | 94 | 13 |
+| bar | text | Adult SVZ wild-type reference: one sample, no comparison | 8 | 7 | 56 | 13 |
+| tabs (title) | tooltip | This object has one group, so there is nothing to contrast | 11 | 11 | 58 | 13 |
+| bar (title) | tooltip | SVZ_timecourse_4tp.h5ad · 0.8 GB · AnnData 0.10.8: a built-in demo object, not a file you opened | 14 | 11 | 96 | 13 |
+| bar | text | SVZ reactivation time course after AraC ablation: 0, 6, 24 and 72 hours | 13 | 9 | 71 | 13 |
+| bar (title) | tooltip | family-2x2.h5ad (AnnData, converted in scRNA-seq Lab) | 6 | 7 | 53 | 13 |
 | bar | text | family-2x2 | 1 | 2 | 10 | 13 |
 
 ### Overview
 
-28 strings, 161 words (155 the app's own).
+25 strings, 130 words (115 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
-| stage | text | Dataset | 1 | 1 | 7 | 12 |
+| stage | text | Object | 1 | 1 | 6 | 12 |
 | stage | title | What is in this object | 5 | 5 | 22 | 15 |
-| stage | note | Wilcoxon runs here; pseudobulk counts can be exported. Wilcoxon across cells by default; with 4 samples a group, the counts summed per animal can be exported for DESeq2, which is not run here. | 33 | 31 **over** | 192 | 12 |
+| stage | note | Wilcoxon runs here; pseudobulk counts can be saved. With 4 samples a group, the counts summed per sample can be saved for DESeq2, which is not run here. | 28 | 24 | 152 | 12 |
 | stage | text | Provenance | 1 | 1 | 10 | 12 |
 | stage | title | Where every number comes from | 5 | 5 | 29 | 15 |
 | stage | text | Read from the object. Anything computed here is labelled as such. | 11 | 11 | 65 | 12 |
@@ -235,77 +487,74 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | text | From the conversion | 3 | 3 | 19 | 12 |
 | stage | title | What the exporter had to decide | 6 | 6 | 31 | 15 |
 | stage | text | Recorded when the bundle was made. | 6 | 6 | 34 | 12 |
-| stage | text | This is a synthetic object generated in the browser so every view has something to draw. Open a bundle to work with real data. | 24 | 24 | 126 | 12 |
 | stage | text | Quality control | 2 | 2 | 15 | 12 |
 | stage | title | Three covariates, read together, per sample | 6 | 5 | 43 | 15 |
 | stage | text | Per sample, and after the filtering your pipeline applied. | 9 | 8 | 58 | 12 |
 | stage | text | Total counts | 2 | 2 | 12 | 12 |
 | stage (aria-label) | accessible name | Total counts per sample | 4 | 3 | 23 | 13 |
 | stage | figure text | 11k | 1 | 1 | 3 | 10.5 |
-| stage | figure text | Q1SVZ_Q1 | 1 | 2 | 8 | 10.5 |
-| stage | figure text | R1SVZ_R1 | 1 | 2 | 8 | 10.5 |
 | stage | text | Genes detected | 2 | 2 | 14 | 12 |
 | stage (aria-label) | accessible name | Genes detected per sample | 4 | 3 | 25 | 13 |
 | stage | text | Mitochondrial % | 1 | 1 | 15 | 12 |
 | stage (aria-label) | accessible name | Mitochondrial % per sample | 3 | 2 | 26 | 13 |
-| stage | text | box = median and IQR · violin = density · n = 34,367 cells | 9 | 8 | 58 | 11 |
+| stage | text | box = median and IQR · violin = density · n = 34,367 cells | 9 | 3 | 58 | 11 |
 | stage (svg title) | tooltip | SVZ_Q1 | 1 | 1 | 6 |  |
 | stage (svg title) | tooltip | SVZ_R1 | 1 | 1 | 6 |  |
 
 ### Cells
 
-53 strings, 191 words (176 the app's own).
+53 strings, 176 words (154 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
 | rail (aria-label) | accessible name | Controls for this view | 4 | 4 | 22 | 13 |
 | rail | label | Colour by | 2 | 2 | 9 | 12 |
 | rail | option | Cell type | 2 | 2 | 9 | 13 |
-| rail | option | Group | 1 | 1 | 5 | 13 |
-| rail | option | Sample | 1 | 1 | 6 | 13 |
+| rail | option | Group | 1 | 0 | 5 | 13 |
+| rail | option | Sample | 1 | 0 | 6 | 13 |
 | rail | label | Panels | 1 | 1 | 6 | 12 |
 | rail | option | Split by group | 3 | 3 | 14 | 13 |
-| stage (aria-label) | accessible name | Embedding | 1 | 1 | 9 | 13 |
-| head line | title | 34,367 cells | 2 | 1 | 12 | 13 |
-| head line | status | Embedding · X_umap from your file | 5 | 5 | 33 | 12 |
-| head line (title) | tooltip | Download cells_X_umap_by_type_split | 2 | 2 | 35 | 12 |
+| stage (aria-label) | accessible name | Embedding | 1 | 0 | 9 | 13 |
+| head line | title | 34,367 cells | 2 | 0 | 12 | 13 |
+| head line | status | Embedding · X_umap from your file | 5 | 4 | 33 | 12 |
+| head line (title) | tooltip | Save cells_X_umap_by_type_split | 2 | 2 | 31 | 12 |
 | head line | button | Save | 1 | 1 | 4 | 12 |
 | status line | status | One shared axis range across all 2 panels. | 8 | 7 | 42 | 12 |
 | key pane (aria-label) | accessible name | What the colours mean | 4 | 4 | 21 | 13 |
 | key pane (title) | tooltip | Show only qNSC | 3 | 2 | 14 | 12 |
-| menu (aria-label) | accessible name | Group order | 2 | 2 | 11 | 13 |
+| menu (aria-label) | accessible name | Group order | 2 | 1 | 11 | 13 |
 | menu | text | Groups | 1 | 1 | 6 | 12 |
 | menu | button | File order | 2 | 2 | 10 | 12 |
 | menu (title) | tooltip | Move up | 2 | 2 | 7 | 12 |
 | menu (aria-label) | accessible name | Move Quiescent up | 3 | 2 | 17 | 12 |
 | menu (title) | tooltip | Move down | 2 | 2 | 9 | 12 |
 | menu (aria-label) | accessible name | Move Quiescent down | 3 | 2 | 19 | 12 |
-| menu | text | Every figure that splits by group follows this. No statistic is recomputed — Control and Compare are chosen by name and do not move. | 23 | 22 | 132 | 11 |
+| menu | text | Every figure that splits by group follows this. No statistic is recomputed: Control and Compare are chosen by name. | 19 | 19 | 115 | 11 |
 | menu (aria-label) | accessible name | Figure style | 2 | 2 | 12 | 13 |
-| menu | label | Clusters | 1 | 1 | 8 | 12 |
-| menu (aria-label) | accessible name | Cluster palette | 2 | 2 | 15 | 13 |
+| menu | label | Cell types | 2 | 2 | 10 | 12 |
+| menu (aria-label) | accessible name | Cell type palette | 3 | 3 | 17 | 13 |
 | menu | picker | Studio (colour-blind checked) | 3 | 3 | 29 | 13 |
-| menu | label | Expression | 1 | 1 | 10 | 12 |
-| menu (aria-label) | accessible name | Expression ramp | 2 | 2 | 15 | 13 |
+| menu | label | Expression | 1 | 0 | 10 | 12 |
+| menu (aria-label) | accessible name | Expression ramp | 2 | 1 | 15 | 13 |
 | menu | picker | Two-colour · blue | 2 | 2 | 17 | 13 |
-| menu | label | Any quantity that starts at zero — feature plots, the dot plot’s size, enrichment significance. | 14 | 14 **over** | 95 | 11 |
+| menu | help | From zero: feature plots, dot size, enrichment. | 7 | 7 | 47 | 11 |
 | menu | label | Scaled & signed | 2 | 2 | 15 | 12 |
 | menu (aria-label) | accessible name | Diverging ramp | 2 | 2 | 14 | 13 |
 | menu | picker | Diverging · blue–white–red | 2 | 2 | 26 | 13 |
-| menu | label | z-scores and module scores — the dot plot, both gene-set heatmaps. | 10 | 10 **over** | 66 | 11 |
-| menu (aria-label) | accessible name | Download cells_X_umap_by_type_split | 2 | 2 | 35 | 13 |
-| menu | menu item | PNG — 300 dpi | 3 | 2 | 13 | 12 |
+| menu | help | Signed: z-scores, module scores. | 4 | 4 | 32 | 11 |
+| menu (aria-label) | accessible name | Save cells_X_umap_by_type_split | 2 | 2 | 31 | 13 |
+| menu | menu item | PNG, 300 dpi | 3 | 2 | 12 | 12 |
 | menu | menu item note | the usual journal minimum | 4 | 4 | 25 | 11 |
 | menu | menu item note | line art and dense panels | 5 | 5 | 25 | 11 |
 | menu | menu note | Saved 7.7 in wide (196 mm): wider than two columns (7 in). Type prints at 5 pt and up. | 19 | 15 | 86 | 11 |
 | status line | status | Only Neuroblast: 6,843 of 34,367 cells | 6 | 3 | 38 | 12 |
 | status line | button | Show all | 2 | 2 | 8 | 12 |
 | key pane (title) | tooltip | Show every cell again | 4 | 4 | 21 | 12 |
-| head line (title) | tooltip | Download cells_X_umap_by_cond_split | 2 | 2 | 35 | 12 |
-| head line (title) | tooltip | Download cells_X_umap_by_sample_split | 2 | 2 | 37 | 12 |
+| head line (title) | tooltip | Save cells_X_umap_by_cond_split | 2 | 2 | 31 | 12 |
+| head line (title) | tooltip | Save cells_X_umap_by_sample_split | 2 | 2 | 33 | 12 |
 | key pane (title) | tooltip | Show only SVZ_Q1 | 3 | 3 | 16 | 12 |
 | key pane (title) | tooltip | Show only SVZ_R1 | 3 | 3 | 16 | 12 |
-| head line (title) | tooltip | Download cells_X_umap_by_mito_split | 2 | 2 | 35 | 12 |
+| head line (title) | tooltip | Save cells_X_umap_by_mito_split | 2 | 2 | 31 | 12 |
 | tabs (title) | tooltip | Show the key ] | 3 | 3 | 14 | 13 |
 | head line (aria-label) | accessible name | Cell type | 2 | 2 | 9 | 13 |
 | head line | status | Cell type | 2 | 2 | 9 | 12 |
@@ -314,7 +563,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### Composition
 
-44 strings, 135 words (119 the app's own).
+31 strings, 118 words (96 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -323,59 +572,46 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail | label | Bars show | 2 | 2 | 9 | 12 |
 | rail | picker | Cell type | 2 | 2 | 9 | 13 |
 | rail | label | One row per | 3 | 3 | 11 | 12 |
-| rail | picker | Sample | 1 | 1 | 6 | 13 |
+| rail | picker | Sample | 1 | 0 | 6 | 13 |
 | stage | text | Composition | 1 | 1 | 11 | 12 |
 | stage | title | Cell type proportions, one row per sample | 7 | 6 | 41 | 15 |
-| stage | text | Percentages on a shared axis. Never pooled across samples. | 9 | 9 | 58 | 12 |
+| stage | text | Percentages on a shared axis. Never pooled across samples. | 9 | 8 | 58 | 12 |
 | stage | button | CSV | 1 | 1 | 3 | 12 |
-| stage (title) | tooltip | Download composition_type_by_sample | 2 | 2 | 35 | 12 |
+| stage (title) | tooltip | Save composition_type_by_sample | 2 | 2 | 31 | 12 |
 | stage | button | Save | 1 | 1 | 4 | 12 |
 | stage (aria-label) | accessible name | Cell type proportions, one row per sample | 7 | 6 | 41 | 13 |
-| stage | figure text | Q1Q1 — 3,704 cells | 3 | 3 | 18 | 11.5 |
-| stage | figure text | R1R1 — 5,331 cells | 3 | 3 | 18 | 11.5 |
-| stage | legend | 8 rows · 34,367 cells | 4 | 2 | 21 | 12 |
+| stage | legend | 8 rows · 34,367 cells | 4 | 1 | 21 | 12 |
 | stage | text | Per cell type | 3 | 3 | 13 | 12 |
 | stage | title | Proportion by group | 3 | 3 | 19 | 15 |
-| stage | text | Its own y axis per panel. Dots are animals — overlap means the difference is not evidence. | 16 | 15 | 90 | 12 |
-| stage (title) | tooltip | Download proportion_by_group | 2 | 2 | 28 | 12 |
+| stage | text | Its own y axis per panel. Dots are samples: overlap means the difference is not evidence. | 16 | 15 | 89 | 12 |
+| stage (title) | tooltip | Save proportion_by_group | 2 | 2 | 24 | 12 |
 | stage | button | Save all panels | 3 | 3 | 15 | 12 |
 | stage (aria-label) | accessible name | qNSC proportion by group | 4 | 3 | 24 | 13 |
-| stage | figure text | ■ qNSCqNSC | 1 | 1 | 10 | 11 |
 | stage | figure text | Share of sample | 3 | 2 | 15 | 10.5 |
-| stage | figure text | QuiescentQuiescent | 1 | 1 | 18 | 10.5 |
-| stage | figure text | ReactivatedReactivated | 1 | 1 | 22 | 10.5 |
-| stage | figure text | ■ aNSCaNSC | 1 | 1 | 10 | 11 |
-| stage | figure text | ■ TAPTAP | 1 | 1 | 8 | 11 |
-| stage | figure text | ■ NeuroblastNeuroblast | 1 | 1 | 22 | 11 |
-| stage | figure text | ■ AstrocyteAstrocyte | 1 | 1 | 20 | 11 |
-| stage | figure text | ■ OligodendrocyteOligodendrocyte | 1 | 1 | 32 | 11 |
-| stage | figure text | ■ MicrogliaMicroglia | 1 | 1 | 20 | 11 |
-| stage | figure text | ■ EndothelialEndothelial | 1 | 1 | 24 | 11 |
-| stage | figure text | ■ PericytePericyte | 1 | 1 | 18 | 11 |
 | stage | legend | · bar = mean · dots = individual samples | 5 | 5 | 40 | 12 |
-| stage (svg title) | tooltip | Q1 — 3,704 cells | 3 | 2 | 16 |  |
+| stage (svg title) | tooltip | Q1: 3,704 cells | 3 | 1 | 15 |  |
 | stage (svg title) | tooltip | Q1 | 1 | 1 | 2 |  |
-| stage (svg title) | tooltip | qNSC — 19.4% (719 cells) | 4 | 1 | 24 |  |
-| stage (svg title) | tooltip | R1 — 5,331 cells | 3 | 2 | 16 |  |
+| stage (svg title) | tooltip | qNSC: 19.4% (719 cells) | 4 | 0 | 23 |  |
+| stage (svg title) | tooltip | R1: 5,331 cells | 3 | 1 | 15 |  |
 | stage (svg title) | tooltip | R1 | 1 | 1 | 2 |  |
-| menu (aria-label) | accessible name | Download composition_type_by_sample | 2 | 2 | 35 | 13 |
-| menu | menu item | SVG — vector | 2 | 2 | 12 | 12 |
+| menu (aria-label) | accessible name | Save composition_type_by_sample | 2 | 2 | 31 | 13 |
+| menu | menu item | SVG, vector | 2 | 2 | 11 | 12 |
 | menu | menu item note | editable, no resampling | 3 | 3 | 23 | 11 |
 | menu | menu note | Saved 6.3 in wide (160 mm): fits two columns (7 in). Type prints at 6.3 pt and up. | 18 | 14 | 82 | 11 |
 
 ### Markers
 
-104 strings, 459 words (342 the app's own).
+92 strings, 443 words (291 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
 | rail (aria-label) | accessible name | Markers | 1 | 1 | 7 | 13 |
 | rail | label | Markers | 1 | 1 | 7 | 12 |
-| rail | label | Top per cluster | 3 | 3 | 15 | 12 |
-| stage | text | Markers · one vs rest · a ranking, not a test | 9 | 8 | 45 | 12 |
+| rail | label | Top genes | 2 | 2 | 9 | 12 |
+| stage | text | Markers · one vs rest · a ranking, not a test | 9 | 6 | 45 | 12 |
 | stage | title | 45 genes across 9 of 9 cell types | 8 | 5 | 33 | 15 |
-| stage | text | Mean expression × fraction detected. Rename a cluster to rename it everywhere. | 11 | 11 | 78 | 12 |
-| stage (title) | tooltip | Download cluster_markers | 2 | 2 | 24 | 12 |
+| stage | text | Mean expression × fraction detected. Rename a cell type to rename it everywhere. | 12 | 10 | 80 | 12 |
+| stage (title) | tooltip | Save cluster_markers | 2 | 2 | 20 | 12 |
 | stage (aria-label) | accessible name | Marker gene dot plot | 4 | 4 | 20 | 13 |
 | stage | figure text | Aqp4 | 1 | 1 | 4 | 10.5 |
 | stage | figure text | Id3 | 1 | 1 | 3 | 10.5 |
@@ -404,24 +640,13 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | figure text | Flt1 | 1 | 1 | 4 | 10.5 |
 | stage | figure text | Rgs5 | 1 | 1 | 4 | 10.5 |
 | stage | figure text | Ly6c1 | 1 | 2 | 5 | 10.5 |
-| stage | figure text | Anpep | 1 | 1 | 5 | 10.5 |
 | stage | figure text | Kcnj8 | 1 | 1 | 5 | 10.5 |
 | stage | figure text | Higd1b | 1 | 2 | 6 | 10.5 |
-| stage | figure text | qNSCqNSC | 1 | 1 | 8 | 11.5 |
-| stage | figure text | aNSCaNSC | 1 | 1 | 8 | 11.5 |
-| stage | figure text | TAPTAP | 1 | 1 | 6 | 11.5 |
-| stage | figure text | NeuroblastNeuroblast | 1 | 1 | 20 | 11.5 |
-| stage | figure text | AstrocyteAstrocyte | 1 | 1 | 18 | 11.5 |
-| stage | figure text | OligodendrocyteOligodendrocyte | 1 | 1 | 30 | 11.5 |
-| stage | figure text | MicrogliaMicroglia | 1 | 1 | 18 | 11.5 |
-| stage | figure text | EndothelialEndothelial | 1 | 1 | 22 | 11.5 |
-| stage | figure text | PericytePericyte | 1 | 1 | 16 | 11.5 |
-| stage | figure text | Avg. Exp. · depth of cluster colour | 6 | 6 | 35 | 11.5 |
+| stage | figure text | Mean expression · depth of the cell type's colour | 8 | 7 | 49 | 11.5 |
 | stage | figure text | Percent Expressed | 2 | 2 | 17 | 11.5 |
-| stage | legend | a heavier ring marks one of that cluster’s own top genes | 11 | 11 | 56 | 12 |
+| stage | legend | a heavier ring marks one of that cell type’s own top genes | 12 | 11 | 58 | 12 |
 | stage | legend | n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · Pericyte 72 | 21 | 2 | 166 | 12 |
-| stage | text | Per cluster | 2 | 2 | 11 | 12 |
-| stage (aria-label) | accessible name | Rename cluster qNSC | 3 | 2 | 19 | 13 |
+| stage (aria-label) | accessible name | Rename cell type qNSC | 4 | 3 | 21 | 13 |
 | stage | text | Gfap, Aqp4, Hopx, Id3, Thbs4 | 5 | 3 | 28 | 11 |
 | stage | text | Mcm2, Ccnd2, Ascl1, Egfr, Sox2 | 5 | 4 | 30 | 11 |
 | stage | text | Cenpf, Mki67, Ube2c, Ccnb1, Top2a | 5 | 6 | 33 | 11 |
@@ -430,40 +655,39 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | text | Mog, Mbp, Plp1, Sox10, Cnp | 5 | 2 | 26 | 11 |
 | stage | text | Cx3cr1, C1qa, Ctss, P2ry12, Hexb | 5 | 6 | 32 | 11 |
 | stage | text | Pecam1, Cldn5, Flt1, Rgs5, Ly6c1 | 5 | 6 | 32 | 11 |
-| stage | text | Anpep, Kcnj8, Pdgfrb, Vtn, Higd1b | 5 | 4 | 33 | 11 |
-| stage | text | Counts are genes at padj < 0.05 and log₂FC ≥ 0.25; click one for the list. | 14 | 10 | 74 | 11 |
-| stage (svg title) | tooltip | Gfap in qNSC — 92% of cells, mean 2.46 | 8 | 4 | 38 |  |
-| stage (svg title) | tooltip | Aqp4 in qNSC — 92% of cells, mean 2.26 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Id3 in qNSC — 85% of cells, mean 1.77 | 8 | 5 | 37 |  |
-| stage (svg title) | tooltip | Thbs4 in qNSC — 80% of cells, mean 1.33 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Mcm2 in qNSC — 11% of cells, mean 0.01 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Ccnd2 in qNSC — 14% of cells, mean 0.02 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Ascl1 in qNSC — 16% of cells, mean 0.03 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Sox2 in qNSC — 18% of cells, mean 0.03 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Mki67 in qNSC — 17% of cells, mean 0.03 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Ube2c in qNSC — 18% of cells, mean 0.04 | 8 | 6 | 39 |  |
-| stage (svg title) | tooltip | Ccnb1 in qNSC — 17% of cells, mean 0.03 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Top2a in qNSC — 21% of cells, mean 0.06 | 8 | 6 | 39 |  |
-| stage (svg title) | tooltip | Dlx2 in qNSC — 12% of cells, mean 0.02 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Sp8 in qNSC — 12% of cells, mean 0.02 | 8 | 5 | 37 |  |
-| stage (svg title) | tooltip | Nrxn3 in qNSC — 15% of cells, mean 0.03 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Tubb3 in qNSC — 17% of cells, mean 0.03 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Mt1 in qNSC — 13% of cells, mean 0.02 | 8 | 5 | 37 |  |
-| stage (svg title) | tooltip | Slc1a3 in qNSC — 15% of cells, mean 0.02 | 8 | 6 | 40 |  |
-| stage (svg title) | tooltip | Ntsr2 in qNSC — 14% of cells, mean 0.02 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Plp1 in qNSC — 15% of cells, mean 0.03 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Cx3cr1 in qNSC — 8% of cells, mean 0.01 | 8 | 6 | 39 |  |
-| stage (svg title) | tooltip | C1qa in qNSC — 10% of cells, mean 0.01 | 8 | 6 | 38 |  |
-| stage (svg title) | tooltip | P2ry12 in qNSC — 12% of cells, mean 0.01 | 8 | 6 | 40 |  |
-| stage (svg title) | tooltip | Pecam1 in qNSC — 11% of cells, mean 0.01 | 8 | 5 | 40 |  |
-| stage (svg title) | tooltip | Cldn5 in qNSC — 13% of cells, mean 0.02 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Flt1 in qNSC — 14% of cells, mean 0.02 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Rgs5 in qNSC — 14% of cells, mean 0.02 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Ly6c1 in qNSC — 15% of cells, mean 0.03 | 8 | 6 | 39 |  |
-| stage (svg title) | tooltip | Anpep in qNSC — 9% of cells, mean 0.01 | 8 | 5 | 38 |  |
-| stage (svg title) | tooltip | Kcnj8 in qNSC — 11% of cells, mean 0.01 | 8 | 5 | 39 |  |
-| stage (svg title) | tooltip | Higd1b in qNSC — 16% of cells, mean 0.03 | 8 | 6 | 40 |  |
-| menu (aria-label) | accessible name | Download cluster_markers | 2 | 2 | 24 | 13 |
+| stage | text | Anpep, Kcnj8, Pdgfrb, Vtn, Higd1b | 5 | 3 | 33 | 11 |
+| stage | text | Counts are genes at padj < 0.05 and log₂FC ≥ 0.25; select one for the list. | 14 | 10 | 75 | 11 |
+| stage (svg title) | tooltip | Gfap in qNSC: 92% of cells, mean 2.46 | 8 | 3 | 37 |  |
+| stage (svg title) | tooltip | Aqp4 in qNSC: 92% of cells, mean 2.26 | 8 | 4 | 37 |  |
+| stage (svg title) | tooltip | Id3 in qNSC: 85% of cells, mean 1.77 | 8 | 4 | 36 |  |
+| stage (svg title) | tooltip | Thbs4 in qNSC: 80% of cells, mean 1.33 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Mcm2 in qNSC: 11% of cells, mean 0.01 | 8 | 4 | 37 |  |
+| stage (svg title) | tooltip | Ccnd2 in qNSC: 14% of cells, mean 0.02 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Ascl1 in qNSC: 16% of cells, mean 0.03 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Sox2 in qNSC: 18% of cells, mean 0.03 | 8 | 4 | 37 |  |
+| stage (svg title) | tooltip | Mki67 in qNSC: 17% of cells, mean 0.03 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Ube2c in qNSC: 18% of cells, mean 0.04 | 8 | 5 | 38 |  |
+| stage (svg title) | tooltip | Ccnb1 in qNSC: 17% of cells, mean 0.03 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Top2a in qNSC: 21% of cells, mean 0.06 | 8 | 5 | 38 |  |
+| stage (svg title) | tooltip | Dlx2 in qNSC: 12% of cells, mean 0.02 | 8 | 4 | 37 |  |
+| stage (svg title) | tooltip | Sp8 in qNSC: 12% of cells, mean 0.02 | 8 | 4 | 36 |  |
+| stage (svg title) | tooltip | Nrxn3 in qNSC: 15% of cells, mean 0.03 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Tubb3 in qNSC: 17% of cells, mean 0.03 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Mt1 in qNSC: 13% of cells, mean 0.02 | 8 | 4 | 36 |  |
+| stage (svg title) | tooltip | Slc1a3 in qNSC: 15% of cells, mean 0.02 | 8 | 5 | 39 |  |
+| stage (svg title) | tooltip | Ntsr2 in qNSC: 14% of cells, mean 0.02 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Plp1 in qNSC: 15% of cells, mean 0.03 | 8 | 4 | 37 |  |
+| stage (svg title) | tooltip | Cx3cr1 in qNSC: 8% of cells, mean 0.01 | 8 | 5 | 38 |  |
+| stage (svg title) | tooltip | C1qa in qNSC: 10% of cells, mean 0.01 | 8 | 5 | 37 |  |
+| stage (svg title) | tooltip | P2ry12 in qNSC: 12% of cells, mean 0.01 | 8 | 5 | 39 |  |
+| stage (svg title) | tooltip | Pecam1 in qNSC: 11% of cells, mean 0.01 | 8 | 4 | 39 |  |
+| stage (svg title) | tooltip | Cldn5 in qNSC: 13% of cells, mean 0.02 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Flt1 in qNSC: 14% of cells, mean 0.02 | 8 | 4 | 37 |  |
+| stage (svg title) | tooltip | Rgs5 in qNSC: 14% of cells, mean 0.02 | 8 | 4 | 37 |  |
+| stage (svg title) | tooltip | Ly6c1 in qNSC: 15% of cells, mean 0.03 | 8 | 5 | 38 |  |
+| stage (svg title) | tooltip | Kcnj8 in qNSC: 11% of cells, mean 0.01 | 8 | 4 | 38 |  |
+| stage (svg title) | tooltip | Higd1b in qNSC: 16% of cells, mean 0.03 | 8 | 5 | 39 |  |
+| menu (aria-label) | accessible name | Save cluster_markers | 2 | 2 | 20 | 13 |
 | stage | text | Gfap, Aqp4, Hopx | 3 | 1 | 16 | 11 |
 | stage | text | Mcm2, Ccnd2, Ascl1 | 3 | 3 | 18 | 11 |
 | stage | text | Cenpf, Mki67, Ube2c | 3 | 3 | 19 | 11 |
@@ -472,33 +696,33 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | text | Mog, Mbp, Plp1 | 3 | 1 | 14 | 11 |
 | stage | text | Cx3cr1, C1qa, Ctss | 3 | 4 | 18 | 11 |
 | stage | text | Pecam1, Cldn5, Flt1 | 3 | 3 | 19 | 11 |
-| stage | text | Anpep, Kcnj8, Pdgfrb | 3 | 2 | 20 | 11 |
+| stage | text | Anpep, Kcnj8, Pdgfrb | 3 | 1 | 20 | 11 |
 
 ### Differential expression
 
-310 strings, 1,943 words (1,686 the app's own).
+262 strings, 1,528 words (1,182 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
 | rail | label | Contrast | 1 | 1 | 8 | 12 |
 | rail | help | Cell type | 2 | 2 | 9 | 12 |
-| rail (title) | tooltip | pick one | 2 | 2 | 8 | 13 |
-| rail | picker | pick one | 2 | 2 | 8 | 13 |
+| rail (title) | tooltip | choose one | 2 | 2 | 10 | 13 |
+| rail | picker | choose one | 2 | 2 | 10 | 13 |
 | rail | help | Control | 1 | 1 | 7 | 12 |
 | rail | help | vs | 1 | 1 | 2 | 12 |
 | rail (aria-label) | accessible name | Test | 1 | 1 | 4 | 13 |
 | rail | label | Test | 1 | 1 | 4 | 12 |
 | rail | option | Wilcoxon · per cell | 3 | 3 | 19 | 13 |
-| rail | option | Pseudobulk · export counts | 3 | 3 | 26 | 13 |
-| rail | help | logfc.threshold 0 · min.pct 0.1 · Bonferroni | 5 | 3 | 44 | 11 |
+| rail | option | Pseudobulk · save counts | 3 | 3 | 24 | 13 |
+| rail | help | logfc.threshold 0 · min.pct 0.1 · Bonferroni | 5 | 1 | 44 | 11 |
 | head line | segment | Table | 1 | 1 | 5 | 12 |
 | head line | segment | Volcano | 1 | 1 | 7 | 12 |
 | head line | segment | Enrichment | 1 | 1 | 10 | 12 |
-| stage | empty state | Pick a cell type, a control group and a group to compare it with. The pickers are in the controls on the left. Nothing is chosen for you, because a contrast the studio guessed at looks exactly like one you asked for. | 42 | 42 **over** | 216 | 13 |
+| stage | empty state | Choose a cell type, a control group and a group to compare. On the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for. | 30 | 26 | 156 | 13 |
 | menu (aria-label) | accessible name | Cell type cell types | 4 | 4 | 20 | 13 |
-| stage | empty state | Pick a control group and a group to compare it with. The pickers are in the controls on the left. Nothing is chosen for you, because a contrast the studio guessed at looks exactly like one you asked for. | 39 | 39 **over** | 203 | 13 |
+| stage | empty state | Choose a control group and a group to compare. On the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for. | 27 | 24 | 143 | 13 |
 | menu (aria-label) | accessible name | Control groups | 2 | 2 | 14 | 13 |
-| stage | empty state | Pick a group to compare it with. The pickers are in the controls on the left. Nothing is chosen for you, because a contrast the studio guessed at looks exactly like one you asked for. | 35 | 35 **over** | 183 | 13 |
+| stage | empty state | Choose a group to compare. On the left. Nothing is chosen for you: a guessed contrast looks exactly like one you asked for. | 23 | 21 | 123 | 13 |
 | menu (aria-label) | accessible name | Compare groups | 2 | 2 | 14 | 13 |
 | menu (title) | tooltip | already on the other side of this comparison | 8 | 8 | 44 | 12 |
 | rail (aria-label) | accessible name | Cutoffs | 1 | 1 | 7 | 13 |
@@ -507,16 +731,16 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail | label | \|log₂FC\| ≥ | 1 | 1 | 10 | 12 |
 | rail (aria-label) | accessible name | Fold change threshold | 3 | 3 | 21 | 13 |
 | rail | help | cut on | 2 | 2 | 6 | 12 |
-| rail (title) | tooltip | padj — severe, and pinned to 1 for every gene with p above 1/n | 13 | 11 | 62 | 12 |
+| rail (title) | tooltip | padj: severe, pinned to 1 for every gene with p above 1/n | 12 | 10 | 57 | 12 |
 | rail | segment | Bonferroni | 1 | 1 | 10 | 12 |
-| rail (title) | tooltip | Benjamini–Hochberg — what the slider can actually move | 7 | 7 | 54 | 12 |
+| rail (title) | tooltip | Benjamini–Hochberg: the cutoff the slider can move | 7 | 7 | 50 | 12 |
 | rail | segment | FDR | 1 | 1 | 3 | 12 |
 | rail (title) | tooltip | Back to the defaults for the selected test | 8 | 8 | 42 | 12 |
 | rail | button | Reset | 1 | 1 | 5 | 12 |
-| rail | help | Bonferroni over the 72 genes this object measures pins every gene with p above 1.4e-2 to exactly 1, so no cutoff above that admits another row — moving the slider here cannot change the count. Cut on FDR for a threshold that does something, or read the −log₁₀ padj column, which still separates them. | 53 | 48 **over** | 300 | 11 |
-| rail (title) | tooltip | Seurat's own pre-test filters — a gene that fails either is never tested | 12 | 12 | 72 | 12 |
+| rail | help | Bonferroni pins every gene with p above 1.4e-2 to 1, so the slider cannot change the count. Cut on FDR instead. | 21 | 19 | 111 | 11 |
+| rail (title) | tooltip | Seurat's own pre-test filters: a gene that fails either is never tested | 12 | 11 | 71 | 12 |
 | rail | button | ▸ What gets tested | 3 | 3 | 18 | 12 |
-| rail | help | min.pct 0.1, no logfc.threshold — every gene detected in a tenth of either side is tested, so the slider above filters answers | 21 | 20 | 126 | 11 |
+| rail | help | min.pct 0.1, no logfc.threshold: every gene detected in a tenth of either side is tested | 15 | 11 | 88 | 11 |
 | head line | status | Reactivated vs Quiescent · qNSC | 4 | 1 | 31 | 12 |
 | head line | button | CSV | 1 | 1 | 3 | 12 |
 | stage | title | 12 differentially expressed genes | 4 | 3 | 33 | 15 |
@@ -526,7 +750,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage (title) | tooltip | padj < 0.05, \|log₂FC\| ≥ 0.25 | 4 | 1 | 28 | 12 |
 | stage | chip | Significant only | 2 | 2 | 16 | 12 |
 | stage | text | 70 genes | 2 | 1 | 8 | 12 |
-| stage (aria-label) | accessible name | Results. Arrow keys move through the rows, Enter opens the gene. | 11 | 11 **over** | 64 | 13 |
+| stage (aria-label) | accessible name | Results. Arrow keys move, Enter opens the gene. | 8 | 8 | 47 | 13 |
 | stage | button | Gene | 1 | 1 | 4 | 12 |
 | stage | button | pct.1 | 1 | 1 | 5 | 12 |
 | stage | button | Combined | 1 | 1 | 8 | 12 |
@@ -534,59 +758,59 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | button | padj · Bonferroni | 2 | 1 | 17 | 12 |
 | stage | button | FDR · BH | 2 | 2 | 8 | 12 |
 | stage | table header | Direction | 1 | 1 | 9 | 12 |
-| stage (title) | tooltip | Open Id3 in Gene expression | 5 | 5 | 27 | 12 |
-| stage (title) | tooltip | Open Hopx in Gene expression | 5 | 4 | 28 | 12 |
-| stage (title) | tooltip | Open Thbs4 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Aqp4 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open Mcm5 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open Cdk1 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open Ascl1 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Sox11 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Top2a in Gene expression | 5 | 6 | 29 | 12 |
-| stage (title) | tooltip | Open S100b in Gene expression | 5 | 6 | 29 | 12 |
-| stage (title) | tooltip | Open Hes5 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open Cdkn1a in Gene expression | 5 | 6 | 30 | 12 |
-| stage (title) | tooltip | Open Ccnd1 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Ube2c in Gene expression | 5 | 6 | 29 | 12 |
-| stage (title) | tooltip | Open Cdkn1b in Gene expression | 5 | 6 | 30 | 12 |
-| stage (title) | tooltip | Open Ccnb1 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Mki67 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Egr1 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open Sparcl1 in Gene expression | 5 | 5 | 31 | 12 |
-| stage (title) | tooltip | Open Notch1 in Gene expression | 5 | 5 | 30 | 12 |
-| stage (title) | tooltip | Open Nr4a2 in Gene expression | 5 | 6 | 29 | 12 |
-| stage (title) | tooltip | Open Dlx2 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open Nrxn3 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Sp8 in Gene expression | 5 | 5 | 27 | 12 |
-| stage (title) | tooltip | Open Tubb3 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open B2m in Gene expression | 5 | 6 | 27 | 12 |
-| stage (title) | tooltip | Open Rpl13a in Gene expression | 5 | 6 | 30 | 12 |
-| stage (title) | tooltip | Open Rgs5 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open Ntsr2 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Plp1 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open Ly6c1 in Gene expression | 5 | 6 | 29 | 12 |
-| stage (title) | tooltip | Open Slc1a3 in Gene expression | 5 | 6 | 30 | 12 |
-| stage (title) | tooltip | Open Higd1b in Gene expression | 5 | 6 | 30 | 12 |
-| stage (title) | tooltip | Open Flt1 in Gene expression | 5 | 5 | 28 | 12 |
-| stage (title) | tooltip | Open P2ry12 in Gene expression | 5 | 6 | 30 | 12 |
-| stage (title) | tooltip | Open C1qa in Gene expression | 5 | 6 | 28 | 12 |
-| stage (title) | tooltip | Open Mt1 in Gene expression | 5 | 5 | 27 | 12 |
-| stage (title) | tooltip | Open Cldn5 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Kcnj8 in Gene expression | 5 | 5 | 29 | 12 |
-| stage (title) | tooltip | Open Pecam1 in Gene expression | 5 | 5 | 30 | 12 |
-| stage | legend | 70 of 72 genes were tested. Seurat's own gates run before the rank sum. A gene detected in under 10% of the cells on both sides (min.pct) is dropped: with almost no cells expressing it on either side there is nothing to compare. The effect-size gate (logfc.threshold) is at 0, so every gene that cleared min.pct was tested. | 58 | 54 **over** | 323 | 11 |
-| status line | status | Click a row, or press Enter on it, to open that gene; a header sorts. | 15 | 15 **over** | 69 | 12 |
+| stage (title) | tooltip | Open Id3 in Gene expression | 5 | 4 | 27 | 12 |
+| stage (title) | tooltip | Open Hopx in Gene expression | 5 | 3 | 28 | 12 |
+| stage (title) | tooltip | Open Thbs4 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Aqp4 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open Mcm5 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open Cdk1 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open Ascl1 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Sox11 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Top2a in Gene expression | 5 | 5 | 29 | 12 |
+| stage (title) | tooltip | Open S100b in Gene expression | 5 | 5 | 29 | 12 |
+| stage (title) | tooltip | Open Hes5 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open Cdkn1a in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open Ccnd1 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Ube2c in Gene expression | 5 | 5 | 29 | 12 |
+| stage (title) | tooltip | Open Cdkn1b in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open Ccnb1 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Mki67 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Egr1 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open Sparcl1 in Gene expression | 5 | 4 | 31 | 12 |
+| stage (title) | tooltip | Open Notch1 in Gene expression | 5 | 4 | 30 | 12 |
+| stage (title) | tooltip | Open Nr4a2 in Gene expression | 5 | 5 | 29 | 12 |
+| stage (title) | tooltip | Open Dlx2 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open Nrxn3 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Sp8 in Gene expression | 5 | 4 | 27 | 12 |
+| stage (title) | tooltip | Open Tubb3 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open B2m in Gene expression | 5 | 5 | 27 | 12 |
+| stage (title) | tooltip | Open Rpl13a in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open Rgs5 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open Ntsr2 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Plp1 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open Ly6c1 in Gene expression | 5 | 5 | 29 | 12 |
+| stage (title) | tooltip | Open Slc1a3 in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open Higd1b in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open Flt1 in Gene expression | 5 | 4 | 28 | 12 |
+| stage (title) | tooltip | Open P2ry12 in Gene expression | 5 | 5 | 30 | 12 |
+| stage (title) | tooltip | Open C1qa in Gene expression | 5 | 5 | 28 | 12 |
+| stage (title) | tooltip | Open Mt1 in Gene expression | 5 | 4 | 27 | 12 |
+| stage (title) | tooltip | Open Cldn5 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Kcnj8 in Gene expression | 5 | 4 | 29 | 12 |
+| stage (title) | tooltip | Open Pecam1 in Gene expression | 5 | 4 | 30 | 12 |
+| stage | legend | 70 of 72 genes were tested. Under 10% detected on both sides (min.pct): dropped. logfc.threshold is 0, so every gene past min.pct was tested. | 24 | 17 | 141 | 11 |
+| status line | status | Select a row to open its gene. | 7 | 6 | 30 | 12 |
 | rail (title) | tooltip | 4 and 4 samples clear the cell floor | 8 | 6 | 36 | 12 |
 | rail | status | Pseudobulk · 4 v 4 | 4 | 2 | 18 | 12 |
 | rail | help | ≥ 10 cells per sample · summed raw counts · test them in DESeq2 | 11 | 9 | 63 | 11 |
 | stage | empty state | This object carries no raw counts Pseudobulk needs them; Wilcoxon does not. Use Wilcoxon instead | 15 | 15 | 96 | 13 |
-| rail | help | logfc.threshold 0 · min.pct 0.1 · BH | 5 | 3 | 36 | 11 |
+| rail | help | logfc.threshold 0 · min.pct 0.1 · BH | 5 | 1 | 36 | 11 |
 | rail | label | FDR ≤ | 1 | 1 | 5 | 12 |
 | stage | text | 6 higher and 6 lower in Reactivated, at FDR < 0.05 and \|log₂FC\| ≥ 0.25. Wilcoxon over 3,573 and 2,492 cells. | 19 | 12 | 108 | 12 |
 | rail (aria-label) | accessible name | Labels | 1 | 1 | 6 | 13 |
 | rail | label | Labels | 1 | 1 | 6 | 12 |
 | rail | segment | none | 1 | 1 | 4 | 12 |
-| head line (title) | tooltip | Download volcano_Reactivated vs Quiescent · qNSC | 5 | 3 | 48 | 12 |
+| head line (title) | tooltip | Save volcano_Reactivated vs Quiescent · qNSC | 5 | 3 | 44 | 12 |
 | stage (aria-label) | accessible name | Volcano plot for Reactivated vs Quiescent · qNSC | 7 | 4 | 48 | 13 |
 | stage | figure text | Cdk1 | 1 | 1 | 4 | 10.5 |
 | stage | figure text | S100b | 1 | 2 | 5 | 10.5 |
@@ -596,15 +820,15 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | figure text | larger = past both cutoffs | 4 | 4 | 26 | 10.5 |
 | stage | figure text | up in Reactivated (n = 6) | 5 | 3 | 25 | 11 |
 | stage | figure text | not significant (n = 58) | 4 | 1 | 24 | 11 |
-| status line | status | Dashed lines are the cutoffs on the left. | 8 | 8 | 41 | 12 |
+| status line | status | Dashed lines are the cutoffs. | 5 | 5 | 29 | 12 |
 | key pane (aria-label) | accessible name | Key | 1 | 1 | 3 | 13 |
 | key pane | label | Gene | 1 | 1 | 4 | 12 |
-| key pane | text | Hover a point to read it, click to keep its name on the figure. | 14 | 14 | 63 | 13 |
+| key pane | text | Point at a gene to read it; select it to keep its name on the figure. | 16 | 15 | 69 | 13 |
 | key pane | label | Key | 1 | 1 | 3 | 12 |
 | key pane | text | larger = past both cutoffs | 4 | 4 | 26 | 13 |
-| menu (aria-label) | accessible name | Download volcano_Reactivated vs Quiescent · qNSC | 5 | 3 | 48 | 13 |
+| menu (aria-label) | accessible name | Save volcano_Reactivated vs Quiescent · qNSC | 5 | 3 | 44 | 13 |
 | rail | button | Clear 1 clicked | 3 | 2 | 15 | 12 |
-| key pane | label | Named on the figure | 4 | 4 **over** | 19 | 12 |
+| key pane | label | Named on figure | 3 | 3 | 15 | 12 |
 | key pane (title) | tooltip | Remove Id3's name from the figure | 6 | 7 | 33 | 12 |
 | rail | label | Gene sets | 2 | 2 | 9 | 12 |
 | rail (title) | tooltip | Detected: 100% of symbols are title case (Gfap) | 8 | 6 | 47 | 13 |
@@ -630,78 +854,49 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail | label | Collections | 1 | 1 | 11 | 12 |
 | rail (title) | tooltip | Hallmark, KEGG (orthologs), Reactome, WikiPathways, GO:BP, Cell type | 8 | 4 | 68 | 13 |
 | rail | picker | Hallmark, KEGG (orthologs), Reactome, WikiPathways, GO:BP, Cell type | 8 | 4 | 68 | 13 |
-| rail | help | MSigDB 2026.1.Mm · 10,434 sets, of which 3,584 contain a gene this contrast tested. Those are the ones tested, and the ones corrected across. | 23 | 21 **over** | 141 | 11 |
-| rail | help | These collections annotate 100% of the genes this object measures. That fraction is the annotated background, and turning more collections on raises it. | 23 | 22 **over** | 152 | 11 |
-| rail | help | KEGG (orthologs) is human sets mapped through orthologs, not a mouse annotation — MSigDB publishes no native one. Read it as a weaker claim than the rest. | 26 | 24 **over** | 154 | 11 |
+| rail | help | MSigDB 2026.1.Mm · 10,434 sets, of which 3,584 contain a gene this contrast tested: the ones tested and corrected across. | 19 | 16 | 121 | 11 |
+| rail | help | These collections annotate 100% of the genes this object measures. That fraction is the annotated background. | 16 | 15 | 109 | 11 |
+| rail | help | KEGG (orthologs) is human sets mapped through orthologs, not a mouse annotation. Read it as a weaker claim. | 18 | 14 | 107 | 11 |
 | rail (aria-label) | accessible name | Your sets | 2 | 2 | 9 | 13 |
 | rail | label | Your sets | 2 | 2 | 9 | 12 |
 | rail | button | + Paste or upload | 3 | 3 | 17 | 13 |
-| rail | help | Paste a Python dict, a GMT, or one Name: a, b, c per line. They are tested and corrected exactly as MSigDB’s are. | 23 | 23 **over** | 113 | 11 |
-| head line (title) | tooltip | Download enrichment_Reactivated vs Quiescent · qNSC | 5 | 3 | 51 | 12 |
+| rail | help | Paste a Python dict, a GMT, or one Name: a, b, c per line. They are tested as MSigDB’s are. | 20 | 17 | 91 | 11 |
+| head line (title) | tooltip | Save enrichment_Reactivated vs Quiescent · qNSC | 5 | 3 | 47 | 12 |
 | stage | title | 0 enriched sets | 3 | 2 | 15 | 15 |
-| stage | text | Hypergeometric on 12 genes changed in either direction, against an annotated background of 72 of the 72 this object measures. 177 sets overlapped the list; 0 reach padj < 0.05 after BH across all of them. | 35 | 28 | 204 | 12 |
+| stage | text | Hypergeometric on 12 genes changed in either direction, against an annotated background of 72 of the 72 genes measured. 177 sets overlap the list; 0 reach padj < 0.05 (BH). | 29 | 22 | 172 | 12 |
 | stage (aria-label) | accessible name | Enriched gene sets | 3 | 3 | 18 | 13 |
-| stage | figure text | Dna metabolic processDna metabolic process | 5 | 4 | 42 | 11.5 |
-| stage | figure text | Muscle structure developmentMuscle structure development | 5 | 5 | 56 | 11.5 |
-| stage | figure text | Negative regulation of gene expressionNegative regulation of gene expression | 9 | 9 **over** | 76 | 11.5 |
-| stage | figure text | Positive regulation of gene expressionPositive regulation of gene expression | 9 | 9 **over** | 76 | 11.5 |
-| stage | figure text | Muscle tissue developmentMuscle tissue development | 5 | 5 | 50 | 11.5 |
-| stage | figure text | Dna damage responseDna damage response | 5 | 4 | 38 | 11.5 |
-| stage | figure text | Glial cell proliferationGlial cell proliferation | 5 | 5 | 48 | 11.5 |
-| stage | figure text | Peptidyl amino acid modificationPeptidyl amino acid modification | 7 | 5 | 64 | 11.5 |
-| stage | figure text | Epithelial cell differentiationEpithelial cell differentiation | 5 | 4 | 62 | 11.5 |
-| stage | figure text | Cell cell signalingCell cell signaling | 5 | 5 | 38 | 11.5 |
-| stage | figure text | Heart developmentHeart development | 3 | 3 | 34 | 11.5 |
-| stage | figure text | Negative regulation of transcription by rnapolymerase iiNegative regulation of transcription by rna polymerase ii | 14 | 14 **over** | 113 | 11.5 |
-| stage | figure text | Astrocyte differentiationAstrocyte differentiation | 3 | 2 | 50 | 11.5 |
-| stage | figure text | Cellular response to stressCellular response to stress | 7 | 7 | 54 | 11.5 |
-| stage | figure text | Cytokine productionCytokine production | 3 | 3 | 38 | 11.5 |
-| stage | figure text | gene ratio — genes of this list that are in the set | 11 | 11 **over** | 51 | 10.5 |
-| stage | figure text | 0.05 is 1.3 on this scale | 6 | 4 | 25 | 10.5 |
+| stage | figure text | gene ratio (list genes in the set) | 7 | 7 | 34 | 10.5 |
+| stage | figure text | 0.05 is 1.3 on this scale | 6 | 3 | 25 | 10.5 |
 | stage | text | 3,584 sets · 187 within 10–500 genes · 177 contain one of the 12 genes of this list that any set contains · showing 15 | 22 | 16 | 118 | 11 |
-| stage | text | fold = (k/n) ÷ (K/N) · click a bar for its member genes · the CSV has every set | 15 | 15 | 79 | 11 |
-| stage | title | Dna metabolic processGOBP_DNA_METABOLIC_PROCESS · GO:BP | 4 | 3 | 55 | 13 |
+| stage | text | fold = (k/n) ÷ (K/N) · select a bar for its member genes · the CSV has every set | 15 | 14 | 80 | 11 |
+| stage | title | DNA metabolic processGOBP_DNA_METABOLIC_PROCESS · GO:BP | 4 | 2 | 55 | 13 |
 | stage | text | 4/11 genes · fold 2.2× · padj 0.97Close | 6 | 3 | 39 | 12 |
 | stage | table header | Gene | 1 | 1 | 4 | 12 |
 | stage | table header | Combined | 1 | 1 | 8 | 12 |
 | stage | table header | Rank of 70 | 3 | 2 | 10 | 12 |
-| stage | table header | p adjusted | 2 | 2 | 10 | 12 |
 | stage | text | Rank is the position among all 70 genes tested for this contrast. | 12 | 11 | 65 | 11 |
-| stage (svg title) | tooltip | Dna metabolic process | 3 | 2 | 21 |  |
-| stage (svg title) | tooltip | Dna metabolic process — 4 of this list in a set of 11, 2.18× enrichment, adjusted p 9.7e-1 | 17 | 12 | 90 |  |
-| stage (svg title) | tooltip | Muscle structure development | 3 | 3 | 28 |  |
-| stage (svg title) | tooltip | Muscle structure development — 6 of this list in a set of 18, 2.00× enrichment, adjusted p 9.7e-1 | 17 | 13 | 97 |  |
-| stage (svg title) | tooltip | Negative regulation of gene expression | 5 | 5 | 38 |  |
-| stage (svg title) | tooltip | Negative regulation of gene expression — 5 of this list in a set of 16, 1.88× enrichment, adjusted p 9.7e-1 | 19 | 15 | 107 |  |
-| stage (svg title) | tooltip | Positive regulation of gene expression | 5 | 5 | 38 |  |
-| stage (svg title) | tooltip | Positive regulation of gene expression — 5 of this list in a set of 16, 1.88× enrichment, adjusted p 9.7e-1 | 19 | 15 | 107 |  |
-| stage (svg title) | tooltip | Muscle tissue development | 3 | 3 | 25 |  |
-| stage (svg title) | tooltip | Muscle tissue development — 4 of this list in a set of 13, 1.85× enrichment, adjusted p 9.7e-1 | 17 | 13 | 94 |  |
-| stage (svg title) | tooltip | Dna damage response | 3 | 2 | 19 |  |
-| stage (svg title) | tooltip | Dna damage response — 3 of this list in a set of 10, 1.80× enrichment, adjusted p 9.7e-1 | 17 | 12 | 88 |  |
-| stage (svg title) | tooltip | Glial cell proliferation | 3 | 3 | 24 |  |
-| stage (svg title) | tooltip | Glial cell proliferation — 3 of this list in a set of 10, 1.80× enrichment, adjusted p 9.7e-1 | 17 | 13 | 93 |  |
-| stage (svg title) | tooltip | Peptidyl amino acid modification | 4 | 3 | 32 |  |
-| stage (svg title) | tooltip | Peptidyl amino acid modification — 3 of this list in a set of 10, 1.80× enrichment, adjusted p 9.7e-1 | 18 | 13 | 101 |  |
-| stage (svg title) | tooltip | Epithelial cell differentiation | 3 | 2 | 31 |  |
-| stage (svg title) | tooltip | Epithelial cell differentiation — 5 of this list in a set of 17, 1.76× enrichment, adjusted p 9.7e-1 | 17 | 12 | 100 |  |
+| stage (svg title) | tooltip | DNA metabolic process | 3 | 1 | 21 |  |
+| stage (svg title) | tooltip | DNA metabolic process: 4 of this list in a set of 11, 2.18× enrichment, adjusted p 9.7e-1 | 17 | 10 | 89 |  |
+| stage (svg title) | tooltip | Muscle structure development: 6 of this list in a set of 18, 2.00× enrichment, adjusted p 9.7e-1 | 17 | 9 | 96 |  |
+| stage (svg title) | tooltip | Negative regulation of gene expression | 5 | 2 | 38 |  |
+| stage (svg title) | tooltip | Negative regulation of gene expression: 5 of this list in a set of 16, 1.88× enrichment, adjusted p 9.7e-1 | 19 | 11 | 106 |  |
+| stage (svg title) | tooltip | DNA damage response | 3 | 1 | 19 |  |
+| stage (svg title) | tooltip | DNA damage response: 3 of this list in a set of 10, 1.80× enrichment, adjusted p 9.7e-1 | 17 | 10 | 87 |  |
+| stage (svg title) | tooltip | Glial cell proliferation | 3 | 1 | 24 |  |
+| stage (svg title) | tooltip | Glial cell proliferation: 3 of this list in a set of 10, 1.80× enrichment, adjusted p 9.7e-1 | 17 | 10 | 92 |  |
+| stage (svg title) | tooltip | Peptidyl amino acid modification: 3 of this list in a set of 10, 1.80× enrichment, adjusted p 9.7e-1 | 18 | 9 | 100 |  |
 | stage (svg title) | tooltip | Cell cell signaling | 3 | 3 | 19 |  |
-| stage (svg title) | tooltip | Cell cell signaling — 4 of this list in a set of 14, 1.71× enrichment, adjusted p 9.7e-1 | 17 | 13 | 88 |  |
-| stage (svg title) | tooltip | Heart development | 2 | 2 | 17 |  |
-| stage (svg title) | tooltip | Heart development — 5 of this list in a set of 18, 1.67× enrichment, adjusted p 9.7e-1 | 16 | 12 | 86 |  |
-| stage (svg title) | tooltip | Negative regulation of transcription by rna polymerase ii | 8 | 8 | 57 |  |
-| stage (svg title) | tooltip | Negative regulation of transcription by rna polymerase ii — 5 of this list in a set of 18, 1.67× enrichment, adjusted p 9.7e-1 | 22 | 18 **over** | 126 |  |
-| stage (svg title) | tooltip | Astrocyte differentiation | 2 | 1 | 25 |  |
-| stage (svg title) | tooltip | Astrocyte differentiation — 3 of this list in a set of 11, 1.64× enrichment, adjusted p 9.7e-1 | 16 | 11 | 94 |  |
-| stage (svg title) | tooltip | Cellular response to stress | 4 | 4 | 27 |  |
-| stage (svg title) | tooltip | Cellular response to stress — 6 of this list in a set of 22, 1.64× enrichment, adjusted p 9.7e-1 | 18 | 14 | 96 |  |
-| stage (svg title) | tooltip | Cytokine production | 2 | 2 | 19 |  |
-| stage (svg title) | tooltip | Cytokine production — 3 of this list in a set of 11, 1.64× enrichment, adjusted p 9.7e-1 | 16 | 12 | 88 |  |
-| menu (aria-label) | accessible name | Download enrichment_Reactivated vs Quiescent · qNSC | 5 | 3 | 51 | 13 |
+| stage (svg title) | tooltip | Cell cell signaling: 4 of this list in a set of 14, 1.71× enrichment, adjusted p 9.7e-1 | 17 | 12 | 87 |  |
+| stage (svg title) | tooltip | Heart development: 5 of this list in a set of 18, 1.67× enrichment, adjusted p 9.7e-1 | 16 | 9 | 85 |  |
+| stage (svg title) | tooltip | Negative regulation of transcription by RNA polymerase II | 8 | 2 | 57 |  |
+| stage (svg title) | tooltip | Negative regulation of transcription by RNA polymerase II: 5 of this list in a set of 18, 1.67× enrichment, adjusted p 9.7e-1 | 22 | 11 | 125 |  |
+| stage (svg title) | tooltip | Cellular response to stress | 4 | 2 | 27 |  |
+| stage (svg title) | tooltip | Cellular response to stress: 6 of this list in a set of 22, 1.64× enrichment, adjusted p 9.7e-1 | 18 | 11 | 95 |  |
+| menu (aria-label) | accessible name | Save enrichment_Reactivated vs Quiescent · qNSC | 5 | 3 | 47 | 13 |
 | rail (aria-label) | accessible name | Search any gene | 3 | 3 | 15 | 13 |
 | rail | label | Search any gene | 3 | 3 | 15 | 12 |
-| rail (placeholder) | placeholder | one gene, or paste a list… | 6 | 6 | 26 | 12 |
-| rail (aria-label) | accessible name | Search a gene or paste a gene list | 8 | 8 | 34 | 12 |
+| rail (placeholder) | placeholder | one gene, or paste a list… | 6 | 5 | 26 | 12 |
+| rail (aria-label) | accessible name | Search a gene or paste a gene list | 8 | 6 | 34 | 12 |
 | rail | help | One gene, or paste up to 100. Case and separator do not matter. | 13 | 11 | 63 | 11 |
 | rail (title) | tooltip | Id3 | 1 | 1 | 3 | 12 |
 | rail | help | Id3 × | 1 | 1 | 5 | 12 |
@@ -710,94 +905,75 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail | option | Violin panel | 2 | 2 | 12 | 13 |
 | rail | option | Dot plot | 2 | 2 | 8 | 13 |
 | rail | option | Feature plot | 2 | 2 | 12 | 13 |
-| rail (aria-label) | accessible name | Group by | 2 | 2 | 8 | 13 |
-| rail | label | Group by | 2 | 2 | 8 | 12 |
+| rail (aria-label) | accessible name | Group by | 2 | 1 | 8 | 13 |
+| rail | label | Group by | 2 | 1 | 8 | 12 |
 | rail | option | Across cell types | 3 | 3 | 17 | 13 |
 | rail | option | Across groups | 2 | 2 | 13 | 13 |
 | rail | option | Cell type × group | 3 | 3 | 17 | 13 |
 | rail (aria-label) | accessible name | Figure | 1 | 1 | 6 | 13 |
 | rail | label | Figure | 1 | 1 | 6 | 12 |
 | rail | label | Columns | 1 | 1 | 7 | 12 |
-| rail (aria-label) | accessible name | Cell types in these plots | 5 | 5 | 25 | 13 |
-| rail | label | Cell types in these plots | 5 | 5 **over** | 25 | 12 |
+| rail (aria-label) | accessible name | Cell types shown | 3 | 3 | 16 | 13 |
+| rail | label | Cell types shown | 3 | 3 | 16 | 12 |
 | rail | button | ▸ Choose | 1 | 1 | 8 | 12 |
 | rail | help | all 9 | 2 | 1 | 5 | 11 |
 | rail (aria-label) | accessible name | Violins | 1 | 1 | 7 | 13 |
 | rail | label | Violins | 1 | 1 | 7 | 12 |
-| rail (title) | tooltip | Draw the cells themselves over each violin, sampled | 8 | 8 | 51 | 13 |
-| rail | option | Show cells | 2 | 2 | 10 | 13 |
-| head line | title | Gene expression | 2 | 2 | 15 | 13 |
-| head line | status | One violin per cell type, each gene on its own y axis. | 12 | 12 | 54 | 12 |
-| head line (title) | tooltip | Download violins | 2 | 2 | 16 | 12 |
+| rail (title) | tooltip | Draw the cells themselves over each violin, sampled | 8 | 7 | 51 | 13 |
+| rail | option | Show cells | 2 | 1 | 10 | 13 |
+| head line | title | Gene expression | 2 | 1 | 15 | 13 |
+| head line | status | One violin per cell type, each gene on its own y axis. | 12 | 11 | 54 | 12 |
+| head line (title) | tooltip | Save violins | 2 | 2 | 12 | 12 |
 | head line | button | Save all panels | 3 | 3 | 15 | 12 |
-| stage (aria-label) | accessible name | Id3 expression | 2 | 2 | 14 | 13 |
-| stage | figure text | Expression · log1p(CP10K) | 2 | 4 | 25 | 10.5 |
-| stage | legend | violin + box = per-cell distribution | 4 | 4 | 36 | 12 |
-| stage | legend | solid tick = median · dashed = mean, which is what the dot plot colours | 12 | 12 | 71 | 12 |
-| stage | legend | bar under the axis = fraction of cells detecting the gene | 10 | 10 | 57 | 12 |
+| stage (aria-label) | accessible name | Id3 expression | 2 | 1 | 14 | 13 |
+| stage | figure text | Expression · log1p(CP10K) | 2 | 3 | 25 | 10.5 |
+| stage | legend | violin + box = per-cell distribution | 4 | 2 | 36 | 12 |
+| stage | legend | solid tick = median · dashed = mean, which is what the dot plot colours | 12 | 11 | 71 | 12 |
+| stage | legend | bar under the axis = fraction of cells detecting the gene | 10 | 9 | 57 | 12 |
 | stage (svg title) | tooltip | mean 1.77 | 2 | 1 | 9 |  |
-| stage (svg title) | tooltip | 85% of cells detect Id3 | 5 | 4 | 23 |  |
-| rail (title) | tooltip | Seurat scale = TRUE — z-score each gene across identities | 8 | 8 | 57 | 13 |
+| stage (svg title) | tooltip | 85% of cells detect Id3 | 5 | 3 | 23 |  |
+| rail (title) | tooltip | Seurat scale = TRUE: z-score each gene across the columns | 9 | 7 | 57 | 13 |
 | rail | option | Scale each gene | 3 | 3 | 15 | 13 |
 | rail | label | Colour | 1 | 1 | 6 | 12 |
 | rail | picker | Diverging · blue–white–red | 2 | 2 | 26 | 13 |
 | rail (title) | tooltip | Order rows and columns by similarity, and draw the trees | 10 | 10 | 56 | 13 |
 | rail | option | Cluster rows & genes | 3 | 3 | 20 | 13 |
-| rail (title) | tooltip | Swap the axes — genes down the side, identities along the bottom | 11 | 11 | 64 | 13 |
+| rail (title) | tooltip | Swap the axes: genes down the side, cell types along the bottom | 12 | 12 | 63 | 13 |
 | rail | option | Transpose | 1 | 1 | 9 | 13 |
 | rail | help | genes along the bottom | 4 | 4 | 22 | 11 |
 | head line | status | Dot size is the fraction detected; colour is the mean, z-scored down each gene. | 14 | 14 | 79 | 12 |
-| head line (title) | tooltip | Download dotplot | 2 | 2 | 16 | 12 |
-| stage (aria-label) | accessible name | Dot plot of Id3 — genes along the bottom | 8 | 8 | 40 | 13 |
-| stage | figure text | Id3Id3 | 1 | 2 | 6 | 11 |
+| head line (title) | tooltip | Save dotplot | 2 | 2 | 12 | 12 |
+| stage (aria-label) | accessible name | Dot plot of Id3, genes along the bottom | 8 | 8 | 39 | 13 |
 | stage | figure text | Avg. Exp. (z-scored) | 3 | 3 | 20 | 11.5 |
-| stage | text | Colour is z-scored per gene — where a gene is highest, not how much of it. Across these 9 rows the mean runs 0.01 to 1.77; the colours fill the scale whatever that range is, so read them as an order and not as a size. | 45 | 40 | 217 | 12 |
+| stage | text | Colour is z-scored per gene: where it is highest, not how much. Here the mean runs 0.01 to 1.77: read the colours as an order. | 25 | 22 | 126 | 12 |
 | stage (svg title) | tooltip | Id3 | 1 | 1 | 3 |  |
 | rail | picker | Two-colour · blue | 2 | 2 | 17 | 13 |
-| rail (title) | tooltip | Expression mapped to the top of the colour scale | 9 | 9 | 48 | 12 |
+| rail (title) | tooltip | Expression mapped to the top of the colour scale | 9 | 8 | 48 | 12 |
 | rail | label | Scale to | 2 | 2 | 8 | 12 |
 | rail | picker | 99th percentile | 2 | 2 | 15 | 13 |
-| rail (title) | tooltip | A ring around each cell — clearer at print size, slower on a large object | 14 | 14 | 73 | 13 |
+| rail (title) | tooltip | A ring around each cell: clearer in print, slower on a large object | 13 | 12 | 67 | 13 |
 | rail | option | Cell borders | 2 | 2 | 12 | 13 |
 | head line | status | On the embedding, one panel per gene. | 7 | 7 | 37 | 12 |
-| head line (title) | tooltip | Download Id3_feature | 2 | 3 | 20 | 12 |
-| stage (aria-label) | accessible name | Id3 expression on the embedding | 5 | 5 | 31 | 13 |
+| head line (title) | tooltip | Save Id3_feature | 2 | 3 | 16 | 12 |
+| stage (aria-label) | accessible name | Id3 expression on the embedding | 5 | 4 | 31 | 13 |
 | stage | legend | 0 · not detected | 3 | 1 | 16 | 12 |
 | stage | legend | 99th pct | 2 | 2 | 8 | 12 |
-| stage | legend | · each gene on its own scale · positive cells drawn last · n = 34,367 cells | 13 | 12 | 75 | 12 |
+| stage | legend | · each gene on its own scale · positive cells drawn last · n = 34,367 cells | 13 | 10 | 75 | 12 |
 | rail | label | Cell type | 2 | 2 | 9 | 12 |
 | rail | option | Relative to Quiescent | 3 | 2 | 21 | 13 |
 | head line | status | Groups in the object's own order, within qNSC. | 8 | 8 | 46 | 12 |
-| stage | figure text | QuiescentqNSC · Quiescent | 2 | 1 | 25 | 11 |
-| stage | figure text | ReactivatedqNSC · Reactivated | 2 | 1 | 29 | 11 |
 | stage | legend | n = 6,065 cells: Quiescent 3,573 · Reactivated 2,492 | 7 | 2 | 52 | 12 |
 | head line | status | Every cell type split by group. | 6 | 6 | 31 | 12 |
-| stage | figure text | QuiescentaNSC · Quiescent | 2 | 1 | 25 | 11 |
-| stage | figure text | ReactivatedaNSC · Reactivated | 2 | 1 | 29 | 11 |
-| stage | figure text | QuiescentTAP · Quiescent | 2 | 1 | 24 | 11 |
-| stage | figure text | ReactivatedTAP · Reactivated | 2 | 1 | 28 | 11 |
-| stage | figure text | QuiescentNeuroblast · Quiescent | 2 | 1 | 31 | 11 |
-| stage | figure text | ReactivatedNeuroblast · Reactivated | 2 | 1 | 35 | 11 |
-| stage | figure text | QuiescentAstrocyte · Quiescent | 2 | 1 | 30 | 11 |
-| stage | figure text | ReactivatedAstrocyte · Reactivated | 2 | 1 | 34 | 11 |
-| stage | figure text | QuiescentOligodendrocyte · Quiescent | 2 | 1 | 36 | 11 |
-| stage | figure text | ReactivatedOligodendrocyte · Reactivated | 2 | 1 | 40 | 11 |
-| stage | figure text | QuiescentMicroglia · Quiescent | 2 | 1 | 30 | 11 |
-| stage | figure text | ReactivatedMicroglia · Reactivated | 2 | 1 | 34 | 11 |
-| stage | figure text | QuiescentEndothelial · Quiescent | 2 | 1 | 32 | 11 |
-| stage | figure text | ReactivatedEndothelial · Reactivated | 2 | 1 | 36 | 11 |
-| stage | figure text | QuiescentPericyte · Quiescent | 2 | 1 | 29 | 11 |
-| stage | figure text | ReactivatedPericyte · Reactivated | 2 | 1 | 33 | 11 |
 | stage | legend | n = 34,367 cells: qNSC / Quiescent 3,573 · qNSC / Reactivated 2,492 · aNSC / Quiescent 747 · aNSC / Reactivated 2,511 · TAP / Quiescent 853 · TAP / Reactivated 3,658 · Neuroblast / Quiescent 2,800 · Neuroblast / Reactivated 4,043 · Astrocyte / Quiescent 2,347 · Astrocyte / Reactivated 2,251 · Oligodendrocyte / Quiescent 1,960 · Oligodendrocyte / Reactivated 1,920 · Microglia / Quiescent 1,613 · Microglia / Reactivated 1,580 · Endothelial / Quiescent 987 · Endothelial / Reactivated 960 · Pericyte / Quiescent 40 · Pericyte / Reactivated 32 | 57 | 2 | 543 | 12 |
 | stage | legend | each dot is one cell, up to 300 per group | 10 | 9 | 41 | 12 |
 
 ### Gene expression
 
-82 strings, 451 words (375 the app's own).
+57 strings, 345 words (271 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
-| rail | error | Not in this object: Zzzz9 — check the species and capitalisation (mouse Ascl1 vs human ASCL1). | 15 | 15 | 94 | 12 |
+| rail | error | Not in this object: Zzzz9. Check the species and capitalisation (mouse Ascl1 vs human ASCL1). | 15 | 14 | 93 | 12 |
 | rail (title) | tooltip | Ascl1 | 1 | 1 | 5 | 12 |
 | rail | help | Ascl1 × | 1 | 1 | 7 | 12 |
 | rail (title) | tooltip | Mki67 | 1 | 1 | 5 | 12 |
@@ -807,82 +983,57 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail (title) | tooltip | Cx3cr1 | 1 | 2 | 6 | 12 |
 | rail | help | Cx3cr1 × | 1 | 2 | 8 | 12 |
 | rail | button | Clear all | 2 | 2 | 9 | 12 |
-| stage (aria-label) | accessible name | Gfap expression | 2 | 1 | 15 | 13 |
-| stage (aria-label) | accessible name | Ascl1 expression | 2 | 2 | 16 | 13 |
-| stage (aria-label) | accessible name | Mki67 expression | 2 | 2 | 16 | 13 |
-| stage (aria-label) | accessible name | Plp1 expression | 2 | 2 | 15 | 13 |
-| stage (aria-label) | accessible name | Cx3cr1 expression | 2 | 3 | 17 | 13 |
-| stage (svg title) | tooltip | 92% of cells detect Gfap | 5 | 3 | 24 |  |
-| stage (svg title) | tooltip | 16% of cells detect Ascl1 | 5 | 4 | 25 |  |
-| stage (svg title) | tooltip | 17% of cells detect Mki67 | 5 | 4 | 25 |  |
-| stage (svg title) | tooltip | 15% of cells detect Plp1 | 5 | 4 | 24 |  |
-| stage (svg title) | tooltip | 8% of cells detect Cx3cr1 | 5 | 5 | 25 |  |
-| menu (aria-label) | accessible name | Download violins | 2 | 2 | 16 | 13 |
-| stage | figure text | barely detected here — max 9% | 5 | 4 | 29 | 10.5 |
-| stage (aria-label) | accessible name | Dot plot of Id3, Gfap, Ascl1, Mki67, Dcx, Plp1, Cx3cr1 — genes along the bottom | 14 | 13 **over** | 79 | 13 |
-| stage | figure text | GfapGfap | 1 | 1 | 8 | 11 |
-| stage | figure text | Ascl1Ascl1 | 1 | 2 | 10 | 11 |
-| stage | figure text | Mki67Mki67 | 1 | 2 | 10 | 11 |
-| stage | figure text | DcxDcx | 1 | 1 | 6 | 11 |
-| stage | figure text | Plp1Plp1 | 1 | 2 | 8 | 11 |
-| stage | figure text | Cx3cr1Cx3cr1 | 1 | 4 | 12 | 11 |
-| stage | text | Colour is z-scored per gene — where a gene is highest, not how much of it. The scale is filled for every gene whatever its range: the widest here is Ascl1 at 0.02–6.72, the narrowest Id3 at 0.01–1.77. Turn scaling off to compare sizes. | 43 | 40 | 235 | 12 |
+| stage (aria-label) | accessible name | Ascl1 expression | 2 | 1 | 16 | 13 |
+| stage (aria-label) | accessible name | Mki67 expression | 2 | 1 | 16 | 13 |
+| stage (aria-label) | accessible name | Plp1 expression | 2 | 1 | 15 | 13 |
+| stage (aria-label) | accessible name | Cx3cr1 expression | 2 | 2 | 17 | 13 |
+| stage (svg title) | tooltip | 92% of cells detect Gfap | 5 | 2 | 24 |  |
+| stage (svg title) | tooltip | 16% of cells detect Ascl1 | 5 | 3 | 25 |  |
+| stage (svg title) | tooltip | 17% of cells detect Mki67 | 5 | 3 | 25 |  |
+| stage (svg title) | tooltip | 15% of cells detect Plp1 | 5 | 3 | 24 |  |
+| stage (svg title) | tooltip | 8% of cells detect Cx3cr1 | 5 | 4 | 25 |  |
+| menu (aria-label) | accessible name | Save violins | 2 | 2 | 12 | 13 |
+| stage | figure text | barely detected here: max 9% | 5 | 4 | 28 | 10.5 |
+| stage (aria-label) | accessible name | Dot plot of Id3, Gfap, Ascl1, Mki67, Dcx, Plp1, Cx3cr1, genes along the bottom | 14 | 13 **over** | 78 | 13 |
+| stage | text | Colour is z-scored per gene: where it is highest, not how much. Widest range: Ascl1 at 0.02–6.72; narrowest: Id3 at 0.01–1.77. | 21 | 18 | 126 | 12 |
 | stage (svg title) | tooltip | Ascl1 | 1 | 1 | 5 |  |
 | stage (svg title) | tooltip | Mki67 | 1 | 1 | 5 |  |
 | stage (svg title) | tooltip | Plp1 | 1 | 1 | 4 |  |
 | stage (svg title) | tooltip | Cx3cr1 | 1 | 2 | 6 |  |
-| menu (aria-label) | accessible name | Download dotplot | 2 | 2 | 16 | 13 |
-| stage | figure text | qNSC · QuiescentqNSC · Quiescent | 3 | 1 | 32 | 11.5 |
-| stage | figure text | qNSC · ReactivatedqNSC · Reactivated | 3 | 1 | 36 | 11.5 |
-| stage | text | Colour is z-scored per gene — where a gene is highest, not how much of it. The scale is filled for every gene whatever its range: the widest here is Id3 at 0.91–2.37, the narrowest Cx3cr1 at 0.01–0.01. Turn scaling off to compare sizes. | 43 | 41 **over** | 236 | 12 |
-| stage (svg title) | tooltip | Id3 in qNSC · Quiescent — 93% of cells, mean 2.37 | 9 | 5 | 49 |  |
-| stage (svg title) | tooltip | Gfap in qNSC · Quiescent — 96% of cells, mean 3.02 | 9 | 4 | 50 |  |
-| stage (svg title) | tooltip | Ascl1 in qNSC · Quiescent — 10% of cells, mean 0.01 | 9 | 5 | 51 |  |
-| stage (svg title) | tooltip | Mki67 in qNSC · Quiescent — 14% of cells, mean 0.02 | 9 | 5 | 51 |  |
-| stage (svg title) | tooltip | Plp1 in qNSC · Quiescent — 16% of cells, mean 0.03 | 9 | 5 | 50 |  |
-| stage (svg title) | tooltip | Cx3cr1 in qNSC · Quiescent — 8% of cells, mean 0.01 | 9 | 6 | 51 |  |
-| stage | figure text | aNSC · QuiescentaNSC · Quiescent | 3 | 1 | 32 | 11.5 |
-| stage | figure text | aNSC · ReactivatedaNSC · Reactivated | 3 | 1 | 36 | 11.5 |
-| stage | figure text | TAP · QuiescentTAP · Quiescent | 3 | 1 | 30 | 11.5 |
-| stage | figure text | TAP · ReactivatedTAP · Reactivated | 3 | 1 | 34 | 11.5 |
-| stage | figure text | Neuroblast · QuiescentNeuroblast · Quiescent | 3 | 1 | 44 | 11.5 |
-| stage | figure text | Neuroblast · ReactivatedNeuroblast · Reactivated | 3 | 1 | 48 | 11.5 |
-| stage | figure text | Astrocyte · QuiescentAstrocyte · Quiescent | 3 | 1 | 42 | 11.5 |
-| stage | figure text | Astrocyte · ReactivatedAstrocyte · Reactivated | 3 | 1 | 46 | 11.5 |
-| stage | figure text | Oligodendrocyte · QuiescentOligodendrocyte · Quiescent | 3 | 1 | 54 | 11.5 |
-| stage | figure text | Oligodendrocyte · ReactivatedOligodendrocyte · Reactivated | 3 | 1 | 58 | 11.5 |
-| stage | figure text | Microglia · QuiescentMicroglia · Quiescent | 3 | 1 | 42 | 11.5 |
-| stage | figure text | Microglia · ReactivatedMicroglia · Reactivated | 3 | 1 | 46 | 11.5 |
-| stage | figure text | Endothelial · QuiescentEndothelial · Quiescent | 3 | 1 | 46 | 11.5 |
-| stage | figure text | Endothelial · ReactivatedEndothelial · Reactivated | 3 | 1 | 50 | 11.5 |
-| stage | figure text | Pericyte · QuiescentPericyte · Quiescent | 3 | 1 | 40 | 11.5 |
-| stage | figure text | Pericyte · ReactivatedPericyte · Reactivated | 3 | 1 | 44 | 11.5 |
+| menu (aria-label) | accessible name | Save dotplot | 2 | 2 | 12 | 13 |
+| stage | text | Colour is z-scored per gene: where it is highest, not how much. Widest range: Id3 at 0.91–2.37; narrowest: Cx3cr1 at 0.01–0.01. | 21 | 19 | 127 | 12 |
+| stage (svg title) | tooltip | Id3 in qNSC · Quiescent: 93% of cells, mean 2.37 | 9 | 4 | 48 |  |
+| stage (svg title) | tooltip | Gfap in qNSC · Quiescent: 96% of cells, mean 3.02 | 9 | 3 | 49 |  |
+| stage (svg title) | tooltip | Ascl1 in qNSC · Quiescent: 10% of cells, mean 0.01 | 9 | 4 | 50 |  |
+| stage (svg title) | tooltip | Mki67 in qNSC · Quiescent: 14% of cells, mean 0.02 | 9 | 4 | 50 |  |
+| stage (svg title) | tooltip | Plp1 in qNSC · Quiescent: 16% of cells, mean 0.03 | 9 | 4 | 49 |  |
+| stage (svg title) | tooltip | Cx3cr1 in qNSC · Quiescent: 8% of cells, mean 0.01 | 9 | 5 | 50 |  |
 | head line | status | Dot size is the fraction detected; colour is the mean. | 10 | 10 | 54 | 12 |
 | stage | figure text | Avg. Exp. | 2 | 2 | 9 | 11.5 |
-| stage | text | Colour is the raw mean, on one scale for every gene. | 11 | 11 | 52 | 12 |
-| stage (aria-label) | accessible name | Dot plot of Dcx, Ascl1, Mki67, Cx3cr1, Plp1, Id3, Gfap — genes along the bottom | 14 | 13 **over** | 79 | 13 |
+| stage | text | Colour is the raw mean, on one scale for every gene. | 11 | 10 | 52 | 12 |
+| stage (aria-label) | accessible name | Dot plot of Dcx, Ascl1, Mki67, Cx3cr1, Plp1, Id3, Gfap, genes along the bottom | 14 | 13 **over** | 78 | 13 |
 | rail | help | genes down the side | 4 | 4 | 19 | 11 |
-| stage (aria-label) | accessible name | Dot plot of Dcx, Ascl1, Mki67, Cx3cr1, Plp1, Id3, Gfap — genes down the side | 14 | 13 **over** | 76 | 13 |
-| head line (title) | tooltip | Download feature_plots | 2 | 2 | 22 | 12 |
-| stage (aria-label) | accessible name | Gfap expression on the embedding | 5 | 4 | 32 | 13 |
-| stage (aria-label) | accessible name | Ascl1 expression on the embedding | 5 | 5 | 33 | 13 |
-| stage (aria-label) | accessible name | Mki67 expression on the embedding | 5 | 5 | 33 | 13 |
-| stage (aria-label) | accessible name | Plp1 expression on the embedding | 5 | 5 | 32 | 13 |
-| stage (aria-label) | accessible name | Cx3cr1 expression on the embedding | 5 | 6 | 34 | 13 |
-| menu (aria-label) | accessible name | Download feature_plots | 2 | 2 | 22 | 13 |
+| stage (aria-label) | accessible name | Dot plot of Dcx, Ascl1, Mki67, Cx3cr1, Plp1, Id3, Gfap, genes down the side | 14 | 13 **over** | 75 | 13 |
+| head line (title) | tooltip | Save feature_plots | 2 | 2 | 18 | 12 |
+| stage (aria-label) | accessible name | Gfap expression on the embedding | 5 | 3 | 32 | 13 |
+| stage (aria-label) | accessible name | Ascl1 expression on the embedding | 5 | 4 | 33 | 13 |
+| stage (aria-label) | accessible name | Mki67 expression on the embedding | 5 | 4 | 33 | 13 |
+| stage (aria-label) | accessible name | Plp1 expression on the embedding | 5 | 4 | 32 | 13 |
+| stage (aria-label) | accessible name | Cx3cr1 expression on the embedding | 5 | 5 | 34 | 13 |
+| menu (aria-label) | accessible name | Save feature_plots | 2 | 2 | 18 | 13 |
 | head line | status | On the embedding, one panel per gene, split by group on that gene's scale. | 14 | 14 | 74 | 12 |
-| stage (aria-label) | accessible name | Id3 expression on the embedding, Quiescent only | 7 | 6 | 47 | 13 |
-| stage (aria-label) | accessible name | Gfap expression on the embedding, Quiescent only | 7 | 5 | 48 | 13 |
-| stage (aria-label) | accessible name | Ascl1 expression on the embedding, Quiescent only | 7 | 6 | 49 | 13 |
-| stage (aria-label) | accessible name | Mki67 expression on the embedding, Quiescent only | 7 | 6 | 49 | 13 |
-| stage (aria-label) | accessible name | Plp1 expression on the embedding, Quiescent only | 7 | 6 | 48 | 13 |
-| stage (aria-label) | accessible name | Cx3cr1 expression on the embedding, Quiescent only | 7 | 7 | 50 | 13 |
-| stage | legend | · each gene on its own scale · positive cells drawn last · n = 34,367 cells: Quiescent 14,920 · Reactivated 19,447 | 17 | 12 | 114 | 12 |
-| stage | legend | the other groups — kept as the outline | 7 | 7 | 38 | 12 |
+| stage (aria-label) | accessible name | Id3 expression on the embedding, Quiescent only | 7 | 5 | 47 | 13 |
+| stage (aria-label) | accessible name | Gfap expression on the embedding, Quiescent only | 7 | 4 | 48 | 13 |
+| stage (aria-label) | accessible name | Ascl1 expression on the embedding, Quiescent only | 7 | 5 | 49 | 13 |
+| stage (aria-label) | accessible name | Mki67 expression on the embedding, Quiescent only | 7 | 5 | 49 | 13 |
+| stage (aria-label) | accessible name | Plp1 expression on the embedding, Quiescent only | 7 | 5 | 48 | 13 |
+| stage (aria-label) | accessible name | Cx3cr1 expression on the embedding, Quiescent only | 7 | 6 | 50 | 13 |
+| stage | legend | · each gene on its own scale · positive cells drawn last · n = 34,367 cells: Quiescent 14,920 · Reactivated 19,447 | 17 | 11 | 114 | 12 |
+| stage | legend | the other groups , kept as the outline | 7 | 7 | 38 | 12 |
 
 ### Gene sets
 
-144 strings, 740 words (620 the app's own).
+130 strings, 689 words (551 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -890,150 +1041,136 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | head line | segment | One set | 2 | 2 | 7 | 12 |
 | head line | segment | Several sets | 2 | 2 | 12 | 12 |
 | head line | title | Module score, per cell | 4 | 4 | 22 | 13 |
-| head line | status | Seurat’s AddModuleScore: the set’s mean, minus a control set matched on expression level. | 13 | 13 | 89 | 12 |
-| stage (placeholder) | placeholder | search 10,434 sets — cell cycle, notch… | 6 | 5 | 39 | 13 |
+| head line | status | Seurat’s AddModuleScore: the set’s mean, minus a control set matched on expression level. | 13 | 10 | 89 | 12 |
+| stage (placeholder) | placeholder | search 10,434 sets: cell cycle, notch… | 6 | 5 | 38 | 13 |
 | stage (aria-label) | accessible name | Search gene sets | 3 | 3 | 16 | 13 |
 | stage (aria-label) | accessible name | Matching gene sets | 3 | 3 | 18 | 13 |
 | stage (title) | tooltip | Androgen response | 2 | 1 | 17 | 12 |
 | stage | menu item | Androgen response | 2 | 1 | 17 | 12 |
-| stage (title) | tooltip | E2f targets | 2 | 2 | 11 | 12 |
-| stage | menu item | E2f targets | 2 | 2 | 11 | 12 |
+| stage (title) | tooltip | E2F targets | 2 | 2 | 11 | 12 |
+| stage | menu item | E2F targets | 2 | 2 | 11 | 12 |
 | stage (title) | tooltip | Estrogen response early | 3 | 2 | 23 | 12 |
 | stage | menu item | Estrogen response early | 3 | 2 | 23 | 12 |
 | stage (title) | tooltip | Estrogen response late | 3 | 2 | 22 | 12 |
 | stage | menu item | Estrogen response late | 3 | 2 | 22 | 12 |
-| stage (title) | tooltip | G2m checkpoint | 2 | 2 | 14 | 12 |
-| stage | menu item | G2m checkpoint | 2 | 2 | 14 | 12 |
+| stage (title) | tooltip | G2M checkpoint | 2 | 2 | 14 | 12 |
+| stage | menu item | G2M checkpoint | 2 | 2 | 14 | 12 |
 | stage (title) | tooltip | Hedgehog signaling | 2 | 1 | 18 | 12 |
 | stage | menu item | Hedgehog signaling | 2 | 1 | 18 | 12 |
-| stage (title) | tooltip | Il2 stat5 signaling | 3 | 3 | 19 | 12 |
-| stage | menu item | Il2 stat5 signaling | 3 | 3 | 19 | 12 |
-| stage (title) | tooltip | Il6 jak stat3 signaling | 4 | 3 | 23 | 12 |
-| stage | menu item | Il6 jak stat3 signaling | 4 | 3 | 23 | 12 |
-| stage (title) | tooltip | Interferon alpha response | 3 | 1 | 25 | 12 |
+| stage (title) | tooltip | IL2 STAT5 signaling | 3 | 3 | 19 | 12 |
+| stage | menu item | IL2 STAT5 signaling | 3 | 3 | 19 | 12 |
+| stage (title) | tooltip | IL6 JAK STAT3 signaling | 4 | 3 | 23 | 12 |
+| stage | menu item | IL6 JAK STAT3 signaling | 4 | 3 | 23 | 12 |
 | stage | menu item | Interferon alpha response | 3 | 1 | 25 | 12 |
-| stage (title) | tooltip | Kras signaling dn | 3 | 1 | 17 | 12 |
-| stage | menu item | Kras signaling dn | 3 | 1 | 17 | 12 |
-| stage (title) | tooltip | Kras signaling up | 3 | 2 | 17 | 12 |
-| stage | menu item | Kras signaling up | 3 | 2 | 17 | 12 |
-| stage (title) | tooltip | Mtorc1 signaling | 2 | 2 | 16 | 12 |
-| stage | menu item | Mtorc1 signaling | 2 | 2 | 16 | 12 |
-| stage (title) | tooltip | Myc targets v1 | 3 | 1 | 14 | 12 |
-| stage | menu item | Myc targets v1 | 3 | 1 | 14 | 12 |
+| stage (title) | tooltip | KRAS signaling dn | 3 | 1 | 17 | 12 |
+| stage | menu item | KRAS signaling dn | 3 | 1 | 17 | 12 |
+| stage (title) | tooltip | KRAS signaling up | 3 | 2 | 17 | 12 |
+| stage | menu item | KRAS signaling up | 3 | 2 | 17 | 12 |
+| stage (title) | tooltip | MTORC1 signaling | 2 | 2 | 16 | 12 |
+| stage | menu item | MTORC1 signaling | 2 | 2 | 16 | 12 |
+| stage (title) | tooltip | MYC targets V1 | 3 | 1 | 14 | 12 |
+| stage | menu item | MYC targets V1 | 3 | 1 | 14 | 12 |
 | stage (title) | tooltip | P53 pathway | 2 | 2 | 11 | 12 |
 | stage | menu item | P53 pathway | 2 | 2 | 11 | 12 |
 | stage (title) | tooltip | Pancreas beta cells | 3 | 1 | 19 | 12 |
 | stage | menu item | Pancreas beta cells | 3 | 1 | 19 | 12 |
-| stage (title) | tooltip | Pi3k akt mtor signaling | 4 | 3 | 23 | 12 |
-| stage | menu item | Pi3k akt mtor signaling | 4 | 3 | 23 | 12 |
+| stage (title) | tooltip | PI3K AKT MTOR signaling | 4 | 3 | 23 | 12 |
+| stage | menu item | PI3K AKT MTOR signaling | 4 | 3 | 23 | 12 |
 | stage (aria-label) | accessible name | The set's score | 3 | 3 | 15 | 13 |
-| stage | empty state | Pick a set in the list to score it. Your own sets appear there too — add them with “Paste or upload” in the controls on the left. | 27 | 27 **over** | 129 | 13 |
+| stage | empty state | Choose a set in the list to score it. Your own sets appear there too: add them with “Paste or upload” on the left. | 24 | 23 | 114 | 13 |
 | menu (aria-label) | accessible name | Collections | 1 | 1 | 11 | 13 |
 | menu (title) | tooltip | 50 sets · 0.03 MB | 4 | 2 | 17 | 12 |
-| menu (title) | tooltip | 2,360 sets · 0.21 MB · assembled from Hallmark, KEGG (orthologs), Reactome, WikiPathways, BioCarta, GO:BP, GO:MF, GO:CC — not downloaded yet | 18 | 10 | 140 | 12 |
-| menu (title) | tooltip | 835 sets · 0.06 MB · human sets mapped through orthologs, not a mouse annotation | 13 | 10 | 80 | 12 |
+| menu (title) | tooltip | 2,360 sets · 0.21 MB · assembled from Hallmark, KEGG (orthologs), Reactome, WikiPathways, BioCarta, GO:BP, GO:MF, GO:CC, not loaded yet | 18 | 10 | 135 | 12 |
+| menu (title) | tooltip | 835 sets · 0.06 MB · human sets mapped through orthologs, not a mouse annotation | 13 | 9 | 80 | 12 |
 | menu | menu item | KEGG (orthologs) | 2 | 1 | 16 | 12 |
-| menu (title) | tooltip | 252 sets · 0.01 MB — not downloaded yet | 7 | 4 | 39 | 12 |
+| menu (title) | tooltip | 252 sets · 0.01 MB, not loaded yet | 7 | 4 | 34 | 12 |
 | menu | menu item | GO:BP | 1 | 1 | 5 | 12 |
 | menu | menu item | GO:MF | 1 | 1 | 5 | 12 |
 | menu | menu item | GO:CC | 1 | 1 | 5 | 12 |
 | menu | menu item | Cell type | 2 | 2 | 9 | 12 |
 | rail (aria-label) | accessible name | Score per cell | 3 | 3 | 14 | 13 |
 | rail | label | Score per cell | 3 | 3 | 14 | 12 |
-| rail (aria-label) | accessible name | Genes of the set | 4 | 4 | 16 | 13 |
-| rail | label | Genes of the set | 4 | 4 **over** | 16 | 12 |
+| rail (aria-label) | accessible name | Set genes | 2 | 2 | 9 | 13 |
+| rail | label | Set genes | 2 | 2 | 9 | 12 |
 | rail | option | Show the genes | 3 | 3 | 14 | 13 |
 | head line (title) | tooltip | Adipogenesis on the embedding | 4 | 3 | 29 | 13 |
 | head line | title | Adipogenesis on the embedding | 4 | 3 | 29 | 13 |
-| head line (title) | tooltip | Download module_score_Adipogenesis | 2 | 2 | 34 | 12 |
+| head line (title) | tooltip | Save module_score_Adipogenesis | 2 | 2 | 30 | 12 |
 | stage (aria-label) | accessible name | Module score on the embedding | 5 | 5 | 29 | 13 |
-| head line (title) | tooltip | Score by identity | 3 | 3 | 17 | 13 |
-| head line | title | Score by identity | 3 | 3 | 17 | 13 |
-| stage | table header | Identity | 1 | 1 | 8 | 12 |
+| head line (title) | tooltip | Score by cell type or group | 6 | 6 | 27 | 13 |
+| head line | title | Score by cell type or group | 6 | 6 | 27 | 13 |
+| stage | table header | Cells of | 2 | 2 | 8 | 12 |
 | stage | table header | Cells | 1 | 1 | 5 | 12 |
 | stage | table header | Median | 1 | 1 | 6 | 12 |
 | stage | table header | Mean | 1 | 1 | 4 | 12 |
 | head line (title) | tooltip | Genes in this set | 4 | 4 | 17 | 13 |
 | head line | title | Genes in this set | 4 | 4 | 17 | 13 |
 | head line | status | 1 of 200 genes found in this object | 8 | 6 | 35 | 12 |
-| head line (title) | tooltip | Find the genes that move with this signature, and against it | 11 | 11 | 60 | 12 |
-| head line | button | Correlate with this set → | 4 | 4 **over** | 25 | 12 |
+| head line (title) | tooltip | Find the genes that move with this set, and against it | 11 | 11 | 54 | 12 |
+| head line | button | Correlate this set | 3 | 3 | 18 | 12 |
 | stage | chip | Sparcl1 | 1 | 1 | 7 | 12 |
-| stage | text | Click a gene to see whether it carries the score on its own. 100 control genes per set gene, drawn from 24 expression bins. Not measured: Abca1, Abcb8, Acaa2, Acadl, Acadm, Acads, Acly, Aco2 +191. | 35 | 32 | 196 | 11 |
+| stage | text | Select a gene to see whether it carries the score on its own. 100 control genes per set gene, drawn from 24 expression bins. Not measured: Abca1, Abcb8, Acaa2, Acadl, Acadm, Acads, Acly, Aco2 +191. | 35 | 25 | 197 | 11 |
 | head line (title) | tooltip | Score per cell | 3 | 3 | 14 | 13 |
 | head line | title | Score per cell | 3 | 3 | 14 | 13 |
 | head line | status | Across cell types | 3 | 3 | 17 | 12 |
-| head line (title) | tooltip | Download module_score_by_identity_Adipogenesis | 2 | 2 | 46 | 12 |
-| stage (aria-label) | accessible name | Module score by identity | 4 | 4 | 24 | 13 |
+| head line (title) | tooltip | Save module_score_by_identity_Adipogenesis | 2 | 2 | 42 | 12 |
+| stage (aria-label) | accessible name | Module score by cell type or group | 7 | 7 | 34 | 13 |
 | stage | figure text | Module score | 2 | 2 | 12 | 10.5 |
 | stage | text | Zero is the reference: no higher than genes of comparable abundance. | 11 | 11 | 68 | 12 |
-| menu (aria-label) | accessible name | Download module_score_Adipogenesis | 2 | 2 | 34 | 13 |
-| menu (aria-label) | accessible name | Download module_score_by_identity_Adipogenesis | 2 | 2 | 46 | 13 |
+| menu (aria-label) | accessible name | Save module_score_Adipogenesis | 2 | 2 | 30 | 13 |
+| menu (aria-label) | accessible name | Save module_score_by_identity_Adipogenesis | 2 | 2 | 42 | 13 |
 | head line | status | Across groups | 2 | 2 | 13 | 12 |
 | head line | status | Cell type × group | 3 | 3 | 17 | 12 |
 | rail | option | Cluster | 1 | 1 | 7 | 13 |
-| rail (title) | tooltip | z-score each gene across the identities shown — pheatmap scale = row | 10 | 10 | 68 | 13 |
-| rail (title) | tooltip | Swap the axes — identities down the side, genes along the bottom | 11 | 11 | 64 | 13 |
-| rail | chip | ▸ Columns in this heatmap | 4 | 4 **over** | 25 | 12 |
+| rail (title) | tooltip | z-score each gene across the columns shown (pheatmap scale = row) | 10 | 9 | 65 | 13 |
+| rail (title) | tooltip | Swap the axes: cell types down the side, genes along the bottom | 12 | 12 | 63 | 13 |
+| rail | chip | ▸ Columns shown | 2 | 2 | 15 | 12 |
 | rail | help | 9 of 9 cell types | 5 | 3 | 17 | 11 |
-| head line (title) | tooltip | Every gene of the set, across identities | 7 | 7 | 40 | 13 |
-| head line | title | Every gene of the set, across identities | 7 | 7 | 40 | 13 |
-| head line (title) | tooltip | Download set_genes_Adipogenesis | 2 | 2 | 31 | 12 |
-| stage | text | Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is. | 20 | 19 | 101 | 12 |
-| stage (aria-label) | accessible name | Expression of 1 set genes across 9 populations | 8 | 6 | 46 | 13 |
-| stage | figure legend | Sparcl1Sparcl1 | 1 | 2 | 14 | 10.5 |
-| stage | figure legend | TAPTAP | 1 | 1 | 6 | 11 |
-| stage | figure legend | NeuroblastNeuroblast | 1 | 1 | 20 | 11 |
-| stage | figure legend | AstrocyteAstrocyte | 1 | 1 | 18 | 11 |
-| stage | figure legend | OligodendrocyteOligodendrocyte | 1 | 1 | 30 | 11 |
-| stage | figure legend | MicrogliaMicroglia | 1 | 1 | 18 | 11 |
-| stage | figure legend | EndothelialEndothelial | 1 | 1 | 22 | 11 |
-| stage | figure legend | PericytePericyte | 1 | 1 | 16 | 11 |
-| stage | figure legend | qNSCqNSC | 1 | 1 | 8 | 11 |
-| stage | figure legend | aNSCaNSC | 1 | 1 | 8 | 11 |
+| head line (title) | tooltip | Every gene of the set, across cell types | 8 | 8 | 40 | 13 |
+| head line | title | Every gene of the set, across cell types | 8 | 8 | 40 | 13 |
+| head line (title) | tooltip | Save set_genes_Adipogenesis | 2 | 2 | 27 | 12 |
+| stage | text | Z-scored down each gene's own row, so a row says where that gene is highest, not how abundant it is. | 20 | 18 | 100 | 12 |
+| stage (aria-label) | accessible name | Expression of 1 set genes across 9 cell types | 9 | 6 | 45 | 13 |
+| stage | figure legend | Sparcl1 | 1 | 1 | 7 | 10.5 |
 | stage | figure legend | z-score, down each gene | 4 | 4 | 23 | 11.5 |
-| stage (svg title) | tooltip | Sparcl1 in TAP — z -1.18 · 4,511 cells | 7 | 4 | 38 |  |
+| stage (svg title) | tooltip | Sparcl1 in TAP: z -1.18 · 4,511 cells | 7 | 4 | 37 |  |
 | stage (svg title) | tooltip | Sparcl1 | 1 | 1 | 7 |  |
-| head line | title | Which signature does each population express? | 6 | 6 | 45 | 13 |
+| head line | title | Which gene set does each cell type express? | 8 | 8 | 43 | 13 |
 | head line | status | 0 chosen | 2 | 1 | 8 | 12 |
 | stage (placeholder) | placeholder | search 10,434 sets to add… | 5 | 4 | 26 | 13 |
 | stage (aria-label) | accessible name | Search sets to score together | 5 | 5 | 29 | 13 |
 | stage (aria-label) | accessible name | Sets to score together | 4 | 4 | 22 | 13 |
-| stage (aria-label) | accessible name | The signatures' scores | 3 | 3 | 22 | 13 |
-| stage | empty state | Choose at least two sets in the list. One AddModuleScore per set, computed in a single pass over the matrix. Every set keeps its own control genes, so the numbers are the ones scoring them one at a time would give. One at a time is One set, which also draws it on the embedding. | 55 | 55 **over** | 278 | 13 |
-| rail (title) | tooltip | z-score each signature across the columns shown, so a small signature and a large one can be compared | 18 | 18 **over** | 101 | 13 |
-| rail | option | Scale each signature | 3 | 3 | 20 | 13 |
-| rail | chip | ▸ Columns in this figure | 4 | 4 **over** | 24 | 12 |
-| head line (title) | tooltip | Download module_scores | 2 | 2 | 22 | 12 |
+| stage (aria-label) | accessible name | The gene sets' scores | 4 | 4 | 21 | 13 |
+| stage | empty state | Choose at least two sets in the list. One AddModuleScore per set, each with its own control genes: the numbers are the ones scoring them one at a time would give. | 31 | 29 | 162 | 13 |
+| rail (title) | tooltip | z-score each set across the columns shown, so a small set and a large one compare | 16 | 14 | 81 | 13 |
+| rail | option | Scale each set | 3 | 3 | 14 | 13 |
+| head line (title) | tooltip | Save module_scores | 2 | 2 | 18 | 12 |
 | stage | button | Clear | 1 | 1 | 5 | 12 |
-| stage | text | One AddModuleScore per set, computed in a single pass over the matrix. Every set keeps its own control genes, so the numbers are the ones scoring them one at a time would give. | 33 | 33 | 176 | 12 |
-| stage (aria-label) | accessible name | Mean module score of 4 signatures across 9 populations | 9 | 7 | 54 | 13 |
-| stage | figure legend | AdipogenesisAdipogenesis | 1 | 1 | 24 | 10.5 |
-| stage | figure legend | Allograft rejectionAllograft rejection | 3 | 1 | 38 | 10.5 |
-| stage | figure legend | Androgen responseAndrogen response | 3 | 2 | 34 | 10.5 |
-| stage | figure legend | AngiogenesisAngiogenesis | 1 | 1 | 24 | 10.5 |
+| stage | text | One AddModuleScore per set, each with its own control genes: the numbers are the ones scoring them one at a time would give. | 23 | 21 | 124 | 12 |
+| stage (aria-label) | accessible name | Mean module score: 4 gene sets across 9 cell types | 10 | 8 | 50 | 13 |
+| stage | figure legend | Androgen response | 2 | 1 | 17 | 10.5 |
 | stage | figure legend | mean module score | 3 | 3 | 17 | 11.5 |
-| stage | text | Colour is the mean score of that signature in that population. Zero is the reference: no higher than genes of comparable abundance. | 22 | 22 | 131 | 12 |
-| stage (svg title) | tooltip | Adipogenesis in qNSC — 0.183 · 6,065 cells | 6 | 2 | 42 |  |
-| stage (svg title) | tooltip | Allograft rejection in qNSC — -0.500 · 6,065 cells | 7 | 2 | 50 |  |
-| stage (svg title) | tooltip | Androgen response in qNSC — 0.105 · 6,065 cells | 7 | 3 | 47 |  |
-| menu (aria-label) | accessible name | Download module_scores | 2 | 2 | 22 | 13 |
+| stage | text | Colour is the mean score of that set in that cell type. Zero is the reference: no higher than genes of comparable abundance. | 23 | 23 | 124 | 12 |
+| stage (svg title) | tooltip | Adipogenesis in qNSC: 0.183 · 6,065 cells | 6 | 2 | 41 |  |
+| stage (svg title) | tooltip | Allograft rejection in qNSC: -0.500 · 6,065 cells | 7 | 2 | 49 |  |
+| stage (svg title) | tooltip | Androgen response in qNSC: 0.105 · 6,065 cells | 7 | 3 | 46 |  |
+| menu (aria-label) | accessible name | Save module_scores | 2 | 2 | 18 | 13 |
 | rail | help | 2 of 2 groups | 4 | 2 | 13 | 11 |
 | rail | help | 9 of 9 cell types · 2 of 2 groups | 9 | 5 | 33 | 11 |
-| stage (svg title) | tooltip | Adipogenesis in qNSC · Quiescent — 0.217 · 3,573 cells | 7 | 2 | 54 |  |
-| stage (svg title) | tooltip | Allograft rejection in qNSC · Quiescent — -0.629 · 3,573 cells | 8 | 2 | 62 |  |
-| stage (svg title) | tooltip | Androgen response in qNSC · Quiescent — 0.066 · 3,573 cells | 8 | 3 | 59 |  |
-| stage | figure legend | z-score, along each signature | 4 | 4 | 29 | 11.5 |
-| stage | text | Colour is z-scored along each signature — where that signature is highest, not how large it is. | 16 | 15 | 95 | 12 |
-| stage (svg title) | tooltip | Adipogenesis in qNSC — z 0.392 · 6,065 cells | 7 | 3 | 44 |  |
-| stage (svg title) | tooltip | Allograft rejection in qNSC — z -0.734 · 6,065 cells | 8 | 3 | 52 |  |
-| stage (svg title) | tooltip | Androgen response in qNSC — z 0.336 · 6,065 cells | 8 | 4 | 49 |  |
-| rail | chip | ▾ Columns in this figure | 4 | 4 **over** | 24 | 12 |
+| stage (svg title) | tooltip | Adipogenesis in qNSC · Quiescent: 0.217 · 3,573 cells | 7 | 2 | 53 |  |
+| stage (svg title) | tooltip | Allograft rejection in qNSC · Quiescent: -0.629 · 3,573 cells | 8 | 2 | 61 |  |
+| stage (svg title) | tooltip | Androgen response in qNSC · Quiescent: 0.066 · 3,573 cells | 8 | 3 | 58 |  |
+| stage | figure legend | z-score, along each set | 4 | 4 | 23 | 11.5 |
+| stage | text | Colour is z-scored along each set: where that set is highest, not how large it is. | 16 | 15 | 82 | 12 |
+| stage (svg title) | tooltip | Adipogenesis in qNSC: z 0.392 · 6,065 cells | 7 | 3 | 43 |  |
+| stage (svg title) | tooltip | Allograft rejection in qNSC: z -0.734 · 6,065 cells | 8 | 3 | 51 |  |
+| stage (svg title) | tooltip | Androgen response in qNSC: z 0.336 · 6,065 cells | 8 | 4 | 48 |  |
+| rail | chip | ▾ Columns shown | 2 | 2 | 15 | 12 |
 | rail | help | Cell types | 2 | 2 | 10 | 12 |
 
 ### Co-expression
 
-155 strings, 780 words (759 the app's own).
+155 strings, 582 words (540 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -1041,49 +1178,49 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail | label | Seed | 1 | 1 | 4 | 12 |
 | rail | segment | One gene | 2 | 2 | 8 | 12 |
 | rail | segment | A gene set | 3 | 3 | 10 | 12 |
-| rail (placeholder) | placeholder | search a gene… | 3 | 3 | 14 | 12 |
+| rail (placeholder) | placeholder | search a gene… | 3 | 2 | 14 | 12 |
 | rail (aria-label) | accessible name | Seed gene | 2 | 2 | 9 | 12 |
 | rail (aria-label) | accessible name | Correlate over | 2 | 2 | 14 | 13 |
 | rail | label | Correlate over | 2 | 2 | 14 | 12 |
-| rail (title) | tooltip | Neighbouring cells averaged into equal-sized pools — the default, because it is what makes r mean what it looks like it means | 21 | 21 **over** | 125 | 13 |
+| rail (title) | tooltip | Neighbouring cells averaged into equal-sized pools: the default | 8 | 7 | 63 | 13 |
 | rail | option | Metacells | 1 | 1 | 9 | 13 |
-| rail (title) | tooltip | Every cell its own observation. Dominated by shared zeros on a sparse matrix | 13 | 13 | 76 | 13 |
+| rail (title) | tooltip | Every cell its own observation. Dominated by shared zeros on a sparse matrix | 13 | 12 | 76 | 13 |
 | rail | option | Per cell | 2 | 2 | 8 | 13 |
-| rail (title) | tooltip | One column per populated cell type × level, averaged from the cells — needs no counts table, so it works on any object | 21 | 21 **over** | 118 | 13 |
-| rail (title) | tooltip | This object carries no pseudobulk table: either it was exported without raw counts, or it is a collection too large to hold one. Cell type × group answers the same question from the cells themselves | 34 | 34 **over** | 198 | 13 |
+| rail (title) | tooltip | One column per cell type × level, averaged from the cells: works on any object | 14 | 13 | 78 | 13 |
+| rail (title) | tooltip | This object has no pseudobulk table. Cell type × group answers the same question from the cells | 16 | 15 | 95 | 13 |
 | rail | option | Pseudobulk | 1 | 1 | 10 | 13 |
 | rail | help | Pools | 1 | 1 | 5 | 12 |
-| rail (title) | tooltip | A metacell may not span these — hdWGCNA's group.by | 8 | 7 | 50 | 12 |
+| rail (title) | tooltip | A metacell may not span these: hdWGCNA's group.by | 8 | 7 | 49 | 12 |
 | rail | label | never spanning | 2 | 2 | 14 | 12 |
 | rail | picker | type × sample | 2 | 1 | 13 | 13 |
 | rail (aria-label) | accessible name | Rank by | 2 | 2 | 7 | 13 |
-| rail (title) | tooltip | Linear co-variation — what WGCNA and hdWGCNA use | 7 | 7 | 48 | 12 |
+| rail (title) | tooltip | Linear co-variation, as WGCNA and hdWGCNA use | 7 | 7 | 45 | 12 |
 | rail | segment | Pearson | 1 | 1 | 7 | 12 |
-| rail (title) | tooltip | Pearson on the ranks — monotone rather than linear, so one extreme pool cannot carry the correlation on its own | 19 | 19 **over** | 111 | 12 |
+| rail (title) | tooltip | Pearson on the ranks: monotone, so one extreme pool cannot carry the correlation | 13 | 13 | 80 | 12 |
 | rail | segment | Spearman | 1 | 1 | 8 | 12 |
 | rail (aria-label) | accessible name | Scope | 1 | 1 | 5 | 13 |
 | rail | label | Scope | 1 | 1 | 5 | 12 |
 | rail (title) | tooltip | Every cell type | 3 | 3 | 15 | 13 |
 | rail | picker | Every cell type | 3 | 3 | 15 | 13 |
-| rail | help | Group | 1 | 1 | 5 | 12 |
+| rail | help | Group | 1 | 0 | 5 | 12 |
 | rail (title) | tooltip | Every group | 2 | 2 | 11 | 13 |
 | rail | picker | Every group | 2 | 2 | 11 | 13 |
 | rail (aria-label) | accessible name | Ranked genes | 2 | 2 | 12 | 13 |
 | rail | label | Ranked genes | 2 | 2 | 12 | 12 |
-| rail (title) | tooltip | Seurat's min.pct — a gene detected in fewer cells is not ranked | 11 | 10 | 63 | 12 |
+| rail (title) | tooltip | Seurat's min.pct: a gene detected in fewer cells is not ranked | 11 | 8 | 62 | 12 |
 | rail | help | Detected in at least | 4 | 4 | 20 | 12 |
-| rail (title) | tooltip | 38 of the 34,367 cells in scope sit in a group too small to pool, so they are not in the correlation | 22 | 19 **over** | 100 | 11 |
-| rail | help | of the 34,329 cells that pool | 6 | 5 | 29 | 11 |
+| rail (title) | tooltip | 38 of the 34,367 cells in scope are in groups too small to pool and are left out | 18 | 15 | 80 | 11 |
+| rail | help | of the 34,329 cells that pool | 6 | 4 | 29 | 11 |
 | rail | help | Rows each way | 3 | 3 | 13 | 12 |
 | head line | title | Co-expression | 1 | 1 | 13 | 13 |
-| head line | status | Genes that move with a gene, or with a signature | 10 | 10 | 48 | 12 |
-| stage | empty state | Search a gene in the controls on the left to correlate against. Pearson r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. | 42 | 42 **over** | 220 | 13 |
-| menu (aria-label) | accessible name | Group groups | 2 | 2 | 12 | 13 |
+| head line | status | Genes that move with a gene, or with a gene set | 11 | 9 | 47 | 12 |
+| stage | empty state | Search a gene on the left to correlate against. Pearson r against every gene the object measures, ranked by r. No p-value: Methods says why. | 25 | 24 | 140 | 13 |
+| menu (aria-label) | accessible name | Group groups | 2 | 1 | 12 | 13 |
 | head line | title | Gfap against every gene | 4 | 3 | 23 | 13 |
 | head line | status | Pearson r · 258 metacells | 4 | 3 | 25 | 12 |
-| head line (title) | tooltip | Download coexpression | 2 | 2 | 21 | 12 |
+| head line (title) | tooltip | Save coexpression | 2 | 2 | 17 | 12 |
 | stage (aria-label) | accessible name | Summary and figure | 3 | 3 | 18 | 13 |
-| stage | text | 71 genes ranked by Pearson r over 258 metacells in every cell type, averaged from 34,329 cells, none spanning two cell types or two samples. 38 cells sat in a group too small to build a metacell from and are not in the correlation. | 44 | 39 | 231 | 12 |
+| stage | text | 71 genes ranked by Pearson r over 258 metacells in every cell type, averaged from 34,329 cells, none spanning two cell types or two samples. 38 cells in groups too small to pool are left out. | 36 | 30 | 191 | 12 |
 | stage (aria-label) | accessible name | Top correlated and anti-correlated genes | 5 | 5 | 40 | 13 |
 | stage | figure text | Cdkn1b | 1 | 2 | 6 | 10.5 |
 | stage | figure text | Sparcl1 | 1 | 1 | 7 | 10.5 |
@@ -1092,12 +1229,12 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | figure text | Notch1 | 1 | 1 | 6 | 10.5 |
 | stage | figure text | Nr4a2 | 1 | 2 | 5 | 10.5 |
 | stage | figure text | Pearson r with Gfap | 4 | 3 | 19 | 10.5 |
-| stage | text | No p-value, deliberately. With 258 observations a correlation of almost any size clears any threshold, and cells from one animal are not independent draws — the same reason the studio separates Wilcoxon from pseudobulk. Rank by r, and read the detection rate beside it. Metacells are pooled on the X_umap embedding, which is a 2-D projection — neighbours there are close to, but not the same as, neighbours in expression space. hdWGCNA builds its metacells the same way but in a reduced space with many more components, which a bundle does not carry; the constraint on the left is its group.by, and a metacell holds at least ten cells. | 107 | 103 **over** | 635 | 11 |
+| stage | text | No p-value. With 258 observations almost any r clears a threshold, and cells from one sample are not independent. Metacells are pooled on X_umap, a 2-D projection, at least ten cells each. | 32 | 26 | 188 | 11 |
 | stage | title | Moves with the seed 25 | 5 | 3 | 22 | 12 |
 | stage | table header | r | 1 | 1 | 1 | 12 |
 | stage | table header | Detected | 1 | 1 | 8 | 12 |
 | stage (title) | tooltip | Open Gfap | 2 | 1 | 9 | 12 |
-| stage (title) | tooltip | a member of the seed set | 6 | 5 | 24 | 11 |
+| stage (title) | tooltip | a member of the seed set | 6 | 4 | 24 | 11 |
 | stage (title) | tooltip | Open Aqp4 | 2 | 2 | 9 | 12 |
 | stage | button | Aqp4 | 1 | 1 | 4 | 12 |
 | stage (title) | tooltip | Open Thbs4 | 2 | 2 | 10 | 12 |
@@ -1161,194 +1298,160 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | button | Slc1a3 | 1 | 2 | 6 | 12 |
 | stage (title) | tooltip | Open Mt1 | 2 | 2 | 8 | 12 |
 | stage | button | Mt1 | 1 | 1 | 3 | 12 |
-| stage (svg title) | tooltip | Gfap — r 1.000 | 3 | 1 | 14 |  |
-| stage (svg title) | tooltip | Aqp4 — r 0.996 | 3 | 2 | 14 |  |
-| stage (svg title) | tooltip | Thbs4 — r 0.994 | 3 | 2 | 15 |  |
-| stage (svg title) | tooltip | Id3 — r 0.990 | 3 | 2 | 13 |  |
-| stage (svg title) | tooltip | S100b — r 0.266 | 3 | 3 | 15 |  |
-| stage (svg title) | tooltip | Cdkn1b — r 0.253 | 3 | 3 | 16 |  |
-| stage (svg title) | tooltip | Sparcl1 — r 0.250 | 3 | 2 | 17 |  |
-| stage (svg title) | tooltip | Cdkn1a — r 0.232 | 3 | 3 | 16 |  |
-| stage (svg title) | tooltip | Hes5 — r 0.231 | 3 | 2 | 14 |  |
-| stage (svg title) | tooltip | Notch1 — r 0.205 | 3 | 2 | 16 |  |
-| stage (svg title) | tooltip | Nr4a2 — r 0.198 | 3 | 3 | 15 |  |
-| stage (svg title) | tooltip | Nrxn3 — r -0.213 | 3 | 2 | 16 |  |
-| stage (svg title) | tooltip | Tubb3 — r -0.213 | 3 | 2 | 16 |  |
-| stage (svg title) | tooltip | Ccnd1 — r -0.222 | 3 | 2 | 16 |  |
-| stage (svg title) | tooltip | Egr1 — r -0.239 | 3 | 2 | 15 |  |
-| stage (svg title) | tooltip | Sox11 — r -0.241 | 3 | 2 | 16 |  |
-| stage (svg title) | tooltip | Cdk1 — r -0.248 | 3 | 2 | 15 |  |
-| stage (svg title) | tooltip | Mcm5 — r -0.287 | 3 | 2 | 15 |  |
-| menu (aria-label) | accessible name | Download coexpression | 2 | 2 | 21 | 13 |
-| rail (title) | tooltip | paste a signature — up to 500 genes | 7 | 6 | 35 | 12 |
-| rail (placeholder) | placeholder | paste a signature — up to 500 genes | 7 | 6 | 35 | 12 |
+| stage (svg title) | tooltip | Gfap: r 1.000 | 3 | 1 | 13 |  |
+| stage (svg title) | tooltip | Aqp4: r 0.996 | 3 | 2 | 13 |  |
+| stage (svg title) | tooltip | Thbs4: r 0.994 | 3 | 2 | 14 |  |
+| stage (svg title) | tooltip | Id3: r 0.990 | 3 | 2 | 12 |  |
+| stage (svg title) | tooltip | S100b: r 0.266 | 3 | 3 | 14 |  |
+| stage (svg title) | tooltip | Cdkn1b: r 0.253 | 3 | 3 | 15 |  |
+| stage (svg title) | tooltip | Sparcl1: r 0.250 | 3 | 2 | 16 |  |
+| stage (svg title) | tooltip | Cdkn1a: r 0.232 | 3 | 3 | 15 |  |
+| stage (svg title) | tooltip | Hes5: r 0.231 | 3 | 2 | 13 |  |
+| stage (svg title) | tooltip | Notch1: r 0.205 | 3 | 2 | 15 |  |
+| stage (svg title) | tooltip | Nr4a2: r 0.198 | 3 | 3 | 14 |  |
+| stage (svg title) | tooltip | Nrxn3: r -0.213 | 3 | 2 | 15 |  |
+| stage (svg title) | tooltip | Tubb3: r -0.213 | 3 | 2 | 15 |  |
+| stage (svg title) | tooltip | Ccnd1: r -0.222 | 3 | 2 | 15 |  |
+| stage (svg title) | tooltip | Egr1: r -0.239 | 3 | 2 | 14 |  |
+| stage (svg title) | tooltip | Sox11: r -0.241 | 3 | 2 | 15 |  |
+| stage (svg title) | tooltip | Cdk1: r -0.248 | 3 | 2 | 14 |  |
+| stage (svg title) | tooltip | Mcm5: r -0.287 | 3 | 2 | 14 |  |
+| menu (aria-label) | accessible name | Save coexpression | 2 | 2 | 17 | 13 |
+| rail (title) | tooltip | paste genes, up to 500 | 5 | 4 | 22 | 12 |
+| rail (placeholder) | placeholder | paste genes, up to 500 | 5 | 4 | 22 | 12 |
 | rail (aria-label) | accessible name | Seed gene set | 3 | 3 | 13 | 12 |
 | rail | button | Use these genes | 3 | 3 | 15 | 13 |
-| stage | empty state | Paste a signature in the controls on the left, or send one over from Gene sets. Pearson r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. | 46 | 46 **over** | 236 | 13 |
-| rail (title) | tooltip | Not offered per cell: most values are exactly zero, so the ranks are one huge tie block and r would describe the dropout pattern | 24 | 24 **over** | 128 | 12 |
-| rail | help | of the 34,367 cells in scope | 6 | 5 | 28 | 11 |
+| stage | empty state | Paste genes on the left, or send a set from Gene sets. Pearson r against every gene the object measures, ranked by r. No p-value: Methods says why. | 28 | 27 | 147 | 13 |
+| rail (title) | tooltip | Not offered per cell: most values are zero, so the ranks are one tie block | 15 | 14 | 74 | 12 |
+| rail | help | of the 34,367 cells in scope | 6 | 4 | 28 | 11 |
 | rail (title) | tooltip | One column per cell type × group | 6 | 6 | 32 | 12 |
 | rail | segment | by group | 2 | 2 | 8 | 12 |
-| rail (title) | tooltip | One column per cell type × sample — more columns, and the closest this gets to replicates | 15 | 14 | 89 | 12 |
+| rail (title) | tooltip | One column per cell type × sample: the closest this gets to replicates | 12 | 11 | 70 | 12 |
 | rail | segment | by sample | 2 | 1 | 9 | 12 |
-| stage | empty state | Search a gene in the controls on the left to correlate against. Spearman r against every gene the object measures, over the axis chosen on the left. Ranked by r — see the note under the figure for why there is no p-value. | 42 | 42 **over** | 221 | 13 |
+| stage | empty state | Search a gene on the left to correlate against. Spearman r against every gene the object measures, ranked by r. No p-value: Methods says why. | 25 | 24 | 141 | 13 |
 
 ### Methods
 
-22 strings, 1,209 words (1,153 the app's own).
+22 strings, 1,104 words (1,001 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
 | stage | methods | Methods | 1 | 1 | 7 | 12 |
-| stage | title | Single-cell RNA sequencing analysis | 4 | 4 | 35 | 15 |
+| stage | title | Single-cell RNA sequencing analysis | 4 | 3 | 35 | 15 |
 | stage | methods | Read from the object, and following the test now selected. | 10 | 10 | 58 | 12 |
-| stage | methods | This object was processed elsewhere and read from a bundle exported from SVZ_NSC_reactivation_harmony_leiden.h5ad · 1.4 GB · AnnData 0.10.8 — a built-in demo object, not a file you opened. Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 9 populations are the object’s own labels, taken from its leiden, resolution 1.0 annotation1. Inter-sample variation was corrected with harmony2, as recorded in the object. Cells are drawn on the embedding the object carries — X_umap3 — computed before export and never recomputed here. Everything between the counts and those labels is unknown to this app: how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not carried in the file, and are not guessed at here. The populations are reported as qNSC, aNSC, TAP, Neuroblast, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte. | 144 | 132 | 962 | 13 |
-| stage | methods | Differential expression between Reactivated and Quiescent within qNSC was tested with a Wilcoxon rank-sum test across cells4, restricted to genes with an absolute log₂ fold change of at least 0 detected in at least 10% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below 0.05 and an absolute log₂ fold change of at least 0.25 were considered differentially expressed. Because cells from the same animal are not independent observations, these p-values describe variation between cells rather than between animals5. Exploration, figures and statistics were produced in scRNA-seq Studio6, which runs these tests in the browser. | 106 | 98 | 696 | 13 |
+| stage | methods | This object was processed elsewhere and read from a bundle exported from SVZ_NSC_reactivation_harmony_leiden.h5ad · 1.4 GB · AnnData 0.10.8: a built-in demo object, not a file you opened. Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 9 cell types are the object’s own labels, taken from its leiden, resolution 1.0 annotation1. Inter-sample variation was corrected with harmony2, as recorded in the object. Cells are drawn on the embedding the object carries (X_umap3), computed before export and never recomputed here. Everything between the counts and those labels is unknown to this app: how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not carried in the file, and are not guessed at here. The cell types are reported as qNSC, aNSC, TAP, Neuroblast, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte. | 146 | 128 | 958 | 13 |
+| stage | methods | Differential expression between Reactivated and Quiescent within qNSC was tested with a Wilcoxon rank-sum test across cells4, restricted to genes with an absolute log₂ fold change of at least 0 detected in at least 10% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below 0.05 and an absolute log₂ fold change of at least 0.25 were considered differentially expressed. Because cells from the same sample are not independent observations, these p-values describe variation between cells rather than between samples5. Exploration, figures and statistics were produced in scRNA-seq Studio6, which runs these tests in the browser. | 106 | 94 | 696 | 13 |
 | stage | methods | References | 1 | 1 | 10 | 12 |
 | stage | methods | Traag VA, Waltman L, van Eck NJ. From Louvain to Leiden: guaranteeing well-connected communities. Sci Rep 9, 5233 (2019). | 19 | 16 | 121 | 12 |
 | stage | methods | Korsunsky I, et al. Fast, sensitive and accurate integration of single-cell data with Harmony. Nat Methods 16, 1289–1296 (2019). | 19 | 16 | 128 | 12 |
 | stage | methods | McInnes L, Healy J, Melville J. UMAP: Uniform Manifold Approximation and Projection. arXiv 1802.03426 (2018). | 15 | 13 | 109 | 12 |
 | stage | methods | Hao Y, et al. Integrated analysis of multimodal single-cell data. Cell 184, 3573–3587 (2021). | 14 | 11 | 93 | 12 |
 | stage | methods | Heumos L, Schaar AC, … Theis FJ. Best practices for single-cell analysis across modalities. Nat Rev Genet 24, 550–572 (2023). | 19 | 16 | 125 | 12 |
-| stage | methods | scRNA-seq Studio. Browser-based exploration and differential expression for single-cell objects (2026). https://jiaenlin.github.io/scrnaseq-studio/ | 12 | 11 | 147 | 12 |
+| stage | methods | scRNA-seq Studio. Browser-based exploration and differential expression for single-cell objects (2026). https://jiaenlin.github.io/scrnaseq-studio/ | 12 | 9 | 147 | 12 |
 | stage | methods | How to read these numbers | 5 | 5 | 25 | 12 |
-| stage | methods | Significance is read as −log₁₀ padj. A per-cell test over tens of thousands of genes reaches p-values below the smallest double, so p and p adjusted print as < 10⁻³⁰⁸ once they underflow — a bound, not a reading. −log₁₀ padj is formed in log space, does not underflow, and still separates rows that share that bound. The volcano’s y axis is this column. Combined is −log₁₀(padj) × log₂FC, a signed ranking metric. | 70 | 63 | 413 | 13 |
-| stage | methods | Cluster markers rank; they do not test. Each cluster is compared against every other cell with the same Wilcoxon that Seurat’s FindAllMarkers runs — but the clusters were defined using the expression these p-values then score, so they are not evidence the clusters exist. The effect size and the detection rates are the honest columns. | 54 | 52 | 335 | 13 |
-| stage | methods | Composition is never pooled across samples. Cells from one animal are not independent observations, so a bar merging several animals is refused rather than drawn. Each cell type gets its own y axis; a shared one flattens every population except the largest. | 42 | 41 | 257 | 13 |
-| stage | methods | Scaling a dot plot changes its claim. Seurat’s scale = TRUE z-scores each gene down its own column, so colour shows where a gene is highest, not how abundant it is — a gene expressed evenly everywhere comes out uniformly pale. Turn scaling off to compare absolute levels. | 46 | 45 | 271 | 13 |
-| stage | methods | Enrichment tests against the genes this object measured, never the whole genome: testing against genes the assay could not detect inflates every result. The background is narrowed once more, to the measured genes that are in at least one set — the annotated background — because a gene no set contains could never have been drawn into one. A module score subtracts a control set matched on expression level, which is what makes zero meaningful. | 73 | 72 | 444 | 13 |
-| stage | methods | The gene sets are MSigDB 2026.1.Mm, the collections native to Mus musculus. Native, not projected: MSigDB curates a separate mouse database, and mapping the human sets across orthologs instead would give different membership for every set — over the fifty hallmark sets the two agree on a mean Jaccard of 0.57 and not one is identical. Only the collections switched on are tested, and the correction is applied across those. | 69 | 66 | 424 | 13 |
-| stage | methods | Co-expression r is Pearson by default, and carries no p-value on purpose. Pearson is what WGCNA and hdWGCNA use, and it is what the card computes unless Spearman is chosen — which is the same correlation over the RANKS, so one extreme metacell cannot carry an r on its own and a saturating relationship still reads as one. Spearman is offered only where the observations are pooled: on the per-cell axis most values are exactly zero, so the ranks are one enormous tie block and the correlation would be describing the dropout pattern. Which of the two produced a given table is named above it and in its CSV heading. Correlation is taken across observations, and with tens of thousands of cells almost any r clears any threshold — while cells from one animal are not independent draws, the same reason this studio separates the per-cell test from pseudobulk. So the table ranks by r and shows the detection rate beside it. Two further cautions are built into the defaults rather than left to the reader: a gene detected in under 10% of the cells in scope is not ranked at all, because on a matrix this sparse two rarely-detected genes agree wherever they are both absent; and cells are pooled into near-equal metacells before correlating, which is what makes r mean what it appears to mean. The pooling follows hdWGCNA: no metacell spans two cell types or two samples, so a pool cannot be two populations that happen to sit near each other, and none is built from fewer than ten cells. Pooling is on the embedding — a 2-D projection, where hdWGCNA uses a reduced space with many more components — and that approximation is stated on the card. | 287 | 284 **over** | 1642 | 13 |
-| stage | methods | A signature is signed before it is combined. Seeding a correlation with the mean of a set’s members cancels: a pathway holds members that move in opposite directions, and the mean is dominated by whichever are most abundant. So the set is first correlated with itself, each member is standardised and given the sign of the leading eigenvector of that matrix — WGCNA’s module eigengene — and the members are combined only then. Because each member is standardised, the correlation against that composite is the weighted mean of the members’ own independent correlations, so one pass reports what testing every member separately would have said. How much of the set runs one way is reported with the result, since a combined score over a set that is really two programmes is a number to read with care. | 135 | 135 | 800 | 13 |
-| stage | methods | What this text will not say. It names no normalization, variable-gene count, component count or clustering resolution, because a bundle carries none of them; it claims no doublet removal, ambient-RNA correction or batch correction it did not find; it does not call a t-SNE a UMAP, or a one-sample-per-group design replicated. Cutoffs are read from lib/stats.ts, so the prose and the figures cannot disagree. | 64 | 61 | 407 | 13 |
+| stage | methods | Significance is read as −log₁₀ padj. A per-cell test over tens of thousands of genes reaches p-values below the smallest double, so p and padj print as < 10⁻³⁰⁸ once they underflow: a bound, not a reading. −log₁₀ padj is formed in log space, does not underflow, and still separates rows that share that bound. The volcano’s y axis is this column. Combined is −log₁₀(padj) × log₂FC, a signed ranking metric. | 69 | 58 | 406 | 13 |
+| stage | methods | Markers rank; they do not test. Each cell type is compared against every other cell with the same Wilcoxon that Seurat’s FindAllMarkers runs. But the cell types were defined using the expression these p-values then score, so they are not evidence the cell types exist. The effect size and the detection rates are the honest columns. | 56 | 52 | 332 | 13 |
+| stage | methods | Composition is never pooled across samples. Cells from one sample are not independent observations, so a bar merging several samples is refused rather than drawn. Each cell type gets its own y axis; a shared one flattens every cell type except the largest. | 43 | 39 | 256 | 13 |
+| stage | methods | Scaling a dot plot changes its claim. Seurat’s scale = TRUE z-scores each gene down its own column, so colour shows where a gene is highest, not how abundant it is: a gene expressed evenly everywhere comes out uniformly pale. Turn scaling off to compare absolute levels. | 46 | 40 | 270 | 13 |
+| stage | methods | Enrichment tests against the genes this object measured, never the whole genome: testing against genes the assay could not detect inflates every result. The background is narrowed once more, to the measured genes that are in at least one set (the annotated background), because a gene no set contains could never have been drawn into one. A module score subtracts a control set matched on expression level, which is what makes zero meaningful. | 73 | 69 | 443 | 13 |
+| stage | methods | The gene sets are MSigDB 2026.1.Mm, the collections native to Mus musculus. Native, not projected: MSigDB curates a separate mouse database, and mapping the human sets across orthologs instead would give different membership for every set: over the fifty hallmark sets the two agree on a mean Jaccard of 0.57 and not one is identical. Only the collections switched on are tested, and the correction is applied across those. | 69 | 64 | 423 | 13 |
+| stage | methods | Co-expression r is Pearson by default, and carries no p-value on purpose. Pearson is what WGCNA and hdWGCNA use. Spearman is the same correlation over the ranks, so one extreme metacell cannot carry an r; it is offered only where observations are pooled, because per cell most values are zero and the ranks are one tie block. Which of the two produced a table is named above it and in its CSV heading. With tens of thousands of cells almost any r clears any threshold, and cells from one sample are not independent draws, so the table ranks by r and shows the detection rate beside it. A gene detected in under 10% of the cells in scope is not ranked, because two rarely detected genes agree wherever both are absent. Cells are pooled into near-equal metacells before correlating, following hdWGCNA: no metacell spans two cell types or two samples, and none is built from fewer than ten cells. Pooling is on the embedding, a 2-D projection, where hdWGCNA uses a reduced space with many more components. | 177 | 170 | 1002 | 13 |
+| stage | methods | A gene set is signed before it is combined. Seeding a correlation with the mean of a set’s members cancels: a pathway holds members that move in opposite directions, and the mean is dominated by whichever are most abundant. So the set is first correlated with itself, each member is standardised and given the sign of the leading eigenvector of that matrix (WGCNA’s module eigengene), and the members are combined only then. Because each member is standardised, the correlation against that composite is the weighted mean of the members’ own independent correlations, so one pass reports what testing every member separately would have said. How much of the set runs one way is reported with the result, since a combined score over a set that is really two programmes is a number to read with care. | 136 | 130 | 798 | 13 |
+| stage | methods | What this text will not say. It names no normalization, variable-gene count, component count or clustering resolution, because a bundle carries none of them; it claims no doublet removal, ambient-RNA correction or batch correction it did not find; it does not call a t-SNE a UMAP, or a one-sample-per-group design replicated. Cutoffs are read from lib/stats.ts, so the prose and the figures cannot disagree. | 64 | 56 | 407 | 13 |
 
 ### A view that failed to draw
 
-1 strings, 55 words (53 the app's own).
+1 strings, 50 words (47 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
-| stage | error | The Co-expression view could not be drawn Nothing else moved. Adult SVZ neural stem cell reactivation — quiescent vs reactivated, 8 animals is still open, and a pass still running is still running. Deliberate fault in the Co-expression view (?crash=coexpr is in the URL). Nothing is actually wrong with this object. Try again Go to Overview | 55 | 53 **over** | 340 | 13 |
+| stage | error | The Co-expression view could not be drawn Adult SVZ neural stem cell reactivation: quiescent vs reactivated, 8 samples is still open, and a running pass keeps running. Deliberate fault in the Co-expression view (?crash=coexpr is in the URL). Nothing is actually wrong with this object. Try again Go to Overview | 50 | 47 | 310 | 13 |
 
 ### The wild-type demo (what the replicated demo did not show)
 
-20 strings, 277 words (257 the app's own).
+17 strings, 270 words (235 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
-| stage | note | One condition, so there is no comparison to run. Markers and gene search work normally. | 15 | 15 | 87 | 12 |
-| stage | figure text | WTSVZ_WT | 1 | 1 | 8 | 10.5 |
-| stage (svg title) | tooltip | SVZ_WT | 1 | 1 | 6 |  |
-| head line (title) | tooltip | Download cells_X_umap_by_type | 2 | 2 | 29 | 12 |
+| stage | note | One group, so there is no comparison to run. Markers and gene search work normally. | 15 | 15 | 83 | 12 |
+| head line (title) | tooltip | Save cells_X_umap_by_type | 2 | 2 | 25 | 12 |
 | status line | status | Coloured by cell type. | 4 | 4 | 22 | 12 |
 | stage | text | One sample, so this describes it rather than comparing anything. | 10 | 9 | 64 | 12 |
-| stage | figure text | WTWT — 3,730 cells | 3 | 2 | 18 | 11.5 |
-| stage | legend | 1 row · 3,730 cells | 4 | 2 | 19 | 12 |
-| stage (svg title) | tooltip | WT — 3,730 cells | 3 | 2 | 16 |  |
-| stage (svg title) | tooltip | WT | 1 | 1 | 2 |  |
+| stage | legend | 1 row · 3,730 cells | 4 | 1 | 19 | 12 |
+| stage (svg title) | tooltip | WT: 3,730 cells | 3 | 0 | 15 |  |
+| stage (svg title) | tooltip | WT | 1 | 0 | 2 |  |
 | stage | text | Ascl1, Mcm2, Ccnd2, Egfr, Sox2 | 5 | 4 | 30 | 11 |
 | stage | text | Cenpf, Mki67, Ccnb1, Top2a, Ube2c | 5 | 6 | 33 | 11 |
 | stage | text | Pecam1, Cldn5, Rgs5, Flt1, Ly6c1 | 5 | 6 | 32 | 11 |
-| stage | text | Kcnj8, Anpep, Pdgfrb, Vtn, Higd1b | 5 | 4 | 33 | 11 |
+| stage | text | Kcnj8, Anpep, Pdgfrb, Vtn, Higd1b | 5 | 3 | 33 | 11 |
 | rail | help | No genes selected yet. | 4 | 4 | 22 | 12 |
-| stage | empty state | Search for a gene in the controls on the left. | 10 | 10 | 46 | 13 |
-| rail (title) | tooltip | This object has one condition, so there is no contrast to run | 12 | 12 | 61 | 12 |
-| rail | status | 1 condition · 1 sample | 4 | 1 | 22 | 12 |
-| stage | methods | This object was processed elsewhere and read from a bundle exported from SVZ_WT_reference.h5ad · 0.4 GB · AnnData 0.10.8 — a built-in demo object, not a file you opened. Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 9 populations are the object’s own labels, taken from its leiden, resolution 1.0 annotation1. Cells are drawn on the embedding the object carries — X_umap2 — computed before export and never recomputed here. Everything between the counts and those labels is unknown to this app: how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not carried in the file, and are not guessed at here. The populations are reported as qNSC, aNSC, TAP, Neuroblast, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte. | 133 | 121 | 864 | 13 |
-| stage | methods | No between-group differential expression was performed, as the object contains a single condition. Cluster identities were supported by one-vs-rest Wilcoxon rank-sum tests3, reported as a ranking of marker genes rather than as hypothesis tests. Exploration, figures and statistics were produced in scRNA-seq Studio4, which runs these tests in the browser. | 50 | 50 | 355 | 13 |
+| stage | empty state | Search a gene on the left. | 6 | 5 | 26 | 13 |
+| rail (title) | tooltip | This object has one group, so there is no contrast to run | 12 | 12 | 57 | 12 |
+| rail | status | 1 group · 1 sample | 4 | 1 | 18 | 12 |
+| stage | methods | This object was processed elsewhere and read from a bundle exported from SVZ_WT_reference.h5ad · 0.4 GB · AnnData 0.10.8: a built-in demo object, not a file you opened. Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 9 cell types are the object’s own labels, taken from its leiden, resolution 1.0 annotation1. Cells are drawn on the embedding the object carries (X_umap2), computed before export and never recomputed here. Everything between the counts and those labels is unknown to this app: how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not carried in the file, and are not guessed at here. The cell types are reported as qNSC, aNSC, TAP, Neuroblast, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte. | 135 | 117 | 860 | 13 |
+| stage | methods | No between-group differential expression was performed, as the object contains a single group. Cell types were supported by one-vs-rest Wilcoxon rank-sum tests3, reported as a ranking of marker genes rather than as hypothesis tests. Exploration, figures and statistics were produced in scRNA-seq Studio4, which runs these tests in the browser. | 50 | 46 | 343 | 13 |
 
 ### The time-course demo (what the replicated demo did not show)
 
-20 strings, 342 words (313 the app's own).
+17 strings, 335 words (296 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
-| stage | note | 1 sample per group, so Wilcoxon is the only test — the normal case in single-cell. Its p-values describe variation between cells, not between animals. | 24 | 21 | 150 | 12 |
-| stage | figure text | 0hTC_0h | 1 | 2 | 7 | 10.5 |
+| stage | note | 1 sample per group, so Wilcoxon is the only test, the normal case in single-cell. Its p-values describe variation between cells, not between samples. | 24 | 21 | 149 | 12 |
 | stage (svg title) | tooltip | TC_0h | 1 | 2 | 5 |  |
-| rail | picker | Group | 1 | 1 | 5 | 13 |
+| rail | picker | Group | 1 | 0 | 5 | 13 |
 | stage | title | Cell type proportions, one row per group | 7 | 7 | 40 | 15 |
-| stage (title) | tooltip | Download composition_type_by_cond | 2 | 2 | 33 | 12 |
+| stage (title) | tooltip | Save composition_type_by_cond | 2 | 2 | 29 | 12 |
 | stage (aria-label) | accessible name | Cell type proportions, one row per group | 7 | 7 | 40 | 13 |
-| stage | figure text | 0 h0 h — 3,730 cells | 5 | 3 | 20 | 11.5 |
 | stage | text | Its own y axis per panel. One sample per group, so there is no spread to show. | 17 | 16 | 78 | 12 |
-| stage | figure text | 0 h0 h | 3 | 2 | 6 | 10.5 |
 | stage | legend | 0 h | 2 | 1 | 3 | 12 |
-| stage (svg title) | tooltip | 0 h — 3,730 cells | 4 | 2 | 17 |  |
+| stage (svg title) | tooltip | 0 h: 3,730 cells | 4 | 1 | 16 |  |
 | stage (svg title) | tooltip | 0 h | 2 | 1 | 3 |  |
-| stage (svg title) | tooltip | qNSC · 0 h — 24% | 4 | 1 | 16 |  |
-| menu (aria-label) | accessible name | Download composition_type_by_cond | 2 | 2 | 33 | 13 |
+| stage (svg title) | tooltip | qNSC · 0 h: 24% | 4 | 1 | 15 |  |
+| menu (aria-label) | accessible name | Save composition_type_by_cond | 2 | 2 | 29 | 13 |
 | stage | text | Dlx2, Sp8, Dcx, Nrxn3, Tubb3 | 5 | 4 | 28 | 11 |
 | stage | text | Cx3cr1, C1qa, P2ry12, Hexb, Ctss | 5 | 6 | 32 | 11 |
-| stage | text | Anpep, Kcnj8, Vtn, Higd1b, Pdgfrb | 5 | 4 | 33 | 11 |
-| stage | methods | This object was processed elsewhere and read from a bundle exported from SVZ_timecourse_4tp.h5ad · 0.8 GB · AnnData 0.10.8 — a built-in demo object, not a file you opened. Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 9 populations are the object’s own labels, taken from its leiden, resolution 1.0 annotation1. Inter-sample variation was corrected with harmony2, as recorded in the object. Cells are drawn on the embedding the object carries — X_umap3 — computed before export and never recomputed here. Everything between the counts and those labels is unknown to this app: how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not carried in the file, and are not guessed at here. The populations are reported as qNSC, aNSC, TAP, Neuroblast, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte. | 144 | 133 | 945 | 13 |
-| stage | methods | Differential expression between and within was tested with a Wilcoxon rank-sum test across cells4, restricted to genes with an absolute log₂ fold change of at least 0 detected in at least 10% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below 0.05 and an absolute log₂ fold change of at least 0.25 were considered differentially expressed. The design contains one sample per group, so these p-values describe variation between cells rather than between animals5. Exploration, figures and statistics were produced in scRNA-seq Studio6, which runs these tests in the browser. | 101 | 96 | 645 | 13 |
+| stage | text | Anpep, Kcnj8, Vtn, Higd1b, Pdgfrb | 5 | 3 | 33 | 11 |
+| stage | methods | This object was processed elsewhere and read from a bundle exported from SVZ_timecourse_4tp.h5ad · 0.8 GB · AnnData 0.10.8: a built-in demo object, not a file you opened. Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 9 cell types are the object’s own labels, taken from its leiden, resolution 1.0 annotation1. Inter-sample variation was corrected with harmony2, as recorded in the object. Cells are drawn on the embedding the object carries (X_umap3), computed before export and never recomputed here. Everything between the counts and those labels is unknown to this app: how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not carried in the file, and are not guessed at here. The cell types are reported as qNSC, aNSC, TAP, Neuroblast, Astrocyte, Oligodendrocyte, Microglia, Endothelial, Pericyte. | 146 | 129 | 941 | 13 |
+| stage | methods | Differential expression between and within was tested with a Wilcoxon rank-sum test across cells4, restricted to genes with an absolute log₂ fold change of at least 0 detected in at least 10% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below 0.05 and an absolute log₂ fold change of at least 0.25 were considered differentially expressed. The design contains one sample per group, so these p-values describe variation between cells rather than between samples5. Exploration, figures and statistics were produced in scRNA-seq Studio6, which runs these tests in the browser. | 101 | 93 | 645 | 13 |
 
 ### The lab bundle (what the demos did not show)
 
-59 strings, 865 words (805 the app's own).
+31 strings, 594 words (525 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
 | stage | text | Columns | 1 | 1 | 7 | 12 |
-| stage | title | What counts as a cell type, and as a group | 10 | 10 **over** | 42 | 15 |
-| stage | text | Every column you ticked in the lab travels in the bundle, so these can be re-pointed here without converting the file again. | 22 | 22 | 124 | 12 |
+| stage | title | The cell type and group columns | 6 | 6 | 31 | 15 |
+| stage | text | Every column you ticked in the lab is in the bundle, so these can be re-pointed without converting again. | 19 | 19 | 105 | 12 |
 | stage | label | Cell type | 2 | 2 | 9 | 12 |
-| stage | picker | cell type from the file | 5 | 5 **over** | 23 | 13 |
-| stage | label | Group | 1 | 1 | 5 | 12 |
-| stage | picker | factor_a — 2 levels | 3 | 2 | 19 | 13 |
-| stage | text | Changing either clears the contrast, the group order and any renaming — those name cell types and groups that the other column may not have. | 24 | 23 | 140 | 11 |
+| stage | picker | cell type from the file | 5 | 5 | 23 | 13 |
+| stage | label | Group | 1 | 0 | 5 | 12 |
+| stage | picker | factor_a: 2 levels | 3 | 2 | 18 | 13 |
+| stage | text | Changing either clears the contrast, the group order and any renaming. | 11 | 11 | 70 | 11 |
 | stage | text | 1 record from the object's uns, as the lab's converter carried it. Each field is shown under its own name, as recorded; nothing here is inferred. | 26 | 25 | 145 | 12 |
-| stage | text | uns/scintegrate/provenance | 1 | 2 | 26 | 13 |
+| stage | text | uns/scintegrate/provenance | 1 | 1 | 26 | 13 |
 | stage | badge | copied | 1 | 1 | 6 | 11 |
-| stage | text | Where the converter looked: uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance | 32 | 32 | 208 | 11 |
-| stage | text | read in the modern AnnData layout | 6 | 6 | 33 | 12 |
-| stage | text | EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests | 37 | 33 | 223 | 12 |
-| stage | text | X looks like lognorm | 4 | 4 | 20 | 12 |
-| stage | text | layers["counts"] looks like counts | 4 | 4 | 34 | 12 |
-| stage | text | layers["lognorm"] looks like lognorm | 4 | 4 | 36 | 12 |
-| stage | text | raw counts taken from layers["counts"] | 5 | 5 | 38 | 12 |
-| stage | text | expression taken from X, already log-normalized | 6 | 6 | 47 | 12 |
-| stage | text | factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by | 19 | 18 | 101 | 12 |
-| stage | text | factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by | 19 | 18 | 110 | 12 |
-| stage | text | 2 embeddings carried (X_umap, X_umap_none); X_umap opens by default | 9 | 8 | 67 | 12 |
-| stage | text | not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns | 61 | 56 **over** | 347 | 12 |
-| stage | text | the run's own record travels with the bundle, in run: uns/scintegrate/provenance | 11 | 12 | 80 | 12 |
-| stage | text | no total-count column; recomputed from the matrix | 7 | 7 | 49 | 12 |
-| stage | text | no detected-gene column; recomputed from the matrix | 7 | 7 | 51 | 12 |
-| stage | text | no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number | 19 | 19 | 107 | 12 |
-| stage | text | gene names are symbols; var/gene_id carries the accessions and travels with them | 12 | 12 | 80 | 12 |
-| stage | figure text | s1s1 | 1 | 2 | 4 | 10.5 |
+| stage | text | Where the converter looked: uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance | 32 | 31 | 208 | 11 |
 | stage (svg title) | tooltip | s1 | 1 | 1 | 2 |  |
-| rail | label | Embedding | 1 | 1 | 9 | 12 |
-| rail | picker | X_umap | 1 | 1 | 6 | 13 |
-| key pane | text | Grey: 16 cells the annotator did not call (EXCLUDED 10, UNRESOLVED 6). They are drawn where they are, and are not a cell type. | 24 | 19 | 126 | 12 |
-| stage | figure text | s1s1 — 27 cells | 3 | 3 | 15 | 11.5 |
-| stage | legend | 8 rows · 224 cells · 16 cells the annotator did not call (EXCLUDED and UNRESOLVED) are not a cell type and are left out | 23 | 18 | 119 | 12 |
-| stage | figure text | ■ TypeATypeA | 1 | 1 | 12 | 11 |
-| stage | figure text | a1a1 | 1 | 2 | 4 | 10.5 |
-| stage | figure text | ■ TypeBTypeB | 1 | 1 | 12 | 11 |
-| stage | figure text | ■ TypeCTypeC | 1 | 1 | 12 | 11 |
-| stage | figure text | ■ TypeDTypeD | 1 | 1 | 12 | 11 |
+| rail | label | Embedding | 1 | 0 | 9 | 12 |
+| key pane | text | Drawn grey: 16 cells the annotator did not call (EXCLUDED 10, UNRESOLVED 6). Not a cell type. | 17 | 11 | 93 | 13 |
+| stage | legend | 8 rows · 224 cells · 16 cells the annotator did not call (EXCLUDED and UNRESOLVED) are not a cell type and are left out | 23 | 17 | 119 | 12 |
 | stage | legend | a1 | 1 | 1 | 2 | 12 |
-| stage (svg title) | tooltip | s1 — 27 cells | 3 | 2 | 13 |  |
-| stage (svg title) | tooltip | TypeA · a1 — 23% | 3 | 1 | 16 |  |
+| stage (svg title) | tooltip | s1: 27 cells | 3 | 1 | 12 |  |
+| stage (svg title) | tooltip | TypeA · a1: 23% | 3 | 1 | 15 |  |
 | stage (svg title) | tooltip | a1 | 1 | 1 | 2 |  |
 | stage | figure text | Gene021 | 1 | 1 | 7 | 10.5 |
-| stage | figure text | TypeATypeA | 1 | 1 | 10 | 11.5 |
-| stage | figure text | TypeBTypeB | 1 | 1 | 10 | 11.5 |
-| stage | figure text | TypeCTypeC | 1 | 1 | 10 | 11.5 |
-| stage | figure text | TypeDTypeD | 1 | 1 | 10 | 11.5 |
 | stage | legend | n = 224 cells: TypeA 53 · TypeB 51 · TypeC 59 · TypeD 61 | 11 | 2 | 56 | 12 |
 | stage | text | Gene021, Gene044, Gene001, Gene045, Gene010 | 5 | 5 | 43 | 11 |
-| stage | text | Counts are genes at padj < 0.05 and log₂FC ≥ 0.25; click one for the list. 16 cells the annotator did not call (EXCLUDED 10, UNRESOLVED 6) are on neither side of any test. | 32 | 24 | 171 | 11 |
-| stage (svg title) | tooltip | Gene021 in TypeA — 92% of cells, mean 5.69 | 8 | 5 | 42 |  |
+| stage | text | Counts are genes at padj < 0.05 and log₂FC ≥ 0.25; select one for the list. 16 cells the annotator did not call (EXCLUDED 10, UNRESOLVED 6) are on neither side of any test. | 32 | 24 | 172 | 11 |
+| stage (svg title) | tooltip | Gene021 in TypeA: 92% of cells, mean 5.69 | 8 | 5 | 41 |  |
 | rail | button | Run | 1 | 1 | 3 | 13 |
 | rail (placeholder) | placeholder | symbol or accession… | 3 | 3 | 20 | 12 |
-| rail (title) | tooltip | Across the sample × cell type columns of the exporter’s pseudobulk table — summed RAW counts, which Cell type × group is not | 20 | 18 **over** | 124 | 13 |
-| stage | methods | This object was processed elsewhere and read from a bundle exported from family-2x2.h5ad (AnnData, converted in scRNA-seq Lab). Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 4 populations are the object’s own labels, taken from its cell_type annotation. Inter-sample variation was corrected with harmony1, as recorded in the object. Cells are drawn on the embeddings the object carries — X_umap2 and X_umap_none2 — computed before export and never recomputed here. This text reads nothing between the counts and those labels: the object carries the run’s own record — uns/scintegrate/provenance — which Overview shows as recorded, and how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not read out of it here, and are not guessed at. The populations are reported as TypeA, TypeB, TypeC, TypeD. A further 16 cells carry the annotator’s labels for cells it did not call (EXCLUDED 10, UNRESOLVED 6); they are not a cell type, so they are left out of every population, proportion and test below, and kept on the embedding. | 184 | 178 **over** | 1161 | 13 |
-| stage | methods | Differential expression between and within was tested with a Wilcoxon rank-sum test across cells3, restricted to genes with an absolute log₂ fold change of at least 0 detected in at least 10% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below 0.05 and an absolute log₂ fold change of at least 0.25 were considered differentially expressed. Because cells from the same animal are not independent observations, these p-values describe variation between cells rather than between animals4. Exploration, figures and statistics were produced in scRNA-seq Studio5, which runs these tests in the browser. | 103 | 98 | 669 | 13 |
-| stage | methods | What this text will not say. It names no normalization, variable-gene count, component count or clustering resolution, because it reads none of them out of the run’s records; it claims no doublet removal, ambient-RNA correction or batch correction it did not find; it does not call a t-SNE a UMAP, or a one-sample-per-group design replicated. Cutoffs are read from lib/stats.ts, so the prose and the figures cannot disagree. | 68 | 65 | 424 | 13 |
+| rail (title) | tooltip | Across the sample × cell type columns of the exporter’s pseudobulk table: summed raw counts | 14 | 13 | 91 | 13 |
+| stage | methods | This object was processed elsewhere and read from a bundle exported from family-2x2.h5ad (AnnData, converted in scRNA-seq Lab). Expression values are log1p(CP10K); nothing in this app imputes, denoises or rescales them. The 4 cell types are the object’s own labels, taken from its cell_type annotation. Inter-sample variation was corrected with harmony1, as recorded in the object. Cells are drawn on the embeddings the object carries (X_umap2 and X_umap_none2), computed before export and never recomputed here. This text reads nothing between the counts and those labels: the object carries the run’s own record (uns/scintegrate/provenance), which Overview shows as recorded, and how many variable genes were kept, how many components were used, how large the neighbourhood was and at what resolution the graph was cut are not read out of it here, and are not guessed at. The cell types are reported as TypeA, TypeB, TypeC, TypeD. A further 16 cells carry the annotator’s labels for cells it did not call (EXCLUDED 10, UNRESOLVED 6); they are not a cell type, so they are left out of every cell type’s count, every proportion and every test below, and kept on the embedding. | 190 | 179 | 1176 | 13 |
+| stage | methods | Differential expression between and within was tested with a Wilcoxon rank-sum test across cells3, restricted to genes with an absolute log₂ fold change of at least 0 detected in at least 10% of cells in either group, with p-values Bonferroni-adjusted for the number of genes tested. Genes with an adjusted p below 0.05 and an absolute log₂ fold change of at least 0.25 were considered differentially expressed. Because cells from the same sample are not independent observations, these p-values describe variation between cells rather than between samples4. Exploration, figures and statistics were produced in scRNA-seq Studio5, which runs these tests in the browser. | 103 | 94 | 669 | 13 |
+| stage | methods | What this text will not say. It names no normalization, variable-gene count, component count or clustering resolution, because it reads none of them out of the run’s records; it claims no doublet removal, ambient-RNA correction or batch correction it did not find; it does not call a t-SNE a UMAP, or a one-sample-per-group design replicated. Cutoffs are read from lib/stats.ts, so the prose and the figures cannot disagree. | 68 | 61 | 424 | 13 |
 
 ## What a saved figure carries
 
@@ -1360,21 +1463,21 @@ One Save per figure on the walk. The legend ("foot") is what Save writes under t
 | Composition | composition_type_by_sample.svg | SVG | **Cell type proportions, one row per sample** / qNSC (n = 6,065) / aNSC (n = 3,258) / TAP (n = 4,511) / Neuroblast (n = 6,843) / Astrocyte (n = 4,598) / Oligodendrocyte (n = 3,880) / Microglia (n = 3,193) / Endothelial (n = 1,947) / Pericyte (n = 72) / n is cells. 8 rows, 34,367 cells. The axis is the share of each row's cells. | 50 (30) |
 | Composition | proportion_by_group_sheet.svg | SVG | **Proportion of each sample’s cells, per cell type and group** / Quiescent (n = 4) / Reactivated (n = 4) / one sample / range of the samples / Bar: the mean of the group’s samples. n is samples per group. Each panel has its own y axis. | 41 (37) |
 | Markers | cluster_markers.svg | SVG | **Top 5 marker genes per cell type, each cell type against the rest** / n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · Pericyte 72 / A heavier ring marks one of that cell type’s own top genes. | 46 (35) |
-| Differential expression / Volcano | volcano_Reactivated_vs_Quiescent_qNSC.svg | SVG | *(none: the drawing holds its key and n)* | 0 (0) |
+| Differential expression / Volcano | volcano_Reactivated_vs_Quiescent_qNSC.svg | SVG | **Reactivated vs Quiescent in qNSC** / Wilcoxon rank-sum test across cells. / Dashed lines: padj < 0.05 and \|log₂FC\| ≥ 0.25. Larger points are past both. | 22 (20) |
 | Differential expression / Enrichment | enrichment_Reactivated_vs_Quiescent_qNSC.svg | SVG | **Enrichment · Reactivated vs Quiescent · qNSC** / n = 12 genes of the list that the collection holds; a bar's label is how many of them are in that set. | 27 (26) |
-| Gene expression / Violin panel | violins_sheet.svg | SVG | n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · Pericyte 72 / Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean, which is what the dot plot colours. Each dot is one cell, up to 300 per group. Bar under the axis: / fraction of cells detecting the gene. | 60 (49) |
-| Gene expression / Violin panel | Id3_violin.svg | SVG | n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · / Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · Pericyte 72 / Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean, / which is what the dot plot colours. Each dot is one cell, up to 300 per group. Bar under the / axis: fraction of cells detecting the gene. | 60 (49) |
-| Gene expression / Dot plot | dotplot.svg | SVG | n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte / 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · Pericyte 72 | 21 (11) |
+| Gene expression / Violin panel | violins_sheet.svg | SVG | n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · Pericyte 72 / Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean. Each dot is one cell, up to 300 per group. Bar under the axis: fraction of cells detecting the gene. | 53 (42) |
+| Gene expression / Violin panel | Id3_violin.svg | SVG | n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · / Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · Pericyte 72 / Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean. / Each dot is one cell, up to 300 per group. Bar under the axis: fraction of cells detecting / the gene. | 53 (42) |
+| Gene expression / Dot plot | dotplot.svg | SVG | **Expression of 7 genes by cell type** / n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · / Astrocyte 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 · Endothelial 1,947 · / Pericyte 72 / Dot size: fraction of cells detecting the gene. Colour: mean expression, z-scored per / gene. | 42 (31) |
 | Gene expression / Feature plot | feature_plots_300dpi.png | PNG | Expression · log1p(CP10K) / Expression · log1p(CP10K) / Expression · log1p(CP10K) / Expression · log1p(CP10K) / Expression · log1p(CP10K) / Expression · log1p(CP10K) / Expression · log1p(CP10K) / n = 34,367 cells. Embedding X_umap. Each gene on its own scale; cells that do not detect it are grey. | 33 (46) |
-| Gene expression / Feature plot | Id3_feature_300dpi.png | PNG | Expression · log1p(CP10K) / n = 34,367 cells. Embedding X_umap. Each gene on its own scale; cells that do not detect it / are grey. | 21 (22) |
+| Gene expression / Feature plot | Id3_feature_300dpi.png | PNG | Expression · log1p(CP10K) / Id3: n = 34,367 cells. Embedding X_umap. | 8 (9) |
 | Gene sets / one set scored | module_score_Adipogenesis_300dpi.png | PNG | Module score / n = 34,367 cells. Module score per cell. | 9 (8) |
-| Gene sets / one set scored | module_score_by_identity_Adipogenesis.svg | SVG | **Module score per cell · Adipogenesis** / n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 / · Endothelial 1,947 · Pericyte 72 / Violin: the per-cell distribution. Bar: quartiles; tick: median. Dashed line: zero, the reference. | 39 (29) |
-| Gene sets / Several sets | module_scores.svg | SVG | **Mean module score, one row per gene set** / n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 / · Astrocyte 4,598 · Oligodendrocyte 3,880 · Microglia 3,193 · / Endothelial 1,947 · Pericyte 72 | 29 (19) |
+| Gene sets / one set scored | module_score_by_identity_Adipogenesis.svg | SVG | **Module score per cell · Adipogenesis** / n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843 · Astrocyte 4,598 · Oligodendrocyte 3,880 · / Microglia 3,193 · Endothelial 1,947 · Pericyte 72 / Violin: the per-cell distribution. Bar: quartiles; tick: median. Dashed line: zero, the reference. | 39 (29) |
+| Gene sets / Several sets | module_scores.svg | SVG | **Mean module score, one row per gene set** / n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · / Neuroblast 6,843 · Astrocyte 4,598 · Oligodendrocyte 3,880 · / Microglia 3,193 · Endothelial 1,947 · Pericyte 72 | 29 (19) |
 | Co-expression | coexpression.svg | SVG | **Pearson r with Gfap** / n = 258 metacells. The 12 genes most correlated with it and the 12 most / anti-correlated. | 19 (16) |
 | Time course: Cells | cells_X_umap_by_type_split_300dpi.png | PNG | X_umap 2 / X_umap 1 / Cell type | 6 (4) |
 | Time course: Composition | composition_type_by_cond.svg | SVG | **Cell type proportions, one row per group** / qNSC (n = 2,977) / aNSC (n = 1,581) / TAP (n = 2,147) / Neuroblast (n = 3,439) / Astrocyte (n = 2,296) / Oligodendrocyte (n = 1,938) / Microglia (n = 1,595) / Endothelial (n = 972) / Pericyte (n = 36) / n is cells. 4 rows, 16,981 cells. The axis is the share of each row's cells. | 50 (30) |
-| Time course: Composition | proportion_by_group_sheet.svg | SVG | **Proportion of each sample’s cells, per cell type and group** / 0 h (n = 1) / 6 h (n = 1) / 24 h (n = 1) / 72 h (n = 1) / Bar: the mean of the group’s samples. n is samples per group. Each panel has its own y axis. | 45 (33) |
-| Lab bundle: Cells | cells_X_umap_by_type_split_300dpi.png | PNG | X_umap 2 / X_umap 1 / Cell type | 6 (4) |
-| Lab bundle: Composition | composition_type_by_sample.svg | SVG | **Cell type proportions, one row per sample** / TypeA (n = 53) / TypeB (n = 51) / TypeC (n = 59) / TypeD (n = 61) / n is cells. 8 rows, 224 cells. The axis is the share of each row's cells. | 35 (25) |
-| Lab bundle: Composition | proportion_by_group_sheet.svg | SVG | **Proportion of each sample’s cells, per cell type and group** / a1 (n = 4) / a2 (n = 4) / one sample / range of the samples / Bar: the mean of the group’s samples. n is samples per group. Each panel has its own y axis. | 41 (37) |
-| Lab bundle: Markers | cluster_markers.svg | SVG | **Top 5 marker genes per cell type, each cell type against the rest** / n = 224 cells: TypeA 53 · TypeB 51 · TypeC 59 · TypeD 61 / A heavier ring marks one of that cell type’s own top genes. | 36 (30) |
+| Time course: Composition | proportion_by_group_sheet.svg | SVG | **Proportion of each sample’s cells, per cell type and group** / 0 h (n = 1) / 6 h (n = 1) / 24 h (n = 1) / 72 h (n = 1) / Bar: the group’s one sample. n is samples per group. Each panel has its own y axis. | 43 (31) |
+| Lab bundle: Cells | cells_X_umap_by_type_split_300dpi.png | PNG | X_umap 2 / X_umap 1 / Cell type / Not called / EXCLUDED 10 / UNRESOLVED 6 | 12 (8) |
+| Lab bundle: Composition | composition_type_by_sample.svg | SVG | **Cell type proportions, one row per sample** / TypeA (n = 53) / TypeB (n = 51) / TypeC (n = 59) / TypeD (n = 61) / n is cells. 8 rows, 224 cells. The axis is the share of each row's cells. / 16 cells the annotator did not call (EXCLUDED and UNRESOLVED) are not a cell type and are left out. | 54 (43) |
+| Lab bundle: Composition | proportion_by_group_sheet.svg | SVG | **Proportion of each sample’s cells, per cell type and group** / a1 (n = 4) / a2 (n = 4) / one sample / range of the samples / Bar: the mean of the group’s samples. n is samples per group. Each panel has its own y axis. / 16 cells the annotator did not call (EXCLUDED and UNRESOLVED) are not a cell type and are left out. | 60 (55) |
+| Lab bundle: Markers | cluster_markers.svg | SVG | **Top 5 marker genes per cell type, each cell type against the rest** / n = 224 cells: TypeA 53 · TypeB 51 · TypeC 59 · TypeD 61 / A heavier ring marks one of that cell type’s own top genes. / 16 cells the annotator did not call (EXCLUDED 10, UNRESOLVED 6) are on neither side of any test. | 54 (45) |
