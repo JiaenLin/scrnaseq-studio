@@ -859,9 +859,13 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
           own size, so its type does not grow with the window. */}
             <Figure name={`volcano_${contrastLabel(p)}`} className="fitbox" foot={{
         title: `${condLabel(p.cs)} vs ${condLabel(p.ctrl)} in ${tName(p)}`,
+        // The y axis and its dashed line are padj (Bonferroni, `finish` in lib/stats.ts) whichever
+        // correction the cutoff is read off; a larger point is one `isSig` passes on that basis.
         notes: [
-          'Wilcoxon rank-sum test across cells.',
-          `Dashed lines: ${p.sigBasis === 'fdr' ? 'FDR' : 'padj'} < ${p.padjMax} and |log₂FC| ≥ ${p.lfcMin}. Larger points are past both.`,
+          `Wilcoxon rank-sum test across cells. padj: Bonferroni over the ${fmt(p.src.genes.length)} genes the object measures.`,
+          p.sigBasis === 'fdr'
+            ? `Dashed lines: padj = ${p.padjMax} and |log₂FC| = ${p.lfcMin}. Larger points: Benjamini–Hochberg FDR < ${p.padjMax} and |log₂FC| ≥ ${p.lfcMin}.`
+            : `Dashed lines: padj < ${p.padjMax} and |log₂FC| ≥ ${p.lfcMin}. Larger points are past both.`,
         ],
       }}>
         <svg

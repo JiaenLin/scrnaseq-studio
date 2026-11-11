@@ -302,7 +302,10 @@ export default function Enrichment({
               silently swallowed the click. */}
           <Figure
             name={`enrichment_${label}`}
-            foot={{ title: `Enrichment · ${label}`, notes: [`n = ${nInBg.toLocaleString('en-US')} genes of the list that the collection holds; a bar's label is how many of them are in that set.`] }}
+            foot={{ title: `Enrichment · ${label}`, notes: [
+              `Hypergeometric test of the list against the annotated genes measured. padj: Benjamini–Hochberg across the ${results.length.toLocaleString('en-US')} sets that overlap the list.`,
+              `n = ${nInBg.toLocaleString('en-US')} genes of the list that the collection holds; a bar's label is how many of them are in that set.`,
+            ] }}
             right={<CsvButton onClick={saveCsv} />}
           >
             <Bars results={shown} onPick={setTermId} selected={termId}

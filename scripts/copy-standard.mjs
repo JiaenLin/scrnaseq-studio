@@ -100,10 +100,6 @@ export const RETIRED = [
   { re: / — /, use: 'a colon, a comma or a full stop', why: 'a dash joins two sentences that each need writing; in a figure legend it is also read as a minus' },
 ]
 
-/** Gene and gene-set names keep their source's capitals: these may not be re-cased. */
-export const ACRONYMS = ['DNA', 'RNA', 'E2F', 'MYC', 'G2M', 'KRAS', 'TNFA', 'NFKB', 'MTORC1', 'IL2', 'IL6', 'JAK', 'STAT3', 'STAT5',
-  'UV', 'TGF', 'PI3K', 'AKT', 'MTOR', 'P53', 'WNT', 'ATP', 'GTP', 'NADH', 'ER', 'ROS', 'MHC', 'TCA', 'UTR', 'tRNA', 'mRNA', 'rRNA']
-
 /** A string's shape: its numbers and the object's own names set aside, so one sentence is counted once. */
 export const shapeOf = (s, names) => {
   // Names first: "Ascl1" is a gene, not "Ascl" and a number.

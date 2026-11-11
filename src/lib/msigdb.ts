@@ -82,23 +82,37 @@ export interface Manifest {
  * The library's names arrive lower-cased with one capital ("Dna repair",
  * "E2f targets", "Tnfa signaling via nfkb"): MSigDB's systematic names are
  * all capitals, so making them readable also flattened every acronym and gene
- * symbol in them. A token that holds a digit, a Roman numeral and the
- * acronyms below are written as the source has them; every other word is
- * left as it is. A reader's own pasted names are never touched.
+ * symbol in them. Three rules put capitals back, and nothing else is changed:
+ * a token that holds a digit and a letter is the source's capitals (E2F, G2M);
+ * an acronym or a Roman numeral in the list below is written as listed; and a
+ * single letter is a capital (MHC class I, T cell, vitamin D), because one
+ * letter is a name, except "a" where it is the article (first, or after a
+ * preposition: "on a sulfur group"). Every other word is left as it is. A
+ * reader's own pasted names are never touched. This is the one list:
+ * docs/DESIGN.md, "Names", describes it and the copy check reads it.
  */
-const ACRONYM = new Map<string, string>([
+export const ACRONYM = new Map<string, string>([
   'DNA', 'RNA', 'ATP', 'ADP', 'AMP', 'GTP', 'GDP', 'NAD', 'NADH', 'NADP', 'NADPH', 'FAD', 'ER', 'ROS', 'MHC', 'TCA',
   'UV', 'ECM', 'MAPK', 'ERK', 'JNK', 'NFKB', 'TNF', 'TNFA', 'TGF', 'TGFB', 'EGF', 'EGFR', 'FGF', 'VEGF', 'PDGF', 'IGF',
   'BMP', 'WNT', 'MYC', 'KRAS', 'RAS', 'AKT', 'MTOR', 'JAK', 'STAT', 'IFN', 'NK', 'HIV', 'UTR', 'GPCR', 'UPR', 'ERAD',
   'AMPK', 'PKA', 'PKC', 'PPAR', 'HDL', 'LDL', 'TLR', 'BCR', 'TCR', 'GABA', 'NMDA', 'AMPA', 'SNARE', 'ESCRT', 'SUMO',
-  'GPI', 'ABC', 'HIF', 'ATR', 'ATM', 'CAMP', 'CGMP', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX',
+  'GPI', 'ABC', 'HIF', 'ATR', 'ATM', 'CAMP', 'CGMP', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'XI', 'XII',
 ].map(a => [a, a]))
 for (const a of ['mRNA', 'tRNA', 'rRNA', 'miRNA', 'ncRNA', 'snRNA', 'siRNA', 'lncRNA', 'cAMP', 'cGMP']) ACRONYM.set(a.toUpperCase(), a)
 
+/** After one of these, a lone "a" is the article ("on a sulfur group"), not a name ("coenzyme A"). */
+const BEFORE_ARTICLE = new Set(['on', 'of', 'with', 'within', 'by', 'to', 'between', 'as', 'in', 'from', 'for', 'at',
+  'into', 'via', 'through', 'during', 'and', 'or', 'is', 'has', 'not'])
+
 export function properName(name: string): string {
-  return name.replace(/[A-Za-z0-9]+/g, w => {
+  return name.replace(/[A-Za-z0-9]+/g, (w, at: number) => {
     const up = w.toUpperCase()
     if (ACRONYM.has(up)) return ACRONYM.get(up)!
+    if (w.length === 1 && /[A-Za-z]/.test(w)) {
+      if (up !== 'A') return up
+      const before = name.slice(0, at).split(/[^A-Za-z0-9]+/).filter(Boolean).pop()?.toLowerCase()
+      return before === undefined || BEFORE_ARTICLE.has(before) ? w : up
+    }
     return /\d/.test(w) && /[A-Za-z]/.test(w) ? up : w
   })
 }

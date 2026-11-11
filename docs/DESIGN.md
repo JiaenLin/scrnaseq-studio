@@ -440,18 +440,37 @@ in this app, in a table cell: no value. An ellipsis only on a control that opens
 | a range | "a to b" in a sentence, an en dash in a label | 10 to 500 genes, 10–500 |
 | a unit | a space before it, except % and × | 7 in, 300 dpi, 6.3 pt, 2.2× |
 
-A number rounded on screen is whole in the file made for numbers: every table's CSV writes full precision, and a
-readout's values are the columns of the CSV saved from that view (the embedding's coordinates are in the bundle's
-`embed.f32`, which the app never changes).
+A number rounded on screen has more digits in the file made for numbers, and a fixed count of them, not full
+precision: a CSV writes 4 decimals for an effect, a rate, an r or a score (log₂FC, pct.1, a module score), 6 for
+a fraction of cells, 3 for a fold enrichment and a combined score, and 5 significant digits for a p (`pCsv`:
+1.2345e-5; an underflow is written as the bound `<1e-308`, never as a number). The embedding's coordinates are in
+the bundle's `embed.f32`, which the app never changes; one cell's QC value, two decimals in the readout, is whole
+only in the bundle's QC array: Cells has no CSV.
 
-**Names.** A gene is written as the object writes it (Gfap, ASCL1), in mono where symbols align. A gene set keeps
-its source's capitals: the collection's prefix goes, an underscore becomes a space, the first word takes a capital,
-and a word is lower-cased only if it is a dictionary word. A token with a digit or from the acronym list
-(`ACRONYMS`: DNA, RNA, E2F, MYC, G2M, KRAS, TNFA, NFKB, MTORC1, IL2, IL6, JAK, STAT3, STAT5, UV, TGF, PI3K, AKT,
-MTOR, P53, WNT …) stays as the source has it: "E2F targets", "DNA repair", "TNFA signaling via NFKB", never "E2f
-targets" or "Dna repair". The source's own name is in the element's title and in every CSV. A cell type, a group
-and a sample are the object's own strings, never re-cased, never abbreviated except by an ellipsis with the whole
-name in the title.
+**In a file.** A file's name and a CSV's header are read by the person and by their scripts, and the check reads
+them like any string. A name the app made up uses this standard's term (the module-score table's first column is
+`cell_type`, `group` or `cell_type_x_group`, what its rows are; the figure is `module_score_per_cell_…`; Markers
+saves as `markers`). A column that reproduces a tool's own table keeps the tool's name, so the file lines up with
+that tool's output: `cluster`, `pct.1` and `pct.2` in the markers CSV are `FindAllMarkers`' columns, and `padj` is
+Bonferroni there and in the DE CSV, beside `fdr_BH`. Renaming a column or a file breaks whoever reads it: run 6
+renamed three (`identity`, `cluster_markers`, `module_score_by_identity_…`) and says so in its record.
+
+**Names.** A gene is written as the object writes it (Gfap, ASCL1), in mono where symbols align. A gene set's name
+is rebuilt, and this is all the code does. MSigDB's systematic names are all capitals
+(`HALLMARK_TNFA_SIGNALING_VIA_NFKB`), so the source has no case to keep: the library build
+(`readableName`, `scripts/fetch-genesets.mjs`) drops the collection's prefix, turns an underscore into a space and
+lower-cases everything but the first letter. At load the app (`properName`, `src/lib/msigdb.ts`) puts capitals back
+by three rules: a token that holds a digit and a letter is upper-cased, which is the source's own spelling (E2F,
+G2M, STAT5, MTORC1, V1, and so TH17 and H3K27ME3 too); a token in the app's one list (`ACRONYM`, in that file:
+acronyms from DNA to cGMP and the Roman numerals II to XII, the list the copy check reads) is written as listed
+(RNA, NFKB, mRNA, cAMP, II); and a single letter is a capital (MHC class I, T cell, vitamin D, complex V), except
+"a" at the start or after a preposition, where it is the article. **Every other word stays lower-case**, an
+acronym that is not in the list included: the list is the limit, and a name the rules get wrong is fixed by adding
+to it. The lower-casing is not undone at its source: the library files would have to be fetched and written again
+(40 files), and the capitals would still come from this list. "E2F targets", "DNA repair", "TNFA signaling via
+NFKB", "MHC class I": never "E2f targets", "Dna repair" or "MHC class i". The source's own name is in the element's
+title and in every CSV. A cell type, a group and a sample are the object's own strings, never re-cased, never
+abbreviated except by an ellipsis with the whole name in the title.
 
 **An error says what happened, then what to do.** First sentence: what the reader was doing and what did not
 happen, in their words ("That file did not open"). Second: the cause the app knows, without a code name. Third:
