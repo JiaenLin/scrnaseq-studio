@@ -13,6 +13,10 @@ white from either theme; the dark theme reaches canvases, scales and exports; ev
 has, one to one, so nothing is cut at 1,280 px and no figure text is under 10 px; the DE table works by keyboard.
 "What is left" at the end lists the rest in order. `docs/design/gallery.html` shows every screen before W037 and now.
 
+**Designer run 4** closed a second review, which found no screen broken and three things wrong with figures: a name
+cut inside a word, saved figures that did not stand alone, and a stated width that was true at one window only. The
+rules it added are under Charts: *Names under an axis*, *A saved figure's foot* and *Save* (the print scale).
+
 ## Direction: the instrument
 
 The standard is the tools people use all day for dense, exact work, not a tidy viewer. Five commitments:
@@ -292,6 +296,22 @@ floating surface). Nothing on the page itself is rounded.
   both ways (the volcano), at its own size and at most 1.25 times it. Never scaled down into a column, never
   cut by one. Figure text is `FIG_TYPE` (10.5 ticks, 11.5 labels and titles) and never under 10 px on screen.
 - **Legend.** Always names what is plotted and gives n. Text wears ink, never the series colour.
+- **Names under an axis.** A category's name is never cut inside a word, and is never under 11 px
+  (`FIG_TYPE.name`). In order: it fits on one line; it wraps at a space or at the punctuation of a compound name
+  ("Cardiomyocyte/Working cardiomyocyte"); the figure takes more width (a column goes first: the violins grouped by
+  cell type and group take the width at which every cell type sits upright under its block, `bandNeed`); the whole
+  row is turned to one angle, never half of it (`bandNames`, `axisTicks`). Only where a box cannot grow (a panel's
+  title, a row label) does a single token wider than its line keep its first letters and an ellipsis, with the whole
+  name in the element's `<title>` (`wrapAll`). Run 3's full-size type made the old wrap cut six of nine cell types at
+  1,280 px ("Oligode / ndrocyt / e"); `scripts/test-names.mjs` holds the rule.
+- **A saved figure's foot.** A saved figure stands alone on a page, so every figure declares a foot
+  (`<Figure foot>`, `lib/figure-foot.ts`): what is plotted, the key with n, what a mark means. Every Save writes it
+  under the drawing in print ink, at the figure's own width, in all three formats; a sheet gets one foot and a panel
+  saved from its corner carries the sheet's; a drawing that knows its own n says so on itself (`data-foot`). The
+  same words are on screen where the layout has room (the legend line under the figure). Exempt only a figure whose
+  own drawing holds the key and n (Cells' painted key, the volcano's key). An axis carries its quantity on screen
+  too: Composition's panels say "Share of sample", the co-expression axis names its seed, the score violins say
+  "Module score". Ticks are round numbers inside the range (`breaksOf`), never fractions of the largest value.
 - **Figure ink.** An SVG figure's ink is `--fig-ink`, `--fig-line`, `--fig-grid`, `--fig-plate`, `--fig-summary`
   and `--fig-label` (`lib/figure-ink.ts` names them): light on the dark ground, black and the print greys on the
   light one, and stamped to the light values while a figure is exported, so a saved figure is the same file from
@@ -302,9 +322,17 @@ floating surface). Nothing on the page itself is rounded.
   from light (`npm run test:export`). Every canvas figure is repainted for export in print ink on white
   (`redraw`): Cells, the feature plots, the score map.
 - **Save.** One Save per figure, at the right end of the head line over it, and the last action there on every
-  view (CSV, then Save). Always a menu of formats: SVG where the figure is one, PNG at 300 and 600 dpi, each
-  saying the printed width the dpi is counted against (3.5 in for one panel, 7 in for a sheet); the PNG carries
-  its resolution (a pHYs chunk). What is saved is the figure's own drawing, chosen by `lib/figure-pick.ts`:
+  view (CSV, then Save). Always a menu of formats: SVG where the figure is one, PNG at 300 and 600 dpi; the PNG
+  carries its resolution (a pHYs chunk). **The print scale:** every figure is saved at 120 CSS px to the inch
+  (`PRINT_PX_PER_IN`), so type set at 10.5 px prints at 6.3 pt and 11.5 px at 6.9 pt in every file, whatever the
+  window. The file's width is the drawing's own width at that scale, to 0.1 in (a 420 px drawing is one column,
+  3.5 in; an 840 px one is two, 7 in). Past 840 px a figure is set at 7 in while its smallest type stays at 5 pt
+  or more (to 1,058 px); wider than that it keeps 5 pt and is wider than the page. The menu states the width
+  once, under the formats, with the column it fits and the size its type prints at, and reads it from the function
+  that sizes the file (`printSize`), so the words and the file cannot disagree; the SVG's root carries the same
+  width in inches. It said "3.5 in wide" on every figure: true at one window, with type from 2.3 to 12.6 pt.
+  Rejected: size classes (a 210 px panel still printed 12.6 pt type), and re-laying a figure out at a print width
+  on Save (the right end state: it needs every figure to draw at a width it is handed, not the one it measures). What is saved is the figure's own drawing, chosen by `lib/figure-pick.ts`:
   never an icon or a glyph in its box, never an SVG when the figure brings its own painter. Cells saves the whole
   figure (every panel with its name and n, the axis glyph, the key with n; an isolated entry is isolated in the
   key too) repainted on white. A figure that drops ticks, a legend or cells in its file is a wrong figure.
@@ -329,6 +357,11 @@ controls top to bottom, the stage (a document view is a stop, so the keyboard ca
 are one stop and so is the key: arrows move within each (Home and End too, for the views). `[` and `]` toggle the
 panes (not while typing in a field). Escape closes a menu, then clears an isolated key entry. Nothing a key
 triggers is animated.
+
+From run 4: a menu and a list are walked with the arrow keys, Home and End (`Popover`, roles `menu` and
+`listbox`); Tab still reaches every item. Escape closes the topmost open thing and nothing under it (a Save menu
+over an isolated key entry closes the menu; the next Escape clears the entry). A view opened from inside another
+(a gene from the DE table) takes the focus with it: the stage is focused, so the next Tab starts in the new view.
 
 ## Motion
 
@@ -378,13 +411,15 @@ forced duration on every element gave one to everything, the property defaulting
    under the head line (both now close with `]`), so Save is at a different x on the two. The head line should
    span the stage on both. The key in an inspector for Composition, Markers and the score map; the feature plot
    and the score map as explorers (isolate, the pointer readout; today only Cells has a readout).
-2. Round ticks everywhere (done for the violins and the co-expression bars; the volcano's x axis, Overview's QC,
-   the score violin and the dot plot's bar still divide the range). n per group on the violins and dot plots; n
-   in the volcano's own key, and a key for the nine colours in Composition's saved file.
+2. Done in run 4 (round ticks on the volcano, the score violin and the dot plot's bar; n and keys in every saved
+   file). Still dividing the range: Overview's QC violins. A figure wider than two columns is saved wider than a
+   page (it says so); the end state is a figure laid out at a print width on Save. Volcano points have no
+   keyboard route. Between 901 and 1,279 px Gene sets and Co-expression lose the right edge of their last table
+   column, and axe reports one scroll region there that cannot take focus (1,100 px).
 3. The score map is on the reader's sequential scale; a module score is signed and belongs on a diverging scale
    with zero in the middle (this page's own rule). It changes how the map reads, so it is the PI's.
 4. Gene-set names lose their case ("Dna repair", "E2f targets"): a wording rule for the PI. Gene search has no
-   suggestions; the contrast pickers ignore arrow keys; Co-expression's seed shows as a placeholder after a run.
+   suggestions; Co-expression's seed shows as a placeholder after a run.
 5. Enrichment's term detail and the Coherence block as flat sections (still wells); the rail on a 900 px window
    when Differential expression shows every note (it scrolls); the lab bundle's Overview selects on the stage.
 6. States seen on a large object (the DE table's row cut, the label drop of a 300,000-cell embedding): designed
@@ -401,7 +436,12 @@ inside a figure's box is `aria-hidden` (that is how Save tells it from the drawi
 `Figure sheet` and `sheetSvgs`, never `querySelectorAll('svg')`; a colour handed to `mix` or to a colour bar's
 ends is a literal; a canvas painter lists `useDark()` among its inputs; a data colour that differs by ground is
 `onGround`, never a dark value baked into an SVG (the file would carry it); a figure is drawn at `useWidth`'s
-width, not scaled into its column; a numeric column is `.num` on the head and the cells.
+width, not scaled into its column; a numeric column is `.num` on the head and the cells. From run 4: a name on
+an axis goes through `lib/labels.ts` (`axisTicks`, `bandNames`, `wrapAll`), never a hand-rolled `slice` into
+lines; a new figure declares a `foot` (the suite counts every `<Figure`); nothing passes a print width to
+`Figure` (it is counted from the drawing); a number in a foot is wrapped at spaces only ("4,598" is one word);
+before a change to `lib/labels.ts`, `lib/download.ts`, `Figure.tsx`, `Popover.tsx` or `svg-parts.tsx`, list the
+figures that use it and look at each at 1,280 and 1,440.
 
 ## Checking a change
 
@@ -415,11 +455,15 @@ width, not scaled into its column; a numeric column is `.num` on the head and th
   hold them. `docs/design/gallery.html` reads `docs/design/gallery/before` (the studio at `099a085`, 1,440 px,
   full colour) and `docs/design/after`.
 - `node scripts/test-fit-panels.mjs` (in `npm test`) pins how panels share the stage.
+- `node scripts/test-names.mjs` (in `npm test`) pins that no name is cut inside a word: the wrap, a row of names
+  under bands at every band width, and the widths the reviewer measured.
 - `node scripts/test-export.mjs` (in `npm test`) pins what a Save writes and in what ink, as rules: which drawing
   is saved, the light stamp and its transitions, literals in blends, scales on the dark ground, label ink on
-  fills, the PNG's resolution. `CHROME=<chrome> npm run test:export -- <url>` (needs `playwright-core`) writes
+  fills, the PNG's resolution, the print scale (a file is the width its menu states, its type between 5 and 8.5 pt),
+  and the foot (laid out inside the figure's width; every `<Figure` has one or draws its own key and n). `CHROME=<chrome> npm run test:export -- <url>` (needs `playwright-core`) writes
   every Save in both themes and measures each file: it holds the figure's marks, no colour of the dark theme,
-  and the file from dark is byte for byte the file from light.
+  and the file from dark is byte for byte the file from light; and, at 1,280, 1,440 and 1,920 px, that each file
+  is the width its menu stated, holds an n, and that no cell type under the grouped violin is cut inside a word.
 - Panel sizes in a 900 px tall window (canvas, CSS px; `Replicated cohort`, measured on the page):
 
   | window | one panel | two panels | two panels, both panes closed |

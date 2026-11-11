@@ -9,6 +9,12 @@
 // Synthetic demo only. Reduced motion is on, which is where figures saved
 // from the dark theme kept the dark theme's ink.
 //
+// And, from the second review: a saved figure is the width its menu states at
+// every window (1,280, 1,440 and 1,920: Markers' "3.5 in" file was 3.80 in at
+// 1,440); every saved figure holds its key and an n (Composition's nine
+// colours had no key, the violins no n); and no cell type under the grouped
+// violin is cut inside a word ("Oligode / ndrocyt / e" at 1,280).
+//
 // What it would have caught: Cells saving its axis glyph (four states, one
 // byte-identical 1,050 x 420 file), every corner Save writing its own download
 // icon (1,050 x 1,050), figures saved from dark with white text on white, and
@@ -48,13 +54,21 @@ const pixels = file => probe.evaluate(async b64 => {
     else if (mx - mn > 60) { colour++; hues.add(((d[i] >> 5) << 6) | ((d[i + 1] >> 5) << 3) | (d[i + 2] >> 5)) }
   }
   const n = d.length / 4
-  return { w: img.width, h: img.height, white: white / n, ink: ink / n, colour: colour / n, hues: hues.size, corner }
+  // Ink in the last rows of the file: where a painted figure's foot is written.
+  let foot = 0
+  const from = Math.max(0, c.height - Math.round(c.height * 0.035) - 30)
+  for (let i = from * c.width * 4; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) < 140) foot++
+  return { w: img.width, h: img.height, white: white / n, ink: ink / n, colour: colour / n, hues: hues.size, corner, foot }
 }, fs.readFileSync(file).toString('base64'))
 
 /** What every saved figure must be. `marks` is the least it must hold. */
-async function judge(tag, file, { marks = 1, texts = 1, hues = 1, dpi } = {}) {
+async function judge(tag, file, { marks = 1, texts = 1, hues = 1, dpi, foot } = {}, stated = null) {
   if (file.endsWith('.svg')) {
     const x = fs.readFileSync(file, 'utf8')
+    // A saved figure stands alone: an n, and for a figure with a foot the strip itself.
+    check(`${tag}: the file holds an n${/data-foot/.test(x) ? ' and its foot' : ', in its own key'}`, /n = [\d,]+/.test(x.replace(/<[^>]+>/g, ' ')), 'no "n = " in the file\'s text')
+    const root = x.match(/^<svg[^>]*>/)[0]
+    check(`${tag}: the menu says ${stated} in wide and the file's root is ${(root.match(/ width="([^"]*)"/) || [])[1]}`, stated !== null && root.includes(` width="${stated}in"`), root.slice(0, 160))
     const n = t => (x.match(new RegExp('<' + t + '[ >]', 'g')) || []).length
     const drawn = n('circle') + n('rect') + n('path') + n('line')
     check(`${tag}: the file holds the figure's marks (${drawn} marks, ${n('text')} texts)`, drawn >= marks && n('text') >= texts, `marks ${drawn} < ${marks} or texts ${n('text')} < ${texts}`)
@@ -67,34 +81,48 @@ async function judge(tag, file, { marks = 1, texts = 1, hues = 1, dpi } = {}) {
   const buf = fs.readFileSync(file), at = buf.indexOf('pHYs')
   const p = await pixels(file)
   check(`${tag}: a figure, not an icon (${p.w} x ${p.h}; ${(p.ink * 100).toFixed(2)}% ink, ${p.hues} hues)`,
-    p.w >= 1000 && p.h >= 200 && p.ink > 0.0005 && p.hues >= hues && p.white < 0.985, JSON.stringify(p))
+    // 400 px, not 1,000: a figure is saved at its own print width now, and one
+    // Composition panel is 1.8 in (540 px at 300 dpi). An icon would be 150.
+    p.w >= 400 && p.h >= 200 && p.ink > 0.0005 && p.hues >= hues && p.white < 0.985, JSON.stringify(p))
   // The ink itself is judged on the SVG (no colour of the dark theme in the
   // file) and by the last block (the same bytes from either theme): a PNG of
   // a figure with grid lines and pale marks has light grey of its own.
   check(`${tag}: on a white page`, p.corner.every(v => v > 250) && p.white > 0.3, JSON.stringify(p))
   if (dpi) check(`${tag}: the file says ${dpi} dpi`, at > 0 && Math.round(buf.readUInt32BE(at + 4) * 0.0254) === dpi, `pHYs at ${at}`)
+  if (dpi) check(`${tag}: the menu says ${stated} in wide and the file is ${(p.w / dpi).toFixed(2)} in (${p.w} px at ${dpi} dpi)`, stated !== null && Math.abs(p.w - stated * dpi) <= 1, `stated ${stated}`)
+  if (foot) check(`${tag}: a painted figure carries its foot (${p.foot} dark pixels in its last rows)`, p.foot > 200, JSON.stringify(p))
 }
 
 const files = { light: {}, dark: {} }
-for (const theme of ['light', 'dark']) {
-  console.log(`\n${theme.toUpperCase()} THEME`)
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', acceptDownloads: true })
+const types = {}
+// Both themes at 1,440, and the light theme again at 1,280 and 1,920: a
+// stated width has to be true at every window, not at one.
+for (const [theme, width] of [['light', 1440], ['dark', 1440], ['light', 1280], ['light', 1920]]) {
+  const at = width === 1440 ? '' : ` @${width}`
+  console.log(`\n${theme.toUpperCase()} THEME, ${width} px`)
+  const ctx = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', acceptDownloads: true })
   const page = await ctx.newPage()
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   const settle = async (ms = 500) => { await page.waitForTimeout(ms); await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))) }
   const tab = async name => { await page.getByRole('tab', { name, exact: true }).click(); await settle(700) }
-  const save = async (tag, trigger, item, want) => {
+  const save = async (tag0, trigger, item, want) => {
+    const tag = tag0 + at
     try {
       await trigger.scrollIntoViewIfNeeded(); await trigger.hover(); await trigger.click(); await settle(300)
+      // The width the menu states, read before the choice is made.
+      const said = await page.locator('[role="menu"] .menu-foot').allInnerTexts()
+      const m = /Saved ([\d.]+) in wide .*Type prints at ([\d.]+) pt/.exec(said.join(' '))
+      const stated = m ? Number(m[1]) : null
+      if (m) (types[tag] = Number(m[2]))
       const [dl] = await Promise.all([
         page.waitForEvent('download', { timeout: 60_000 }),
         page.locator('[role="menu"] [role="menuitem"]', { hasText: item }).first().click(),
       ])
-      const to = path.join(out, `${theme}__${tag}__${dl.suggestedFilename()}`)
+      const to = path.join(out, `${theme}${width}__${tag0}__${dl.suggestedFilename()}`)
       await dl.saveAs(to); await settle(250)
-      files[theme][tag] = to
-      await judge(tag, to, want)
+      if (width === 1440) files[theme][tag0] = to
+      await judge(tag, to, want, stated)
     } catch (e) { check(`${tag}: saved`, false, e.message.split('\n')[0]) }
   }
   const head = () => page.locator('main .stage-actions button[aria-haspopup="menu"]').first()
@@ -116,8 +144,10 @@ for (const theme of ['light', 'dark']) {
   await page.locator('aside.inspector button.lg-row').nth(2).click(); await settle(300)
   await save('cells one entry isolated', head(), '300', { hues: 2, dpi: 300 })
   await page.keyboard.press('Escape')
-  const four = ['cells split', 'cells one panel', 'cells by mito', 'cells one entry isolated'].map(t => files[theme][t]).filter(Boolean).map(md5)
-  check('cells: four states are four different files', new Set(four).size === 4, four.join(' '))
+  if (width === 1440) {
+    const four = ['cells split', 'cells one panel', 'cells by mito', 'cells one entry isolated'].map(t => files[theme][t]).filter(Boolean).map(md5)
+    check('cells: four states are four different files', new Set(four).size === 4, four.join(' '))
+  }
 
   await tab('Composition')
   await save('composition bars png', head(), '300', { hues: 20, dpi: 300 })
@@ -158,19 +188,43 @@ for (const theme of ['light', 'dark']) {
   await save('violin sheet png', head(), '300', { hues: 10, dpi: 300 })
   await save('violin corner png', corner(), '300', { hues: 4, dpi: 300 })
   await save('violin corner svg', corner(), 'SVG', { marks: 20, texts: 10 })
+  // Grouped by cell type and group: no cell type is cut inside a word, on
+  // screen or in the file (six of nine were at 1,280 px, three at 1,440).
+  await page.locator('aside.rail button', { hasText: 'Cell type × group' }).first().click(); await settle(1500)
+  const whole = `(t => { const name = t.getAttribute('data-name'); const lines = [...t.querySelectorAll('tspan')].map(s => s.textContent)
+    if (!lines.length) return [...t.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('') === name ? null : name
+    let at = 0
+    for (let i = 0; i < lines.length; i++) {
+      if (!name.startsWith(lines[i], at)) return name + ' <> ' + lines.join('|')
+      at += lines[i].length
+      if (i < lines.length - 1) { if (!' /|,_-'.includes(name[at - 1]) && name[at] !== ' ') return name + ' <> ' + lines.join('|'); while (name[at] === ' ') at++ }
+    }
+    return at >= name.length ? null : name })`
+  const drawn = await page.evaluate(w => { const f = eval(w); const ts = [...document.querySelectorAll('main svg text[data-name]')]; return { n: ts.length, cut: ts.map(f).filter(Boolean), small: ts.filter(t => parseFloat(getComputedStyle(t).fontSize) * Math.hypot(t.getScreenCTM().a, t.getScreenCTM().b) < 10.99).length } }, whole)
+  check(`grouped violin${at}: ${drawn.n} cell-type names on screen, none cut inside a word, none under 11 px`, drawn.n >= 9 && drawn.cut.length === 0 && drawn.small === 0, JSON.stringify(drawn))
+  await save('grouped violin corner svg', corner(), 'SVG', { marks: 20, texts: 20 })
+  const gv = files[theme]['grouped violin corner svg'] && width === 1440 ? files[theme]['grouped violin corner svg'] : path.join(out, fs.readdirSync(out).filter(f => f.startsWith(`${theme}${width}__grouped violin corner svg__`))[0] || 'missing')
+  if (fs.existsSync(gv)) {
+    await probe.setContent(fs.readFileSync(gv, 'utf8'))
+    const saved = await probe.evaluate(w => { const f = eval(w); const ts = [...document.querySelectorAll('svg text[data-name]')]; return { n: ts.length, cut: ts.map(f).filter(Boolean) } }, whole)
+    check(`grouped violin${at}: the same ${saved.n} names whole in the saved file`, saved.n >= 9 && saved.cut.length === 0, JSON.stringify(saved))
+    await probe.goto('about:blank')
+  } else check(`grouped violin${at}: the saved file`, false, gv)
+  await page.locator('aside.rail button', { hasText: 'Across cell types' }).first().click(); await settle(1500)
   await page.getByRole('button', { name: 'Dot plot', exact: true }).first().click(); await settle(1800)
   await save('dot plot png', head(), '300', { hues: 2, dpi: 300 })
   await save('dot plot svg', head(), 'SVG', { marks: 40, texts: 15 })
   await page.getByRole('button', { name: 'Feature plot', exact: true }).first().click(); await settle(2500)
-  await save('feature sheet png', head(), '300', { hues: 2, dpi: 300 })
-  await save('feature corner png', corner(), '300', { hues: 2, dpi: 300 })
+  await save('feature sheet png', head(), '300', { hues: 2, dpi: 300, foot: true })
+  await save('feature corner png', corner(), '300', { hues: 2, dpi: 300, foot: true })
 
   await tab('Gene sets'); await settle(1200)
   await page.locator('main button.set-row').first().click(); await settle(500)
   const score = page.getByRole('button', { name: /^Score/ })
   if (await score.count()) await score.first().click()
   await page.waitForSelector('main canvas', { timeout: 120_000 }); await settle(1500)
-  await save('score map png', page.locator('main button[aria-haspopup="menu"]').first(), '300', { hues: 2, dpi: 300 })
+  await save('score map png', page.locator('main button[aria-haspopup="menu"]').first(), '300', { hues: 2, dpi: 300, foot: true })
+  await save('score violin svg', page.locator('main button[aria-haspopup="menu"]').nth(1), 'SVG', { marks: 20, texts: 12 })
 
   await tab('Co-expression')
   const seed = page.locator('input[aria-label="Seed gene"]')
@@ -181,8 +235,14 @@ for (const theme of ['light', 'dark']) {
   await save('co-expression svg', head(), 'SVG', { marks: 20, texts: 20 })
   await save('co-expression png', head(), '300', { hues: 2, dpi: 300 })
 
-  check(`no page error in ${theme}`, errors.length === 0, errors.join(' | '))
+  check(`no page error in ${theme} at ${width}`, errors.length === 0, errors.join(' | '))
   await ctx.close()
+}
+
+console.log('\nTYPE IN PRINT RANGE AT EVERY WINDOW')
+{
+  const pts = Object.values(types)
+  check(`the ${pts.length} menus state a type size between 5 and 6.5 pt (${Math.min(...pts)} to ${Math.max(...pts)})`, pts.length >= 80 && pts.every(v => v >= 5 && v <= 6.5), JSON.stringify(types))
 }
 
 console.log('\nTHE SAME FILE FROM EITHER THEME')

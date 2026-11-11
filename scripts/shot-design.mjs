@@ -138,13 +138,21 @@ for (const T of THEMES) for (const W of WIDTHS) {
       }
     }
   }
-  if (want('expr-violin', 'expr-dot', 'expr-feature')) {
+  if (want('expr-violin', 'expr-violin-grouped', 'expr-dot', 'expr-feature')) {
     await tab('Gene expression')
     const q = page.locator('input[aria-label="Search a gene or paste a gene list"]')
     await q.fill('Gfap, Ascl1, Mki67, Dcx, Plp1, Cx3cr1'); await q.press('Enter'); await settle(2500)
     for (const [k, label] of [['violin', 'Violin panel'], ['dot', 'Dot plot'], ['feature', 'Feature plot']]) {
       const b = page.getByRole('button', { name: label, exact: true })
       if (await b.count()) { await b.first().click(); await settle(1500); await shot(`expr-${k}`) }
+      // The violins grouped by cell type and group: every cell type's name whole under its block.
+      if (k === 'violin' && want('expr-violin-grouped')) {
+        const both = page.locator('aside.rail button', { hasText: 'Cell type × group' }).first()
+        if (await both.count()) {
+          await both.click(); await settle(1500); await shot('expr-violin-grouped')
+          await page.locator('aside.rail button', { hasText: 'Across cell types' }).first().click(); await settle(1200)
+        }
+      }
     }
   }
   if (want('sets', 'sets-result', 'sets-many')) {
