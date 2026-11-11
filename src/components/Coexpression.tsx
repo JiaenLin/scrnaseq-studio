@@ -568,7 +568,7 @@ export default function Coexpression(p: CoexprProps) {
                     metacell from and are not in the correlation.</>
                 )}
               </p>
-              <CorrBars up={table.up} down={table.down} how={corrName} />
+              <CorrBars up={table.up} down={table.down} how={corrName} seed={label} n={`${fmt(nObs)} ${unit}`} />
               <p className="mt-4 tx-micro" style={{ color: 'var(--ink-3)', maxWidth: '68ch' }}>
                 <b>No p-value, deliberately.</b> With {fmt(nObs)} observations a correlation of
                 almost any size clears any threshold, and cells from one animal are not
@@ -737,7 +737,13 @@ function Side({ title, rows, dir, onPick }: {
  * first — whether the programme has a strong opposite arm at all — is the
  * length of the bars on the left against the right.
  */
-function CorrBars({ up, down, how }: { up: CorrRow[]; down: CorrRow[]; how: string }) {
+function CorrBars({ up, down, how, seed, n }: {
+  up: CorrRow[]; down: CorrRow[]; how: string
+  /** What every bar is a correlation WITH: the file did not say. */
+  seed: string
+  /** How many observations each r is over, in the head line's words. */
+  n: string
+}) {
   // Drawn at the width its column has. At its own fixed 520 px the column cut
   // it by 200 px at 1,280: every bar from r = 1.00 down to 0.23 ended at the
   // same edge, which reads as equal, and the 0.50 and 1.00 ticks were gone.
@@ -760,7 +766,10 @@ function CorrBars({ up, down, how }: { up: CorrRow[]; down: CorrRow[]; how: stri
   const ticks = breaksOf(-span, span, W < 440 ? 3 : 5).filter(v => Math.abs(v) <= span + 1e-9)
 
   return (
-    <Figure name="coexpression" className="mt-3">
+    <Figure name="coexpression" className="mt-3" foot={{
+      title: `${how} r with ${seed}`,
+      notes: [`n = ${n}. The ${Math.min(SHOW, up.length)} genes most correlated with it and the ${Math.min(SHOW, down.length)} most anti-correlated.`],
+    }}>
       <div ref={boxRef} className="overflow-x-auto">
         {/* One to one: the bars take the room there is, the type stays its size. */}
         <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
@@ -792,7 +801,7 @@ function CorrBars({ up, down, how }: { up: CorrRow[]; down: CorrRow[]; how: stri
           <line x1={mid} x2={mid} y1={PT - 4} y2={PT + rows.length * rh}
             stroke={AXIS_INK} strokeWidth={0.9} />
           <text className="axis" x={mid} y={H - 5} textAnchor="middle"
-            style={{ fontSize: 10.5, fontWeight: 600 }}>{how} r</text>
+            style={{ fontSize: 10.5, fontWeight: 600 }}>{how} r with {seed}</text>
         </svg>
       </div>
     </Figure>

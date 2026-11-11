@@ -3,7 +3,8 @@ import type { CellType, GroupBy } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import { scoreColumns, zByRow, type Column } from '../lib/columns.ts'
 import { axisTicks, widestW } from '../lib/labels.ts'
-import { onGround, AXIS_INK } from '../lib/figure-ink.ts'
+import { onGround, AXIS_INK, FIG_TYPE } from '../lib/figure-ink.ts'
+import { nNote } from '../lib/figure-foot.ts'
 import { rampColor, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { ColorBar } from './svg-parts.tsx'
 import type { LibraryState } from '../lib/genesets.ts'
@@ -295,7 +296,7 @@ export default function ScoreMany({
                   Every set keeps its own control genes, so the numbers are the ones scoring
                   them one at a time would give.
                 </p>
-                <Figure name="module_scores" className="mt-1">
+                <Figure name="module_scores" className="mt-1" foot={{ title: 'Mean module score, one row per gene set' }}>
                   {/* The reader's DIVERGING scale, never their sequential one: a
                       module score is signed and its zero means something, so a scale
                       whose neutral sits anywhere else misreports which way a
@@ -341,7 +342,8 @@ function ScoreGrid({ rows, cols, mean, scale, ramp }: {
   const cw = 34, rh = 18, PT = 12, PR = 20, BAR_H = 58
   const PL = Math.max(90, widestW(rows, 10.5, false) + 14)
   const labels = cols.map(c => c.label)
-  const ax = axisTicks(labels, { band: cw, leftAnchor: PL + cw / 2, px: 9, startAt: 10, upright: 24 })
+  // The columns' names at the floor (they were 9 px).
+  const ax = axisTicks(labels, { band: cw, leftAnchor: PL + cw / 2, px: FIG_TYPE.name, startAt: 10, upright: 24 })
   const W = PL + cols.length * cw + PR
   const plotB = PT + rows.length * rh
   const H = plotB + ax.bottom + BAR_H
@@ -355,6 +357,7 @@ function ScoreGrid({ rows, cols, mean, scale, ramp }: {
   return (
     <div className="mt-2 overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ maxWidth: '100%' }}
+        data-foot={JSON.stringify({ notes: [nNote(cols.map(c => ({ label: c.label, n: c.cells.length })))] })}
         role="img" aria-label={`Mean module score of ${rows.length} signatures across ${cols.length} populations`}>
         {rows.map((r, si) => cols.map((col, k) => (
           <rect key={`${si}-${k}`} x={PL + k * cw} y={PT + si * rh} width={cw} height={rh}
@@ -373,10 +376,10 @@ function ScoreGrid({ rows, cols, mean, scale, ramp }: {
           const cx = PL + cw * (k + 0.5)
           return ax.rotate ? (
             <text key={k} className="axis" transform={`rotate(${-ax.deg} ${cx} ${plotB + 10})`}
-              x={cx} y={plotB + 10} textAnchor="end" style={{ fontSize: 9 }}>{lab}</text>
+              x={cx} y={plotB + 10} textAnchor="end" style={{ fontSize: FIG_TYPE.name }}>{lab}</text>
           ) : (
             <text key={k} className="axis" x={cx} y={plotB + 12} textAnchor="middle"
-              style={{ fontSize: 9 }}>{lab}</text>
+              style={{ fontSize: FIG_TYPE.name }}>{lab}</text>
           )
         })}
         <ColorBar cx={W / 2} y={H - BAR_H + 22} w={170} h={10} ramp={ramp}

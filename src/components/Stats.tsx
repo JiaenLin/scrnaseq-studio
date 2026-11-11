@@ -18,6 +18,7 @@ import {
 } from '../lib/figure-ink.ts'
 import { textW } from '../lib/labels.ts'
 import { KeyRow } from './svg-parts.tsx'
+import { breaksOf, fmtBreak } from '../lib/breaks.ts'
 import { nlpTxt, pTxt } from '../lib/significance.ts'
 import { Empty, Mono, Seg } from './Ui.tsx'
 import { InRail, Opts, RailGroup } from './Rail.tsx'
@@ -677,7 +678,10 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
   // PB carries the x-axis title and, below it, the key. That key used to sit in
   // an HTML row underneath the figure, so an exported volcano arrived with three
   // colours of point and nothing to say which direction was which.
-  const W = 760, H = 466, PL = 58, PB = 72, PT = 16, PR = 16
+  // PB holds the ticks, the axis title and two lines of key: the colours with
+  // their n on one, what the sizes mean on the other. On one line the entries
+  // were cut to fit as soon as each carried its n.
+  const W = 760, H = 484, PL = 58, PB = 90, PT = 16, PR = 16
   // maxOf, not `Math.max(...)`: the spread passes one argument per DE gene and
   // V8 refuses past ~124 900 of them — measured on this machine. This atlas
   // reports 31 053, so the old form did not crash here and would have on any
@@ -779,6 +783,26 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
   const labelled = useMemo(
     () => [...auto.map(k => k.q), ...picked], [auto, picked])
 
+  /**
+   * Where each name sits: beside its point, away from the middle; when that
+   * would write it over another significant point ("Cdk1" ran through its
+   * neighbour), on the other side, then above or below. Never off the plate.
+   */
+  const placed = useMemo(() => {
+    const sig = pts.filter(q => q.sig)
+    return labelled.map(q => {
+      const w = textW(q.r.gene, 10.5)
+      const out = q.r.lfc > 0 ? 1 : -1
+      for (const [side, dy] of [[out, 0], [-out, 0], [out, -10], [out, 10]] as const) {
+        const x0 = side > 0 ? q.x + 7 : q.x - 7 - w
+        if (x0 < PL + 2 || x0 + w > W - PR) continue
+        const over = sig.some(o => o !== q && o.x > x0 - 5 && o.x < x0 + w + 5 && Math.abs(o.y - (q.y + dy)) < 8)
+        if (!over) return { q, side, dy }
+      }
+      return { q, side: out, dy: 0 }
+    })
+  }, [labelled, pts])
+
   const step = Math.max(1, Math.ceil(maxY / 5))
   const ticks: number[] = []
   for (let t = 0; t <= maxY; t += step) ticks.push(t)
@@ -861,12 +885,13 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
               Centred, "-3.4" hung half its width past x = PL and landed on the
               y-axis numbers beside it; the same at the right edge put ink
               outside the viewBox, which the PNG export then cropped. */}
-          {[-2, -1, 0, 1, 2].map(f => {
-            const v = (maxX * f) / 2
-            return <text key={f} x={X(v)} y={H - PB + 15}
-              textAnchor={f === -2 ? 'start' : f === 2 ? 'end' : 'middle'}
-              style={{ fontSize: 10.5, fill: AXIS_INK }}>{v.toFixed(1)}</text>
-          })}
+          {/* Round numbers inside the range: it divided the largest fold
+              change by two ("-3.4, -1.7, 0, 1.7, 3.4"). */}
+          {breaksOf(-maxX, maxX, 7).filter(v => Math.abs(v) <= maxX).map(v => (
+            <text key={v} x={X(v)} y={H - PB + 15}
+              textAnchor={X(v) - PL < 8 ? 'start' : W - PR - X(v) < 8 ? 'end' : 'middle'}
+              style={{ fontSize: 10.5, fill: AXIS_INK }}>{fmtBreak(v)}</text>
+          ))}
           {ticks.map(t => (
             <g key={t}>
               <line className="axgrid" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} />
@@ -893,7 +918,7 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
               stroke={q.sig ? MARK_EDGE : 'none'} strokeWidth={q.sig ? 0.6 : 0}
               opacity={q.sig ? 0.92 : 0.45} />
           ))}
-          {labelled.map(q => {
+          {placed.map(({ q, side, dy }) => {
             const clicked = pinned.includes(q.r.gene)
             return (
               <g key={q.r.gene}>
@@ -905,8 +930,8 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
                     carries a halo of the plate. Without one a bold label landing
                     on the plume is unreadable at exactly the moment the reader
                     asked for it — reported as not being able to see the name. */}
-                <text className="axis" x={q.x + (q.r.lfc > 0 ? 7 : -7)} y={q.y + 3.5}
-                  textAnchor={q.r.lfc > 0 ? 'start' : 'end'}
+                <text className="axis" x={q.x + side * 7} y={q.y + 3.5 + dy}
+                  textAnchor={side > 0 ? 'start' : 'end'}
                   style={{
                     fontStyle: 'italic', fontSize: 10.5, fill: 'var(--ink)',
                     fontWeight: clicked ? 700 : 400,
@@ -934,17 +959,17 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
               exported PNG there is nobody left to ask what the small ones are.
               Drawn at the true radii so the key is a sample of the figure. */}
           <g>
-            <circle cx={PL + 4} cy={H - 14} r={4} fill={NULL_MARK}
+            <circle cx={(PL + W - PR) / 2 - 86} cy={H - 12} r={4} fill={NULL_MARK}
               stroke={MARK_EDGE} strokeWidth={0.6} opacity={0.92} />
-            <circle cx={PL + 17} cy={H - 14} r={2.6} fill={NULL_MARK} opacity={0.45} />
-            <text x={PL + 24} y={H - 10.5} style={{ fontSize: 10.5, fill: AXIS_INK }}>
+            <circle cx={(PL + W - PR) / 2 - 73} cy={H - 12} r={2.6} fill={NULL_MARK} opacity={0.45} />
+            <text x={(PL + W - PR) / 2 - 66} y={H - 8.5} style={{ fontSize: 10.5, fill: AXIS_INK }}>
               larger = past both cutoffs
             </text>
           </g>
-          <KeyRow cx={(PL + W - PR) / 2 + 60} y={H - 14} width={W - PL - PR - 190} items={[
-            { color: UP_MARK, label: `up in ${condLabel(p.cs)}` },
-            { color: DOWN_MARK, label: `up in ${condLabel(p.ctrl)}` },
-            { color: NULL_MARK, label: 'not significant' },
+          <KeyRow cx={(PL + W - PR) / 2} y={H - 32} width={W - PL - PR} items={[
+            { color: UP_MARK, label: `up in ${condLabel(p.cs)} (n = ${up})` },
+            { color: DOWN_MARK, label: `up in ${condLabel(p.ctrl)} (n = ${dn})` },
+            { color: NULL_MARK, label: `not significant (n = ${pts.length - up - dn})` },
           ]} />
         </svg>
       </Figure>

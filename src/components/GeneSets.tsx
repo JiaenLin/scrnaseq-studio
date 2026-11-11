@@ -10,6 +10,7 @@ import ColumnFilter from './ColumnFilter.tsx'
 import { axisTicks, widestW } from '../lib/labels.ts'
 import { dendroLines, orderRows } from '../lib/cluster.ts'
 import { ColorBar } from './svg-parts.tsx'
+import { breaksOf, fmtBreak } from '../lib/breaks.ts'
 import type { LibraryState } from '../lib/genesets.ts'
 import type { Collection } from '../lib/msigdb.ts'
 import type { Detection, Species } from '../lib/species.ts'
@@ -17,7 +18,8 @@ import GeneSetSources from './GeneSetSources.tsx'
 import {
   averagesSpec, geneAveragesSync, resolve, SCORE_DEFAULTS, scoreInline, scorePlan, summarise,
 } from '../lib/score.ts'
-import { onGround, AXIS_INK, PRINT_PLATE } from '../lib/figure-ink.ts'
+import { onGround, AXIS_INK, FIG_TYPE, PRINT_PLATE } from '../lib/figure-ink.ts'
+import { nNote } from '../lib/figure-foot.ts'
 import { drawFeature, panelHeight, type FeatureDraw } from '../lib/feature-plot.ts'
 import { useDark } from '../lib/theme.ts'
 import { useWidth } from '../lib/use-width.ts'
@@ -523,7 +525,13 @@ export default function GeneSets({
 
                 <Section title="Score per cell"
                   meta={modes.find(m => m.k === groupBy)?.label}>
-                  <Figure name={`module_score_by_identity_${slug(name)}`}>
+                  <Figure name={`module_score_by_identity_${slug(name)}`} foot={{
+                    title: `Module score per cell · ${name}`,
+                    notes: [
+                      nNote(ids.map((c, i) => ({ label: groupBy === 'both' ? c.full : c.label, n: perId[i].length }))),
+                      'Violin: the per-cell distribution. Bar: quartiles; tick: median. Dashed line: zero, the reference.',
+                    ],
+                  }}>
                     <ScoreViolins scores={scoreOf} ids={ids} perId={perId} groupBy={groupBy} />
                   </Figure>
                   <p className="sub mt-2.5">
@@ -549,7 +557,8 @@ export default function GeneSets({
                         ? "Z-scored down each gene's own row, so a row says where that gene is highest — not how abundant it is."
                         : 'Mean expression as the object holds it, on one scale for every gene — so a row says how abundant that gene is.'}
                     </p>
-                    <Figure name={`set_genes_${slug(name)}`}>
+                    <Figure name={`set_genes_${slug(name)}`}
+                      foot={{ title: `${name}: its genes, ${heatScale ? 'z-scored along each gene' : 'mean expression'}` }}>
                       <SetHeatmap
                         src={src} genes={used} d={d} types={types} groupBy={heatBy} palKey={palKey}
                         keepT={heatKeepT} keepC={heatKeepC}
@@ -610,7 +619,9 @@ function ScoreMap({ d, types, xy, scores, rampKey, name }: {
 
   return (
     // Saved repainted in print ink on white at the dpi asked for, from either theme.
-    <Figure name={`module_score_${slug(name)}`} redraw={(out, w, h) => {
+    <Figure name={`module_score_${slug(name)}`}
+      foot={{ notes: [`n = ${scores.length.toLocaleString('en-US')} cells. Module score per cell.`] }}
+      redraw={(out, w, h) => {
       const g = out.getContext('2d')
       if (g) drawFeature(g, w, h, { ...spec, px: w / Math.max(1, ref.current?.clientWidth || size) }, false)
     }}>
@@ -783,8 +794,9 @@ function SetHeatmap({
   const hTree = flip ? geneTree : idTree
   const treeT = hTree ? TREE : 0
   const treeL = vTree ? TREE : 0
-  const PL = Math.max(80, widestW(vLabels, 10, false) + 14) + treeL
-  const ax = axisTicks(hLabels, { band: cw, leftAnchor: PL + cw / 2, px: 9, startAt: 10, upright: 24 })
+  // Names at the figure's own sizes: the columns' were 9 px and the rows' 10.
+  const PL = Math.max(80, widestW(vLabels, FIG_TYPE.tick, false) + 14) + treeL
+  const ax = axisTicks(hLabels, { band: cw, leftAnchor: PL + cw / 2, px: FIG_TYPE.name, startAt: 10, upright: 24 })
 
   const W = PL + hAt.length * cw + PR
   const plotT = PT + treeT
@@ -841,7 +853,7 @@ function SetHeatmap({
         other end: a hundred columns is wider than the card and scrolls, at the
         same cell size as four.
       */}
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
+      <svg viewBox={`0 0 ${W} ${H}`} data-foot={JSON.stringify({ notes: [nNote(cols.map(c => ({ label: c.label, n: c.size })))] })} width={W} height={H}
         style={{ maxWidth: '100%' }}
         role="img"
         aria-label={`Expression of ${genes.length} set genes across ${cols.length} populations`}>
@@ -875,13 +887,13 @@ function SetHeatmap({
             types upright, as a name is. */}
         {vLabels.map((lab, vi) => (
           <text key={`v${vi}`} x={PL - treeL - 6} y={plotT + vi * rh + rh / 2 + 3.4} textAnchor="end"
-            style={{ fontSize: 10, fill: AXIS_INK, fontStyle: flip ? 'normal' : 'italic' }}>
+            style={{ fontSize: FIG_TYPE.tick, fill: AXIS_INK, fontStyle: flip ? 'normal' : 'italic' }}>
             {lab}<title>{lab}</title>
           </text>
         ))}
         {hLabels.map((lab, hj) => {
           const cx = PL + cw * (hj + 0.5)
-          const style = { fontSize: 9, fontStyle: flip ? ('italic' as const) : ('normal' as const) }
+          const style = { fontSize: FIG_TYPE.name, fontStyle: flip ? ('italic' as const) : ('normal' as const) }
           return ax.rotate ? (
             <text key={`h${hj}`} className="axis"
               transform={`rotate(${-ax.deg} ${cx} ${plotB + 10})`}
@@ -909,7 +921,12 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
   groupBy: GroupBy
 }) {
   const per = ids.length
-  const W = 860, PLOT = 168, PL = 46, PT = 14, PR = 10
+  // Drawn one to one at the width its column has, like the expression
+  // violins. It was an 860 px drawing scaled into the column: 7.7 px type at
+  // a 1,280 px window, 9.5 at 1,440 and 15 at 1,920.
+  const [box, boxW] = useWidth()
+  const W = boxW ? Math.max(320, boxW) : 860
+  const PLOT = 168, PL = 50, PT = 14, PR = 10
   /**
    * 88 units when grouped by both, 68 otherwise — which asks how many labels
    * there are and never how long they are. Grouped by both, the label is
@@ -917,7 +934,7 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
    * this figure ever draws, and always rotated. The same measurement every
    * other axis in the studio now uses, so it cannot disagree with them.
    */
-  const LAB_PX = per > 12 ? 9 : 10
+  const LAB_PX = FIG_TYPE.name
   const bw = (W - PL - PR) / per
   const tick = axisTicks(ids.map(id => (groupBy === 'both' ? id.full : id.label)), {
     band: bw, leftAnchor: PL + bw / 2, px: LAB_PX, startAt: 12, upright: 30,
@@ -937,18 +954,20 @@ function ScoreViolins({ scores, ids, perId, groupBy }: {
   const Y = (v: number) => PT + PLOT * (1 - (v - y0) / (y1 - y0))
 
   return (
-    <div className="mt-3 overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 560 }} role="img"
+    <div ref={box} className="mt-3 overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block' }} role="img"
         aria-label="Module score by identity">
-        {[0, 0.5, 1].map(f => {
-          const t = y0 + (y1 - y0) * f
-          return (
-            <g key={f}>
-              <line className="axgrid" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} />
-              <text className="axis" x={PL - 5} y={Y(t) + 3.5} textAnchor="end">{t.toFixed(2)}</text>
-            </g>
-          )
-        })}
+        {/* The axis says what it measures; it had no title. */}
+        <text className="axis" transform={`rotate(-90 11 ${PT + PLOT / 2})`} x={11} y={PT + PLOT / 2}
+          textAnchor="middle">Module score</text>
+        {/* Round numbers inside the range: the ticks were the range's ends
+            and its middle ("1.06, -1.22, -3.50"). */}
+        {breaksOf(y0, y1, 5).filter(t => t >= y0 && t <= y1).map(t => (
+          <g key={t}>
+            <line className="axgrid" x1={PL} x2={W - PR} y1={Y(t)} y2={Y(t)} />
+            <text className="axis" x={PL - 5} y={Y(t) + 3.5} textAnchor="end">{fmtBreak(t)}</text>
+          </g>
+        ))}
         {y0 < 0 && y1 > 0 && (
           <line x1={PL} x2={W - PR} y1={Y(0)} y2={Y(0)} stroke="var(--ink-3)"
             strokeDasharray="3 3" opacity=".85" />

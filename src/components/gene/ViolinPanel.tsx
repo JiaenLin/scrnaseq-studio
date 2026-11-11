@@ -18,6 +18,7 @@ import { mix } from '../../lib/palette.ts'
 import Figure from '../Figure.tsx'
 import { InRail, RailGroup, Toggle } from '../Rail.tsx'
 import { sheetSvgs } from '../../lib/figure-pick.ts'
+import { idCounts, nNote, type Foot } from '../../lib/figure-foot.ts'
 import { breaksOf, fmtBreak } from '../../lib/breaks.ts'
 import { useWidth } from '../../lib/use-width.ts'
 import { condLabel } from '../../lib/stats.ts'
@@ -60,6 +61,16 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
   const panelW = sheetW
     ? Math.max(MIN_W, Math.min(maxW, Math.floor((sheetW - GAP * (fitCols - 1)) / fitCols)))
     : undefined
+  // What the file must say for itself: n per violin, and what each mark is.
+  const nText = nNote(idCounts(p.src.d, p.ids, p.groupBy))
+  const foot: Foot = {
+    notes: [
+      nText,
+      'Violin: the per-cell distribution. Bar: quartiles; solid tick: median; dashed line: mean, which is what the dot plot colours.'
+        + (points ? ' Each dot is one cell, up to 300 per group.' : '')
+        + ' Bar under the axis: fraction of cells detecting the gene.',
+    ],
+  }
   return (
     <>
       <InRail>
@@ -72,7 +83,7 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
       </InRail>
       {/* One Save for the figure, at the head line's right end: every panel
           on one sheet. A single panel saves from its own corner. */}
-      <Figure name="violins" label="Save all panels"
+      <Figure name="violins" label="Save all panels" foot={foot}
         sheet={{ svgs: () => sheetSvgs<SVGSVGElement>(sheet.current), cols: fitCols }}>
       <div ref={sheet} className="grid gap-3.5"
         // Panels at their own size and at most 1.25 times it: the type does
@@ -86,6 +97,7 @@ export default function ViolinPanel(p: GeneProps & { ids: Identity[] }) {
         <span>solid tick = median · dashed = mean, which is what the dot plot colours</span>
         {points && <span>each dot is one cell, up to 300 per group</span>}
         <span>bar under the axis = fraction of cells detecting the gene</span>
+        <span style={{ color: 'var(--ink-3)' }}>{nText}</span>
       </div>
     </>
   )

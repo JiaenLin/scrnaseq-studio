@@ -14,7 +14,25 @@
 // figure and painted for a canvas one, so the two cannot drift.
 
 import { FIG_TYPE, MARK_EDGE, PRINT_INK, PRINT_LABEL } from './figure-ink.ts'
-import { textW, wrapAll } from './labels.ts'
+import { textW } from './labels.ts'
+import type { Dataset, GroupBy, Identity } from '../types.ts'
+
+/** Cells of one type in one group, or in every group when `cond` is null: the object's own table. */
+export function cellsOf(d: Pick<Dataset, 'grid' | 'samples'>, ti: number, cond: string | null): number {
+  const row = d.grid[ti]
+  if (!row) return 0
+  let n = 0
+  for (let si = 0; si < row.length; si++) if (cond === null || d.samples[si]?.cond === cond) n += row[si]
+  return n
+}
+
+/** n for each identity an axis draws, named as the axis names it. */
+export const idCounts = (
+  d: Pick<Dataset, 'grid' | 'samples'>, ids: readonly Identity[], groupBy: GroupBy,
+): { label: string; n: number }[] => ids.map(id => ({
+  label: groupBy === 'both' ? id.full : id.label,
+  n: cellsOf(d, id.ti, groupBy === 'type' ? null : id.cond),
+}))
 
 export interface FootKey {
   /** A literal colour, or a custom property (`var(--fig-g1)`) that Save resolves in print ink. */
@@ -69,7 +87,7 @@ export function layFoot(foot: Foot | undefined, width: number): { h: number; ite
   const room = Math.max(60, width - 2 * PAD)
   let y = TOP
   const line = (text: string, px: number, bold: boolean, ink: string) => {
-    for (const l of wrapAll(text, room, px, bold)) {
+    for (const l of wrapSpaces(text, room, px, bold)) {
       y += ROW
       items.push({ kind: 'text', x: PAD, y: y - 4, text: l, px, bold, ink })
     }
@@ -89,6 +107,18 @@ export function layFoot(foot: Foot | undefined, width: number): { h: number; ite
   }
   for (const n of foot.notes ?? []) if (n) line(n, FIG_TYPE.tick, false, PRINT_LABEL)
   return items.length ? { h: y + PAD, items } : { h: 0, items }
+}
+
+/** Wrap a sentence at spaces only: "4,598" is one word, and a name's slash is not a line end here. */
+function wrapSpaces(s: string, width: number, px: number, bold: boolean): string[] {
+  const out: string[] = []
+  let line = ''
+  for (const word of s.split(' ')) {
+    const next = line ? `${line} ${word}` : word
+    if (line && textW(next, px, bold) > width) { out.push(line); line = word } else line = next
+  }
+  if (line) out.push(line)
+  return out
 }
 
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

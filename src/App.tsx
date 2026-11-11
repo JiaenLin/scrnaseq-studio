@@ -223,6 +223,18 @@ export default function App() {
   // edit: the Source stays exactly what the file said.
   const [types, setTypes] = useState<CellType[]>([])
   const [tab, setTab] = useState<TabId>('overview')
+  /**
+   * A view opened from inside another (a gene from the DE table) takes the
+   * focus with it. The row that was pressed is gone with its view, so focus
+   * fell to the page body and the next Tab started from the top of the page.
+   */
+  const stageRef = useRef<HTMLElement>(null)
+  const firstTab = useRef(true)
+  useEffect(() => {
+    if (firstTab.current) { firstTab.current = false; return }
+    const on = document.activeElement
+    if (!on || on === document.body) stageRef.current?.focus({ preventScroll: true })
+  }, [tab])
   // Which rendering of the contrast is on screen. In App so it survives a trip
   // to Markers, like every other view choice — and so the boundary key can name
   // it, which is what keeps a crash in the volcano from blanking the table.
@@ -888,7 +900,7 @@ export default function App() {
           </aside>
         )}
 
-      <main className="stage" id={`panel-${tab}`} role="tabpanel" data-fit={fitted ? '' : undefined}
+      <main ref={stageRef} className="stage" id={`panel-${tab}`} role="tabpanel" data-fit={fitted ? '' : undefined}
         // A document view scrolls here, so the keyboard has to be able to reach it.
         aria-labelledby={`tab-${tab}`} tabIndex={fitted ? -1 : 0}>
         <div className="column">

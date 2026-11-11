@@ -8,6 +8,7 @@ import { axisTicks, widestW } from '../../lib/labels.ts'
 import { onGround, AXIS_INK, GRID_INK, MARK_EDGE } from '../../lib/figure-ink.ts'
 import { rampColor, symmetricRange } from '../../lib/palette.ts'
 import Figure from '../Figure.tsx'
+import { idCounts, nNote } from '../../lib/figure-foot.ts'
 import { ColorBar, SizeKey } from '../svg-parts.tsx'
 import type { GeneProps } from '../GeneExpression.tsx'
 
@@ -211,9 +212,11 @@ export default function DotPlot(
   const X = (h: number) => PLx + cw * (h + 0.5)
   const Y = (v: number) => plotT + rh * (v + 0.5)
 
+  const nText = nNote(idCounts(p.src.d, ids, p.groupBy))
+
   return (
     <>
-      <Figure name="dotplot" className="mt-2">
+      <Figure name="dotplot" className="mt-2" foot={{ notes: [nText] }}>
         <div className="overflow-x-auto">
           {/* Fills the card, never squashes below its natural size — the same
               rule the other scrolling figures use. A fixed `width={W}` made this
@@ -325,7 +328,7 @@ export default function DotPlot(
             <ColorBar
               cx={PLx + (W - PLx) * 0.32} y={H - legendH + 22} w={BAR_W} h={11}
               ramp={ramp} lo={lo} hi={hi}
-              breaks={p.dotScale ? [-2.5, -1.25, 0, 1.25, 2.5] : undefined}
+              breaks={p.dotScale ? [-2, -1, 0, 1, 2] : undefined}
               title={p.dotScale ? 'Avg. Exp. (z-scored)' : 'Avg. Exp.'}
               id="dotplot-bar"
             />
@@ -334,6 +337,7 @@ export default function DotPlot(
           </svg>
         </div>
       </Figure>
+      <div className="legend mt-2"><span style={{ color: 'var(--ink-3)' }}>{nText}</span></div>
 
       {/* Which of the two things the colour means. It is the most misread
           property of this figure, so it is stated on the figure — but as the

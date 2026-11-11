@@ -14,6 +14,7 @@ import { ColorBar, SizeKey } from './svg-parts.tsx'
 import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { Card, Empty } from './Ui.tsx'
 import { Field, InRail, RailGroup, Steps } from './Rail.tsx'
+import { cellsOf, nNote } from '../lib/figure-foot.ts'
 import Figure, { CsvButton } from './Figure.tsx'
 import { useJob } from '../lib/compute.ts'
 import Progress, { Failed } from './Progress.tsx'
@@ -54,6 +55,7 @@ export default function Markers({
   onPickGene: (g: string) => void
 }) {
   const [topN, setTopN] = useState(5)
+  const nText = nNote(types.flatMap((t, ti) => (t.sentinel ? [] : [{ label: t.name, n: cellsOf(src.d, ti, null) }])))
   // The room the dot plot has, so its columns can be fitted to it.
   const [figRef, figW] = useWidth()
   const [open, setOpen] = useState<number | null>(null)
@@ -286,7 +288,10 @@ export default function Markers({
             </div>
           </div>
         )}
-        <Figure name="cluster_markers">
+        <Figure name="cluster_markers" foot={{
+          title: `Top ${topN} marker genes per cell type, each cell type against the rest`,
+          notes: [nText, 'A heavier ring marks one of that cell type\u2019s own top genes.'],
+        }}>
           <div ref={figRef} className="figscroll" {...(scrolls
             ? { tabIndex: 0, role: 'group', 'aria-label': 'Marker gene dot plot, scrolls sideways' } : {})}>
             <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}
@@ -367,6 +372,7 @@ export default function Markers({
           {!grid && !dotError && <span style={{ color: 'var(--ink-3)' }}>reading these genes…</span>}
           {dotError && <span style={{ color: 'var(--bad)' }}>{dotError}</span>}
           <span>a heavier ring marks one of that cluster&rsquo;s own top genes</span>
+          <span style={{ color: 'var(--ink-3)' }}>{nText}</span>
         </div>
 
         <div className="mt-5">

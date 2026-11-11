@@ -22,6 +22,9 @@ import { createPortal } from 'react-dom'
  * a sticky header that does not move with the page, and a fixed panel stays put
  * with it. The reposition on scroll and resize is for the cases that do move.
  */
+/** The popovers that are open, in the order they opened: the last is the topmost. */
+const OPEN: object[] = []
+
 export default function Popover({ open, anchor, align = 'left', width, label, role = 'dialog', onClose, children }: {
   open: boolean
   /** The control this opens from. The panel is placed against its box. */
@@ -107,8 +110,32 @@ export default function Popover({ open, anchor, align = 'left', width, label, ro
      * This matters more than it did: there is now a save menu on every panel of
      * a small multiple, so there can be a hundred of these on one tab.
      */
+    // The topmost open popover takes the keys. Escape closes it and nothing
+    // else: it also reached the view under it, where it cleared an isolated
+    // key entry while the reader meant only to close a Save menu.
+    const me = {}
+    OPEN.push(me)
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return }
+      if (OPEN[OPEN.length - 1] !== me) return
+      if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); onClose(); return }
+      // A menu and a list are walked with the arrows, Home and End, as the
+      // platform's are; Tab still reaches every item.
+      if ((role === 'menu' || role === 'listbox')
+        && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End')) {
+        const items = [...(box.current?.querySelectorAll<HTMLElement>('[role="menuitem"], [role="option"]') ?? [])]
+          .filter(n => !n.hasAttribute('disabled') && n.getAttribute('aria-disabled') !== 'true')
+        if (!items.length) return
+        const at = items.indexOf(document.activeElement as HTMLElement)
+        const typing = document.activeElement instanceof HTMLInputElement
+        if (typing && (e.key === 'Home' || e.key === 'End')) return
+        const to = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1
+          : e.key === 'ArrowDown' ? (at + 1) % items.length
+            : at < 0 ? items.length - 1 : (at - 1 + items.length) % items.length
+        e.preventDefault()
+        held.was = true
+        items[to].focus()
+        return
+      }
       if (e.key !== 'Tab') return
       const el = box.current
       if (!el) return
@@ -129,7 +156,8 @@ export default function Popover({ open, anchor, align = 'left', width, label, ro
       else if (!e.shiftKey && on === last) { e.preventDefault(); first.focus() }
     }
     document.addEventListener('mousedown', shut)
-    document.addEventListener('keydown', key)
+    // In the capture phase, so the view's own key handlers come after it.
+    document.addEventListener('keydown', key, true)
     // Where focus was, so it can go back. Read now rather than on close: by
     // then the trigger may already have been re-rendered.
     const from = anchor.current
@@ -146,13 +174,14 @@ export default function Popover({ open, anchor, align = 'left', width, label, ro
     document.addEventListener('focusin', watch)
     return () => {
       document.removeEventListener('mousedown', shut)
-      document.removeEventListener('keydown', key)
+      document.removeEventListener('keydown', key, true)
+      OPEN.splice(OPEN.indexOf(me), 1)
       document.removeEventListener('focusin', watch)
       // Only if the reader was in the panel — otherwise somebody who clicked
       // elsewhere on the page would be yanked back to the trigger.
       if (held.was) from?.focus()
     }
-  }, [open, anchor, onClose])
+  }, [open, anchor, onClose, role])
 
   if (!open) return null
 

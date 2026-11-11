@@ -53,6 +53,17 @@ export interface EmbedPaint {
  * is most of the cells near a boundary. null when nothing needs reordering,
  * which is every object without sentinels.
  */
+/**
+ * The top of the % mito scale: the 99th percentile of the cells that have any.
+ * The painter colours by it and the key names it, so the key's right end is a
+ * value and not the word "high".
+ */
+export function mitoTopOf(cells: readonly { mito: number }[]): number {
+  const vs = cells.map(c => c.mito).filter(v => v > 0).sort((a, b) => a - b)
+  if (!vs.length) return 0
+  return vs[Math.min(vs.length - 1, Math.floor(vs.length * 0.99))] || 0
+}
+
 export function paintOrder(d: Dataset, types: readonly CellType[], colorBy: ColorBy): Int32Array | null {
   const sent = colorBy === 'type' ? sentinelMask(types) : null
   if (!sent) return null
@@ -80,12 +91,7 @@ export function paintEmbedding(g: CanvasRenderingContext2D, o: EmbedPaint): void
    * rather than the maximum, so one extreme cell does not flatten the rest —
    * which is the same rule the feature plot's percentile ceiling uses.
    */
-  const mitoTop = (() => {
-    if (colorBy !== 'mito') return 0
-    const vs = d.cells.map(c => c.mito).filter(v => v > 0).sort((a, b) => a - b)
-    if (!vs.length) return 0
-    return vs[Math.min(vs.length - 1, Math.floor(vs.length * 0.99))] || 0
-  })()
+  const mitoTop = colorBy !== 'mito' ? 0 : mitoTopOf(d.cells)
   const r = o.radius ?? (labels ? (cond ? 1.7 : 1.9) : 1.4)
   const pad = o.pad ?? 0
   const sx = (v: number) => pad + ((v - x0) / (x1 - x0)) * (W - 2 * pad)

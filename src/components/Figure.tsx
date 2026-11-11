@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useRef, useState, type ReactNode } from 'react'
 import {
   canvasToPng, canvasWithFoot, printSize, scaleForDpi, slug, svgSheetToFile, svgSheetToPng, svgToFile, svgToPng,
   type PrintSize,
@@ -23,8 +23,14 @@ import { InHead } from './Stage.tsx'
  * so by not offering vector rather than by handing over an SVG with a bitmap
  * inside it.
  */
+/**
+ * The foot of the figure a panel belongs to: one panel of a small multiple,
+ * saved alone from its corner, carries the sheet's key and n.
+ */
+const SheetFoot = createContext<Foot | undefined>(undefined)
+
 export default function Figure({
-  name, children, className, right, redraw, extent, compact, sheet, foot, label = 'Save',
+  name, children, className, right, redraw, extent, compact, sheet, foot: ownFoot, label = 'Save',
 }: {
   name: string
   children: ReactNode
@@ -69,6 +75,8 @@ export default function Figure({
   /** The button's word, when "Save" alone would not say what is saved. */
   label?: string
 }) {
+  const outer = useContext(SheetFoot)
+  const foot = ownFoot ?? (compact ? outer : undefined)
   const box = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
@@ -188,7 +196,7 @@ export default function Figure({
           no head above, in a row over the figure, where they always were. A
           panel of a small multiple keeps its own, in its corner. */}
       {compact ? actions : <InHead>{actions}</InHead>}
-      {children}
+      <SheetFoot.Provider value={foot}>{children}</SheetFoot.Provider>
     </div>
   )
 }

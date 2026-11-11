@@ -7,7 +7,7 @@ import { EDGE, NAME, fitPanels } from '../lib/fit-panels.ts'
 import Figure from './Figure.tsx'
 import { useDark } from '../lib/theme.ts'
 import { ActionSlot } from '../lib/action-slot.ts'
-import { paintEmbedding } from '../lib/embed-paint.ts'
+import { mitoTopOf, paintEmbedding } from '../lib/embed-paint.ts'
 import { pal, rampColor, rampCss, type PaletteKey, type RampKey } from '../lib/palette.ts'
 import { SENTINEL_GREY, countText, populations, sentinelCount } from '../lib/sentinels.ts'
 
@@ -199,11 +199,15 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
     </button>
   )
   const dark = useDark()
+  // The scale's two ends as values: it read "low" and "high". The top is the
+  // 99th percentile the painter clips at, so it is "that or more".
+  const mitoTop = useMemo(() => mitoTopOf(d.cells), [d.cells])
+  const mitoHigh = `\u2265 ${mitoTop.toFixed(1)}%`
   const ramp = (
     <div className="legend">
-      <span style={{ color: 'var(--ink-2)' }}>low</span>
+      <span style={{ color: 'var(--ink-2)' }}>0%</span>
       <span className="inline-block h-[8px] w-[120px] rounded-[2px]" style={{ background: rampCss(rampKey, dark ? 'dark' : 'light') }} />
-      <span style={{ color: 'var(--ink-2)' }}>high</span>
+      <span style={{ color: 'var(--ink-2)' }}>{mitoHigh}</span>
     </div>
   )
   /**
@@ -290,9 +294,9 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
       for (let i = 0; i < bw; i++) { g.fillStyle = rampColor(i / bw, rampKey); g.fillRect(kx + i, ky - 8 * s, 1.5, 8 * s) }
       g.font = `400 ${11 * s}px system-ui, sans-serif`
       g.fillStyle = INK2
-      g.fillText('low', kx, ky + 14 * s)
+      g.fillText('0%', kx, ky + 14 * s)
       g.textAlign = 'right'
-      g.fillText('high', kx + bw, ky + 14 * s)
+      g.fillText(mitoHigh, kx + bw, ky + 14 * s)
       g.textAlign = 'left'
     }
   }

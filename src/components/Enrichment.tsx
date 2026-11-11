@@ -304,6 +304,7 @@ export default function Enrichment({
               silently swallowed the click. */}
           <Figure
             name={`enrichment_${label}`}
+            foot={{ title: `Enrichment · ${label}`, notes: [`n = ${nInBg.toLocaleString('en-US')} genes of the list that the collection holds; a bar's label is how many of them are in that set.`] }}
             right={<CsvButton onClick={saveCsv} />}
           >
             <Bars results={shown} onPick={setTermId} selected={termId}

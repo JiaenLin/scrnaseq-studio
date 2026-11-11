@@ -24,6 +24,8 @@ import {
   MIN_PRINT_PT, PRINT_PX_PER_IN, atPrintSize, pngWithDpi, printSize, scaleForDpi, FIGURE_INCHES, SHEET_INCHES,
 } from '../src/lib/download.ts'
 import { FIG_TYPE } from '../src/lib/figure-ink.ts'
+import { cellsOf, footLabel, footSvg, idCounts, layFoot, nNote } from '../src/lib/figure-foot.ts'
+import { textW } from '../src/lib/labels.ts'
 import {
   DIVERGING, PALETTES, RAMPS, SEQUENTIAL, ZERO_ON_DARK, inkOn, mix, pal, rampColor,
 } from '../src/lib/palette.ts'
@@ -195,6 +197,62 @@ console.log('\nA SAVED FIGURE IS THE WIDTH ITS MENU SAYS, AND ITS TYPE IS IN PRI
   const fig = fs.readFileSync(new URL('../src/components/Figure.tsx', import.meta.url), 'utf8')
   check('the menu and the file read one function, and no figure passes a width of its own',
     [/setSize\(printSize\(drawnPx\(\)\)\)/.test(fig), /scaleForDpi\(shown, kind, printSize\(shown\)\.inches\)/.test(fig), /inches\??:/.test(fig), /FIGURE_INCHES|SHEET_INCHES/.test(fig)], [true, true, false, false])
+}
+
+console.log('\nA SAVED FIGURE STANDS ALONE: ITS FOOT HOLDS THE KEY AND N')
+{
+  // Composition's nine colours were saved with no key, the co-expression bars
+  // without their seed gene, and violins, dot plots and feature plots with no
+  // n anywhere. A figure declares its foot and every Save writes it.
+  const foot = {
+    title: 'Cell type proportions, one row per sample',
+    key: ['qNSC', 'aNSC', 'TAP', 'Neuroblast', 'Astrocyte', 'Oligodendrocyte', 'Microglia', 'Endothelial', 'Pericyte']
+      .map((label, i) => ({ color: `#${(i + 1) * 111111}`.slice(0, 7), label, n: [6065, 3258, 4511, 6843, 4598, 3880, 3193, 1947, 72][i] })),
+    notes: ['n is cells. 8 rows, 34,367 cells.', false, 'A <b> & a "quote".'],
+  }
+  for (const width of [210, 392, 760, 1139]) {
+    const lay = layFoot(foot, width)
+    const texts = lay.items.filter(i => i.kind === 'text')
+    check(`at ${width} px every key entry is written with its n, and each has its mark`,
+      [foot.key.every(k => texts.some(t => t.text === footLabel(k))), lay.items.filter(i => i.kind === 'mark').length], [true, 9])
+    check(`at ${width} px nothing runs past the figure's width, and the strip is as tall as its last line`,
+      [texts.filter(t => t.x + textW(t.text, t.px, t.bold) > width - 6 && t.text.includes(' ')).length, lay.h >= Math.max(...lay.items.map(i => i.y)) + 4], [0, true])
+  }
+  check('a number is never split at its comma', layFoot({ notes: ['n = 34,367 cells: qNSC 6,065 · aNSC 3,258 · TAP 4,511 · Neuroblast 6,843'] }, 210).items.every(i => i.kind !== 'text' || !/,$/.test(i.text) && !/^\d{3}\b/.test(i.text)), true)
+  check('an entry reads "name (n = count)", with the thousands separated', footLabel({ color: '#000000', label: 'qNSC', n: 6065 }), 'qNSC (n = 6,065)')
+  check('no foot, no strip', [layFoot(undefined, 400).h, layFoot({}, 400).h, footSvg(undefined, 400, 0, 'x').xml], [0, 0, ''])
+  const svg = footSvg(foot, 760, 280, '"Inter", system-ui', c => (c.startsWith('var(') ? '#111111' : c))
+  check('the SVG foot sits under the drawing, in print ink, with the text escaped',
+    [svg.xml.startsWith('<g data-foot="">'), /y="(\d+)"/.exec(svg.xml)[1] > 280, svg.xml.includes('A &lt;b&gt; &amp; a "quote".'), /var\(|NaN|undefined/.test(svg.xml), svg.xml.includes("font-family=\"'Inter', system-ui\"")], [true, true, true, false, true])
+  check('a custom property in a key is resolved to its print value', footSvg({ key: [{ color: 'var(--fig-g1)', label: 'Quiescent', n: 4 }] }, 400, 0, 'x', () => '#5B6470').xml.includes('fill="#5B6470"'), true)
+  check('the marks: a ring for one sample, a rule for a range', [/<circle[^>]*fill="#FFFFFF"/.test(footSvg({ key: [{ color: '#222222', label: 'one sample', mark: 'ring' }] }, 400, 0, 'x').xml), /<line /.test(footSvg({ key: [{ color: '#222222', label: 'range', mark: 'rule' }] }, 400, 0, 'x').xml)], [true, true])
+  check('n is the sum and names every group', nNote([{ label: 'qNSC', n: 6065 }, { label: 'aNSC', n: 3258 }]), 'n = 9,323 cells: qNSC 6,065 · aNSC 3,258')
+  check('past 24 groups it gives their count and range, not a list', nNote(Array.from({ length: 30 }, (_, i) => ({ label: `c${i}`, n: 10 + i }))), 'n = 735 cells in 30 groups (10 to 39 per group)')
+  const d = { grid: [[5, 7, 11], [1, 0, 2]], samples: [{ id: 'a', cond: 'Q' }, { id: 'b', cond: 'R' }, { id: 'c', cond: 'R' }] }
+  check('n is counted from the object\'s own table: by type, and by type and group', [cellsOf(d, 0, null), cellsOf(d, 0, 'R'), cellsOf(d, 1, 'Q'), cellsOf(d, 9, null)], [23, 18, 1, 0])
+  check('an axis by type counts every group; by group or both, its own', [
+    idCounts(d, [{ label: 'T0', full: 'T0', color: '', ti: 0, cond: 'Q' }], 'type'),
+    idCounts(d, [{ label: 'R', full: 'T0 · R', color: '', ti: 0, cond: 'R' }], 'both'),
+  ], [[{ label: 'T0', n: 23 }], [{ label: 'T0 · R', n: 18 }]])
+  // Every figure in the studio: it declares a foot, or it is a panel of a
+  // sheet (and carries the sheet's), or its own drawing holds the key and n.
+  const OWN = { cells_: 'the painted key with n', volcano_: 'the key with n, in the drawing' }
+  const dir = new URL('../src/components/', import.meta.url)
+  const files = [...fs.readdirSync(dir), ...fs.readdirSync(new URL('gene/', dir)).map(f => 'gene/' + f)].filter(f => f.endsWith('.tsx') && f !== 'Figure.tsx')
+  const bare = [], seen = []
+  for (const f of files) {
+    const src = fs.readFileSync(new URL(f, dir), 'utf8')
+    for (const m of src.matchAll(/<Figure\b(?![.\w])[\s\S]*?>\n/g)) {
+      const tag = m[0]
+      seen.push(f)
+      if (/\bfoot=/.test(tag) || /\bcompact\b/.test(tag) || Object.keys(OWN).some(k => tag.includes(k))) continue
+      bare.push(`${f}: ${tag.slice(0, 60).replace(/\s+/g, ' ')}`)
+    }
+  }
+  check(`each of the studio's ${seen.length} figures has a foot, is a panel of a sheet that has one, or draws its own key and n`, [bare, seen.length >= 16], [[], true])
+  const dl = fs.readFileSync(new URL('../src/lib/download.ts', import.meta.url), 'utf8')
+  check('every export path writes it: the vector file, its PNG, a sheet, and a painted figure',
+    [/portableSvg\(svg, foot\)/g.test(dl), (dl.match(/portableSvg\(svg, foot\)/g) || []).length, /sheetXml\(svgs, cols, gap, foot\)/.test(dl), /sheetXml\(svgs, cols, 12, foot\)/.test(dl), /export function canvasWithFoot/.test(dl)], [true, 2, true, true, true])
 }
 
 console.log(failed ? `\n${failed} test(s) failed` : '\nAll export tests passed')

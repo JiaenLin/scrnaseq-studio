@@ -311,7 +311,14 @@ export default function Composition({ d, types, palKey }: {
                 </>}
               </div>
             )}
-            <Figure name={name}>
+            <Figure name={name} foot={{
+              title: `${partsLabel} proportions, one row per ${axis.label.toLowerCase()}`,
+              key: partNames.flatMap((n, i) => (parts === 'type' && types[i]?.sentinel ? [] : [{
+                color: pal(i, palKey), label: n,
+                n: drawn.reduce((a, r) => a + table.counts[r.i * table.nParts + i], 0),
+              }])),
+              notes: [`n is cells. ${drawn.length} row${drawn.length === 1 ? '' : 's'}, ${table.nCells.toLocaleString('en-US')} cells. The axis is the share of each row's cells.`],
+            }}>
               <StackedRows
                 rows={drawn} table={table} partNames={partNames} palKey={palKey}
                 hasGroup={!!outer && only < 0}
@@ -354,6 +361,17 @@ export default function Composition({ d, types, palKey }: {
           {/* The sheet's drawings only: it took every svg in the grid, which
               since each panel drew its own download glyph was also the icons. */}
           <Figure name="proportion_by_group" label="Save all panels"
+            foot={{
+              title: 'Proportion of each sample\u2019s cells, per cell type and group',
+              key: [
+                ...d.conds.map((c, i) => ({ color: groupInk(i), label: c, n: d.samples.filter(s => s.cond === c).length })),
+                ...(d.samples.length > d.conds.length ? [
+                  { color: groupInk(0), label: 'one sample', mark: 'ring' as const },
+                  { color: groupInk(0), label: 'range of the samples', mark: 'rule' as const },
+                ] : []),
+              ],
+              notes: ['Bar: the mean of the group\u2019s samples. n is samples per group. Each panel has its own y axis.'],
+            }}
             sheet={{ svgs: () => sheetSvgs<SVGSVGElement>(sheet.current), cols: 3 }}>
           <div
             ref={sheet}
@@ -532,7 +550,8 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
   // sat 8 units above the top y-tick's, and since both run to the same x the
   // tick was written through the name — 5.4 units of penetration on every
   // facet, on short names as much as long ones. A title needs its own row.
-  const W = 210, PL = 42, PR = 8
+  // 50, not 42: the axis says what it measures (it had no title at all).
+  const W = 210, PL = 50, PR = 8
   const per = d.conds.map(c =>
     d.samples.map((s, si) => (s.cond === c ? d.prop[si][ti] : null))
       .filter((v): v is number => v !== null))
@@ -589,6 +608,8 @@ function TypeFacet({ d, t, ti, palKey }: { d: Dataset; t: CellType; ti: number; 
           ))}
           <title>{t.name}</title>
         </text>
+        <text className="axis" transform={`rotate(-90 10 ${PT + PLOT / 2})`} x={10} y={PT + PLOT / 2}
+          textAnchor="middle">Share of sample</text>
         {[0, 1, 2].map(k => (
           <g key={k}>
             <line className="axgrid" x1={PL} x2={W - PR} y1={Y(step * k)} y2={Y(step * k)} />

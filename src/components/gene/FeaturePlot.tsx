@@ -5,6 +5,7 @@ import { drawFeature, GHOST_DARK, panelHeight, type FeatureDraw } from '../../li
 import { clusterCentroids, embedExtent, maxOf, nonZeroPercentile } from '../../lib/chart.ts'
 import { GHOST_INK, PRINT_PLATE } from '../../lib/figure-ink.ts'
 import Figure from '../Figure.tsx'
+import { nNote } from '../../lib/figure-foot.ts'
 import { geneIndex } from '../../lib/genes.ts'
 import { rampCss } from '../../lib/palette.ts'
 import { useDark } from '../../lib/theme.ts'
@@ -115,9 +116,16 @@ export default function FeaturePlot(p: GeneProps) {
     })
   }
 
+  // n, for the file: every cell of the object is on each map (a group's own
+  // cells in colour when split, the rest as the outline).
+  const nText = split
+    ? nNote(p.src.d.conds.map(c => ({ label: c, n: p.src.d.cells.reduce((n, x) => n + (x.cond === c ? 1 : 0), 0) })))
+    : `n = ${p.src.d.nCells.toLocaleString('en-US')} cells`
+
   return (
     <Figure name={tiles.length > 1 ? 'feature_plots' : `${p.genes[0] ?? 'gene'}_feature`}
       redraw={sheet} extent={extent}
+      foot={{ notes: [`${nText}. Embedding ${p.emb.key}. Each gene on its own scale; cells that do not detect it are grey.`] }}
       label={tiles.length > 1 ? 'Save all panels' : 'Save'}>
       <div ref={fitRef} className="grid gap-[18px]"
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, ${split ? '1fr' : `${size}px`}))` }}>
@@ -130,7 +138,7 @@ export default function FeaturePlot(p: GeneProps) {
         <span className="inline-block h-2.5 w-[140px] rounded-[--r-sm]" style={{ background: rampCss(p.rampKey, dark ? 'dark' : 'light') }} />
         <span style={{ color: 'var(--ink-3)' }}>{p.clip === 1 ? 'max' : `${(p.clip * 100).toFixed(0)}th pct`}</span>
         <span style={{ color: 'var(--ink-3)' }}>
-          · each gene on its own scale · positive cells drawn last
+          · each gene on its own scale · positive cells drawn last · {nText}
         </span>
         {(split || anyHidden) && (
           <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--ink-3)' }}>

@@ -232,8 +232,19 @@ const figureFamily = (): string => getComputedStyle(document.body).fontFamily
  * Clone with every computed style inlined, on a white plate, ready to write;
  * with the figure's foot under it (lib/figure-foot.ts) when it declares one.
  */
-function portableSvg(svg: SVGSVGElement, foot?: Foot): { xml: string; w: number; h: number } {
+function portableSvg(svg: SVGSVGElement, given?: Foot): { xml: string; w: number; h: number } {
   const clone = svg.cloneNode(true) as SVGSVGElement
+  // A drawing that knows its own n says so on itself (`data-foot`, JSON): a
+  // heat map counts its columns where the figure around it cannot.
+  let foot = given
+  const own = svg.getAttribute('data-foot')
+  if (own) {
+    try {
+      const o = JSON.parse(own) as Foot
+      foot = { title: given?.title ?? o.title, key: given?.key ?? o.key, notes: [...(given?.notes ?? []), ...(o.notes ?? [])] }
+    } catch { /* not a foot: the figure's own stands */ }
+    clone.removeAttribute('data-foot')
+  }
   const box = svg.viewBox.baseVal
   const w = box?.width || svg.clientWidth || 800
   const h0 = box?.height || svg.clientHeight || 400
