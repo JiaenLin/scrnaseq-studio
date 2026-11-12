@@ -737,7 +737,7 @@ function mergePseudobulk(
     const ragged = raggedLine(texts[i] ?? '')
     if (!ragged) continue
     const table = keys[i] === undefined ? 'pseudobulk.tsv' : `pseudobulk.tsv in part ${keys[i]}`
-    notes.push(raggedNote(ragged, table, metas[i].samples.map(s => s?.id), metas[i].clusters))
+    notes.push(raggedNote(ragged, table, metas[i].samples.map(s => s?.id), metas[i].clusters, genes))
     return null
   }
 

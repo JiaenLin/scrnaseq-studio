@@ -33,7 +33,7 @@ const attempt = async (name, fn, want) => {
 const bytes = (arr, Ctor) => new Uint8Array(Ctor.from(arr).buffer)
 
 /** Four cells, three genes, two cell types, two samples named as given, and this pseudobulk table. */
-function bundleFiles(tsv, { samples = ['s1', 's2'], clusters = ['alpha', 'beta'], chunked = false } = {}) {
+function bundleFiles(tsv, { samples = ['s1', 's2'], clusters = ['alpha', 'beta'], genes = ['A', 'B', 'C'], chunked = false } = {}) {
   const meta = {
     schema: 'scrnaseq-studio/bundle@1', label: 'tiny', source: 'tiny.h5ad (AnnData, converted in scRNA-seq Lab)',
     nCells: 4, nGenes: 3, nnz: 6, clusters,
@@ -45,7 +45,7 @@ function bundleFiles(tsv, { samples = ['s1', 's2'], clusters = ['alpha', 'beta']
   const indptr = Int32Array.from([0, 2, 4, 6]), indices = Int32Array.from([0, 1, 2, 3, 0, 2])
   const data = Float32Array.from([1.5, 1.2, 2.0, 1.8, 0.9, 1.1])
   const files = {
-    'meta.json': strToU8(JSON.stringify(meta)), 'genes.txt': strToU8('A\nB\nC'),
+    'meta.json': strToU8(JSON.stringify(meta)), 'genes.txt': strToU8(genes.join('\n')),
     'expr.indptr.i32': new Uint8Array(indptr.buffer), 'expr.indices.i32': new Uint8Array(indices.buffer),
     'expr.data.f32': new Uint8Array(data.buffer),
     'cluster.u16': bytes([0, 0, 1, 1], Uint16Array), 'sample.u16': bytes([0, 0, 1, 1], Uint16Array),
@@ -93,13 +93,25 @@ console.log('\nA TAB INSIDE A SAMPLE NAME: THE HEADER IS WIDER THAN ITS ROWS')
       + 'each hold a tab, which splits a column in two: rename them in the object and convert again'])
 }
 
+console.log('\nA TAB INSIDE A GENE ID: ONE ROW IS WIDER THAN THE HEADER')
+{
+  const rows = [['A', 5, 7], ['B\tx', 1, 2], ['C', 0, 3]]
+  const src = open(table('s1', 's2', rows), { genes: ['A', 'B\tx', 'C'] })
+  check('the table is not offered, and raw counts read as absent', [src.pseudobulk, src.meta.hasRawCounts], [null, false])
+  check('one note: the line, both widths, the gene whose id holds the tab, and the change that makes another table', about(src),
+    ['the summed raw counts are not offered: line 3 of pseudobulk.tsv has 4 columns and its header has 3. The gene "B\\tx" holds a tab, '
+      + 'which splits a column in two: rename it in the object and convert again'])
+  check('it never ends at converting the same object again', /Convert the object again/.test(about(src)[0] ?? ''), false)
+}
+
 console.log('\nA ROW THAT IS NOT AS WIDE AS THE HEADER, AND NO NAME THAT EXPLAINS IT')
 {
   const src = open(table('s1', 's2', [['A', 5, 7], ['B', 1], ['C', 0, 3]]))
   check('refused, with the line of the first such row, and no cause is guessed',
     [src.pseudobulk, src.meta.hasRawCounts, about(src)],
-    [null, false, ['the summed raw counts are not offered: line 3 of pseudobulk.tsv has 2 columns and its header has 3, '
-      + 'so no count can be matched to its column. Convert the object again']])
+    [null, false, ['the summed raw counts are not offered: line 3 of pseudobulk.tsv has 2 columns and its header has 3. '
+      + 'Convert the object again: if the same line comes back, the cause is in the object or the converter, not in this bundle']])
+  check('its advice does not end at converting again: it says what a second conversion tells', /convert(ing)? (the object )?again$/i.test(about(src)[0] ?? ''), false)
   const wide = open(table('s1', 's2', [['A', 5, 7], ['B', 1, 2], ['C', 0, 3, 9]]))
   check('a row wider than the header is refused the same way', [wide.pseudobulk, /line 4 of pseudobulk\.tsv has 4 columns and its header has 3/.test(about(wide)[0] ?? '')], [null, true])
   await attempt('the line is its number in the file, blank lines counted', () => raggedLine('gene\ta\tb\n\nA\t1\t2\nB\t1\n'), { line: 4, columns: 2, header: 3 })
@@ -125,6 +137,13 @@ console.log('\nA COLLECTION: ONE PART\'S TABLE IS RAGGED')
     const src = await openCollection(blob, await readCollectionIndex(blob))
     return [src.pseudobulk, src.meta.hasRawCounts, about(src)]
   }, [null, false, ['the summed raw counts are not offered: line 2 of pseudobulk.tsv in part p2 has 3 columns and its header has 4. The sample "s\\t1" holds a tab, '
+    + 'which splits a column in two: rename it in the object and convert again']])
+  await attempt('a gene id with a tab, in a collection: the gene and the part are named', async () => {
+    const rows = [['A', 5, 7], ['B\tx', 1, 2], ['C', 0, 3]], genes = ['A', 'B\tx', 'C']
+    const blob = collection([table('s1', 's2', rows), table('s1', 's2', rows)], [{ genes }, { genes }])
+    const src = await openCollection(blob, await readCollectionIndex(blob))
+    return [src.pseudobulk, src.meta.hasRawCounts, about(src)]
+  }, [null, false, ['the summed raw counts are not offered: line 3 of pseudobulk.tsv in part p1 has 4 columns and its header has 3. The gene "B\\tx" holds a tab, '
     + 'which splits a column in two: rename it in the object and convert again']])
 }
 

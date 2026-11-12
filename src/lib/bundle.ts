@@ -247,18 +247,24 @@ export function raggedLine(text: string): RaggedLine | null {
 
 /**
  * The note for a ragged table: which table, which line, and what to do. The
- * cause is named only when the bundle itself shows it, a declared sample or
- * cell type whose name holds a tab; otherwise only what was found is said.
+ * cause is named only when the bundle itself shows it: a declared sample,
+ * cell type or gene whose name holds a tab (a gene's makes its one row wider
+ * than the header). The advice is then the change that makes another table.
+ * Otherwise only what was found is said, and what a second conversion tells:
+ * the same object converted again gives the same table, so "convert again"
+ * is never the whole advice.
  */
 export function raggedNote(
-  r: RaggedLine, table: string, samples: Iterable<string>, clusters: Iterable<string>,
+  r: RaggedLine, table: string, samples: Iterable<string>, clusters: Iterable<string>, genes: Iterable<string> = [],
 ): string {
   const found = `the summed raw counts are not offered: line ${r.line} of ${table} has ${r.columns} `
     + `column${r.columns === 1 ? '' : 's'} and its header has ${r.header}`
   const tabbed = (names: Iterable<string>, what: string) =>
     [...names].filter(n => typeof n === 'string' && n.includes('\t')).map(n => `the ${what} ${JSON.stringify(n)}`)
-  const names = [...tabbed(samples, 'sample'), ...tabbed(clusters, 'cell type')]
-  if (!names.length) return `${found}, so no count can be matched to its column. Convert the object again`
+  const names = [...tabbed(samples, 'sample'), ...tabbed(clusters, 'cell type'), ...tabbed(genes, 'gene')]
+  if (!names.length) {
+    return `${found}. Convert the object again: if the same line comes back, the cause is in the object or the converter, not in this bundle`
+  }
   const shown = names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
     : names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]
   const one = names.length === 1
@@ -384,7 +390,7 @@ export function parseBundle(buf: ArrayBuffer): Bundle {
       // holding its neighbour's counts.
       read = {
         ...meta, hasRawCounts: false,
-        notes: [...(meta.notes ?? []), raggedNote(pb.ragged, 'pseudobulk.tsv', meta.samples.map(s => s?.id), meta.clusters)],
+        notes: [...(meta.notes ?? []), raggedNote(pb.ragged, 'pseudobulk.tsv', meta.samples.map(s => s?.id), meta.clusters, genes)],
       }
     } else if (pb.ambiguous.length) {
       // Said where the conversion's decisions are said, and "raw counts:
