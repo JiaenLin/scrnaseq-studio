@@ -27,11 +27,11 @@ states of a large object (a table cut at N rows), a collection opened from a fol
 |---|---:|---:|
 | states walked | 153 | 153 |
 | text elements met on the walk | 27,226 | 27,233 |
-| distinct strings | 1,213 | 1,027 |
-| … the app's own | 963 | 792 |
+| distinct strings | 1,213 | 1,028 |
+| … the app's own | 963 | 793 |
 | … data (cells, ticks, key entries, values) | 250 | 235 |
-| words in the app's distinct strings | 7,333 | 6,201 |
-| … the app's own words in them | 5,787 | 5,050 |
+| words in the app's distinct strings | 7,333 | 6,205 |
+| … the app's own words in them | 5,787 | 5,052 |
 | controls measured | 7,124 | 7,126 |
 | files saved and read | 22 | 22 |
 
@@ -88,7 +88,7 @@ The app's own words per string. "Over" is the number of distinct strings over th
 | table header | 4 | 11 | 2 | 0 | 12 | 3 | 0 |
 | text | 40 | 108 | 94 | 1 | 91 | 31 | 0 |
 | title | 8 | 30 | 8 | 0 | 32 | 9 | 0 |
-| tooltip | 16 | 291 | 33 | 7 | 194 | 15 | 0 |
+| tooltip | 16 | 291 | 33 | 7 | 195 | 15 | 0 |
 
 ## The longest ten strings outside Methods
 
@@ -686,7 +686,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### Differential expression
 
-237 strings, 1,440 words (1,090 the app's own).
+238 strings, 1,444 words (1,092 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -771,6 +771,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | rail | help | logfc.threshold 0 · min.pct 0.1 · BH | 5 | 1 | 36 | 11 |
 | rail | label | FDR < | 1 | 1 | 5 | 12 |
 | stage | text | 6 higher and 6 lower in Reactivated, at FDR < 0.05 and \|log₂FC\| ≥ 0.25. Wilcoxon over 3,573 and 2,492 cells. | 19 | 12 | 108 | 12 |
+| stage (title) | tooltip | FDR < 0.05, \|log₂FC\| ≥ 0.25 | 4 | 2 | 27 | 12 |
 | rail (aria-label) | accessible name | Labels | 1 | 1 | 6 | 13 |
 | rail | label | Labels | 1 | 1 | 6 | 12 |
 | rail | segment | none | 1 | 1 | 4 | 12 |

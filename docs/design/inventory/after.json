@@ -2,7 +2,7 @@
  "measured": "the built app (vite preview), headless Chromium, light theme",
  "window": "1440 x 900",
  "source": {
-  "sha": "2d8c3e0257eb5fee"
+  "sha": "af292729f22a7378"
  },
  "states": [
   {
@@ -7845,11 +7845,11 @@
    "kind": "label",
    "where": "rail",
    "src": "text",
-   "text": "0.050",
+   "text": "0.05",
    "shape": "#",
    "words": 1,
    "own": 0,
-   "chars": 5,
+   "chars": 4,
    "px": 12,
    "wt": "400",
    "data": true,
@@ -8258,7 +8258,7 @@
    "views": [
     "Differential expression"
    ],
-   "n": 3,
+   "n": 2,
    "at": "button.chip < div.ttools < div.fill < div.column"
   },
   {
@@ -10566,6 +10566,25 @@
    ],
    "n": 1,
    "at": "p.sub < div.lead < div.fill < div.column"
+  },
+  {
+   "kind": "tooltip",
+   "where": "stage",
+   "src": "title",
+   "text": "FDR < 0.05, |log₂FC| ≥ 0.25",
+   "shape": "FDR < # |log₂FC| ≥ #",
+   "words": 4,
+   "own": 2,
+   "chars": 27,
+   "px": 12,
+   "wt": "500",
+   "data": false,
+   "state": "Differential expression / before a run / FDR",
+   "views": [
+    "Differential expression"
+   ],
+   "n": 1,
+   "at": "button.chip < div.ttools < div.fill < div.column"
   },
   {
    "kind": "accessible name",
@@ -24972,7 +24991,7 @@
    "ink": "rgb(21, 24, 29)",
    "shadow": "",
    "cls": "rail-group",
-   "text": "Cutoffs padj < 0.050 |log₂FC| ≥ 0.25 cut",
+   "text": "Cutoffs padj < 0.05 |log₂FC| ≥ 0.25 cut ",
    "n": 10,
    "gaps": {
     "20 down": 10
@@ -25074,7 +25093,7 @@
    "ink": "rgb(21, 24, 29)",
    "shadow": "",
    "cls": "rail-group",
-   "text": "Cutoffs FDR < 0.050 |log₂FC| ≥ 0.25 cut ",
+   "text": "Cutoffs FDR < 0.05 |log₂FC| ≥ 0.25 cut o",
    "n": 1,
    "gaps": {
     "20 down": 1
