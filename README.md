@@ -147,6 +147,16 @@ The DE CSV: a gene kept under `logfc.threshold` but not tested has empty `p`, `p
 `neg_log10_padj` and `combined` (they were written `<1e-308`, as if it were the most significant gene),
 and a new last column, `not_tested`, says why. `<1e-308` now means only a real p past the double.
 
+The volcano under an FDR cutoff is a different figure: its vertical axis is −log₁₀ of the FDR and its
+dashed line is the FDR cutoff (the axis and the line were the Bonferroni-adjusted p even when the
+cutoff was FDR). Under the Bonferroni cutoff the axis and the line are as they were.
+
+A cutoff moved with the slider is rounded to two significant figures before it is applied, and that
+rounded number is the one shown everywhere and written into saved legends and Methods (the slider's
+raw value was applied and printed in full: 0.31622776601683794, now 0.32). A gene whose padj or FDR
+lies between the raw and the rounded value falls on the other side of the cutoff. The default 0.05
+and each power of ten are unchanged.
+
 ## Status
 
 Real data works end to end, from PBMC 3k to a 292,495-cell atlas. PBMC 3k — 2,638 cells,
