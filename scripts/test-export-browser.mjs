@@ -184,15 +184,19 @@ for (const [theme, width] of [['light', 1440], ['dark', 1440], ['light', 1280], 
   // not tested has no p, padj, FDR or −log₁₀ padj in the file, and says why.
   // They were written `<1e-308`, the most significant genes in the file (W053).
   if (theme === 'light' && width === 1440) {
-    await page.getByRole('button', { name: 'Table', exact: true }).first().click(); await settle(800)
-    await page.locator('aside.rail button, aside.rail summary').filter({ hasText: 'What gets tested' }).first().click(); await settle(400)
-    await page.locator('aside.rail button', { hasText: /Seurat.s defaults/ }).first().click(); await settle(2500)
     try {
+      // Inside the try: a control that is not found is a named failure, not a crash.
+      await page.getByRole('button', { name: 'Table', exact: true }).first().click({ timeout: 10_000 }); await settle(800)
+      await page.locator('aside.rail button, aside.rail summary').filter({ hasText: 'What gets tested' }).first().click({ timeout: 10_000 }); await settle(400)
+      await page.locator('aside.rail button', { hasText: /Seurat.s defaults/ }).first().click({ timeout: 10_000 }); await settle(2500)
       const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60_000 }),
         page.locator('main button').filter({ hasText: /^\s*CSV\s*$/ }).first().click()])
       const to = path.join(out, `${theme}${width}__de seurat__${dl.suggestedFilename()}`); await dl.saveAs(to)
       const [hd, ...lines] = fs.readFileSync(to, 'utf8').trim().split('\n')
-      const h = hd.split(','), rows = lines.map(l => l.split(','))
+      // A quoted cell may hold a comma (the reason is the table's own words, "kept, but not tested").
+      const cells = l => l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+        .map(c => c.startsWith('"') ? c.slice(1, -1).replace(/""/g, '"') : c)
+      const h = cells(hd), rows = lines.map(cells)
       const at = k => h.indexOf(k)
       const un = rows.filter(r => Math.abs(+r[at('log2FC')]) < 0.25), tested = rows.filter(r => Math.abs(+r[at('log2FC')]) >= 0.25)
       check('DE CSV, Seurat\'s defaults: some genes are kept and not tested', un.length > 0 && tested.length > 0, `${un.length} and ${tested.length}`)
@@ -205,7 +209,7 @@ for (const [theme, width] of [['light', 1440], ['dark', 1440], ['light', 1280], 
         tested.every(r => /^(<1e-308|\d\.\d{4}e[+-]\d+)$/.test(r[at('p')]) && !r[at('not_tested')]))
       check('DE CSV: no cell reads NaN', !rows.some(r => r.includes('NaN')))
     } catch (e) { check('DE CSV, Seurat\'s defaults: saved', false, e.message.split('\n')[0]) }
-    await page.locator('aside.rail button', { hasText: /^Reset$/ }).first().click(); await settle(2500)
+    await page.locator('aside.rail button', { hasText: /^Reset$/ }).first().click({ timeout: 10_000 }).catch(() => {}); await settle(2500)
   }
 
   await tab('Gene expression')
