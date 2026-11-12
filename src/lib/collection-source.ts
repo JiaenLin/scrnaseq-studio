@@ -438,6 +438,7 @@ export async function openCollection(
     expression: meta0.expression,
     hasRawCounts: parts.every(p => p.meta.hasRawCounts) && pseudobulk !== null,
     provenance: meta0.provenance ?? {},
+    ...(meta0.facts === undefined ? {} : { facts: meta0.facts }),
     ...(meta0.run === undefined ? {} : { run: meta0.run }),
     notes,
   }
@@ -697,6 +698,9 @@ export async function openCollection(
     hasRawCounts: merged.hasRawCounts,
     embedding: merged.embedding,
     provenance: merged.provenance,
+    ...(merged.facts === undefined ? {} : { facts: merged.facts }),
+    // Some part held summed counts and the merged table is not offered: the notes say why.
+    ...(!merged.hasRawCounts && parts.some(p => p.meta.hasRawCounts) ? { countsRefused: true } : {}),
     ...(merged.run === undefined ? {} : { run: merged.run }),
     notes,
     isDemo: false,

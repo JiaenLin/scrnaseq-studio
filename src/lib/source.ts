@@ -22,7 +22,7 @@ export interface SourceMeta {
   expression: string
   hasRawCounts: boolean
   embedding: string
-  /** null values mean "not recorded in the object", and are shown as such. */
+  /** The older fields, each a value with no source: lib/facts.ts words them as unsourced, and null as nothing stated. */
   provenance: Record<string, string | null>
   /** Decisions the exporter had to make, surfaced on Overview. */
   notes: string[]
@@ -40,6 +40,15 @@ export interface SourceMeta {
    * type to a carried column marks that column's levels by the same names.
    */
   sentinels?: string[]
+  /**
+   * The bundle's `facts` as it came: each fact about the object with its
+   * source. Read only through lib/facts.ts, which refuses what it cannot take.
+   * Absent in every bundle written before the field existed (and in the demo
+   * objects), which is then worded as unsourced.
+   */
+  facts?: unknown
+  /** True when the bundle held summed counts and this app does not offer them (a refused table, a failed merge). */
+  countsRefused?: boolean
 }
 
 /** Walks one gene's non-zero entries. Valid only for the duration of the call. */
@@ -416,13 +425,13 @@ export function demoSource(key: string): Source {
     label: spec.label,
     source: `${spec.file}: a built-in demo object, not a file you opened`,
     expression: 'log1p(CP10K)',
-    hasRawCounts: true,
+    // No table of summed counts is generated, so none is claimed: this said
+    // true, and Overview offered pseudobulk counts no demo could save.
+    hasRawCounts: false,
     embedding: 'X_umap',
-    provenance: {
-      normalization: 'log1p(CP10K)', clustering: 'leiden, resolution 1.0',
-      integration: d.samples.length > 1 ? 'harmony' : null,
-      doublets: null, ambient: null,
-    },
+    // A synthetic object: nothing was normalized, clustered or integrated, so
+    // nothing is stated. It named made-up methods, badged as read from a file.
+    provenance: { normalization: null, clustering: null, integration: null, doublets: null, ambient: null },
     notes: [
       'This is a synthetic object generated in the browser so every view has '
       + 'something to draw. Open a bundle to work with real data.',
@@ -504,6 +513,8 @@ export function bundleSource(b: Bundle): Source {
     hasRawCounts: b.meta.hasRawCounts,
     embedding: b.meta.embedding,
     provenance: b.meta.provenance ?? {},
+    ...(b.meta.facts === undefined ? {} : { facts: b.meta.facts }),
+    ...(b.countsRefused ? { countsRefused: true } : {}),
     ...(b.meta.run === undefined ? {} : { run: b.meta.run }),
     notes: b.meta.notes ?? [],
     isDemo: false,

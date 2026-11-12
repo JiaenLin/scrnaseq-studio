@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ActionSlot } from '../lib/action-slot.ts'
+import type { Part } from '../lib/facts.ts'
 
 /**
  * One card, one header shape: eyebrow, title, optional controls on the right.
@@ -130,3 +131,7 @@ export function Quiet({ onClick, title, children, disabled }: {
 
 export const Mono = ({ children }: { children: ReactNode }) =>
   <code className="mono">{children}</code>
+
+/** A sentence from lib/facts.ts: the app's words as text, what the bundle filled in as mono. */
+export const Parts = ({ of }: { of: Part[] }) =>
+  <>{of.map((p, i) => (typeof p === 'string' ? p : <Mono key={i}>{p.m}</Mono>))}</>

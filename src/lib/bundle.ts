@@ -138,6 +138,17 @@ export interface BundleMeta {
    * rather than trusting its shape.
    */
   run?: unknown
+  /**
+   * Each fact the converter states about the object, with its source:
+   * `{ v: 1, <id>: { kind: 'recorded', value, at } | { kind: 'recorded',
+   * value: null, searched } | { kind: 'measured', value, of, how } |
+   * { kind: 'chosen', value, by } }` (tools/BUNDLE.md, "facts").
+   *
+   * Absent in every bundle written before the field existed, which lib/facts.ts
+   * then words as unsourced. Carried exactly as it came, untyped: only
+   * lib/facts.ts reads it, and it refuses what it cannot take.
+   */
+  facts?: unknown
 }
 
 /** One summed column: a sample within a cluster, and how many cells went into it. */
@@ -294,6 +305,12 @@ export interface Bundle {
    * object had no alias the exporter repeats the row's own name.
    */
   alias: string[] | null
+  /**
+   * True when the bundle held a pseudobulk table and this reader refused it.
+   * Set here, never read from meta.json: `meta.hasRawCounts` is then false,
+   * and Overview has to say the counts were there and are not offered.
+   */
+  countsRefused?: boolean
   /** Interleaved counts, genes, mito% per cell. */
   qc: Float32Array
   pseudobulk: Pseudobulk | null
@@ -406,6 +423,7 @@ export function parseBundle(buf: ArrayBuffer): Bundle {
     extras: readExtras(files, meta, n),
     alias: readAlias(files, meta, genes),
     pseudobulk,
+    ...(read !== meta ? { countsRefused: true } : {}),
   }
 }
 
