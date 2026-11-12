@@ -1,0 +1,2345 @@
+{
+ "lab": {
+  "new": "fdb88884de3685bf47a4df8542d707a90fc9301a",
+  "old": "ca0cc73c08371498828dcb71ba6c08b422b652e0"
+ },
+ "states": {
+  "B00_budget": {
+   "new": {
+    "sha256": "8383457e452407f93f33df64f146450e24020a814af67b2cfc89527e415454c3",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/a_provenance",
+       "record": {
+        "tool": "synthetic-tool"
+       }
+      },
+      {
+       "path": "uns/b_provenance",
+       "record": {
+        "tool": "synthetic-tool"
+       }
+      },
+      {
+       "path": "uns/c_provenance",
+       "record": {
+        "tool": "synthetic-tool"
+       }
+      },
+      {
+       "path": "uns/d_provenance",
+       "record": {
+        "tool": "synthetic-tool"
+       }
+      },
+      {
+       "path": "uns/e_provenance",
+       "record": {
+        "tool": "synthetic-tool"
+       }
+      },
+      {
+       "path": "uns/f_provenance",
+       "record": {
+        "tool": "synthetic-tool"
+       }
+      },
+      {
+       "path": "uns/scintegrate/provenance",
+       "record": {
+        "tool": "scintegrate",
+        "version": "0.0.0+fixture",
+        "commit": "0000000000000000000000000000000000000000",
+        "job": "fixture"
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/a_provenance: run carries its tool; not carried: 1 other entry",
+     "uns/b_provenance: run carries its tool; not carried: 1 other entry",
+     "uns/c_provenance: run carries its tool; not carried: 1 other entry",
+     "uns/d_provenance: run carries its tool; not carried: 1 other entry",
+     "uns/e_provenance: run carries its tool; not carried: 1 other entry",
+     "uns/f_provenance: run carries its tool; not carried: 1 other entry",
+     "uns/harness_run is a string, not a dict of named fields, so run reads nothing from it",
+     "uns/scintegrate/provenance: run carries its tool, version, commit and job; not carried: 9 other entries",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "run carries the run's identity, not its record: from uns/a_provenance, uns/b_provenance, uns/c_provenance, uns/d_provenance, uns/e_provenance, uns/f_provenance and uns/scintegrate/provenance, each record's tool, version, commit, stage, run_key and job where it holds them as strings of 256 characters or fewer, and nothing else",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   },
+   "old": {
+    "sha256": "710445c459a38d6a7886dc5c0d4bce0ec9944392e85cfdc6e2f507872ebe4094",
+    "zip": "budget.zip"
+   }
+  },
+  "N00_norecord": {
+   "new": {
+    "sha256": "029ca037930bb22dc82a5475a9d4e8a8a081afba437faec12e4c2dad4abd945c",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": []
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "X looks like counts",
+     "raw counts taken from X",
+     "expression computed here as log1p(CP10K) from the counts",
+     "no sample column — the cells of each condition are treated as one sample (all cells|g1 and all cells|g2). Composition cannot show between-animal spread, and pseudobulk needs several samples per group, so only the per-cell test will be available",
+     "the object's uns holds no run record the lab can carry (none with a tool, version, commit, stage, run_key or job stored as a string of 256 characters or fewer), so this bundle cannot say which run made it",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them",
+     "1 of 4 genes have no accession in the object; those keep the name the matrix is indexed by"
+    ]
+   },
+   "old": {
+    "sha256": "f6ec83c2b80830d8727a56046cb19c4d96dba4d1cf9a0b4265ea62b0459887f2",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": []
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "X looks like counts",
+     "raw counts taken from X",
+     "expression computed here as log1p(CP10K) from the counts",
+     "no sample column — the cells of each condition are treated as one sample (all cells|g1 and all cells|g2). Composition cannot show between-animal spread, and pseudobulk needs several samples per group, so only the per-cell test will be available",
+     "the object's uns holds no run record (nothing named provenance, no harness_run), so this bundle cannot say which run made it",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them",
+     "1 of 4 genes have no accession in the object; those keep the name the matrix is indexed by"
+    ]
+   }
+  },
+  "R01_family": {
+   "new": {
+    "sha256": "a4f2c4f29a89edb08f76334567dcdda816fb226afb4935ba179a30d54d3093e5",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/integrate/provenance",
+       "record": {
+        "tool": "scintegrate",
+        "version": "0.4.1",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+       }
+      },
+      {
+       "path": "uns/scintegrate/provenance",
+       "record": {
+        "tool": "scintegrate",
+        "version": "0.0.0+fixture",
+        "commit": "0000000000000000000000000000000000000000",
+        "job": "fixture"
+       }
+      },
+      {
+       "path": "uns/scqc",
+       "record": {
+        "tool": "scQC",
+        "version": "0.9.0",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "run_key": "RK-QC-1"
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/cell_type_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 5 other entries",
+     "uns/harness_run is a string, not a dict of named fields, so run reads nothing from it",
+     "uns/integrate/provenance: run carries its tool, version and commit; not carried: job (a group) and 6 other entries",
+     "uns/scintegrate/provenance: run carries its tool, version, commit and job; not carried: 9 other entries",
+     "uns/scqc: run carries its tool, version, commit and run_key; not carried: 7 other entries",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "run carries the run's identity, not its record: from uns/integrate/provenance, uns/scintegrate/provenance and uns/scqc, each record's tool, version, commit, stage, run_key and job where it holds them as strings of 256 characters or fewer, and nothing else",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   },
+   "old": {
+    "sha256": "ea142b8b361c4e78060638e4cd541dba3631bdbdd6c9902defed5472c3e17020",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/cell_type_provenance",
+       "record": {
+        "column": "cell_type",
+        "labels": {
+         "B": 120
+        },
+        "n_cells": 240,
+        "replaced": "",
+        "source": "independent"
+       }
+      },
+      {
+       "path": "uns/harness_run",
+       "record": {
+        "stages": [
+         {
+          "stage": "qc",
+          "tool": "scQC",
+          "run_key": "RK-QC-1"
+         }
+        ]
+       }
+      },
+      {
+       "path": "uns/integrate/provenance",
+       "record": {
+        "argv": [
+         "scintegrate",
+         "integrate",
+         "--h5ad",
+         "joint.h5ad"
+        ],
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "input": "joint.h5ad",
+        "job": {
+         "host": "node-1",
+         "id": "77.queue",
+         "scheduler": "pbs"
+        },
+        "python": "3.12.1",
+        "seed": 0,
+        "state_version": 3,
+        "tool": "scintegrate",
+        "version": "0.4.1",
+        "wrapped_versions": {
+         "harmony": "0.0.10"
+        }
+       }
+      },
+      {
+       "path": "uns/scintegrate/provenance",
+       "record": {
+        "argv": [
+         "scintegrate",
+         "integrate",
+         "--h5ad",
+         "joint.h5ad"
+        ],
+        "batch_key": "sample",
+        "commit": "0000000000000000000000000000000000000000",
+        "input": "joint.h5ad",
+        "job": "fixture",
+        "label_key": "cell_type",
+        "python": "3.12",
+        "seed": 0,
+        "sees": {
+         "harmony": [
+          "sample"
+         ],
+         "none": []
+        },
+        "state_version": 1,
+        "tool": "scintegrate",
+        "version": "0.0.0+fixture",
+        "wrapped_versions": {
+         "anndata": "0.13.2"
+        }
+       }
+      },
+      {
+       "path": "uns/scqc",
+       "record": {
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "flag_column": "qc_flag",
+        "n_flagged": 3,
+        "n_obs": 240,
+        "run_key": "RK-QC-1",
+        "sample": "S1",
+        "schema": "scqc/provenance@1",
+        "tool": "scQC",
+        "version": "0.9.0",
+        "watch_column": "",
+        "written": "2026-01-01T00:00:00+00:00"
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the run's own record travels with the bundle, in run: uns/cell_type_provenance, uns/harness_run, uns/integrate/provenance, uns/scintegrate/provenance and uns/scqc",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   }
+  },
+  "R04_0L_sixless_string": {
+   "new": {
+    "sha256": "cee9aa48a63e6c65700541fe7988cadab424f598ced9d3e46c8d3078d44c728f",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [],
+     "leftOut": {
+      "count": 2,
+      "paths": [
+       "uns/a00_provenance",
+       "uns/a01_provenance"
+      ]
+     }
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/a00_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a01_provenance is a string, not a dict of named fields, so run reads nothing from it",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the object's uns holds no run record the lab can carry (none with a tool, version, commit, stage, run_key or job stored as a string of 256 characters or fewer), so this bundle cannot say which run made it",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   },
+   "old": {
+    "sha256": "dd4b34fcca41511d0e1d615b0c124a61271f49c4e861d2c12c428a6f5a1846ac",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/a00_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a01_provenance",
+       "record": "{\"tool\": \"h\"}"
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the run's own record travels with the bundle, in run: uns/a00_provenance and uns/a01_provenance",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   }
+  },
+  "R05_0L_cap": {
+   "new": {
+    "sha256": "fef74bcb3ab3ab37d50a31dcfa0ab45a9357d3c25ebc2ce520cbe7fa321c7f1d",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [],
+     "leftOut": {
+      "count": 66,
+      "paths": [
+       "uns/a00_provenance",
+       "uns/a01_provenance",
+       "uns/a02_provenance",
+       "uns/a03_provenance",
+       "uns/a04_provenance",
+       "uns/a05_provenance",
+       "uns/a06_provenance",
+       "uns/a07_provenance",
+       "uns/a08_provenance",
+       "uns/a09_provenance"
+      ]
+     }
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/a00_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a01_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a02_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a03_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a04_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a05_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a06_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a07_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a08_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a09_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a10_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a11_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a12_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a13_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a14_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a15_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a16_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a17_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a18_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a19_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a20_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a21_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a22_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a23_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a24_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a25_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a26_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a27_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a28_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a29_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a30_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a31_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a32_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a33_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a34_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a35_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a36_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a37_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a38_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a39_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a40_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a41_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a42_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a43_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a44_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a45_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a46_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a47_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a48_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a49_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a50_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a51_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a52_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a53_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a54_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a55_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a56_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a57_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a58_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a59_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a60_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a61_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a62_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/a63_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "66 records were found and run reads the first 64: the 2 after them were not read: uns/z0_provenance, uns/z1_provenance",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the object's uns holds no run record the lab can carry (none with a tool, version, commit, stage, run_key or job stored as a string of 256 characters or fewer), so this bundle cannot say which run made it",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   },
+   "old": {
+    "sha256": "c381a688dc359bff7de5470564e7c3ede67d1eb481f8e6e2961d535ce3b2ba9f",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/a00_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a01_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a02_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a03_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a04_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a05_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a06_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a07_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a08_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a09_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a10_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a11_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a12_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a13_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a14_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a15_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a16_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a17_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a18_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a19_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a20_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a21_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a22_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a23_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a24_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a25_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a26_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a27_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a28_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a29_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a30_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a31_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a32_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a33_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a34_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a35_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a36_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a37_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a38_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a39_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a40_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a41_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a42_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a43_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a44_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a45_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a46_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a47_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a48_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a49_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a50_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a51_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a52_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a53_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a54_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a55_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a56_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a57_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a58_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a59_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a60_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a61_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a62_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/a63_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/z0_provenance",
+       "record": {
+        "tool": "z0-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/z1_provenance",
+       "record": {
+        "tool": "z1-tool",
+        "version": "1.0"
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the run's own record travels with the bundle, in run: uns/a00_provenance, uns/a01_provenance, uns/a02_provenance, uns/a03_provenance, uns/a04_provenance, uns/a05_provenance, uns/a06_provenance, uns/a07_provenance, uns/a08_provenance, uns/a09_provenance, uns/a10_provenance, uns/a11_provenance, uns/a12_provenance, uns/a13_provenance, uns/a14_provenance, uns/a15_provenance, uns/a16_provenance, uns/a17_provenance, uns/a18_provenance, uns/a19_provenance and 46 more",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   }
+  },
+  "R06_mixed": {
+   "new": {
+    "sha256": "85942edf9285e7484ad9c2600641b30d231eb217ad11a464ab1a81501c57d35f",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/l00_provenance",
+       "record": {
+        "tool": "l00-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l01_provenance",
+       "record": {
+        "tool": "l01-tool",
+        "version": "1.0"
+       }
+      }
+     ],
+     "leftOut": {
+      "count": 1,
+      "paths": [
+       "uns/z0_provenance"
+      ]
+     }
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/a00_provenance holds none of tool, version, commit, stage, run_key and job as a string of 256 characters or fewer, so run does not list it; not carried: 2 other entries",
+     "uns/l00_provenance: run carries its tool and version",
+     "uns/l01_provenance: run carries its tool and version; not carried: commit (a string longer than 256 characters)",
+     "uns/l01_provenance/commit is a string longer than 256 characters, so run read no value after it: 1 record found after it was not read: uns/z0_provenance",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "run carries the run's identity, not its record: from uns/l00_provenance and uns/l01_provenance, each record's tool, version, commit, stage, run_key and job where it holds them as strings of 256 characters or fewer, and nothing else",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   },
+   "old": {
+    "sha256": "471a500cba1633a2fd5262aeaaab2811dcba0d019205b47a3933009d9bbca38c",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/a00_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/l00_provenance",
+       "record": {
+        "tool": "l00-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l01_provenance",
+       "record": {
+        "commit": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "tool": "l01-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/z0_provenance",
+       "record": {
+        "tool": "z0-tool",
+        "version": "1.0"
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the run's own record travels with the bundle, in run: uns/a00_provenance, uns/l00_provenance, uns/l01_provenance and uns/z0_provenance",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   }
+  },
+  "R06b_mixed_after": {
+   "new": {
+    "sha256": "df53a5f20b37a348466b13d2894b41854db445c527905b0de30e27940f78d5bd",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/l00_provenance",
+       "record": {
+        "tool": "l00-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l01_provenance",
+       "record": {
+        "tool": "l01-tool",
+        "version": "1.0"
+       }
+      }
+     ],
+     "leftOut": {
+      "count": 2,
+      "paths": [
+       "uns/m00_provenance",
+       "uns/z0_provenance"
+      ]
+     }
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/l00_provenance: run carries its tool and version",
+     "uns/l01_provenance: run carries its tool and version; not carried: commit (a string longer than 256 characters)",
+     "uns/l01_provenance/commit is a string longer than 256 characters, so run read no value after it: 2 records found after it were not read: uns/m00_provenance, uns/z0_provenance",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "run carries the run's identity, not its record: from uns/l00_provenance and uns/l01_provenance, each record's tool, version, commit, stage, run_key and job where it holds them as strings of 256 characters or fewer, and nothing else",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   },
+   "old": {
+    "sha256": "5341b120947943a006b15146b77e2cccd549d53bc5670ef34144ccd81e6aad36",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/l00_provenance",
+       "record": {
+        "tool": "l00-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l01_provenance",
+       "record": {
+        "commit": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "tool": "l01-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/m00_provenance",
+       "record": {
+        "level": "x-level",
+        "method": "x-method"
+       }
+      },
+      {
+       "path": "uns/z0_provenance",
+       "record": {
+        "tool": "z0-tool",
+        "version": "1.0"
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the run's own record travels with the bundle, in run: uns/l00_provenance, uns/l01_provenance, uns/m00_provenance and uns/z0_provenance",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   }
+  },
+  "R07_empty6": {
+   "new": {
+    "sha256": "ccb422608e496e49e66e708ae619bd1379a5760a2375f4569c86b11daf2d18bd",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/e_provenance",
+       "record": {
+        "tool": "",
+        "version": "",
+        "commit": "",
+        "stage": "",
+        "run_key": "",
+        "job": ""
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/e_provenance: run carries its tool, version, commit, stage, run_key and job",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "run carries the run's identity, not its record: from uns/e_provenance, each record's tool, version, commit, stage, run_key and job where it holds them as strings of 256 characters or fewer, and nothing else",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   },
+   "old": {
+    "sha256": "ae83eeba7c0423394c7f89122b971a18b773ce9ca53103a6937dd2656eeaae47",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/e_provenance",
+       "record": {
+        "commit": "",
+        "job": "",
+        "run_key": "",
+        "stage": "",
+        "tool": "",
+        "version": ""
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the run's own record travels with the bundle, in run: uns/e_provenance",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   }
+  },
+  "R08_65good": {
+   "new": {
+    "sha256": "724d9af9faf23e73671ccd41fd59efbfd92cb1b74e5e40dd6efff7a9872d06d0",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/l00_provenance",
+       "record": {
+        "tool": "l00-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l01_provenance",
+       "record": {
+        "tool": "l01-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l02_provenance",
+       "record": {
+        "tool": "l02-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l03_provenance",
+       "record": {
+        "tool": "l03-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l04_provenance",
+       "record": {
+        "tool": "l04-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l05_provenance",
+       "record": {
+        "tool": "l05-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l06_provenance",
+       "record": {
+        "tool": "l06-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l07_provenance",
+       "record": {
+        "tool": "l07-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l08_provenance",
+       "record": {
+        "tool": "l08-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l09_provenance",
+       "record": {
+        "tool": "l09-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l10_provenance",
+       "record": {
+        "tool": "l10-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l11_provenance",
+       "record": {
+        "tool": "l11-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l12_provenance",
+       "record": {
+        "tool": "l12-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l13_provenance",
+       "record": {
+        "tool": "l13-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l14_provenance",
+       "record": {
+        "tool": "l14-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l15_provenance",
+       "record": {
+        "tool": "l15-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l16_provenance",
+       "record": {
+        "tool": "l16-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l17_provenance",
+       "record": {
+        "tool": "l17-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l18_provenance",
+       "record": {
+        "tool": "l18-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l19_provenance",
+       "record": {
+        "tool": "l19-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l20_provenance",
+       "record": {
+        "tool": "l20-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l21_provenance",
+       "record": {
+        "tool": "l21-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l22_provenance",
+       "record": {
+        "tool": "l22-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l23_provenance",
+       "record": {
+        "tool": "l23-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l24_provenance",
+       "record": {
+        "tool": "l24-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l25_provenance",
+       "record": {
+        "tool": "l25-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l26_provenance",
+       "record": {
+        "tool": "l26-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l27_provenance",
+       "record": {
+        "tool": "l27-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l28_provenance",
+       "record": {
+        "tool": "l28-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l29_provenance",
+       "record": {
+        "tool": "l29-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l30_provenance",
+       "record": {
+        "tool": "l30-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l31_provenance",
+       "record": {
+        "tool": "l31-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l32_provenance",
+       "record": {
+        "tool": "l32-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l33_provenance",
+       "record": {
+        "tool": "l33-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l34_provenance",
+       "record": {
+        "tool": "l34-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l35_provenance",
+       "record": {
+        "tool": "l35-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l36_provenance",
+       "record": {
+        "tool": "l36-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l37_provenance",
+       "record": {
+        "tool": "l37-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l38_provenance",
+       "record": {
+        "tool": "l38-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l39_provenance",
+       "record": {
+        "tool": "l39-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l40_provenance",
+       "record": {
+        "tool": "l40-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l41_provenance",
+       "record": {
+        "tool": "l41-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l42_provenance",
+       "record": {
+        "tool": "l42-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l43_provenance",
+       "record": {
+        "tool": "l43-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l44_provenance",
+       "record": {
+        "tool": "l44-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l45_provenance",
+       "record": {
+        "tool": "l45-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l46_provenance",
+       "record": {
+        "tool": "l46-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l47_provenance",
+       "record": {
+        "tool": "l47-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l48_provenance",
+       "record": {
+        "tool": "l48-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l49_provenance",
+       "record": {
+        "tool": "l49-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l50_provenance",
+       "record": {
+        "tool": "l50-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l51_provenance",
+       "record": {
+        "tool": "l51-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l52_provenance",
+       "record": {
+        "tool": "l52-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l53_provenance",
+       "record": {
+        "tool": "l53-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l54_provenance",
+       "record": {
+        "tool": "l54-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l55_provenance",
+       "record": {
+        "tool": "l55-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l56_provenance",
+       "record": {
+        "tool": "l56-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l57_provenance",
+       "record": {
+        "tool": "l57-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l58_provenance",
+       "record": {
+        "tool": "l58-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l59_provenance",
+       "record": {
+        "tool": "l59-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l60_provenance",
+       "record": {
+        "tool": "l60-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l61_provenance",
+       "record": {
+        "tool": "l61-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l62_provenance",
+       "record": {
+        "tool": "l62-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l63_provenance",
+       "record": {
+        "tool": "l63-tool",
+        "version": "1.0"
+       }
+      }
+     ],
+     "leftOut": {
+      "count": 1,
+      "paths": [
+       "uns/l64_provenance"
+      ]
+     }
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/l00_provenance: run carries its tool and version",
+     "uns/l01_provenance: run carries its tool and version",
+     "uns/l02_provenance: run carries its tool and version",
+     "uns/l03_provenance: run carries its tool and version",
+     "uns/l04_provenance: run carries its tool and version",
+     "uns/l05_provenance: run carries its tool and version",
+     "uns/l06_provenance: run carries its tool and version",
+     "uns/l07_provenance: run carries its tool and version",
+     "uns/l08_provenance: run carries its tool and version",
+     "uns/l09_provenance: run carries its tool and version",
+     "uns/l10_provenance: run carries its tool and version",
+     "uns/l11_provenance: run carries its tool and version",
+     "uns/l12_provenance: run carries its tool and version",
+     "uns/l13_provenance: run carries its tool and version",
+     "uns/l14_provenance: run carries its tool and version",
+     "uns/l15_provenance: run carries its tool and version",
+     "uns/l16_provenance: run carries its tool and version",
+     "uns/l17_provenance: run carries its tool and version",
+     "uns/l18_provenance: run carries its tool and version",
+     "uns/l19_provenance: run carries its tool and version",
+     "uns/l20_provenance: run carries its tool and version",
+     "uns/l21_provenance: run carries its tool and version",
+     "uns/l22_provenance: run carries its tool and version",
+     "uns/l23_provenance: run carries its tool and version",
+     "uns/l24_provenance: run carries its tool and version",
+     "uns/l25_provenance: run carries its tool and version",
+     "uns/l26_provenance: run carries its tool and version",
+     "uns/l27_provenance: run carries its tool and version",
+     "uns/l28_provenance: run carries its tool and version",
+     "uns/l29_provenance: run carries its tool and version",
+     "uns/l30_provenance: run carries its tool and version",
+     "uns/l31_provenance: run carries its tool and version",
+     "uns/l32_provenance: run carries its tool and version",
+     "uns/l33_provenance: run carries its tool and version",
+     "uns/l34_provenance: run carries its tool and version",
+     "uns/l35_provenance: run carries its tool and version",
+     "uns/l36_provenance: run carries its tool and version",
+     "uns/l37_provenance: run carries its tool and version",
+     "uns/l38_provenance: run carries its tool and version",
+     "uns/l39_provenance: run carries its tool and version",
+     "uns/l40_provenance: run carries its tool and version",
+     "uns/l41_provenance: run carries its tool and version",
+     "uns/l42_provenance: run carries its tool and version",
+     "uns/l43_provenance: run carries its tool and version",
+     "uns/l44_provenance: run carries its tool and version",
+     "uns/l45_provenance: run carries its tool and version",
+     "uns/l46_provenance: run carries its tool and version",
+     "uns/l47_provenance: run carries its tool and version",
+     "uns/l48_provenance: run carries its tool and version",
+     "uns/l49_provenance: run carries its tool and version",
+     "uns/l50_provenance: run carries its tool and version",
+     "uns/l51_provenance: run carries its tool and version",
+     "uns/l52_provenance: run carries its tool and version",
+     "uns/l53_provenance: run carries its tool and version",
+     "uns/l54_provenance: run carries its tool and version",
+     "uns/l55_provenance: run carries its tool and version",
+     "uns/l56_provenance: run carries its tool and version",
+     "uns/l57_provenance: run carries its tool and version",
+     "uns/l58_provenance: run carries its tool and version",
+     "uns/l59_provenance: run carries its tool and version",
+     "uns/l60_provenance: run carries its tool and version",
+     "uns/l61_provenance: run carries its tool and version",
+     "uns/l62_provenance: run carries its tool and version",
+     "uns/l63_provenance: run carries its tool and version",
+     "65 records were found and run reads the first 64: the 1 after them was not read: uns/l64_provenance",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "run carries the run's identity, not its record: from uns/l00_provenance, uns/l01_provenance, uns/l02_provenance, uns/l03_provenance, uns/l04_provenance, uns/l05_provenance, uns/l06_provenance, uns/l07_provenance, uns/l08_provenance, uns/l09_provenance, uns/l10_provenance, uns/l11_provenance, uns/l12_provenance, uns/l13_provenance, uns/l14_provenance, uns/l15_provenance, uns/l16_provenance, uns/l17_provenance, uns/l18_provenance, uns/l19_provenance and 44 more, each record's tool, version, commit, stage, run_key and job where it holds them as strings of 256 characters or fewer, and nothing else",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   },
+   "old": {
+    "sha256": "18a6fa0189d919efd6f5a527d6c4ca7a787a6bc3dc60dd5691e30d829c494e07",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": [
+      {
+       "path": "uns/l00_provenance",
+       "record": {
+        "tool": "l00-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l01_provenance",
+       "record": {
+        "tool": "l01-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l02_provenance",
+       "record": {
+        "tool": "l02-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l03_provenance",
+       "record": {
+        "tool": "l03-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l04_provenance",
+       "record": {
+        "tool": "l04-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l05_provenance",
+       "record": {
+        "tool": "l05-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l06_provenance",
+       "record": {
+        "tool": "l06-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l07_provenance",
+       "record": {
+        "tool": "l07-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l08_provenance",
+       "record": {
+        "tool": "l08-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l09_provenance",
+       "record": {
+        "tool": "l09-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l10_provenance",
+       "record": {
+        "tool": "l10-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l11_provenance",
+       "record": {
+        "tool": "l11-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l12_provenance",
+       "record": {
+        "tool": "l12-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l13_provenance",
+       "record": {
+        "tool": "l13-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l14_provenance",
+       "record": {
+        "tool": "l14-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l15_provenance",
+       "record": {
+        "tool": "l15-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l16_provenance",
+       "record": {
+        "tool": "l16-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l17_provenance",
+       "record": {
+        "tool": "l17-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l18_provenance",
+       "record": {
+        "tool": "l18-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l19_provenance",
+       "record": {
+        "tool": "l19-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l20_provenance",
+       "record": {
+        "tool": "l20-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l21_provenance",
+       "record": {
+        "tool": "l21-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l22_provenance",
+       "record": {
+        "tool": "l22-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l23_provenance",
+       "record": {
+        "tool": "l23-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l24_provenance",
+       "record": {
+        "tool": "l24-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l25_provenance",
+       "record": {
+        "tool": "l25-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l26_provenance",
+       "record": {
+        "tool": "l26-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l27_provenance",
+       "record": {
+        "tool": "l27-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l28_provenance",
+       "record": {
+        "tool": "l28-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l29_provenance",
+       "record": {
+        "tool": "l29-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l30_provenance",
+       "record": {
+        "tool": "l30-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l31_provenance",
+       "record": {
+        "tool": "l31-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l32_provenance",
+       "record": {
+        "tool": "l32-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l33_provenance",
+       "record": {
+        "tool": "l33-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l34_provenance",
+       "record": {
+        "tool": "l34-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l35_provenance",
+       "record": {
+        "tool": "l35-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l36_provenance",
+       "record": {
+        "tool": "l36-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l37_provenance",
+       "record": {
+        "tool": "l37-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l38_provenance",
+       "record": {
+        "tool": "l38-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l39_provenance",
+       "record": {
+        "tool": "l39-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l40_provenance",
+       "record": {
+        "tool": "l40-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l41_provenance",
+       "record": {
+        "tool": "l41-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l42_provenance",
+       "record": {
+        "tool": "l42-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l43_provenance",
+       "record": {
+        "tool": "l43-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l44_provenance",
+       "record": {
+        "tool": "l44-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l45_provenance",
+       "record": {
+        "tool": "l45-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l46_provenance",
+       "record": {
+        "tool": "l46-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l47_provenance",
+       "record": {
+        "tool": "l47-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l48_provenance",
+       "record": {
+        "tool": "l48-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l49_provenance",
+       "record": {
+        "tool": "l49-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l50_provenance",
+       "record": {
+        "tool": "l50-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l51_provenance",
+       "record": {
+        "tool": "l51-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l52_provenance",
+       "record": {
+        "tool": "l52-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l53_provenance",
+       "record": {
+        "tool": "l53-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l54_provenance",
+       "record": {
+        "tool": "l54-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l55_provenance",
+       "record": {
+        "tool": "l55-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l56_provenance",
+       "record": {
+        "tool": "l56-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l57_provenance",
+       "record": {
+        "tool": "l57-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l58_provenance",
+       "record": {
+        "tool": "l58-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l59_provenance",
+       "record": {
+        "tool": "l59-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l60_provenance",
+       "record": {
+        "tool": "l60-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l61_provenance",
+       "record": {
+        "tool": "l61-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l62_provenance",
+       "record": {
+        "tool": "l62-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l63_provenance",
+       "record": {
+        "tool": "l63-tool",
+        "version": "1.0"
+       }
+      },
+      {
+       "path": "uns/l64_provenance",
+       "record": {
+        "tool": "l64-tool",
+        "version": "1.0"
+       }
+      }
+     ]
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "EXCLUDED and UNRESOLVED are the annotator's sentinels, not cell types: 16 cells (EXCLUDED 10, UNRESOLVED 6). They stay drawn, and are listed in sentinels so that a reader can leave them out of composition, markers and tests",
+     "X looks like lognorm",
+     "layers[\"counts\"] looks like counts",
+     "layers[\"lognorm\"] looks like lognorm",
+     "raw counts taken from layers[\"counts\"]",
+     "expression taken from X, already log-normalized",
+     "factor_b travels with the cells as an extra grouping — 2 levels the studio can break a figure down by",
+     "factor_a:factor_b travels with the cells as an extra grouping — 4 levels the studio can break a figure down by",
+     "2 embeddings carried (X_umap, X_umap_none); X_umap opens by default",
+     "not offered as embeddings: X_harmony (10 columns), X_none (10 columns) and X_pca (10 columns), latent spaces: the first two columns of one are not a picture of the cells; X_umap_harmony (the same coordinates as X_umap), a copy offered once. A latent space can still be chosen as the one that opens first, and is then drawn by its first two columns",
+     "the run's own record travels with the bundle, in run: uns/l00_provenance, uns/l01_provenance, uns/l02_provenance, uns/l03_provenance, uns/l04_provenance, uns/l05_provenance, uns/l06_provenance, uns/l07_provenance, uns/l08_provenance, uns/l09_provenance, uns/l10_provenance, uns/l11_provenance, uns/l12_provenance, uns/l13_provenance, uns/l14_provenance, uns/l15_provenance, uns/l16_provenance, uns/l17_provenance, uns/l18_provenance, uns/l19_provenance and 45 more",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number",
+     "gene names are symbols; var/gene_id carries the accessions and travels with them"
+    ]
+   }
+  },
+  "U2_0L_uninspected": {
+   "new": {
+    "sha256": "0145fc36ee84543d0862dd95d4c957cad4b83d5d945a338229ba39a01ee78db3",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": []
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/plain_group could not be inspected (Float16 not supported), so the run section cannot tell whether it holds a record",
+     "X looks like counts",
+     "raw counts taken from X",
+     "expression computed here as log1p(CP10K) from the counts",
+     "no sample column — every cell is treated as one sample. Composition cannot show between-animal spread, and pseudobulk needs several samples per group, so only the per-cell test will be available",
+     "no condition column — this object opens as a single group, and every comparison tab stays empty rather than inventing a contrast",
+     "the object's uns holds no run record the lab can carry (none with a tool, version, commit, stage, run_key or job stored as a string of 256 characters or fewer), so this bundle cannot say which run made it",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number"
+    ]
+   },
+   "old": {
+    "sha256": "7cd67ffa888917e675328ee17ad5c76cb9dd6cdf12c126eafc724b439cb80484",
+    "run": {
+     "searched": "uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance",
+     "records": []
+    },
+    "notes": [
+     "read in the modern AnnData layout",
+     "uns/plain_group could not be inspected (Float16 not supported), so the run section cannot tell whether it holds a record",
+     "X looks like counts",
+     "raw counts taken from X",
+     "expression computed here as log1p(CP10K) from the counts",
+     "no sample column — every cell is treated as one sample. Composition cannot show between-animal spread, and pseudobulk needs several samples per group, so only the per-cell test will be available",
+     "no condition column — this object opens as a single group, and every comparison tab stays empty rather than inventing a contrast",
+     "the object's uns holds no run record (nothing named provenance, no harness_run), so this bundle cannot say which run made it",
+     "no total-count column; recomputed from the matrix",
+     "no detected-gene column; recomputed from the matrix",
+     "no mitochondrial fraction in the metadata — the QC panel will show a flat zero rather than a made-up number"
+    ]
+   }
+  }
+ }
+}

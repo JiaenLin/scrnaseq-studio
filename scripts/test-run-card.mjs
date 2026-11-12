@@ -164,11 +164,11 @@ console.log('\nNAMED, NOT COPIED: SHOWN AS NAMED, WITH ITS SIZE')
   check('the over-budget record is named, not copied', recs[0]?.kind, 'named')
   check('with the converter\'s sentence, which carries its size', recs[0]?.text.includes(named), true)
   check('a record the converter could not read is listed with no content', recs[1]?.kind, 'empty')
-  check('and says so', /no content/.test(recs[1]?.text ?? ''), true)
+  check('and says so, with no reason the bundle does not give', [/Listed with no content\./.test(recs[1]?.text ?? ''), /could not read/.test(recs[1]?.text ?? '')], [true, false])
   check('a record kept as text is shown as its text', [recs[2]?.kind, recs[2]?.text.includes('stage one: done; stage two: sealed')],
     ['text', true])
   const text = textOf(card)
-  check('the records left out are counted', /12 more records?/.test(text), true)
+  check('the records not listed are counted, and no reason is given for them', [/12 more records the converter found are not listed here/.test(text), /budget\b(?!\s+for one record)/.test(text.replace(named, ''))], [true, false])
   check('named as the converter named them', text.includes('uns/k_provenance') && text.includes('uns/m_provenance'), true)
   check('and the ones it did not list are counted, not invented', /10 more/.test(text), true)
 }
@@ -193,13 +193,13 @@ console.log('\nA LONG VALUE IS FOLDED, NOT CUT')
 console.log('\nNO RECORD, NO SECTION, A BROKEN SECTION, THE DEMO')
 {
   const empty = textOf(runCard(overview(open({ searched: SEARCHED, records: [] }))))
-  check('records: [] says the object carries no run record', empty.includes('The object carries no run record'), true)
+  check('records: [] says the bundle lists no run record, and never that the converter found none', [empty.includes('This bundle lists no run record'), /found none/.test(empty)], [true, false])
   check('and where the converter looked', empty.includes(SEARCHED), true)
 
   const allOut = textOf(runCard(overview(open({ searched: SEARCHED, records: [], leftOut: { count: 2, paths: ['uns/a_provenance', 'uns/b_provenance'] } }))))
   check('records: [] with records left out never says there is none',
     [allOut.length > 0, allOut.includes('carries no run record')], [true, false])
-  check('it says none of the 2 was copied, and names them',
+  check('it says none of the 2 is listed, and names them',
     /none of (the|its) 2/i.test(allOut) && allOut.includes('uns/a_provenance'), true)
 
   const absent = textOf(runCard(overview(open(undefined))))

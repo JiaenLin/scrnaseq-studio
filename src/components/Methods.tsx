@@ -92,9 +92,13 @@ export default function Methods({
   // numbers has to leave the same cells out.
   const pops = types.filter(t => !t.sentinel)
   const uncalled = sentinelCount(d.cells, types)
-  // The run's records whose content travelled with the bundle. A record the
-  // converter only named carries nothing, so it changes nothing below.
-  const carried = carriedRecords(runView(src.meta))
+  // The run's records the bundle holds content for. A record the converter
+  // only named carries nothing, so it changes nothing below. A section that
+  // lists each record by six named fields (lib/run.ts) holds no parameter at
+  // all, so the text says the bundle lists the records, not that it read them.
+  const run = runView(src.meta)
+  const carried = carriedRecords(run)
+  const listedByFields = run.kind === 'section' && run.form === 'fields'
 
   // Numbers are allocated on first use, so the two paragraphs have to be built
   // in the order they are read — which is why the first one is a variable here
@@ -139,13 +143,22 @@ export default function Methods({
         // of those records: the parameters are the tools' own words, on
         // Overview, and a paragraph that picked some of them out would be
         // choosing which of a tool's settings to call the method.
-        <><b>This text reads nothing between the counts and those labels</b>: the object carries
-        the run&rsquo;s own record{carried.length === 1 ? '' : 's'} ({carried.map((p, i) => (
-          <span key={`${i}:${p}`}>{i === 0 ? '' : i === carried.length - 1 ? ' and ' : ', '}<Mono>{p}</Mono></span>
-        ))}), which Overview shows as recorded, and how many variable genes were kept, how many
-        components were used, how large the neighbourhood was and at what resolution the graph was
-        cut are not read out of {carried.length === 1 ? 'it' : 'them'} here, and are not guessed
-        at.</>
+        listedByFields ? (
+          <><b>This text reads nothing between the counts and those labels</b>: the bundle lists
+          the run&rsquo;s record{carried.length === 1 ? '' : 's'} ({carried.map((p, i) => (
+            <span key={`${i}:${p}`}>{i === 0 ? '' : i === carried.length - 1 ? ' and ' : ', '}<Mono>{p}</Mono></span>
+          ))}) by up to six named fields, which Overview shows, and how many variable genes were
+          kept, how many components were used, how large the neighbourhood was and at what
+          resolution the graph was cut are not among them, and are not guessed at.</>
+        ) : (
+          <><b>This text reads nothing between the counts and those labels</b>: the object carries
+          the run&rsquo;s own record{carried.length === 1 ? '' : 's'} ({carried.map((p, i) => (
+            <span key={`${i}:${p}`}>{i === 0 ? '' : i === carried.length - 1 ? ' and ' : ', '}<Mono>{p}</Mono></span>
+          ))}), which Overview shows as recorded, and how many variable genes were kept, how many
+          components were used, how large the neighbourhood was and at what resolution the graph was
+          cut are not read out of {carried.length === 1 ? 'it' : 'them'} here, and are not guessed
+          at.</>
+        )
       ) : (
         <><b>Everything between the counts and those labels is unknown to this app</b>: how many
         variable genes were kept, how many components were used, how large the neighbourhood was
@@ -308,9 +321,11 @@ export default function Methods({
             </p>
             <p className="mb-0 mt-3">
               <b>What this text will not say.</b> It names no normalization, variable-gene count,
-              component count or clustering resolution, because {carried.length
-                ? 'it reads none of them out of the run’s records'
-                : 'a bundle carries none of them'}; it
+              component count or clustering resolution, because {listedByFields
+                ? 'the fields this bundle lists of the run’s records hold none of them'
+                : carried.length
+                  ? 'it reads none of them out of the run’s records'
+                  : 'a bundle carries none of them'}; it
               claims no doublet removal, ambient-RNA correction or batch correction it did not
               find; it does not call a t-SNE a UMAP, or a one-sample-per-group design replicated.
               Cutoffs are read from <Mono>lib/stats.ts</Mono>, so the prose and the figures cannot

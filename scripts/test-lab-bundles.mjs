@@ -151,9 +151,9 @@ console.log('\nA FIXTURE WITH NO RUN RECORD')
 {
   const { parts } = raw('no-record.zip')
   check('(the converter wrote an empty run section)', parts[0].meta.run.records, [])
-  await attempt('the card says the object carries no run record, and where the converter looked', async () => {
+  await attempt('the card says the bundle lists no run record, and where the converter looked', async () => {
     const card = textOf(runCard(overview(await open('no-record.zip'))))
-    return [card.includes('The object carries no run record'), card.includes(parts[0].meta.run.searched)]
+    return [card.includes('This bundle lists no run record'), card.includes(parts[0].meta.run.searched)]
   }, [true, true])
 }
 
@@ -205,8 +205,9 @@ console.log('\nRECORDS THE CONVERTER COULD NOT COPY WHOLE')
   }, ['named', true, true])
   await attempt('the one left out of the section is named as left out', async () => {
     const card = textOf(runCard(overview(await open('budget.zip'))))
-    return [/1 more record/.test(card), card.includes('uns/f_provenance')]
-  }, [true, true])
+    return [/1 more record the converter found is not listed here/.test(card), card.includes('uns/f_provenance'), /over its budget/.test(card),
+      /The converter’s notes, in the next card, say why\./.test(card)]
+  }, [true, true, false, true])
   await attempt("the harness's record, parsed by the converter, shows its stages as recorded", async () => {
     const rec = recordsOf(runCard(overview(await open('budget.zip')))).find(r => r.path === 'uns/harness_run')
     return [rec?.kind, rec?.rows.map(r => r[0]), /"run_key": ?"RUNKEY-FIXTURE"/.test(rec?.text ?? '')]

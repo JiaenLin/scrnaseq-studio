@@ -127,8 +127,10 @@ export interface BundleMeta {
     duplicated: number
   } | null
   /**
-   * The run that produced the object, as the lab's converter copied it out of
+   * The run that produced the object, as the lab's converter wrote it from
    * the object's uns: `{ searched, records: [{ path, record }], leftOut? }`.
+   * Today a record is up to six named fields; an earlier converter copied the
+   * record itself (lib/run.ts tells the two apart, by the fields present).
    *
    * Absent in bundles from this repository's exporters, from the lab before it
    * read run records, and from an .rds. Carried exactly as it came, untyped:
@@ -215,6 +217,53 @@ export function ambiguousNote(headers: readonly string[]): string {
   return `the summed raw counts are not offered: the pseudobulk column header${one ? '' : 's'} ${shown}${more} `
     + `can${one ? '' : ' each'} be read as more than one sample × cluster pair this object declares, so which sample's `
     + `counts ${one ? 'it holds' : 'they hold'} is not in the file`
+}
+
+/** A line of a tab-separated table that is not as wide as the table's header. */
+export interface RaggedLine { line: number; columns: number; header: number }
+
+/**
+ * The first line of a tab-separated table that has not as many columns as its
+ * header: its number in the file, and both widths. null when every line has.
+ *
+ * A tab inside a sample or a cell type name does this: the writer joins a
+ * header's cells with tabs, so the name becomes two cells, the header is one
+ * column wider than every row, and each count read by position would be its
+ * neighbour's. A table that is ragged is refused whole (see raggedNote);
+ * nothing is repaired, because which cells belong together is not in the file.
+ * Blank lines are skipped, as the readers skip them.
+ */
+export function raggedLine(text: string): RaggedLine | null {
+  const lines = text.split('\n')
+  let header = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim().length === 0) continue
+    const columns = lines[i].split('\t').length
+    if (header < 0) header = columns
+    else if (columns !== header) return { line: i + 1, columns, header }
+  }
+  return null
+}
+
+/**
+ * The note for a ragged table: which table, which line, and what to do. The
+ * cause is named only when the bundle itself shows it, a declared sample or
+ * cell type whose name holds a tab; otherwise only what was found is said.
+ */
+export function raggedNote(
+  r: RaggedLine, table: string, samples: Iterable<string>, clusters: Iterable<string>,
+): string {
+  const found = `the summed raw counts are not offered: line ${r.line} of ${table} has ${r.columns} `
+    + `column${r.columns === 1 ? '' : 's'} and its header has ${r.header}`
+  const tabbed = (names: Iterable<string>, what: string) =>
+    [...names].filter(n => typeof n === 'string' && n.includes('\t')).map(n => `the ${what} ${JSON.stringify(n)}`)
+  const names = [...tabbed(samples, 'sample'), ...tabbed(clusters, 'cell type')]
+  if (!names.length) return `${found}, so no count can be matched to its column. Convert the object again`
+  const shown = names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
+    : names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]
+  const one = names.length === 1
+  return `${found}. ${shown[0].toUpperCase()}${shown.slice(1)} ${one ? 'holds' : 'each hold'} a tab, which splits a column `
+    + `in two: rename ${one ? 'it' : 'them'} in the object and convert again`
 }
 
 export interface Bundle {
@@ -329,7 +378,15 @@ export function parseBundle(buf: ArrayBuffer): Bundle {
     const pb = parsePseudobulk(new TextDecoder().decode(files['pseudobulk.tsv']), meta.nGenes,
       new Set(meta.samples.map(s => s?.id)), new Set(meta.clusters))
     pseudobulk = pb.table
-    if (pb.ambiguous.length) {
+    if (pb.ragged) {
+      // Refused by name, like a header that reads two ways: a table whose rows
+      // are not as wide as its header would be offered with every later column
+      // holding its neighbour's counts.
+      read = {
+        ...meta, hasRawCounts: false,
+        notes: [...(meta.notes ?? []), raggedNote(pb.ragged, 'pseudobulk.tsv', meta.samples.map(s => s?.id), meta.clusters)],
+      }
+    } else if (pb.ambiguous.length) {
       // Said where the conversion's decisions are said, and "raw counts:
       // present" withdrawn — which is what a collection whose table does not
       // survive its merge already reads as.
@@ -434,9 +491,13 @@ function readAlias(
  */
 function parsePseudobulk(
   text: string, nGenes: number, samples: ReadonlySet<string>, clusters: ReadonlySet<string>,
-): { table: Pseudobulk | null; ambiguous: string[] } {
+): { table: Pseudobulk | null; ambiguous: string[]; ragged?: RaggedLine } {
   const lines = text.split('\n').filter(l => l.trim().length > 0)
   if (lines.length < 2) return { table: null, ambiguous: [] }
+  // Before any header is read: a header wider than its rows is not a set of
+  // columns, and its cells are not names to match against the declared ones.
+  const ragged = raggedLine(text)
+  if (ragged) return { table: null, ambiguous: [], ragged }
   const header = lines[0].split('\t').slice(1)
   const read = header.map(h => readPseudobulkHeader(h, samples, clusters))
   const ambiguous = header.filter((_h, i) => read[i] === null)

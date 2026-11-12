@@ -25,7 +25,7 @@
 
 import type { CellType } from '../types.ts'
 import type { Bundle, BundleMeta, Embedding, ExtraColumn, Pseudobulk, PseudobulkColumn } from './bundle.ts'
-import { ambiguousNote, bundleDataset, pseudobulkKey, readPseudobulkHeader, SCHEMA } from './bundle.ts'
+import { ambiguousNote, bundleDataset, pseudobulkKey, raggedLine, raggedNote, readPseudobulkHeader, SCHEMA } from './bundle.ts'
 import { makeGeneNames } from './genes.ts'
 import {
   chunkCount, makeChunkCache, readGenes,
@@ -424,7 +424,7 @@ export async function openCollection(
   }
   // Merged first, because whether the summed counts survived the merge is what
   // "raw counts: present" on Overview is actually promising.
-  const pseudobulk = mergePseudobulk(pbTexts, parts.map(p => p.meta), genes!, notes)
+  const pseudobulk = mergePseudobulk(pbTexts, parts.map(p => p.meta), genes!, notes, parts.map(p => p.key))
   const merged: BundleMeta = {
     schema: SCHEMA,
     label: cmeta.label ?? meta0.label,
@@ -723,11 +723,21 @@ export async function openCollection(
  * by a joined string.
  */
 function mergePseudobulk(
-  texts: (string | null)[], metas: BundleMeta[], genes: string[], notes: string[],
+  texts: (string | null)[], metas: BundleMeta[], genes: string[], notes: string[], keys: string[] = [],
 ): Pseudobulk | null {
   if (!texts.some(t => t)) return null
   if (!texts.every(t => t)) {
     notes.push('some parts carry summed raw counts and others do not, so pseudobulk is not offered')
+    return null
+  }
+  // A part whose table is not as wide as its header refuses the whole merge,
+  // named by its part: its counts cannot be matched to their columns, and the
+  // sum across parts would carry them into every part's.
+  for (let i = 0; i < texts.length; i++) {
+    const ragged = raggedLine(texts[i] ?? '')
+    if (!ragged) continue
+    const table = keys[i] === undefined ? 'pseudobulk.tsv' : `pseudobulk.tsv in part ${keys[i]}`
+    notes.push(raggedNote(ragged, table, metas[i].samples.map(s => s?.id), metas[i].clusters))
     return null
   }
 
