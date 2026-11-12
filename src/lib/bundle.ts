@@ -263,7 +263,7 @@ export function raggedNote(
     [...names].filter(n => typeof n === 'string' && n.includes('\t')).map(n => `the ${what} ${JSON.stringify(n)}`)
   const names = [...tabbed(samples, 'sample'), ...tabbed(clusters, 'cell type'), ...tabbed(genes, 'gene')]
   if (!names.length) {
-    return `${found}. Convert the object again: if the same line comes back, the cause is in the object or the converter, not in this bundle`
+    return `${found}. Convert the object again: if the same line comes back, the cause is in the object or the converter`
   }
   const shown = names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
     : names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]

@@ -15,6 +15,7 @@ import { writeChunked } from '../src/lib/chunked.ts'
 import { readCollectionIndex, writeCollection } from '../src/lib/collection.ts'
 import { openCollection } from '../src/lib/collection-source.ts'
 import { bundleSource } from '../src/lib/source.ts'
+import { BUDGET, words } from './copy-standard.mjs'
 
 let failed = 0
 const check = (name, got, want) => {
@@ -110,7 +111,7 @@ console.log('\nA ROW THAT IS NOT AS WIDE AS THE HEADER, AND NO NAME THAT EXPLAIN
   check('refused, with the line of the first such row, and no cause is guessed',
     [src.pseudobulk, src.meta.hasRawCounts, about(src)],
     [null, false, ['the summed raw counts are not offered: line 3 of pseudobulk.tsv has 2 columns and its header has 3. '
-      + 'Convert the object again: if the same line comes back, the cause is in the object or the converter, not in this bundle']])
+      + 'Convert the object again: if the same line comes back, the cause is in the object or the converter']])
   check('its advice does not end at converting again: it says what a second conversion tells', /convert(ing)? (the object )?again$/i.test(about(src)[0] ?? ''), false)
   const wide = open(table('s1', 's2', [['A', 5, 7], ['B', 1, 2], ['C', 0, 3, 9]]))
   check('a row wider than the header is refused the same way', [wide.pseudobulk, /line 4 of pseudobulk\.tsv has 4 columns and its header has 3/.test(about(wide)[0] ?? '')], [null, true])
@@ -145,6 +146,13 @@ console.log('\nA COLLECTION: ONE PART\'S TABLE IS RAGGED')
     return [src.pseudobulk, src.meta.hasRawCounts, about(src)]
   }, [null, false, ['the summed raw counts are not offered: line 3 of pseudobulk.tsv in part p1 has 4 columns and its header has 3. The gene "B\\tx" holds a tab, '
     + 'which splits a column in two: rename it in the object and convert again']])
+  await attempt('no name that explains it, in a collection: the note, with its part, is within a paragraph\'s words (numbers set aside)', async () => {
+    const blob = collection([table('s1', 's2'), table('s1', 's2', [['A', 5, 7], ['B', 1], ['C', 0, 3]])], [{}, {}])
+    const src = await openCollection(blob, await readCollectionIndex(blob))
+    const note = about(src)[0] ?? ''
+    return [note, words(note.replace(/\b\d+\b/g, ' ')) <= BUDGET.text]
+  }, ['the summed raw counts are not offered: line 3 of pseudobulk.tsv in part p2 has 2 columns and its header has 3. '
+    + 'Convert the object again: if the same line comes back, the cause is in the object or the converter', true])
 }
 
 console.log(failed ? `\n${failed} FAILED` : '\nAll ragged-table tests passed')
