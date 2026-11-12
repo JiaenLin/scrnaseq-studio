@@ -105,6 +105,8 @@ for (const s of SENTENCES) {
   for (const [what, mt] of decoys) {
     const text = plain(s.say(mt)), src = sourceOf(mt, s.fact)
     if (src.kind === 'recorded' || src.kind === 'measured' || src.kind === 'chosen') bad.push(`${what}: read as ${src.kind}`)
+    // A `facts`, or an entry of it, that the reader refuses is UNREADABLE: the older field is never read in its place.
+    if (what !== 'the older field holds a name' && src.kind !== 'unreadable') bad.push(`${what}: read as ${src.kind}, not as unreadable`)
     if (CLAIM.test(text)) bad.push(`${what}: claims a record: ${text}`)
     if (citationFor(sourceOf(mt, 'integration')) !== null || methodsIntegration(mt).cite !== null) bad.push(`${what}: cited`)
     if (/<b>|\[object/.test(text)) bad.push(`${what}: drew what it could not read: ${text}`)
