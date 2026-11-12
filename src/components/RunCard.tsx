@@ -161,13 +161,26 @@ function Record({ r, notes }: { r: RunRecordView; notes: readonly string[] }) {
 
 /**
  * A value as recorded: inline when short, folded behind a disclosure when long — never cut.
- * An empty string is the app's mark for no value, with what it is in its title, never a blank;
- * a string of spaces only is shown quoted, so that it can be seen.
+ * Its white space is drawn as recorded in both (pre-wrap): a run of spaces keeps its length and
+ * a line break is a line break. An empty string is the app's mark for no value, with what it is
+ * in its title, never a blank. A string of white space only is written as JSON, the form a name
+ * with a tab takes in a note: in quotes, each space kept, a tab and a line break as \t and \n,
+ * so that it can be seen and counted; its title gives its length and says the quotes are not in it.
  */
 function Value({ v }: { v: unknown }) {
   if (v === '') return <span title="An empty string, as recorded" data-run-empty="">—</span>
-  const text = typeof v === 'string' && v.trim() === '' ? JSON.stringify(v) : valueText(v)
-  if (text.length <= FOLD) return <span className="mono" style={{ overflowWrap: 'anywhere' }}>{text}</span>
+  const blank = typeof v === 'string' && v.trim() === '' ? v : null
+  const text = blank === null ? valueText(v) : JSON.stringify(blank)
+  if (text.length <= FOLD) {
+    return (
+      <span className="mono" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+        data-run-blank={blank === null ? undefined : ''}
+        title={blank === null ? undefined
+          : `${blank.length} white-space character${blank.length === 1 ? '' : 's'}, as recorded; the quotes are not part of it`}>
+        {text}
+      </span>
+    )
+  }
   const size = typeof v === 'string' ? `${v.length.toLocaleString('en-US')} characters`
     : Array.isArray(v) ? `${v.length.toLocaleString('en-US')} items`
       : `${Object.keys(v as object).length.toLocaleString('en-US')} entries`

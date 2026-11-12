@@ -273,6 +273,22 @@ console.log('\nA COUNT WITH NO PATH NAMED: THE SENTENCE ENDS AT ITS COUNT')
   check('a path named and a count past it: the list, then the rest (guard)', /found in the object: uns\/a_provenance ?, and 2 more ?\./.test(some), true)
 }
 
+console.log('\nWHITE SPACE IN A VALUE IS DRAWN AS RECORDED')
+{
+  const card = runCard(overview(open({ searched: SEARCHED, records: [
+    { path: 'uns/w_provenance', record: { tool: '   ', version: 'a\nb', commit: 'x  y', stage: '\n' } }] })))
+  const cell = (key) => new RegExp(`<td[^>]*>${key}</td><td[^>]*>([\\s\\S]*?)</td>`).exec(card)?.[1] ?? ''
+  const pre = (key) => /white-space:\s*pre-wrap/.test(cell(key))
+  check('a value of three spaces: in quotes, its three spaces kept, and its title gives its length',
+    [pre('tool'), cell('tool').includes('&quot;   &quot;'), /title="3 white-space characters, as recorded; the quotes are not part of it"/.test(cell('tool'))],
+    [true, true, true])
+  check('a line break inside a value is drawn as a line break, not as a space', [pre('version'), cell('version').includes('a\nb')], [true, true])
+  check('two spaces inside a value stay two', [pre('commit'), cell('commit').includes('x  y')], [true, true])
+  check('a value that is one line break: in quotes, as \\n, and its title says one character',
+    [cell('stage').includes('&quot;\\n&quot;'), /title="1 white-space character, as recorded; the quotes are not part of it"/.test(cell('stage'))], [true, true])
+  check('a value with no white space to keep has no such title', /title="\d+ white-space/.test(cell('commit')), false)
+}
+
 console.log('\nMETHODS NO LONGER SAYS THE FILE CARRIES NONE OF IT')
 {
   const withRun = methods(open({ searched: SEARCHED, records: [{ path: 'uns/scintegrate/provenance', record: PROV }] }))

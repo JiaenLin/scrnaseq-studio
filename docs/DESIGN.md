@@ -475,7 +475,11 @@ to it. The lower-casing is not undone at its source: the library files would hav
 (40 files), and the capitals would still come from this list. "E2F targets", "DNA repair", "TNFA signaling via
 NFKB", "MHC class I": never "E2f targets", "Dna repair" or "MHC class i". The source's own name is in the element's
 title and in every CSV. A cell type, a group and a sample are the object's own strings, never re-cased, never
-abbreviated except by an ellipsis with the whole name in the title.
+abbreviated except by an ellipsis with the whole name in the title. **A value shown as recorded** (a field of a run
+record) keeps its white space: a run of spaces and a line break are drawn as they are, inline as in the folded
+block. An empty string is the em dash, with what it is in its title. A value of white space only is written as
+JSON, in quotes (a tab and a line break as `\t` and `\n`, the form a name with a tab takes in a note), with its
+length in its title, which also says the quotes are not part of it.
 
 **An error says what happened, then what to do.** First sentence: what the reader was doing and what did not
 happen, in their words ("That file did not open"). Second: the cause the app knows, without a code name. Third:
