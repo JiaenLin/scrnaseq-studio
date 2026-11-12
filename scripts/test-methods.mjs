@@ -23,9 +23,12 @@ const check = (name, got, want) => {
 
 const C = await loadComponents()
 
-// The replicated demo: four animals a group, so pseudobulk is offered and the
-// paragraph has a real design to describe.
-const src = demoSource('cohort')
+// The replicated demo: four animals a group, so the paragraph has a real
+// design to describe. A demo holds no table of summed counts, and Methods
+// describes a save only where there is one (see the last block), so the
+// paragraph that describes it is rendered on the demo with a stand-in table.
+const bare = demoSource('cohort')
+const src = { ...bare, pseudobulk: { genes: [], columns: [], counts: new Int32Array(0) } }
 const [ctrl, cs] = src.d.conds
 const methods = (method) => textOf(render(C.Methods, {
   src, types: src.types, tis: [0], ctrl: [ctrl], cs: [cs], method,
@@ -68,6 +71,22 @@ console.log('\nOVERVIEW: THE DESIGN NOTE OFFERS WHAT EXISTS')
   check('nor "both tests"', /both tests/i.test(t), false)
   check('it says the pseudobulk counts are exported for DESeq2', t.includes('saved for DESeq2'), true)
   check('and that DESeq2 is not run here', t.includes('not run here'), true)
+}
+
+console.log('\nWITH NO TABLE OF COUNTS, NEITHER SAYS COUNTS WERE OR CAN BE SAVED')
+{
+  const over = textOf(render(C.Overview, {
+    src: bare, types: bare.types, palKey: 'npg', roles: { t: -1, g: -1 }, onRoles: () => {},
+  }))
+  check('Overview does not say the pseudobulk counts can be saved', /counts can be saved|saved for DESeq2/.test(over), false)
+  check('it says there are none to save, and why', over.includes('no pseudobulk counts to save') && over.includes('this demo holds no raw counts'), true)
+  const t = textOf(render(C.Methods, {
+    src: bare, types: bare.types, tis: [0], ctrl: [ctrl], cs: [cs], method: 'pseudobulk',
+    padjMax: 0.05, lfcMin: thresholdFor('pseudobulk').lfc, gates: DE_GATES, lib: null,
+  }))
+  check('Methods does not say counts were summed or saved', /raw counts were summed|were saved for DESeq2|the counts summed/.test(t), false)
+  check('it says no profiles were prepared, and why', t.includes('No pseudobulk profiles were prepared') && t.includes('this demo holds no raw counts'), true)
+  check('and cites DESeq2 for nothing', t.includes('Love MI'), false)
 }
 
 console.log(failed ? `\n${failed} FAILED` : '\nAll Methods tests passed')

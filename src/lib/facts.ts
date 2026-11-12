@@ -329,6 +329,9 @@ export function pseudobulkNote(mt: SourceMeta, nRep: number, usable: boolean): {
     rest: `${nRep} samples a group are enough for DESeq2, but ${NO_COUNTS[countsState(mt)]}.` }
 }
 
+/** Why there are no pseudobulk counts, for a sentence that would otherwise say they were summed and saved. */
+export const noCountsReason = (mt: SourceMeta): string => NO_COUNTS[countsState(mt)]
+
 /** The title of the pseudobulk view when there is no table to sum from: said of the bundle, not of the object. */
 export function noCountsTitle(mt: SourceMeta): string {
   const state = countsState(mt)
@@ -529,6 +532,7 @@ export const SENTENCES: Sentence[] = [
   { where: 'Overview, Raw counts, a usable table', fact: 'counts', budget: 'text', say: mt => body(countsRow(mt, 8)) },
   { where: 'Overview, the design note', fact: 'counts', budget: 'note', say: mt => { const n = pseudobulkNote(mt, 4, false); return [n.head, ' ', n.rest] } },
   { where: 'Differential expression, no counts', fact: 'counts', budget: 'empty state title', say: mt => [noCountsTitle(mt)] },
+  { where: 'Methods, no pseudobulk profiles', fact: 'counts', budget: 'methods', say: mt => [noCountsReason(mt)] },
   { where: 'Co-expression, no table', fact: 'counts', budget: 'tooltip', say: mt => [noBulkTip(mt)] },
   { where: 'Overview, QC: the total’s title', fact: 'total', budget: 'title', say: mt => [qcWords(mt, true).total] },
   { where: 'Overview, QC: what each was read from', fact: 'total', budget: 'legend', say: mt => qcWords(mt, true).line },

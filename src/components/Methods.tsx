@@ -4,7 +4,7 @@ import {
   condLabel, designFor, MIN_CELLS, type Gates, type SigBasis } from '../lib/stats.ts'
 import { carriedRecords, runView } from '../lib/run.ts'
 import { countText, sentinelCount } from '../lib/sentinels.ts'
-import { methodsCellTypes, methodsExpression, methodsIntegration, notCalledKept, undrawnOf } from '../lib/facts.ts'
+import { methodsCellTypes, methodsExpression, methodsIntegration, noCountsReason, notCalledKept, undrawnOf } from '../lib/facts.ts'
 import { Card, Mono, Parts } from './Ui.tsx'
 import { cutTxt } from '../lib/significance.ts'
 
@@ -166,6 +166,13 @@ export default function Methods({
         cells rather than between samples{cite('practices')}.</>
       : <>Because cells from the same sample are not independent observations, these p-values
         describe variation between cells rather than between samples{cite('practices')}.</>}</>
+  ) : src.pseudobulk === null ? (
+    // The pseudobulk test can be chosen on any object with enough samples, and
+    // with no table of counts nothing is summed or saved: this paragraph said
+    // that counts "were summed" and "saved for DESeq2" all the same.
+    <span data-fact="pseudobulk">No pseudobulk profiles were prepared for {condLabel(cs)} against {condLabel(ctrl)}:{' '}
+    {noCountsReason(meta)}. No counts were summed and no test was run here, so no gene is reported as
+    differentially expressed.</span>
   ) : (
     // What the pseudobulk path does, and only that: it sums the counts and
     // exports them. DESeq2 is cited as what the matrix is for, not as a test
@@ -180,7 +187,9 @@ export default function Methods({
     are chosen where the counts are tested.</>
   )
 
-  const closing = wil || !d.multi ? (
+  const closing = !wil && d.multi && src.pseudobulk === null ? (
+    <>{' '}Exploration and figures were produced in scRNA-seq Studio{cite('studio')}, in the browser.</>
+  ) : wil || !d.multi ? (
     <>{' '}Exploration, figures and statistics were produced in scRNA-seq
     Studio{cite('studio')}, which runs these tests in the browser.</>
   ) : (

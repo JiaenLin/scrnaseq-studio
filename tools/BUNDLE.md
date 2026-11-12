@@ -241,7 +241,7 @@ Two things happen to that list, both recorded in `meta.geneAlias` rather than hi
   },
   "expression": "log1p(CP10K)",
   "hasRawCounts": true,              // false ⇒ pseudobulk DESeq2 unavailable, and said so
-  "provenance": {                    // null means "not recorded in the object"
+  "provenance": {                    // older fields: a value with no source (see "facts" below)
     "normalization": "log1p(CP10K)",
     "clustering": "louvain",         // the column each role was read from
     "condition": "group",
@@ -255,9 +255,47 @@ Two things happen to that list, both recorded in `meta.geneAlias` rather than hi
 }
 ```
 
-`provenance` values are copied from the object where they exist and left `null` where they
-do not. The app prints `null` as **not found** rather than guessing, and the Methods
-generator refuses to describe a step that is `null`.
+`provenance` holds the older fields: each a value with no source. `clustering`, `condition`
+and `sample` name the column each role was read from. `normalization`, `integration`,
+`doublets` and `ambient` were guessed from a key or a name by every writer; the exporters in
+this folder now write `null` for the four. The app words any value here as **source not
+stated** ("as the converter wrote it"), a `null` as **not stated**, and its Methods text
+names no integration method from them and cites nothing from a name.
+
+### `facts` (optional): each fact with its source
+
+A converter that knows where a fact came from says so in `meta.facts`. The app reads it with
+one closed reader (`src/lib/facts.ts`) and only then says "as recorded" or "from your file".
+A bundle without it stays valid, and is worded as unsourced.
+
+```jsonc
+"facts": {
+  "v": 1,
+  "integration":           { "kind": "recorded", "value": "scanvi", "at": "uns/scintegrate/default_method" },
+  "integration_embedding": { "kind": "recorded", "value": "X_scanvi", "at": "uns/scintegrate/default_embedding" },
+  "normalization":         { "kind": "recorded", "value": null, "searched": "uns/log1p" },
+  "expression":            { "kind": "measured", "value": "log1p of counts scaled to 10,000 per cell", "of": "X", "how": "..." },
+  "counts":                { "kind": "measured", "value": true, "of": "layers/counts", "how": "...", "carried": false, "why": "..." },
+  "total":                 { "kind": "measured", "value": null, "of": "layers/counts", "how": "summed per cell" },
+  "cell_type_column":      { "kind": "chosen", "value": "cell_type", "by": "guess" }
+}
+```
+
+| kind | fields | the app says |
+|---|---|---|
+| `recorded` | `value` (one line, 64 characters or fewer), `at` (the place in the object) | "(value), as recorded in the object at (at)", badge "from your file" |
+| `recorded`, `value: null` | `searched` (where the converter looked) | "Not recorded in the object. The converter looked at (searched)." |
+| `measured` | `value` (a line, a number, true or false, or null), `of` (the matrix or embedding), `how` | "(value), measured at conversion on (of): (how)" |
+| `chosen` | `value` (or null), `by`: `flag`, `guess` or `app` | "(value), chosen at conversion by a flag of the command / by the command's guess from a name / in the lab's page" |
+
+The ids the app reads: `integration`, `integration_embedding`, `normalization`, `doublets`, `ambient`, `mito`
+(recorded); `expression`, `counts`, `gene_ids` (measured); `total`, `genes_detected` (recorded, as a column
+with its place, or measured); `cell_type_column`, `embedding`, `not_called` (chosen). An id it does not know
+is ignored. A fact it cannot take (another kind, a kind the id never has, no `at`, `of`, `how` or `by`, a
+value that is not one short line of text, markup, a `facts` that is not `v: 1`) is drawn as **unreadable**
+and never as recorded; the older field is not used in its place. A per-cell total is titled "Total counts"
+only when its `of` is the `of` of a `counts` fact measured `true`. A reference is given only to a recorded
+`integration` whose value equals a key of the app's closed table (`harmony`).
 
 ## Producing one
 

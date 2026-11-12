@@ -422,6 +422,34 @@ say what to read instead of a p-value), 520 on Methods. At the base the worst we
 | starting a computation | the verb of the result: **Run** (a test), **Find markers**, **Score**, **Correlate** | compute, calculate, go |
 | a fraction of cells with a count above zero | **detected in** n% | expressed in, pct, positive (except "positive cells drawn last") |
 
+**A fact about the object is said by its source.** Every sentence, label and reference built from a fact about
+the object (its normalization, its integration method, what its values are, whether it has raw counts, what a QC
+total is a total of) is written in ONE file, `src/lib/facts.ts`, and takes its words from the fact's source kind,
+which is read from the bundle (`meta.facts`, [tools/BUNDLE.md](../tools/BUNDLE.md)) and never from the look of a
+value, a key or a name. `scripts/test-facts.mjs` walks every sentence under every kind, with a decoy for each (a
+name that looks like a method, with no source), and reads the source for a fact said anywhere else;
+`scripts/test-facts-views.mjs` reads the views on a bundle of each kind and on its twin.
+
+| source kind | badge | the words | never |
+|---|---|---|---|
+| **recorded**: the bundle gives the place in the object | from your file | "(value), as recorded in the object at (place)"; in Methods "The object records its integration method as (value) (at (place))" | "was corrected with": the value is the object's word, and can be "none" |
+| **not recorded**: the converter looked at a named place | not recorded | "Not recorded in the object. The converter looked at (where)." | "absent", "none" |
+| **measured** at conversion | measured at conversion | "(value), measured at conversion on (matrix): (how)" | "recorded" |
+| **chosen** at conversion (a role is a parameter, not a fact) | chosen at conversion | "(value), chosen at conversion by a flag of the command", "by the command's guess from a name", "in the lab's page" | "the object's" |
+| **unsourced**: an older field states a value (every bundle written before `facts`) | source not stated | "(value), as the converter wrote it. This bundle gives no source for it", and for a step of processing ", so it is not a record of what was run" | "from your file", "as recorded", a reference, a sentence of Methods naming it |
+| **not stated** | not stated | "This bundle states none." | "not found", "absent" |
+| **unreadable**: a `facts` entry the reader refuses | unreadable | "This bundle's entry for it cannot be read ((why)), so nothing is said of it." | the older field in its place |
+| this app's own reading of the bundle, or computing | in this bundle, not in bundle, not offered here, computed here | what the bundle holds is said of the BUNDLE ("This bundle holds no summed raw counts. It does not say whether the object has any.") | of the object |
+
+Three rules follow. **A reference is given by equality**: only a recorded integration method whose value equals a
+key of the closed table (`CITED`: `harmony`); nothing is cited from the name of a column or an embedding.
+**"Pseudobulk counts can be saved" is said only where a usable table is held**; otherwise the note and Methods say
+there are none and why. **A per-cell total is "Total counts" only when the bundle says it was summed from
+counts** (a total measured on the matrix measured as counts; or, in a bundle of today, the writer's own note that
+it recomputed the total, in a bundle it gave raw counts); recomputed with no counts it is "Sum of log-normalized
+values", and otherwise "Per-cell total", with one line under the panels saying what each was read from. Cells the
+annotator did not call are said to be drawn only as far as their coordinates are finite on the embedding shown.
+
 **Sentence case, and punctuation.** Every label, title, button and head is sentence case; a method, a tool or a person
 keeps its capitals (Wilcoxon, Bonferroni, Seurat, MSigDB). A fragment (a label, a title, a tooltip of one clause)
 has no full stop; a sentence has one. No exclamation mark, no "please", no "simply". No dash joining two clauses:
