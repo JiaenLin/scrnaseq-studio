@@ -11,9 +11,11 @@ export const SUB = {
   copies: n => `${n} record${n === 1 ? '' : 's'} from the object's uns, copied unless marked otherwise. Each field is shown under its own name, as recorded; nothing here is inferred.`,
 }
 export const NONE = 'This bundle lists no run record, so it cannot say which run produced the object.'
-export const noneOf = (n, paths) => (n === 1 ? `This bundle does not list the 1 run record the converter found in the object: ${paths}.`
-  : `This bundle lists none of the ${n} run records the converter found in the object: ${paths}.`)
-export const more = (n, paths) => `${n} more record${n === 1 ? '' : 's'} the converter found ${n === 1 ? 'is' : 'are'} not listed here: ${paths}.`
+/** How such a sentence ends: a colon and the paths the converter named; or, when it named none, at its count. */
+const named = paths => (paths ? `: ${paths}.` : '.')
+export const noneOf = (n, paths) => (n === 1 ? `This bundle does not list the 1 run record the converter found in the object${named(paths)}`
+  : `This bundle lists none of the ${n} run records the converter found in the object${named(paths)}`)
+export const more = (n, paths) => `${n} more record${n === 1 ? '' : 's'} the converter found ${n === 1 ? 'is' : 'are'} not listed here${named(paths)}`
 export const ABSENT = "This bundle carries no run section, so it cannot say which run produced the object. The lab's converter writes one from an .h5ad's uns; an older bundle, another exporter's, or one from an .rds has none."
 export const WRONG = "This bundle's run section is not in the shape the lab writes (its records are not a list), so none of it is shown."
 export const looked = run => `Where the converter looked: ${run.searched}`

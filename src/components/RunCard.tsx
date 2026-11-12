@@ -53,13 +53,13 @@ export default function RunCard({ src }: { src: Source }) {
           ) : v.leftOut.count === 1 ? (
             <Said>
               This bundle does not list the 1 run record the converter found in the
-              object: <Paths l={v.leftOut} />.
+              object<Paths l={v.leftOut} />
               <Why when={notesSpeakOf(notes, v.leftOut.paths)} />
             </Said>
           ) : (
             <Said>
               This bundle lists none of the {v.leftOut.count} run records the converter found in
-              the object: <Paths l={v.leftOut} />.
+              the object<Paths l={v.leftOut} />
               <Why when={notesSpeakOf(notes, v.leftOut.paths)} />
             </Said>
           ))}
@@ -67,7 +67,7 @@ export default function RunCard({ src }: { src: Source }) {
           {v.records.length > 0 && v.leftOut && v.leftOut.count > 0 && (
             <Said>
               {v.leftOut.count} more record{v.leftOut.count === 1 ? '' : 's'} the converter
-              found {v.leftOut.count === 1 ? 'is' : 'are'} not listed here: <Paths l={v.leftOut} />.
+              found {v.leftOut.count === 1 ? 'is' : 'are'} not listed here<Paths l={v.leftOut} />
               <Why when={notesSpeakOf(notes, v.leftOut.paths)} />
             </Said>
           )}
@@ -97,15 +97,21 @@ const Why = ({ when }: { when: boolean }) => (
   when ? <span data-run-why=""> The converter&rsquo;s notes, in the next card, say why.</span> : null
 )
 
-/** The records the converter did not list, as it named them, and a count of the rest. */
+/**
+ * How a sentence about records not listed ends: a colon, the records as the converter named
+ * them and a count of the rest; or, when it named none, at the count the sentence has already
+ * given. A count is never drawn as a list of its own ("…: 1 more.").
+ */
 function Paths({ l }: { l: RunLeftOut }) {
   const rest = l.count - l.paths.length
+  if (l.paths.length === 0) return <>.</>
   return (
     <>
+      {': '}
       {l.paths.map((p, i) => (
         <span key={`${i}:${p}`}>{i === 0 ? '' : ', '}<Mono>{p}</Mono></span>
       ))}
-      {rest > 0 && <>{l.paths.length ? ', and ' : ''}{rest} more</>}
+      {rest > 0 && <>, and {rest} more</>}.
     </>
   )
 }

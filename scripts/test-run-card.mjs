@@ -257,6 +257,22 @@ console.log('\nAN EARLIER CONVERTER\'S SECTION: COPIED UNLESS MARKED OTHERWISE')
     [true, true, true, true, false])
 }
 
+console.log('\nA COUNT WITH NO PATH NAMED: THE SENTENCE ENDS AT ITS COUNT')
+{
+  const said = (run) => textOf(runCard(overview(open({ searched: SEARCHED, ...run }))))
+  const one = said({ records: [], leftOut: { count: 1, paths: [] } })
+  check('none listed, 1 found, no path named: a sentence, with no colon and no "1 more"',
+    [one.includes('This bundle does not list the 1 run record the converter found in the object.'), /object:|\b1 more\b/.test(one)], [true, false])
+  const two = said({ records: [], leftOut: { count: 2, paths: [] } })
+  check('none listed, 2 found, no path named',
+    [two.includes('This bundle lists none of the 2 run records the converter found in the object.'), /object:|\b2 more\b/.test(two)], [true, false])
+  const after = said({ records: [{ path: 'uns/scintegrate/provenance', record: PROV }], leftOut: { count: 1, paths: [] } })
+  check('records listed, and 1 more with no path named',
+    [after.includes('1 more record the converter found is not listed here.'), /listed here:|\b1 more\.?$/.test(after.split('Where the converter looked')[0].trim())], [true, false])
+  const some = said({ records: [], leftOut: { count: 3, paths: ['uns/a_provenance'] } })
+  check('a path named and a count past it: the list, then the rest (guard)', /found in the object: uns\/a_provenance ?, and 2 more ?\./.test(some), true)
+}
+
 console.log('\nMETHODS NO LONGER SAYS THE FILE CARRIES NONE OF IT')
 {
   const withRun = methods(open({ searched: SEARCHED, records: [{ path: 'uns/scintegrate/provenance', record: PROV }] }))
