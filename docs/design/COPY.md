@@ -30,8 +30,8 @@ states of a large object (a table cut at N rows), a collection opened from a fol
 | distinct strings | 1,213 | 1,028 |
 | … the app's own | 963 | 793 |
 | … data (cells, ticks, key entries, values) | 250 | 235 |
-| words in the app's distinct strings | 7,333 | 6,205 |
-| … the app's own words in them | 5,787 | 5,052 |
+| words in the app's distinct strings | 7,333 | 6,203 |
+| … the app's own words in them | 5,787 | 5,050 |
 | controls measured | 7,124 | 7,126 |
 | files saved and read | 22 | 22 |
 
@@ -142,6 +142,7 @@ The app's own words per string. "Over" is the number of distinct strings over th
 | `\breplicates?\b` | sample | a replicate is a sample here; "replicated" (a design) stays | 1 | 0 |
 | `\bsignatures?\b` | gene set | a set of genes is a gene set whether pasted or from MSigDB | 14 | 0 |
 | `\bidentit(y\|ies)\b` | cell type or group | Seurat's word, not the reader's | 11 | 0 |
+| `\bcarried\b(?! in the file)` | listed, or copied (a record in an earlier converter's section) | of a run record it said neither: whether the bundle lists fields of it or holds a copy | 1 | 0 |
 | `\bsentinels?\b` | cells not called | the code word for a label that is not a cell type | 0 | 0 |
 | `\buncalled\b` | not called | one phrase for a cell the annotator gave no cell type | 0 | 0 |
 | `\bpick(s\|ed\|ers?)?\b` | choose | one verb for taking one of a list | 6 | 0 |
@@ -1295,7 +1296,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 
 ### The lab bundle (what the demos did not show)
 
-37 strings, 609 words (511 the app's own).
+37 strings, 607 words (509 the app's own).
 
 | where | kind | text | words | own | chars | px |
 |---|---|---|---:|---:|---:|---:|
@@ -1307,7 +1308,7 @@ Each of the app's strings once, under the view where the walk first met it. "own
 | stage | label | Group | 1 | 0 | 5 | 12 |
 | stage | picker | factor_a: 2 levels | 3 | 2 | 18 | 13 |
 | stage | text | Changing either clears the contrast, the group order and any renaming. | 11 | 11 | 70 | 11 |
-| stage | text | 1 record from the object's uns, as the lab's converter carried it. Each field is shown under its own name, as recorded; nothing here is inferred. | 26 | 25 | 145 | 12 |
+| stage | text | 1 record from the object's uns, copied unless marked otherwise. Each field is shown under its own name, as recorded; nothing here is inferred. | 24 | 23 | 142 | 12 |
 | stage | text | uns/scintegrate/provenance | 1 | 1 | 26 | 13 |
 | stage | badge | copied | 1 | 1 | 6 | 11 |
 | stage | text | Where the converter looked: uns/harness_run; every entry of uns, and every child of a dict directly under uns, named provenance or *_provenance; every dict directly under uns whose own schema names provenance | 32 | 31 | 208 | 11 |

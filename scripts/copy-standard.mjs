@@ -90,6 +90,10 @@ export const RETIRED = [
   { re: /\breplicates?\b/i, use: 'sample', why: 'a replicate is a sample here; "replicated" (a design) stays' },
   { re: /\bsignatures?\b/i, use: 'gene set', why: 'a set of genes is a gene set whether pasted or from MSigDB' },
   { re: /\bidentit(y|ies)\b/i, use: 'cell type or group', why: "Seurat's word, not the reader's" },
+  // Methods' "not carried in the file" (settings no file holds) is left out by the pattern, not by a `but`: the
+  // source reading does not reach that branch of Methods, and a `but` must exempt a string that reading finds.
+  // scripts/test-copy.mjs holds the phrase to Methods' source instead.
+  { re: /\bcarried\b(?! in the file)/i, use: 'listed, or copied (a record in an earlier converter\'s section)', why: 'of a run record it said neither: whether the bundle lists fields of it or holds a copy' },
   { re: /\bsentinels?\b/i, use: 'cells not called', why: 'the code word for a label that is not a cell type', but: /meta\.json(’|')s sentinels is not a list/i },
   { re: /\buncalled\b/i, use: 'not called', why: 'one phrase for a cell the annotator gave no cell type' },
   { re: /\bpick(s|ed|ers?)?\b/i, use: 'choose', why: 'one verb for taking one of a list' },

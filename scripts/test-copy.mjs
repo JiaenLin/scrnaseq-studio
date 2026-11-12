@@ -325,6 +325,14 @@ ok(retired.length === 0, 'no string uses a retired term',
     && caught({ kind: 'file name', text: 'cluster_markers' }) && caught({ kind: 'csv header', text: 'identity' })
     && caught({ kind: 'csv header', text: 'cluster population' }) && caught({ kind: 'label', text: 'min replicates' }),
     'each of them with a retired word is caught: "clusters", "Clear 1 clicked", cluster_markers, identity, min replicates')
+  // The word the Run card used for what a converter did with a record: it said neither "listed" nor "copied".
+  ok(caught({ kind: 'legend', text: "5 records from the object's uns, as the lab's converter carried them." })
+    && !caught({ kind: 'legend', text: "5 records from the object's uns, copied unless marked otherwise." })
+    && !caught({ kind: 'methods', text: 'at what resolution the graph was cut are not carried in the file, and are not guessed at' }),
+    'a run record\'s retired word is caught ("carried"), its term is not ("copied"), and Methods\' "not carried in the file" stays')
+  ok(fs.readFileSync(path.join(SRC, 'components/Methods.tsx'), 'utf8').includes('are not carried in the file'),
+    'and the phrase the pattern leaves out is still in Methods',
+    'Methods no longer says "not carried in the file": drop "(?! in the file)" from the rule in scripts/copy-standard.mjs')
   const all = strings.map(asWords)
   const stale = RETIRED.flatMap(r => butParts(r).filter(b => !all.some(t => r.re.test(t) && b.test(t))).map(b => `/${b.source}/ (${r.use})`))
   ok(stale.length === 0, 'every exemption still exempts a string in the source', stale.join('; '))

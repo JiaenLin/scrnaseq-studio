@@ -8,7 +8,7 @@
 export const WHY = " The converter's notes, in the next card, say why."
 export const SUB = {
   fields: n => `${n} record${n === 1 ? '' : 's'} listed from the object's uns. Of ${n === 1 ? 'it' : 'each'}, this bundle holds up to six fields as recorded: tool, version, commit, stage, run_key and job.`,
-  copies: n => `${n} record${n === 1 ? '' : 's'} from the object's uns, as the lab's converter carried ${n === 1 ? 'it' : 'them'}. Each field is shown under its own name, as recorded; nothing here is inferred.`,
+  copies: n => `${n} record${n === 1 ? '' : 's'} from the object's uns, copied unless marked otherwise. Each field is shown under its own name, as recorded; nothing here is inferred.`,
 }
 export const NONE = 'This bundle lists no run record, so it cannot say which run produced the object.'
 export const noneOf = (n, paths) => (n === 1 ? `This bundle does not list the 1 run record the converter found in the object: ${paths}.`

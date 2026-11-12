@@ -242,6 +242,21 @@ console.log('\nA COLLECTION: THE PARTS\' RUN, AND A PART THAT DISAGREES')
   }, ['f'.repeat(40), true])
 }
 
+console.log('\nAN EARLIER CONVERTER\'S SECTION: COPIED UNLESS MARKED OTHERWISE')
+{
+  const named = '(not copied: 300,053 bytes as written, over the 262,144-byte budget for one record)'
+  const card = (records) => textOf(runCard(overview(open({ searched: SEARCHED, records }))))
+  const one = card([{ path: 'uns/scintegrate/provenance', record: PROV }])
+  check('one copied record: the subtitle says copied, in the standard\'s term, and keeps its second sentence',
+    [/1 record from the object/.test(one), one.includes('uns, copied unless marked otherwise. Each field is shown under its own name, as recorded; nothing here is inferred.')],
+    [true, true])
+  check('the retired word is not drawn', /\bcarried\b/.test(one), false)
+  const mixed = card([{ path: 'uns/a_provenance', record: PROV }, { path: 'uns/big_provenance', record: named }, { path: 'uns/n_provenance', record: null }])
+  check('a record named and one with no content are marked so by their badges, and the same words are true of the three',
+    [/3 records from the object/.test(mixed), mixed.includes('uns, copied unless marked otherwise.'), mixed.includes('named, not copied'), mixed.includes('no content'), /\bcarried\b/.test(mixed)],
+    [true, true, true, true, false])
+}
+
 console.log('\nMETHODS NO LONGER SAYS THE FILE CARRIES NONE OF IT')
 {
   const withRun = methods(open({ searched: SEARCHED, records: [{ path: 'uns/scintegrate/provenance', record: PROV }] }))
