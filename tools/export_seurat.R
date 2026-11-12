@@ -463,14 +463,17 @@ meta <- list(
   expression = "log1p(CP10K)",
   hasRawCounts = !is.null(counts),
   provenance = list(
-    normalization = "log1p(CP10K)",
+    # Not stated: a name is not a record of what was run. These four were
+    # guessed (an assay named "integrated", a column named like a tool) and
+    # the app drew each guess as a record.
+    normalization = NULL,
     # Which column each role was read from. The app says "Group" because it has
     # to say something; an object that calls it Age gets a menu that says Age.
     clustering = cluster_col,
     condition = if (!is.null(cond_col) && cond_col %in% names(md)) cond_col else NULL,
     sample = if (!is.null(sample_col) && sample_col %in% names(md)) sample_col else NULL,
-    integration = if ("integrated" %in% names(a$assays)) "Seurat integration" else NULL,
-    doublets = grep("doublet|scrublet", names(md), ignore.case = TRUE, value = TRUE)[1],
+    integration = NULL,
+    doublets = NULL,
     ambient = NULL
   ),
   notes = as.list(NOTES)

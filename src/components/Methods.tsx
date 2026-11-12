@@ -4,7 +4,8 @@ import {
   condLabel, designFor, MIN_CELLS, type Gates, type SigBasis } from '../lib/stats.ts'
 import { carriedRecords, runView } from '../lib/run.ts'
 import { countText, sentinelCount } from '../lib/sentinels.ts'
-import { Card, Mono } from './Ui.tsx'
+import { methodsCellTypes, methodsExpression, methodsIntegration, notCalledKept, undrawnOf } from '../lib/facts.ts'
+import { Card, Mono, Parts } from './Ui.tsx'
 import { cutTxt } from '../lib/significance.ts'
 
 /**
@@ -19,36 +20,12 @@ import { cutTxt } from '../lib/significance.ts'
 const REFS = {
   seurat: <>Hao Y, et al. Integrated analysis of multimodal single-cell data. <i>Cell</i> 184, 3573–3587 (2021).</>,
   harmony: <>Korsunsky I, et al. Fast, sensitive and accurate integration of single-cell data with Harmony. <i>Nat Methods</i> 16, 1289–1296 (2019).</>,
-  leiden: <>Traag VA, Waltman L, van Eck NJ. From Louvain to Leiden: guaranteeing well-connected communities. <i>Sci Rep</i> 9, 5233 (2019).</>,
-  umap: <>McInnes L, Healy J, Melville J. UMAP: Uniform Manifold Approximation and Projection. <i>arXiv</i> 1802.03426 (2018).</>,
-  tsne: <>van der Maaten L, Hinton G. Visualizing data using t-SNE. <i>J Mach Learn Res</i> 9, 2579–2605 (2008).</>,
   deseq2: <>Love MI, Huber W, Anders S. Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. <i>Genome Biol</i> 15, 550 (2014).</>,
   practices: <>Heumos L, Schaar AC, … Theis FJ. Best practices for single-cell analysis across modalities. <i>Nat Rev Genet</i> 24, 550–572 (2023).</>,
   studio: <>scRNA-seq Studio. Browser-based exploration and differential expression for single-cell objects (2026). https://jiaenlin.github.io/scrnaseq-studio/</>,
 }
 
 type RefKey = keyof typeof REFS
-
-/**
- * What an embedding key is a citation for.
- *
- * The object names its own embeddings and can carry several — X_UMAP and X_tSNE
- * on the atlas — so the paper cited follows the name in the file. A key this
- * does not recognise is still named; it simply gets no citation, which is the
- * honest outcome for a projection nobody here can identify.
- */
-const EMB_REFS: [RegExp, RefKey][] = [
-  [/umap/i, 'umap'],
-  [/t-?sne/i, 'tsne'],
-]
-
-const METHOD_REFS: [RegExp, RefKey][] = [
-  [/leiden/i, 'leiden'],
-  [/harmony/i, 'harmony'],
-]
-
-const refFor = (text: string, table: [RegExp, RefKey][]): RefKey | null =>
-  table.find(([re]) => re.test(text))?.[1] ?? null
 
 export default function Methods({
   src, types, tis, ctrl, cs, method, padjMax, lfcMin, gates, sigBasis = 'padj', lib,
@@ -85,7 +62,6 @@ export default function Methods({
   // that must name every population the test ran over — a reader reproducing it
   // cannot work from "3 cell types".
   const ct = tis.map(i => types[i]?.name).filter(Boolean).join(', ')
-  const prov = src.meta.provenance
   // The populations are the cell types. A sentinel — the annotator's label for
   // a cell it did not call — is not one, and the paragraph says how many cells
   // carried one and what was done with them, because a reader reproducing the
@@ -110,33 +86,30 @@ export default function Methods({
     return <sup>{i + 1}</sup>
   }
 
-  const clustering = prov.clustering
-  const clusterRef = clustering ? refFor(clustering, METHOD_REFS) : null
-  const integration = prov.integration
-  const integrationRef = integration ? refFor(integration, METHOD_REFS) : null
+  // Every sentence about the object is built in lib/facts.ts, in the words of
+  // its source kind. No method is named that the bundle gives no place for,
+  // and nothing is cited from the name of a column or an embedding: this is
+  // the text a reader pastes into a paper.
+  const meta = src.meta
+  const keys = src.embeddings.map(e => e.key)
+  const integ = methodsIntegration(meta)
+  const undrawn = undrawnOf(src.embeddings[0]?.xy, d.cells, types)
 
   const processing = (
     <p>
       This object was processed elsewhere and read from a bundle exported from{' '}
-      <Mono>{src.meta.source}</Mono>. Expression values are{' '}
-      <Mono>{src.meta.expression}</Mono>; nothing in this app imputes, denoises or rescales
-      them. The {pops.length} cell types are the object&rsquo;s own labels
-      {clustering
-        ? <>, taken from its <Mono>{clustering}</Mono> annotation{clusterRef && cite(clusterRef)}</>
-        : <>, and the file records no clustering method for them</>}.
-      {integration && <> Inter-sample variation was corrected with{' '}
-        <Mono>{integration}</Mono>{integrationRef && cite(integrationRef)}, as recorded in the
-        object.</>}{' '}
-      Cells are drawn on the {src.embeddings.length > 1 ? 'embeddings' : 'embedding'} the object
-      carries ({src.embeddings.map((e, i) => {
-        const r = refFor(e.key, EMB_REFS)
-        return (
-          <span key={e.key}>
-            {i === 0 ? '' : i === src.embeddings.length - 1 ? ' and ' : ', '}
-            <Mono>{e.key}</Mono>{r && cite(r)}
-          </span>
-        )
-      })}), computed before export and never recomputed here.{' '}
+      <Mono>{src.meta.source}</Mono>. <span data-fact="expression"><Parts of={methodsExpression(meta)} /></span>; nothing
+      in this app imputes, denoises or rescales them. The {pops.length} cell types
+      are <span data-fact="cell_type_column"><Parts of={methodsCellTypes(meta)} /></span>{' '}
+      <span data-fact="integration"><Parts of={integ.before} />{integ.cite && cite(integ.cite)}<Parts of={integ.after} /></span>{' '}
+      Cells are drawn on the {keys.length > 1 ? 'embeddings' : 'embedding'} that came with the
+      object ({keys.map((k, i) => (
+        <span key={k}>
+          {i === 0 ? '' : i === keys.length - 1 ? ' and ' : ', '}
+          <Mono>{k}</Mono>
+        </span>
+      ))}), computed before export and never recomputed here; a name is not a record of how an
+      embedding was computed, so none is cited.{' '}
       {carried.length ? (
         // The file now says what made the object, so "not carried in the file"
         // would be false. What stays true is that this text reads nothing out
@@ -167,8 +140,8 @@ export default function Methods({
       )} The cell types are reported as {pops.map(t => t.name).join(', ')}.
       {uncalled.total > 0 && <> A further {uncalled.total.toLocaleString('en-US')} cells carry
         the annotator&rsquo;s labels for cells it did not call ({countText(uncalled)}); they are
-        not a cell type, so they are left out of every cell type&rsquo;s count, every proportion and every test below,
-        and kept on the embedding.</>}
+        not a cell type, so they are left out of every cell type&rsquo;s count, every proportion and every test
+        below<Parts of={notCalledKept(uncalled.total, undrawn, keys[0] ?? meta.embedding)} /></>}
     </p>
   )
 
@@ -219,7 +192,7 @@ export default function Methods({
     <>
       <Card
         eyebrow="Methods" title="Single-cell RNA sequencing analysis"
-        sub="Read from the object, and following the test now selected."
+        sub="Built from what the bundle states, and following the test now selected."
       >
         <div className="prose-methods">
           {processing}
@@ -320,14 +293,16 @@ export default function Methods({
               really two programmes is a number to read with care.
             </p>
             <p className="mb-0 mt-3">
-              <b>What this text will not say.</b> It names no normalization, variable-gene count,
+              <b>What this text will not say.</b> It names no variable-gene count,
               component count or clustering resolution, because {listedByFields
                 ? 'the fields this bundle lists of the run’s records hold none of them'
                 : carried.length
                   ? 'it reads none of them out of the run’s records'
                   : 'a bundle carries none of them'}; it
-              claims no doublet removal, ambient-RNA correction or batch correction it did not
-              find; it does not call a t-SNE a UMAP, or a one-sample-per-group design replicated.
+              gives the bundle&rsquo;s label for the expression values with the source the bundle states for it;
+              it names no integration, clustering, doublet or ambient-RNA method the bundle gives no
+              source for, and cites nothing from the name of a column or an embedding; it does not call a
+              one-sample-per-group design replicated.
               Cutoffs are read from <Mono>lib/stats.ts</Mono>, so the prose and the figures cannot
               disagree.
             </p>

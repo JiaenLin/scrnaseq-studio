@@ -387,16 +387,19 @@ def main() -> None:
         cluster_codes, sample_codes, emb, total, ngene, mito,
         disp, counts, emb_key, extras,
         provenance={
-            'normalization': 'log1p(CP10K)' if 'log1p' in a.uns else None,
+            # Not stated: a key or a name is not a record of what was run. These
+            # four were guessed (an uns key named log1p, an embedding or a column
+            # named like a tool) and the app drew each guess as a record.
+            'normalization': None,
             # Which column each role was read from. The app says "Group" because
             # it has to say something; an object that calls it Age gets a menu
             # that says Age.
             'clustering': col,
             'condition': args.condition if args.condition in a.obs else None,
             'sample': args.sample if args.sample in a.obs else None,
-            'integration': 'harmony' if any('harmony' in k for k in a.obsm) else None,
-            'doublets': next((k for k in a.obs if 'doublet' in k.lower() or 'scrublet' in k.lower()), None),
-            'ambient': next((k for k in a.uns if k.lower() in ('soupx', 'cellbender', 'decontx')), None),
+            'integration': None,
+            'doublets': None,
+            'ambient': None,
         })
 
 

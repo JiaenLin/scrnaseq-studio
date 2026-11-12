@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { noCountsTitle } from '../lib/facts.ts'
 import type { CellType, DERow, DEView, Method } from '../types.ts'
 import type { Source } from '../lib/source.ts'
 import {
@@ -486,7 +487,7 @@ function PseudobulkPanel(p: StatsProps) {
 
   if (!pb) {
     return (
-      <Empty title="This object carries no raw counts">
+      <Empty title={noCountsTitle(p.src.meta)}>
         Pseudobulk needs them; Wilcoxon does not.
         <div className="mt-3.5">
           <button className="btn btn-primary" onClick={() => p.onMethod('wilcox')}>

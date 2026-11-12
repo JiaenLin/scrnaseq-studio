@@ -1,4 +1,5 @@
 import { breaksOf, fmtBreak } from '../lib/breaks.ts'
+import { noBulkTip } from '../lib/facts.ts'
 import { useWidth } from '../lib/use-width.ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CellType } from '../types.ts'
@@ -383,7 +384,7 @@ export default function Coexpression(p: CoexprProps) {
             { k: 'bulk', label: OVER_LABEL.bulk,
               title: hasBulk
                 ? 'Across the sample × cell type columns of the exporter’s pseudobulk table: summed raw counts'
-                : 'This object has no pseudobulk table. Cell type × group answers the same question from the cells' },
+                : noBulkTip(src.meta) },
           ]} />
         {mode === 'pool' && (
           <>

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CellType, ColorBy, Dataset } from '../types.ts'
 import type { Embedding } from '../lib/bundle.ts'
 import type { Source } from '../lib/source.ts'
+import { embeddingHead, notCalledHint, undrawnOf } from '../lib/facts.ts'
 import { embedExtent, fmt, hasSignal } from '../lib/chart.ts'
 import { EDGE, NAME, fitPanels } from '../lib/fit-panels.ts'
 import Figure from './Figure.tsx'
@@ -333,7 +334,7 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
       <section className="pane" aria-label="Embedding">
         <header className="stage-head">
           <h2 className="stage-title num">{`${fmt(d.nCells)} cells`}</h2>
-          <span className="stage-meta">{`Embedding · ${emb.key} from your file`}</span>
+          <span className="stage-meta">{embeddingHead(src.meta, emb.key)}</span>
           <div ref={setActions} className="stage-actions" />
           {/* Colour is never left without its key: with the inspector closed it sits here. */}
           {!inspector && (
@@ -412,9 +413,8 @@ export default function Cells({ src, types, emb, colorBy, split, palKey, rampKey
                 <span><i className="sw sw-off" style={{ background: SENTINEL_GREY }} />{NOT_CALLED}</span>
                 <span className="num">{fmt(uncalled.total)}</span>
               </div>
-              <p className="hint m-0">
-                                Drawn grey: {fmt(uncalled.total)} cells the annotator did not call ({countText(uncalled)}).
-                Not a cell type.
+              <p className="hint m-0" data-fact="not_called">
+                {notCalledHint(countText(uncalled), uncalled.total, undrawnOf(emb.xy, d.cells, types))}
               </p>
             </section>
           )}
