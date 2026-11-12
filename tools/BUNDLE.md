@@ -89,10 +89,9 @@ gets a menu that says Age.
 
 ### The run that produced the object
 
-`meta.run` is optional. scRNA-seq Lab's converter writes it, copying what the object's `uns`
-records about the run that made it. That means each tool's provenance (an entry or child named
-`provenance` or `*_provenance`, or a group whose `schema` names provenance), and the harness's
-`uns/harness_run`:
+`meta.run` is optional. scRNA-seq Lab's converter writes it from what the object's `uns` records
+about the run that made it: each tool's provenance (an entry or child named `provenance` or
+`*_provenance`, or a group whose `schema` names provenance) and the harness's `uns/harness_run`.
 
 ```jsonc
 "run": {
@@ -101,20 +100,52 @@ records about the run that made it. That means each tool's provenance (an entry 
     { "path": "uns/scintegrate/provenance",
       "record": { "tool": "scintegrate", "version": "…", "commit": "…", "job": "…" } }
   ],
-  "leftOut": { "count": 1, "paths": ["uns/…"] }            // only when some were not written
+  "leftOut": { "count": 1, "paths": ["uns/…"] }            // only when a record found is not listed
 }
 ```
 
-`record` takes one of three forms:
+**What the lab writes now.** A record is listed by up to six named fields. `record` holds those of
+`tool`, `version`, `commit`, `stage`, `run_key` and `job` that the object's record stores as a
+string of 256 characters or fewer, unchanged, and nothing else of the record. The first 64 records
+are read. A record that holds none of the six, or is not a dict, is not listed. `leftOut` counts
+records the converter found and did not list, and names the first ten:
 
-- the uns entry as JSON;
+- beside a listed record, only the records past the first 64 and the records after a value longer
+  than 256 characters, which ends the reading;
+- when no record is listed, every record found.
+
+The section does not say why a record is not listed. The reasons are in `meta.notes`. A name
+longer than 200 characters is cut there and in the section, with the cut marked.
+
+**What older bundles hold.** Before that, the converter copied each record, and `record` took one
+of three forms:
+
+- the uns entry as JSON, whatever it held;
 - a `(not copied: …)` sentence, when the converter named the record instead of copying it. Over
   its size budget, the sentence states the size;
-- `null`, when the record could not be read.
+- `null`, a record listed with no content.
 
-The app shows every record on Overview's **Run** card exactly as recorded. Each field keeps its
-own name, and `tool`, `version`, `commit`, `stage`, `run_key` and `job` come first where a record
-has them. Nothing is inferred: no tool is taken from a path, and no missing field is filled in.
+`leftOut` then counted the records that did not fit the section's byte budget. Those bundles are
+on users' disks and open as they always did.
+
+**How the app tells the two apart.** A bundle has no version field for this: `schema` and
+`searched` are the same in both. So the app reads the fields present, and never the prose of the
+notes:
+
+- **Every listed record is a dict of one to six of the named fields, each a string.** The card
+  shows each record by those fields, with how many of the six the bundle holds (`4 of 6 fields`).
+  An older bundle whose records held nothing else reads the same, so the card's words are true of
+  both.
+- **At least one record is in another form.** An earlier converter wrote the section. Each record
+  is shown as copied: every field under its own name, the six first where a record has them.
+- **No record is listed.** The card says the bundle lists none. It never says the converter found
+  none: an entry the converter could not inspect is in the notes, not in the section.
+
+On Overview's **Run** card nothing is inferred: no tool is taken from a path, and no missing field
+is filled in. An empty string is shown as an em dash, the app's mark for no value, and its title
+says it is an empty string. Records that are not listed are counted and named. The card gives no
+reason of its own for them: when a note of the bundle names one, it points at the notes, which are
+the next card.
 
 Other cases:
 
@@ -127,6 +158,13 @@ Other cases:
 
 The table has one row per gene, in `genes.txt` order. Each column is one sample × cluster that
 has cells, headed `sample||cluster||nCells`, with the ids written as they are.
+
+Every line has as many tab-separated cells as the header. The app checks this before it reads a
+header, in one bundle and in each part of a collection. A table that fails is refused whole: no
+summed counts are offered, and a note says which line, both widths, and which sample or cell type
+the bundle declares with a tab in its name. A tab inside a name does this: the header is then one
+column wider than every row, and each count read by position would be its neighbour's. A writer
+must refuse or escape a tab in a name.
 
 An id can hold `|`. A sample whose cells sit in more than one condition is split into
 `sample|condition`, and a name another sample already has gets `#2`. So an empty level gives
@@ -212,7 +250,7 @@ Two things happen to that list, both recorded in `meta.geneAlias` rather than hi
     "doublets": null,
     "ambient": null
   },
-  "run": { "...": "..." },           // optional; the run's own records — see above
+  "run": { "...": "..." },           // optional; the run's records, by named fields — see above
   "notes": ["..."]                   // anything the exporter had to decide, shown in the app
 }
 ```

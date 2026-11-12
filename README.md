@@ -80,12 +80,15 @@ browser, and Methods says so rather than describing a test nobody ran.
 in a legend, a composition bar or its denominator, a marker or contrast population, or a
 per-type figure — and every view that leaves them out says how many it left out.
 
-**The run.** When the lab's converter carries the run records an object's `uns` holds (each
-tool's provenance, the harness's run record), Overview shows each one as recorded: every field
-under its own name, the tool, version, commit, stage and run key first wherever a record has
-them, and nothing inferred. A record too large to carry is named with its size, and a bundle
-with no run section says so. Methods then stops saying the file carries none of the upstream
-steps, and still reads no parameter out of the records.
+**The run.** When the lab's converter lists the run records an object's `uns` holds (each tool's
+provenance, the harness's run record), Overview shows each one by the fields the bundle holds for
+it: up to six, named `tool`, `version`, `commit`, `stage`, `run_key` and `job`, as recorded, and
+nothing inferred. A bundle from an earlier converter holds the copied records themselves, and each
+is still shown whole, every field under its own name; the two are told apart by the fields
+present, because a bundle carries no version for this. Records the converter found and did not
+list are counted and named, with the reason left to the bundle's notes, and a bundle with no run
+section says so. Methods then stops saying the file carries none of the upstream steps, and still
+reads no parameter out of the records.
 
 **One cutoff source.** The per-cell test reports at Seurat's `logfc.threshold`, and one function
 feeds the headline count, the table, the volcano's dashed lines and the Methods sentence, so they

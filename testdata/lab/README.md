@@ -43,3 +43,33 @@ sha256 values below.
   - `uns/a_provenance` is over the 262,144 bytes one record may take, so it is named with its size.
   - `uns/f_provenance` is past the run section's 1,048,576 bytes, so it is left out.
   - `uns/harness_run` is a JSON string, which the converter parses.
+
+## The run section, state by state: `run-states.json`
+
+`scripts/test-run-states.mjs` reads what the studio says about run records for every state of a run section, each
+state as the Lab writes it today and as it wrote it before. `run-states.json` holds the `run` section and the
+`notes` of one bundle per state and per Lab commit, taken from the converter's own bundles by
+`node scripts/make-run-states.mjs <dir> <new commit> <old commit>`. A bundle that is byte for byte a committed
+fixture is named, not copied (`budget.zip` is what the old commit writes for its object).
+
+- **new:** Lab `fdb88884de3685bf47a4df8542d707a90fc9301a`, recorded in the file as `lab.new`: a record is
+  listed by up to six named fields.
+- **old:** Lab `ca0cc73c08371498828dcb71ba6c08b422b652e0`, recorded as `lab.old`: a record is copied.
+- **Command, per object and commit:** `bin/scrnaseq-lab.mjs convert <object>.h5ad <out>.zip --label p`.
+
+The objects are synthetic: the Lab's committed fixtures with made-up `uns` entries, written with h5py in AnnData's
+encodings. A "good" record holds a `tool` and a `version`; a "six-less" one holds a `level` and a `method`.
+
+| object | what its `uns` holds |
+|---|---|
+| `N00_norecord` | nothing about the run (the Lab's `nullable-mask.h5ad`) |
+| `U2_0L_uninspected` | one entry the converter cannot inspect, and no record |
+| `R04_0L_sixless_string` | a six-less record and a record that is a string |
+| `R05_0L_cap` | 64 six-less records, then two good ones past the cap |
+| `R01_family` | the Lab's `family-2x2` fixture: three tools' records, an annotation's record and the harness's string |
+| `R08_65good` | 65 good records |
+| `R06_mixed` | a six-less record, a good one, one whose `commit` is 257 characters, and one after it |
+| `R06b_mixed_after` | a good record, one whose `commit` is 257 characters, a six-less one and a good one after it |
+| `R07_empty6` | one record whose six fields are each an empty string |
+| `B00_budget` | the `budget` object above |
+
