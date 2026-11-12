@@ -4,7 +4,8 @@ import {
   combinedScore, condLabel, isSig, type SigBasis } from '../lib/stats.ts'
 import { downloadCsv, slug } from '../lib/download.ts'
 import { fmt } from '../lib/chart.ts'
-import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
+import { cutTxt, nlpTxt, pTxt } from '../lib/significance.ts'
+import { deCsvHeader, deCsvRows } from '../lib/de-rows.ts'
 import { CsvButton } from './Figure.tsx'
 import { InHead } from './Stage.tsx'
 
@@ -160,21 +161,13 @@ export default function DEGTable({
   // Exporting the floored constant while the screen showed resolution would
   // hand the one reader most likely to fit something to it the one number that
   // is not a measurement.
+  // An untested gene's p, padj, FDR and −log₁₀ padj are empty cells, and its
+  // last column says why (lib/de-rows.ts): `pCsv` wrote the underflow's bound
+  // for a NaN, so every one of them was saved as the most significant gene.
   const save = () => downloadCsv(
     `deg_${slug(label)}${sigOnly ? '_sig' : ''}`,
-    ['gene', ...(wilcox ? ['pct.1', 'pct.2'] : ['baseMean']), 'log2FC', 'combined',
-      'p', 'padj', 'fdr_BH', 'neg_log10_padj', 'direction'],
-    view.map(r => [
-      r.gene,
-      ...(wilcox ? [r.pct1?.toFixed(4), r.pct2?.toFixed(4)] : [r.mean?.toFixed(2)]),
-      r.lfc.toFixed(4),
-      combinedScore(r.lfc, r.nlp)?.toFixed(3),
-      pCsv(r.p),
-      pCsv(r.padj),
-      r.fdr === undefined ? '' : pCsv(r.fdr),
-      nlpCsv(r.nlp),
-      r.lfc > 0 ? `higher in ${condLabel(cs)}` : `higher in ${condLabel(ctrl)}`,
-    ]))
+    deCsvHeader(wilcox),
+    deCsvRows(view, { wilcox, cs, ctrl }))
 
   const cols: [SortKey, string, boolean][] = [
     ['gene', 'Gene', false],
@@ -206,7 +199,7 @@ export default function DEGTable({
             only raw checkbox, which made one toggle look unlike the forty
             others that do the same thing. */}
         <button className="chip" aria-pressed={sigOnly} onClick={() => setSigOnly(!sigOnly)}
-          title={`padj < ${padjMax}, |log₂FC| ≥ ${lfcMin}`}>
+          title={`${sigBasis === 'fdr' ? 'FDR' : 'padj'} < ${cutTxt(padjMax)}, |log₂FC| ≥ ${lfcMin}`}>
           Significant only
         </button>
         <span className="num tx-small" style={{ color: 'var(--ink-2)' }}>

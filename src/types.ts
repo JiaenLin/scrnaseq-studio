@@ -87,6 +87,8 @@ export interface DERow {
    * severe enough that a reader wants to see what the FDR says as well.
    */
   fdr?: number
+  /** −log10 of `fdr`, in log space (`finish`, lib/stats.ts); the volcano's y under the FDR cutoff. */
+  nlq?: number
   /** Wilcoxon only — fraction detected in the comparison and control groups. */
   pct1?: number
   pct2?: number

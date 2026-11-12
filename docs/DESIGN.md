@@ -445,7 +445,9 @@ in this app, in a table cell: no value. An ellipsis only on a control that opens
 A number rounded on screen has more digits in the file made for numbers, and a fixed count of them, not full
 precision: a CSV writes 4 decimals for an effect, a rate, an r or a score (log₂FC, pct.1, a module score), 6 for
 a fraction of cells, 3 for a fold enrichment and a combined score, and 5 significant digits for a p (`pCsv`:
-1.2345e-5; an underflow is written as the bound `<1e-308`, never as a number). The embedding's coordinates are in
+1.2345e-5; an underflow is written as the bound `<1e-308`, never as a number; a gene that was not tested has no p: an
+empty cell, and the DE CSV's `not_tested` says why). A cutoff is written as a p is, and the value in force is the
+number written (`cutTxt`, `cutOf`: 0.05, 0.32, 5e-4). The embedding's coordinates are in
 the bundle's `embed.f32`, which the app never changes; one cell's QC value, two decimals in the readout, is whole
 only in the bundle's QC array: Cells has no CSV.
 

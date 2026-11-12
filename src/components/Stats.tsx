@@ -19,7 +19,8 @@ import {
 import { textW } from '../lib/labels.ts'
 import { KeyRow } from './svg-parts.tsx'
 import { breaksOf, fmtBreak } from '../lib/breaks.ts'
-import { nlpTxt, pTxt } from '../lib/significance.ts'
+import { cutTxt, nlpTxt, pTxt } from '../lib/significance.ts'
+import { volcanoRows, volcanoY } from '../lib/de-rows.ts'
 import { Empty, Mono, Seg } from './Ui.tsx'
 import { InRail, Opts, RailGroup } from './Rail.tsx'
 import { Stage } from './Stage.tsx'
@@ -212,7 +213,7 @@ export function ThresholdBar(p: StatsProps & { nTested: number }) {
         <span className="flex items-baseline justify-between">
           <span className="glabel">{p.sigBasis === 'fdr' ? 'FDR <' : 'padj <'}</span>
           <span className="num tx-small" style={{ color: 'var(--ink)' }}>
-            {p.padjMax < 1e-3 ? p.padjMax.toExponential(1) : p.padjMax.toFixed(3)}
+            {cutTxt(p.padjMax)}
           </span>
         </span>
         <input
@@ -625,7 +626,7 @@ function DEGTable(p: StatsProps & { de: DEResult }) {
       <h2 className="tx-title">{up + dn} differentially expressed genes</h2>
       <p className="sub">
         {up} higher and {dn} lower in <b>{condLabel(p.cs)}</b>, at{' '}
-        {p.sigBasis === 'fdr' ? 'FDR' : 'padj'} &lt; {p.padjMax} and
+        {p.sigBasis === 'fdr' ? 'FDR' : 'padj'} &lt; {cutTxt(p.padjMax)} and
         |log₂FC| ≥ {p.lfcMin}.{' '}
         {/* Only one branch is reachable: the pseudobulk path returns the export
             card instead of a table, so nothing here was ever produced by
@@ -668,7 +669,9 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
    * table is where those genes are read; here they are absent, and the count
    * under the figure says so.
    */
-  const rows = useMemo(() => de.rows.filter(r => Number.isFinite(r.nlp)), [de])
+  const rows = useMemo(() => volcanoRows(de.rows), [de])
+  // The y is the correction the cutoff is read off (`volcanoY`, lib/de-rows.ts).
+  const fdr = p.sigBasis === 'fdr'
   const untested = de.rows.length - rows.length
 
   // PB carries the x-axis title and, below it, the key. That key used to sit in
@@ -689,7 +692,8 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
   // r.nlp, not -log10(padj): on the atlas 11% of the rows have an adjusted p
   // below the smallest double, so that expression pinned every one of them to
   // the 1e-300 clamp and the top of the volcano was a flat line of 300s.
-  const maxY = useMemo(() => Math.max(6, maxOf(rows.map(r => r.nlp))) * 1.08, [rows])
+  const maxY = useMemo(
+    () => Math.max(6, maxOf(rows.map(r => volcanoY(r, p.sigBasis)))) * 1.08, [rows, p.sigBasis])
   const X = (v: number) => PL + ((W - PL - PR) * (v + maxX)) / (2 * maxX)
   const Y = (v: number) => PT + (H - PT - PB) * (1 - v / maxY)
 
@@ -709,12 +713,12 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
     () => rows.map(r => ({
       r,
       x: X(r.lfc),
-      y: Y(r.nlp),
+      y: Y(volcanoY(r, p.sigBasis)),
       sig: isSig(r, { padj: p.padjMax, lfc: p.lfcMin, basis: p.sigBasis }),
     })),
     // X and Y are pure functions of maxX/maxY, which derive from rows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, p.padjMax, p.lfcMin, maxX, maxY])
+    [rows, p.padjMax, p.lfcMin, p.sigBasis, maxX, maxY])
 
   /**
    * Which genes get a name, and where.
@@ -859,13 +863,13 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
           own size, so its type does not grow with the window. */}
             <Figure name={`volcano_${contrastLabel(p)}`} className="fitbox" foot={{
         title: `${condLabel(p.cs)} vs ${condLabel(p.ctrl)} in ${tName(p)}`,
-        // The y axis and its dashed line are padj (Bonferroni, `finish` in lib/stats.ts) whichever
-        // correction the cutoff is read off; a larger point is one `isSig` passes on that basis.
+        // The y axis, its dashed line and the larger points are one correction:
+        // the one the cutoff is read off (`volcanoY`, lib/de-rows.ts).
         notes: [
-          `Wilcoxon rank-sum test across cells. padj: Bonferroni over the ${fmt(p.src.genes.length)} genes the object measures.`,
-          p.sigBasis === 'fdr'
-            ? `Dashed lines: padj = ${p.padjMax} and |log₂FC| = ${p.lfcMin}. Larger points: Benjamini–Hochberg FDR < ${p.padjMax} and |log₂FC| ≥ ${p.lfcMin}.`
-            : `Dashed lines: padj < ${p.padjMax} and |log₂FC| ≥ ${p.lfcMin}. Larger points are past both.`,
+          fdr
+            ? `Wilcoxon rank-sum test across cells. FDR: Benjamini–Hochberg over the ${fmt(p.src.genes.length)} genes the object measures.`
+            : `Wilcoxon rank-sum test across cells. padj: Bonferroni over the ${fmt(p.src.genes.length)} genes the object measures.`,
+          `Dashed lines: ${fdr ? 'FDR' : 'padj'} < ${cutTxt(p.padjMax)} and |log₂FC| ≥ ${p.lfcMin}. Larger points are past both.`,
         ],
       }}>
         <svg
@@ -956,7 +960,7 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
           </text>
           <text transform={`rotate(-90 15 ${(PT + H - PB) / 2})`} x={15}
             y={(PT + H - PB) / 2} textAnchor="middle"
-            style={{ fontSize: 11.5, fill: AXIS_INK }}>−log₁₀ adjusted p</text>
+            style={{ fontSize: 11.5, fill: AXIS_INK }}>{fdr ? '−log₁₀ FDR' : '−log₁₀ adjusted p'}</text>
 
           {/* The key, in the figure and centred under the panel, in the same
               language as the marks it describes. */}
@@ -1006,10 +1010,10 @@ function Volcano(p: StatsProps & { de: DEResult; inspector?: boolean }) {
               <div className="lg-row"><span className="mono font-semibold italic">{read.gene}</span></div>
               <div className="lg-row"><span>log₂FC</span>
                 <span className="num">{read.lfc.toFixed(2)}</span></div>
-              <div className="lg-row"><span>−log₁₀ padj</span>
-                <span className="num">{nlpTxt(read.nlp)}</span></div>
-              <div className="lg-row"><span>padj</span>
-                <span className="num">{pTxt(read.padj)}</span></div>
+              <div className="lg-row"><span>{fdr ? '−log₁₀ FDR' : '−log₁₀ padj'}</span>
+                <span className="num">{nlpTxt(volcanoY(read, p.sigBasis))}</span></div>
+              <div className="lg-row"><span>{fdr ? 'FDR' : 'padj'}</span>
+                <span className="num">{pTxt(fdr ? read.fdr ?? NaN : read.padj)}</span></div>
             </>
           ) : (
             <p className="hint m-0">Point at a gene to read it; select it to keep its name on the figure.</p>

@@ -34,6 +34,7 @@ import { detectSpecies, type Detection, type Species } from './lib/species.ts'
 import { defaultSources, useGeneSets } from './lib/genesets.ts'
 import type { Collection } from './lib/msigdb.ts'
 import { Empty } from './components/Ui.tsx'
+import { cutOf } from './lib/significance.ts'
 
 /**
  * The tabs, in two named groups.
@@ -624,7 +625,8 @@ export default function App() {
     running: false, computed: armed,
     onMethod: changeMethod,
     onRun: () => setDeRan(deKey),
-    onPadj: setPadjMax,
+    // The cutoff in force is the number written (`cutOf`, lib/significance.ts).
+    onPadj: (v: number) => setPadjMax(cutOf(v)),
     onLfc: setLfcMin,
     onGates: setGates,
     onSigBasis: setSigBasis,

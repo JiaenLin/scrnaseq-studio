@@ -26,6 +26,7 @@ import { rampColor, type RampKey } from '../lib/palette.ts'
 import { Empty } from './Ui.tsx'
 import { InRail, Opts, RailGroup, Steps } from './Rail.tsx'
 import Figure, { CsvButton } from './Figure.tsx'
+import { cutTxt } from '../lib/significance.ts'
 
 type Direction = 'both' | 'up' | 'down'
 
@@ -280,7 +281,7 @@ export default function Enrichment({
         <div className="mt-4">
           <Empty title="No set is enriched in this list">
             {query.length === 0
-              ? `No gene passes padj < ${threshold.padj} and |log₂FC| ≥ ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs on the left, or press Reset.`
+              ? `No gene passes ${threshold.basis === 'fdr' ? 'FDR' : 'padj'} < ${cutTxt(threshold.padj)} and |log₂FC| ≥ ${threshold.lfc}, so there is nothing to test. Loosen the cutoffs on the left, or press Reset.`
               : inRange.of === 0
                 ? 'No collection is loaded, so there was nothing to test against. Switch one on under Collections on the left.'
                 : inRange.n === 0

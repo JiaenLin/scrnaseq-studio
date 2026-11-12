@@ -180,6 +180,34 @@ for (const [theme, width] of [['light', 1440], ['dark', 1440], ['light', 1280], 
   const enr = page.locator('main button[aria-haspopup="menu"]').first()
   if (await enr.count()) { await save('enrichment png', enr, '300', { hues: 1, dpi: 300 }); await save('enrichment svg', enr, 'SVG', { marks: 4, texts: 6 }) }
 
+  // The DE CSV with a logfc.threshold on (Seurat's defaults): a gene kept but
+  // not tested has no p, padj, FDR or −log₁₀ padj in the file, and says why.
+  // They were written `<1e-308`, the most significant genes in the file (W053).
+  if (theme === 'light' && width === 1440) {
+    await page.getByRole('button', { name: 'Table', exact: true }).first().click(); await settle(800)
+    await page.locator('aside.rail button, aside.rail summary').filter({ hasText: 'What gets tested' }).first().click(); await settle(400)
+    await page.locator('aside.rail button', { hasText: /Seurat.s defaults/ }).first().click(); await settle(2500)
+    try {
+      const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60_000 }),
+        page.locator('main button').filter({ hasText: /^\s*CSV\s*$/ }).first().click()])
+      const to = path.join(out, `${theme}${width}__de seurat__${dl.suggestedFilename()}`); await dl.saveAs(to)
+      const [hd, ...lines] = fs.readFileSync(to, 'utf8').trim().split('\n')
+      const h = hd.split(','), rows = lines.map(l => l.split(','))
+      const at = k => h.indexOf(k)
+      const un = rows.filter(r => Math.abs(+r[at('log2FC')]) < 0.25), tested = rows.filter(r => Math.abs(+r[at('log2FC')]) >= 0.25)
+      check('DE CSV, Seurat\'s defaults: some genes are kept and not tested', un.length > 0 && tested.length > 0, `${un.length} and ${tested.length}`)
+      const carrying = un.filter(r => ['p', 'padj', 'fdr_BH', 'neg_log10_padj', 'combined'].some(k => r[at(k)] !== ''))
+      check('DE CSV, Seurat\'s defaults: no untested gene carries a p, padj, FDR or −log₁₀ padj', carrying.length === 0,
+        `${carrying.length} of ${un.length}, e.g. ${carrying[0]?.join(',')}`)
+      check('DE CSV, Seurat\'s defaults: each says why it was not tested', at('not_tested') > 0
+        && un.every(r => r[at('not_tested')] === 'under logfc.threshold: kept, but not tested'))
+      check('DE CSV, Seurat\'s defaults: every tested gene has its p and nothing in that column',
+        tested.every(r => /^(<1e-308|\d\.\d{4}e[+-]\d+)$/.test(r[at('p')]) && !r[at('not_tested')]))
+      check('DE CSV: no cell reads NaN', !rows.some(r => r.includes('NaN')))
+    } catch (e) { check('DE CSV, Seurat\'s defaults: saved', false, e.message.split('\n')[0]) }
+    await page.locator('aside.rail button', { hasText: /^Reset$/ }).first().click(); await settle(2500)
+  }
+
   await tab('Gene expression')
   const q = page.locator('input[aria-label="Search a gene or paste a gene list"]')
   await q.fill('Gfap, Ascl1, Mki67, Dcx, Plp1, Cx3cr1'); await q.press('Enter'); await settle(2500)

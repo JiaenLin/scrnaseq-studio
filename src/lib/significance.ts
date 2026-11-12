@@ -43,8 +43,24 @@ import { sci } from './chart.ts'
  */
 const REPRESENTABLE = 1e-308
 
-/** Has this p run out of double? Written so that a NaN counts as saturated. */
-const saturated = (p: number) => !(p >= REPRESENTABLE)
+/**
+ * A p the gene does not have: it was not tested.
+ *
+ * A gene the effect-size gate keeps but does not test (`carry` in lib/stats.ts)
+ * has NaN for p, padj, FDR and −log₁₀ padj. That is absence, and it is written
+ * as absence: an empty cell in a CSV, the em dash on screen. It was caught by the
+ * saturation rule below, which was written so that a NaN counted as an
+ * underflow, and every untested gene was saved as `<1e-308`: the most
+ * significant genes in the file. Checked first, everywhere, for that reason.
+ */
+export const untested = (p: number | null | undefined): boolean =>
+  p === null || p === undefined || !Number.isFinite(p)
+
+/**
+ * Has this p run out of double? A real test whose p underflowed, to 0 included.
+ * A NaN is not one: `untested` above, checked before this.
+ */
+const saturated = (p: number) => p < REPRESENTABLE
 
 /**
  * A p-value as it is shown on screen.
@@ -54,11 +70,12 @@ const saturated = (p: number) => !(p >= REPRESENTABLE)
  * a reader must never be handed the arithmetic's floor as though it were a
  * reading.
  */
-export const pTxt = (p: number): string => (saturated(p) ? '< 10⁻³⁰⁸' : sci(p))
+export const pTxt = (p: number): string =>
+  (untested(p) ? '—' : saturated(p) ? '< 10⁻³⁰⁸' : sci(p))
 
 /** The same rule for export — a bound, never the floor dressed as a number. */
 export const pCsv = (p: number): string =>
-  saturated(p) ? '<1e-308' : p.toExponential(4)
+  untested(p) ? '' : saturated(p) ? '<1e-308' : p.toExponential(4)
 
 /**
  * The significance that still has resolution.
@@ -75,7 +92,25 @@ export const pCsv = (p: number): string =>
  * claims 0.05 at the top of the range and 5e-6 at the cutoff, inside that
  * either way.
  */
-export const nlpTxt = (nlp: number): string => nlp.toPrecision(6)
+export const nlpTxt = (nlp: number): string => (untested(nlp) ? '—' : nlp.toPrecision(6))
 
 /** Four decimals in the CSV — already past the accuracy of `logNormalTail`. */
-export const nlpCsv = (nlp: number): string => nlp.toFixed(4)
+export const nlpCsv = (nlp: number): string => (untested(nlp) ? '' : nlp.toFixed(4))
+
+/**
+ * A significance cutoff as it is written, everywhere it is shown or saved: the
+ * standard's p (docs/DESIGN.md, Words, Numbers), two significant digits, and
+ * under 0.001 as 1.4e-5. 0.05, 0.32, 0.001, 5e-4.
+ *
+ * The slider sets 10^-v, so a moved cutoff was printed as 0.31622776601683794
+ * in the head line, the chip, Methods and the saved legend. `cutOf` is applied
+ * where the cutoff is set, so the number written IS the cutoff in force: a head
+ * reading "FDR < 0.32" over a cut at 0.3162 would misstate which genes pass.
+ */
+export const cutOf = (v: number): number =>
+  (Number.isFinite(v) && v > 0 ? Number(v.toPrecision(2)) : v)
+
+export const cutTxt = (v: number): string => {
+  const c = cutOf(v)
+  return c < 1e-3 ? c.toExponential() : String(c)
+}

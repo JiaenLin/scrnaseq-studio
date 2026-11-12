@@ -266,6 +266,13 @@ export interface RawRow {
    * CSV has always called padj. This is a second column beside it.
    */
   fdr: number
+  /**
+   * −log10 of the FDR, formed in log space by the same step-up as `fdr`, for the
+   * reason `nlp` exists: the FDR underflows where the padj does. The volcano's y
+   * when the cutoff is read off FDR, so the dashed line at the cutoff and the
+   * points past it describe the same correction. NaN for an untested gene.
+   */
+  nlq: number
   pct1: number
   pct2: number
 }
@@ -279,7 +286,7 @@ export interface RawResult {
 /** Attach the gene names. The last step of every path, and the only one. */
 export const named = (genes: readonly string[], r: RawResult): DEResult => ({
   rows: r.rows.map(x => ({
-    gene: genes[x.gene], lfc: x.lfc, p: x.p, padj: x.padj, fdr: x.fdr, nlp: x.nlp,
+    gene: genes[x.gene], lfc: x.lfc, p: x.p, padj: x.padj, fdr: x.fdr, nlp: x.nlp, nlq: x.nlq,
     pct1: x.pct1, pct2: x.pct2,
   })),
   n0: r.n0,
@@ -350,11 +357,11 @@ function testGene(
    * change is exactly zero — which is what "test everything" has to mean.
    */
   if (Math.abs(lfc) < gates.lfc) {
-    return gates.carry ? { gene, lfc, p: NaN, padj: NaN, fdr: NaN, nlp: NaN, pct1, pct2 } : null
+    return gates.carry ? { gene, lfc, p: NaN, padj: NaN, fdr: NaN, nlp: NaN, nlq: NaN, pct1, pct2 } : null
   }
 
   const { p, nlp } = rank.done(n1 - d1, n2 - d2)
-  return { gene, lfc, p, padj: 1, fdr: 1, nlp, pct1, pct2 }
+  return { gene, lfc, p, padj: 1, fdr: 1, nlp, nlq: 0, pct1, pct2 }
 }
 
 /**
@@ -566,10 +573,16 @@ function finish(rows: RawRow[], nTested: number): RawRow[] {
   // drag the running minimum over every row after it.
   const tested = rows.filter(r => Number.isFinite(r.p))
   const byP = [...tested].sort((a, b) => b.nlp - a.nlp)
+  // The same step-up in log space, beside it: −log10(p x m / rank) is the raw
+  // nlp less log10(m) plus log10(rank), and a running minimum of the q is a
+  // running maximum of its −log10, from 0 (q = 1) up.
   let prev = 1
+  let prevL = 0
   for (let i = byP.length - 1; i >= 0; i--) {
     prev = Math.min(prev, (byP[i].p * nTested) / (i + 1))
     byP[i].fdr = Math.min(1, prev)
+    prevL = Math.max(prevL, byP[i].nlp - shift + Math.log10(i + 1))
+    byP[i].nlq = prevL
   }
 
   // Only now: Bonferroni, and the display clamp that made the key unusable.
@@ -962,7 +975,7 @@ export function markersPlan(spec: MarkersSpec) {
       // The zero block contributes this cluster's z1 cells at its mean rank.
       const { p, nlp } = rankFromSums(
         r1[c] + (n1 - d1[c]) * (nNeg + (1 + zeros) / 2), n1, n2, tieSum)
-      rows[c].push({ gene, lfc, p, padj: 1, fdr: 1, nlp, pct1, pct2 })
+      rows[c].push({ gene, lfc, p, padj: 1, fdr: 1, nlp, nlq: 0, pct1, pct2 })
     }
   }
 

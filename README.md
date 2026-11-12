@@ -134,6 +134,19 @@ never wraps round and hands two populations the same colour. Continuous: two-col
 (blue, the default; red, teal, purple), Seurat's grey→blue, **mako**, **rocket**, **viridis**
 and **magma**, and three diverging scales for quantities with a real zero.
 
+## Changed in this version
+
+Saved names a script may read, renamed by the words pass (docs/DESIGN.md, "In a file"):
+
+- the module-score CSV's first column `identity` is now what its rows are: `cell_type`, `group` or
+  `cell_type_x_group`;
+- Markers saves as `markers.*`, not `cluster_markers.*`;
+- the per-cell module-score figure is `module_score_per_cell_*`, not `module_score_by_identity_*`.
+
+The DE CSV: a gene kept under `logfc.threshold` but not tested has empty `p`, `padj`, `fdr_BH`,
+`neg_log10_padj` and `combined` (they were written `<1e-308`, as if it were the most significant gene),
+and a new last column, `not_tested`, says why. `<1e-308` now means only a real p past the double.
+
 ## Status
 
 Real data works end to end, from PBMC 3k to a 292,495-cell atlas. PBMC 3k — 2,638 cells,

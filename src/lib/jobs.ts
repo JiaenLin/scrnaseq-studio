@@ -36,6 +36,8 @@ export interface Table {
   fdr: Float64Array
   /** -log10 of the adjusted p. Carried because `padj` underflows; see types.ts. */
   nlp: Float64Array
+  /** -log10 of the FDR, in log space beside it. */
+  nlq: Float64Array
   pct1: Float64Array
   pct2: Float64Array
   n0: number
@@ -93,6 +95,7 @@ export function encodeTable(r: RawResult): Table {
     // every lazy source goes through the worker, and the column rendered "—".
     fdr: new Float64Array(n),
     nlp: new Float64Array(n),
+    nlq: new Float64Array(n),
     pct1: new Float64Array(n),
     pct2: new Float64Array(n),
     n0: r.n0,
@@ -106,6 +109,7 @@ export function encodeTable(r: RawResult): Table {
     t.padj[i] = row.padj
     t.fdr[i] = row.fdr
     t.nlp[i] = row.nlp
+    t.nlq[i] = row.nlq
     t.pct1[i] = row.pct1
     t.pct2[i] = row.pct2
   }
@@ -117,7 +121,7 @@ export function decodeTable(genes: readonly string[], t: Table): DEResult {
   for (let i = 0; i < t.gene.length; i++) {
     rows[i] = {
       gene: genes[t.gene[i]],
-      lfc: t.lfc[i], p: t.p[i], padj: t.padj[i], fdr: t.fdr[i], nlp: t.nlp[i],
+      lfc: t.lfc[i], p: t.p[i], padj: t.padj[i], fdr: t.fdr[i], nlp: t.nlp[i], nlq: t.nlq[i],
       pct1: t.pct1[i], pct2: t.pct2[i],
     }
   }
@@ -126,7 +130,7 @@ export function decodeTable(genes: readonly string[], t: Table): DEResult {
 
 /** Every buffer in a table, so the whole result moves rather than copies. */
 export const tableBuffers = (t: Table): ArrayBufferLike[] =>
-  [t.gene, t.lfc, t.p, t.padj, t.fdr, t.nlp, t.pct1, t.pct2].map(a => a.buffer)
+  [t.gene, t.lfc, t.p, t.padj, t.fdr, t.nlp, t.nlq, t.pct1, t.pct2].map(a => a.buffer)
 
 /* ---------------- messages ---------------- */
 

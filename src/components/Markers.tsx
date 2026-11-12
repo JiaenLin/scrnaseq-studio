@@ -11,7 +11,7 @@ import { useWidth } from '../lib/use-width.ts'
 import { ZERO_ON_DARK, mix, pal, type PaletteKey } from '../lib/palette.ts'
 import { notCalledNote, populations, sentinelCount } from '../lib/sentinels.ts'
 import { ColorBar, SizeKey } from './svg-parts.tsx'
-import { nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
+import { cutTxt, nlpCsv, nlpTxt, pCsv, pTxt } from '../lib/significance.ts'
 import { Card, Empty } from './Ui.tsx'
 import { Field, InRail, RailGroup, Steps } from './Rail.tsx'
 import { cellsOf, nNote } from '../lib/figure-foot.ts'
@@ -439,7 +439,7 @@ export default function Markers({
           {/* The underflow argument is in Methods. What is left is what the
               numbers on screen do not say for themselves. */}
           <p className="mt-2.5 tx-micro" style={{ color: 'var(--ink-3)' }}>
-            Counts are genes at padj &lt; {th.padj} and log₂FC ≥ {th.lfc}; select one for the list.
+            Counts are genes at padj &lt; {cutTxt(th.padj)} and log₂FC ≥ {th.lfc}; select one for the list.
             {uncalledNote && <> {uncalledNote}</>}
           </p>
         </div>

@@ -5,6 +5,7 @@ import {
 import { carriedRecords, runView } from '../lib/run.ts'
 import { countText, sentinelCount } from '../lib/sentinels.ts'
 import { Card, Mono } from './Ui.tsx'
+import { cutTxt } from '../lib/significance.ts'
 
 /**
  * The references, keyed rather than numbered.
@@ -172,7 +173,7 @@ export default function Methods({
         the object measures</>
       : <>Bonferroni-adjusted for the {src.genes.length.toLocaleString()} genes the object measures, tested or
         not</>}. Genes with an
-    adjusted p below {padjMax} and an absolute log₂ fold change of at least {lfcMin} were considered
+    adjusted p below {cutTxt(padjMax)} and an absolute log₂ fold change of at least {lfcMin} were considered
     differentially expressed.{' '}
     {oneEach
       ? <>The design contains one sample per group, so these p-values describe variation between
@@ -237,7 +238,9 @@ export default function Methods({
               of genes reaches p-values below the smallest double, so <b>p</b> and{' '}
               <b>padj</b> print as <Mono>&lt; 10⁻³⁰⁸</Mono> once they underflow: a bound,
               not a reading. −log₁₀ padj is formed in log space, does not underflow, and still
-              separates rows that share that bound. The volcano&rsquo;s y axis is this column.
+              separates rows that share that bound. {sigBasis === 'fdr'
+                ? <>The volcano&rsquo;s y axis is &minus;log₁₀ FDR, formed the same way, as the cutoff is read off FDR.</>
+                : <>The volcano&rsquo;s y axis is this column.</>}
               <b> Combined</b> is −log₁₀(padj) × log₂FC, a signed ranking metric.
             </p>
             <p className="mb-0 mt-3">
