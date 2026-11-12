@@ -89,7 +89,7 @@ The standard is the tools people use all day for dense, exact work, not a tidy v
 
 **Explorer** (Cells; to build the same way: the feature plot, the gene-set score map, the co-expression map).
 - Rail: what colours the cells (`.opt` rows), panels (a switch), then view-specific choices.
-- Stage: head line = the count at 600 (`34,367 cells`) and what is drawn (`Embedding · X_umap from your file`);
+- Stage: head line = the count at 600 (`34,367 cells`) and what is drawn (`Embedding · X_umap, as the bundle names it`);
   `.plots` = equal cells divided by hairlines, one per panel. The painter lists the theme among its inputs
   (`useDark`, `lib/theme.ts`), so a system theme switch repaints the canvases at once. Several panels: each block (its name `name  n = …`,
   then its plot) hangs from the top of its cell, centred across, so the names run on one line under the head

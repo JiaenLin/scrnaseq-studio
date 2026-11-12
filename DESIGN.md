@@ -370,6 +370,12 @@ the thresholds already applied read from `uns` when the pipeline recorded them, 
 *preview* filter (MAD-based or manual) that would report how many cells each threshold
 removes, writing nothing.
 
+A panel is titled by what its numbers are, and the bundle has to say so. The per-cell total is
+"Total counts" only when the bundle says it was summed from counts; a total recomputed from the
+expression values of an object that came with no raw counts is "Sum of log-normalized values",
+and one read from a column the bundle does not name is "Per-cell total". One line under the
+panels says what each was read from (`src/lib/facts.ts`; the kinds are in docs/DESIGN.md, "Words").
+
 Ambient RNA and doublets are **upstream** concerns (SoupX, CellBender, DecontX,
 doi:10.1038/s42255-023-00876-x). The studio detects whether they ran, from `uns`
 keys and obs columns, and states plainly: *"no doublet call found in this object"*
@@ -782,7 +788,7 @@ different one.
 
 | Tab | Content |
 | --- | --- |
-| **Overview** | cells / genes / samples / clusters; per-sample QC violins; provenance table marking every step **from your file** vs **computed here**; missing-piece rows (no raw counts → no pseudobulk, with the reason); the **Run** card — the records of the run that produced the object, each field as recorded (`src/components/RunCard.tsx`, `src/lib/run.ts`) |
+| **Overview** | cells / genes / samples / clusters; per-sample QC violins; a table of the object's facts, each said by its source (**from your file** only where the bundle gives the place in the object, **source not stated** for a value with none, **computed here** for this app's own); missing-piece rows (no raw counts → no pseudobulk, with the reason); the **Run** card — the records of the run that produced the object, each field as recorded (`src/components/RunCard.tsx`, `src/lib/run.ts`) |
 | **Cells** | embedding on a 2-D canvas. Colour by cluster, condition, sample or % mitochondrial; a gene's expression is on Gene expression. **Split by condition side-by-side with a shared axis range** — the honest way to show a condition effect on a map |
 | **Composition** | per-sample stacked proportions + a per-cell-type bar panel with sample points |
 | **Markers** | ranked one-vs-rest table + dot plot (mean expression × % detected). Cluster renaming lives here, and names propagate to every other tab and to Methods |

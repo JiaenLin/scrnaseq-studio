@@ -109,7 +109,15 @@ export default function Methods({
           <Mono>{k}</Mono>
         </span>
       ))}), computed before export and never recomputed here; a name is not a record of how an
-      embedding was computed, so none is cited.{' '}
+      embedding was computed, so none is cited.
+    </p>
+  )
+
+  // A paragraph of its own: what the bundle states of the object is one
+  // paragraph, and what nothing states is another (the standard holds a
+  // paragraph of Methods to 200 words, and "a longer one is two").
+  const unknown = (
+    <p>
       {carried.length ? (
         // The file now says what made the object, so "not carried in the file"
         // would be false. What stays true is that this text reads nothing out
@@ -205,6 +213,7 @@ export default function Methods({
       >
         <div className="prose-methods">
           {processing}
+          {unknown}
           <p>{de}{closing}</p>
         </div>
 

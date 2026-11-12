@@ -54,7 +54,7 @@ with no worker and no progress card.
 
 | Tab | Content |
 |---|---|
-| **Overview** | cells / genes / samples / clusters; per-sample QC violins; a provenance table marking every step **from your file** vs **computed here**; **the run that produced the object**, record by record as its `uns` holds them; which carried column is the cell type and which the group, when the object carries more than one |
+| **Overview** | cells / genes / samples / clusters; per-sample QC violins; a table of the object's facts, each said by its source: **from your file** only where the bundle gives the place in the object, **source not stated** for a value with none, **computed here** for this app's own; **the run that produced the object**, record by record as its `uns` holds them; which carried column is the cell type and which the group, when the object carries more than one |
 | **Cells** | the embedding on canvas, coloured by cluster, group, sample or, when the object records it, % mitochondrial; split by group on one shared axis range. A gene's expression is on **Gene expression**, as a feature plot |
 | **Composition** | horizontal 100% stacked bars per sample, plus a per-cell-type bar panel with every animal drawn on top |
 | **Markers** | one-vs-rest dot plot, and cluster renaming that propagates everywhere including Methods |
